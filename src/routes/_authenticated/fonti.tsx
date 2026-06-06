@@ -664,10 +664,11 @@ function ObsidianImportDialog({ brains, nodes, onCreated }: { brains: Brain[]; n
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [tags, setTags] = useState("");
-  const [useFilename, setUseFilename] = useState(false);
+  const [useH1Title, setUseH1Title] = useState(true);
   const [extractTags, setExtractTags] = useState(true);
   const [detectLinks, setDetectLinks] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [result, setResult] = useState<ImportResult | null>(null);
   const f = useBrainNodeForm(brains);
@@ -676,15 +677,29 @@ function ObsidianImportDialog({ brains, nodes, onCreated }: { brains: Brain[]; n
     setFiles([]); setTags(""); setProgress(null); setResult(null);
   };
 
+  const isValidName = (name: string) => /\.(md|markdown|txt|zip)$/i.test(name);
+
+  const addFiles = (incoming: File[]) => {
+    setResult(null);
+    const merged = [...files];
+    for (const file of incoming) {
+      if (!merged.find((x) => x.name === file.name && x.size === file.size)) merged.push(file);
+    }
+    setFiles(merged);
+  };
+
+  const validFiles = files.filter((x) => isValidName(x.name));
+  const ignoredFiles = files.filter((x) => !isValidName(x.name));
+
   const submit = async () => {
-    if (!f.brainId || files.length === 0) return;
+    if (!f.brainId || validFiles.length === 0) return;
     setBusy(true); setProgress(null); setResult(null);
     try {
-      const res = await importObsidianFiles(files, {
+      const res = await importObsidianFiles(validFiles, {
         brainId: f.brainId,
         nodeId: f.nodeId === "none" ? null : f.nodeId,
         manualTags: parseTags(tags),
-        useFilenameAsTitle: useFilename,
+        useFilenameAsTitle: !useH1Title,
         extractObsidianTags: extractTags,
         detectInternalLinks: detectLinks,
       }, (done, total) => setProgress({ done, total }));
@@ -703,29 +718,83 @@ function ObsidianImportDialog({ brains, nodes, onCreated }: { brains: Brain[]; n
           <FolderInput className="mr-1 h-3.5 w-3.5" /> Obsidian
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Importa da Obsidian</DialogTitle>
-          <DialogDescription>Carica file .md, .txt o un .zip esportato dal tuo vault.</DialogDescription>
+          <DialogDescription>Porta le tue note Obsidian dentro Brain Hub come fonti collegate a un cervello.</DialogDescription>
         </DialogHeader>
+
         <div className="grid gap-3">
+          {/* Mini guida */}
+          <div className="rounded border border-border bg-background/40 p-3 text-xs">
+            <div className="mb-2 font-medium text-foreground">Come funziona</div>
+            <ol className="list-decimal space-y-1 pl-4 text-muted-foreground">
+              <li>Apri Obsidian.</li>
+              <li>Trova la cartella del tuo Vault.</li>
+              <li>Comprimi la cartella in <code className="rounded bg-muted px-1">.zip</code>.</li>
+              <li>Torna in Brain Hub.</li>
+              <li>Seleziona il cervello di destinazione.</li>
+              <li>Carica lo zip (o singoli file <code className="rounded bg-muted px-1">.md</code> / <code className="rounded bg-muted px-1">.txt</code>).</li>
+              <li>Brain Hub importerà le note come fonti collegate.</li>
+            </ol>
+          </div>
+
+          {/* Avviso sicurezza */}
+          <div className="rounded border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-200">
+            Per sicurezza, fai prima un test con una piccola cartella. Non caricare note con password, dati sensibili o informazioni che non vuoi salvare nel cloud.
+          </div>
+
           <BrainNodeSelects brains={brains} nodes={nodes} {...f} />
+
+          {/* Drag & drop */}
           <div>
             <Label className="text-xs">File (.md, .txt, .zip)</Label>
-            <Input type="file" multiple accept=".md,.markdown,.txt,.zip"
-              onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
+            <label
+              onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault(); setDragOver(false);
+                addFiles(Array.from(e.dataTransfer.files));
+              }}
+              className={`mt-1 flex cursor-pointer flex-col items-center justify-center rounded border border-dashed p-4 text-center text-xs transition-colors ${dragOver ? "border-primary bg-primary/5" : "border-border bg-background/40 hover:bg-background/60"}`}
+            >
+              <Upload className="mb-1 h-5 w-5 text-muted-foreground" />
+              <span className="text-foreground">Trascina qui i file o clicca per selezionarli</span>
+              <span className="text-muted-foreground">Accetta .md, .txt e .zip</span>
+              <input
+                type="file" multiple accept=".md,.markdown,.txt,.zip" className="hidden"
+                onChange={(e) => { addFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }}
+              />
+            </label>
             {files.length > 0 && (
-              <p className="mt-1 text-[11px] text-muted-foreground">{files.length} file selezionati</p>
+              <div className="mt-2 space-y-1 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">
+                    {validFiles.length} validi · {ignoredFiles.length} ignorati
+                  </span>
+                  <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => setFiles([])}>Svuota</Button>
+                </div>
+                <ul className="max-h-24 overflow-auto rounded border border-border bg-background/40 p-1">
+                  {files.map((file, i) => (
+                    <li key={i} className={`flex items-center justify-between truncate px-1 ${isValidName(file.name) ? "" : "text-muted-foreground line-through"}`}>
+                      <span className="truncate">{file.name}</span>
+                      <span className="ml-2 shrink-0 text-muted-foreground">{(file.size / 1024).toFixed(0)} KB</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
+
           <div>
             <Label className="text-xs">Tag aggiuntivi (separati da virgola)</Label>
             <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="obsidian, vault" />
           </div>
+
           <div className="space-y-2 rounded border border-border bg-background/40 p-2">
             <label className="flex items-center gap-2 text-xs">
-              <Checkbox checked={useFilename} onCheckedChange={(v) => setUseFilename(Boolean(v))} />
-              Usa il nome del file come titolo
+              <Checkbox checked={useH1Title} onCheckedChange={(v) => setUseH1Title(Boolean(v))} />
+              Usa primo titolo H1 come titolo fonte
             </label>
             <label className="flex items-center gap-2 text-xs">
               <Checkbox checked={extractTags} onCheckedChange={(v) => setExtractTags(Boolean(v))} />
@@ -736,12 +805,26 @@ function ObsidianImportDialog({ brains, nodes, onCreated }: { brains: Brain[]; n
               Riconosci link interni [[...]]
             </label>
           </div>
+
+          {/* Riepilogo pre-import */}
+          {validFiles.length > 0 && !result && (
+            <div className="rounded border border-border bg-background/40 p-2 text-[11px]">
+              <div className="font-medium text-foreground">Riepilogo</div>
+              <div className="text-muted-foreground">
+                {validFiles.length} file pronti per l'import · {ignoredFiles.length} ignorati
+              </div>
+            </div>
+          )}
+
           {progress && (
             <p className="text-[11px] text-muted-foreground">Processate {progress.done}/{progress.total} note…</p>
           )}
+
           {result && (
-            <div className="rounded border border-border bg-background/40 p-2 text-[11px]">
-              <div>Importate: <span className="text-emerald-400">{result.imported}</span></div>
+            <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11px]">
+              <div className="font-medium text-emerald-300">Import completato</div>
+              <div>Note importate: <span className="text-emerald-400">{result.imported}</span></div>
+              <div>Chunk generati: <span className="text-emerald-400">{result.chunksGenerated}</span></div>
               {result.ignored > 0 && <div>Ignorate: <span className="text-amber-400">{result.ignored}</span></div>}
               {result.errors.length > 0 && (
                 <details className="mt-1">
@@ -754,10 +837,11 @@ function ObsidianImportDialog({ brains, nodes, onCreated }: { brains: Brain[]; n
             </div>
           )}
         </div>
+
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Chiudi</Button>
-          <Button onClick={submit} disabled={busy || files.length === 0 || !f.brainId}>
-            {busy ? "Import…" : "Importa"}
+          <Button onClick={submit} disabled={busy || validFiles.length === 0 || !f.brainId}>
+            {busy ? "Import…" : `Importa ${validFiles.length || ""}`.trim()}
           </Button>
         </DialogFooter>
       </DialogContent>
