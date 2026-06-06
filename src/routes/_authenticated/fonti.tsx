@@ -855,3 +855,121 @@ function ObsidianImportDialog({ brains, nodes, onCreated }: { brains: Brain[]; n
     </Dialog>
   );
 }
+
+function MaterializeSourcesDialog({ brains, nodes, sources, defaultBrainId, onDone }: {
+  brains: Brain[]; nodes: BrainNode[];
+  sources: KnowledgeSource[];
+  defaultBrainId?: string;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [brainId, setBrainId] = useState<string>(defaultBrainId ?? brains[0]?.id ?? "");
+  const [parentId, setParentId] = useState<string>("");
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<MaterializeResult | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setBrainId(defaultBrainId ?? brains[0]?.id ?? "");
+      setResult(null);
+    }
+  }, [open, defaultBrainId, brains]);
+
+  const brainNodes = nodes.filter((n) => n.brainId === brainId);
+  useEffect(() => {
+    if (!brainNodes.find((n) => n.id === parentId)) {
+      setParentId(brainNodes[0]?.id ?? "");
+    }
+  }, [brainId, brainNodes, parentId]);
+
+  const eligible = sources.filter((s) => s.brain_id === brainId);
+
+  const submit = async () => {
+    if (!brainId || !parentId || eligible.length === 0) return;
+    setBusy(true); setResult(null);
+    try {
+      const res = await materializeSourcesAsNodes({
+        brainId, parentNodeId: parentId,
+        sourceIds: eligible.map((s) => s.id),
+      });
+      setResult(res);
+      toast.success(`Creati ${res.created} nodi, ${res.edges} collegamenti${res.skipped ? `, ${res.skipped} già esistenti` : ""}`);
+      onDone();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore creazione nodi");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" disabled={brains.length === 0 || sources.length === 0}>
+          <Network className="mr-1 h-3.5 w-3.5" /> Crea nodi nel grafo
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Crea nodi nel grafo dalle fonti</DialogTitle>
+          <DialogDescription>
+            Per ogni fonte selezionata viene creato un nodo Documento collegato al nodo padre scelto. I duplicati vengono saltati.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label className="text-xs">Cervello</Label>
+              <Select value={brainId} onValueChange={setBrainId}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>{brains.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Nodo padre</Label>
+              <Select value={parentId} onValueChange={setParentId}>
+                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                <SelectContent>
+                  {brainNodes.length === 0 ? (
+                    <SelectItem value="__none" disabled>Nessun nodo nel cervello</SelectItem>
+                  ) : brainNodes.map((n) => (
+                    <SelectItem key={n.id} value={n.id}>{n.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="rounded border border-border bg-background/40 p-2 text-[11px]">
+            <div className="font-medium text-foreground">Fonti pronte</div>
+            <div className="text-muted-foreground">
+              {eligible.length} fonti del cervello selezionato verranno analizzate.
+            </div>
+          </div>
+
+          {result && (
+            <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11px]">
+              <div className="font-medium text-emerald-300">Operazione completata</div>
+              <div>Analizzate: {result.analyzed}</div>
+              <div>Nodi creati: <span className="text-emerald-400">{result.created}</span></div>
+              <div>Già esistenti (saltati): <span className="text-amber-400">{result.skipped}</span></div>
+              <div>Collegamenti creati: <span className="text-emerald-400">{result.edges}</span></div>
+              {result.errors.length > 0 && (
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-destructive">{result.errors.length} errori</summary>
+                  <ul className="mt-1 max-h-24 overflow-auto pl-4">
+                    {result.errors.slice(0, 10).map((e, i) => <li key={i} className="truncate">{e}</li>)}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Chiudi</Button>
+          <Button onClick={submit} disabled={busy || !brainId || !parentId || eligible.length === 0}>
+            {busy ? "Creazione…" : `Crea ${eligible.length} nodi`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
