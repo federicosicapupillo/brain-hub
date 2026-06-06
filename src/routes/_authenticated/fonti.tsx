@@ -159,6 +159,10 @@ function FontiPage() {
             defaultBrainId={brainFilter !== "all" ? brainFilter : undefined}
             onDone={reload}
           />
+          <ExportObsidianDialog
+            brains={brains}
+            defaultBrainId={brainFilter !== "all" ? brainFilter : undefined}
+          />
         </div>
       </div>
 
