@@ -12,12 +12,17 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, Link2, Upload, Trash2, Eye, Library, Plus } from "lucide-react";
+import { FileText, Link2, Upload, Trash2, Eye, Library, Plus, Search, Sparkles, RefreshCw } from "lucide-react";
 import {
   listKnowledgeSources, deleteKnowledgeSource, createManualSource,
   createUrlSource, uploadFileSource, listKnowledgeChunks, getFileSignedUrl,
   type KnowledgeSource, type KnowledgeChunk,
 } from "@/lib/knowledge-api";
+import {
+  getEmbeddingStatus, generateEmbeddingsForBrain, generateEmbeddingsForSource,
+  semanticSearch, friendlyEmbeddingError,
+  type EmbeddingStatusCounts, type SemanticSearchResult,
+} from "@/lib/semantic-api";
 import { fetchAll } from "@/lib/brains-api";
 import type { Brain, BrainNode } from "@/lib/demo-data";
 
@@ -39,6 +44,14 @@ function FontiPage() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<KnowledgeSource | null>(null);
 
+  const [status, setStatus] = useState<EmbeddingStatusCounts | null>(null);
+  const [embedBusy, setEmbedBusy] = useState(false);
+
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<SemanticSearchResult[] | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
   const reload = useCallback(async () => {
     try {
       const [data, list] = await Promise.all([fetchAll(), listKnowledgeSources()]);
@@ -52,7 +65,15 @@ function FontiPage() {
     }
   }, []);
 
+  const reloadStatus = useCallback(async () => {
+    try {
+      const counts = await getEmbeddingStatus(brainFilter === "all" ? null : brainFilter);
+      setStatus(counts);
+    } catch { /* silent */ }
+  }, [brainFilter]);
+
   useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { reloadStatus(); }, [reloadStatus, sources]);
 
   const filtered = useMemo(
     () => sources.filter((s) => brainFilter === "all" || s.brain_id === brainFilter),
@@ -71,6 +92,44 @@ function FontiPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Errore eliminazione");
     }
+  };
+
+  const runEmbedBrain = async () => {
+    if (brainFilter === "all") { toast.error("Seleziona un cervello"); return; }
+    setEmbedBusy(true);
+    try {
+      const res = await generateEmbeddingsForBrain(brainFilter);
+      if (res.error) toast.error(friendlyEmbeddingError(res.error));
+      else toast.success(`Embeddings: ${res.processed}/${res.total} ok${res.failed ? `, ${res.failed} errori` : ""}`);
+      reloadStatus();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore embeddings");
+    } finally { setEmbedBusy(false); }
+  };
+
+  const runSearch = async () => {
+    if (!query.trim()) return;
+    setSearching(true); setSearchError(null);
+    try {
+      const res = await semanticSearch(query.trim(), {
+        brainId: brainFilter === "all" ? null : brainFilter,
+        limit: 10, threshold: 0.3,
+      });
+      if (res.error) {
+        setSearchError(friendlyEmbeddingError(res.error));
+        setSearchResults([]);
+      } else {
+        setSearchResults(res.results);
+      }
+    } catch (e) {
+      setSearchError(e instanceof Error ? e.message : "Errore ricerca");
+      setSearchResults([]);
+    } finally { setSearching(false); }
+  };
+
+  const openSourceById = (sourceId: string) => {
+    const src = sources.find((s) => s.id === sourceId);
+    if (src) setDetail(src);
   };
 
   return (
@@ -92,8 +151,55 @@ function FontiPage() {
         </div>
       </div>
 
+      {/* Search + status bar */}
+      <div className="rounded-2xl border border-border bg-card/60 p-3 glass">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") runSearch(); }}
+              placeholder="Cerca nella memoria…"
+              className="pl-8"
+            />
+          </div>
+          <Button onClick={runSearch} disabled={searching || !query.trim()} size="sm">
+            {searching ? "Cerco…" : "Cerca"}
+          </Button>
+          {searchResults !== null && (
+            <Button variant="ghost" size="sm" onClick={() => { setSearchResults(null); setQuery(""); setSearchError(null); }}>
+              Pulisci
+            </Button>
+          )}
+          <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+            {status && (
+              <>
+                <Badge variant="outline">{status.total} chunk</Badge>
+                <Badge variant="outline" className="text-emerald-400">{status.ready} ready</Badge>
+                {status.pending > 0 && <Badge variant="outline" className="text-amber-400">{status.pending} pending</Badge>}
+                {status.error > 0 && <Badge variant="outline" className="text-destructive">{status.error} err</Badge>}
+              </>
+            )}
+            <Button size="sm" variant="outline" onClick={runEmbedBrain} disabled={embedBusy || brainFilter === "all"}>
+              <Sparkles className="mr-1 h-3.5 w-3.5" />
+              {embedBusy ? "Generazione…" : "Genera embeddings"}
+            </Button>
+          </div>
+        </div>
+        {brainFilter === "all" && status && status.pending > 0 && (
+          <p className="mt-2 text-[11px] text-muted-foreground">Seleziona un cervello per generare gli embeddings dei chunk pending.</p>
+        )}
+      </div>
+
       <div className="min-h-0 flex-1 rounded-2xl border border-border bg-card/40 glass">
-        {loading ? (
+        {searchResults !== null ? (
+          <SearchResultsView
+            results={searchResults} error={searchError}
+            brainName={brainName} nodeName={nodeName}
+            onOpen={openSourceById}
+          />
+        ) : loading ? (
           <div className="grid h-full place-items-center text-sm text-muted-foreground">Caricamento…</div>
         ) : brains.length === 0 ? (
           <EmptyState message="Crea prima un cervello dalla pagina Cervelli per aggiungere fonti." />
@@ -136,7 +242,62 @@ function FontiPage() {
         )}
       </div>
 
-      <SourceDetailDialog source={detail} brainName={detail ? brainName(detail.brain_id) : ""} nodeLabel={detail?.node_id ? nodeName(detail.node_id) : undefined} onClose={() => setDetail(null)} />
+      <SourceDetailDialog
+        source={detail}
+        brainName={detail ? brainName(detail.brain_id) : ""}
+        nodeLabel={detail?.node_id ? nodeName(detail.node_id) : undefined}
+        onClose={() => setDetail(null)}
+        onChunksChanged={reloadStatus}
+      />
+    </div>
+  );
+}
+
+function SearchResultsView({ results, error, brainName, nodeName, onOpen }: {
+  results: SemanticSearchResult[]; error: string | null;
+  brainName: (id: string) => string; nodeName: (id: string | null) => string | undefined;
+  onOpen: (sourceId: string) => void;
+}) {
+  if (error) {
+    return (
+      <div className="grid h-full place-items-center p-8 text-center">
+        <div>
+          <Sparkles className="mx-auto h-8 w-8 text-amber-400/70" />
+          <div className="mt-2 text-sm font-medium">Ricerca non disponibile</div>
+          <p className="mt-1 max-w-md text-xs text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
+  if (results.length === 0) {
+    return (
+      <div className="grid h-full place-items-center p-8 text-center text-sm text-muted-foreground">
+        Nessun risultato. Genera gli embeddings o prova con un'altra query.
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2 overflow-y-auto scrollbar-thin p-3">
+      {results.map((r) => (
+        <div key={r.chunk_id} className="rounded-xl border border-border/70 bg-background/40 p-3 transition hover:border-primary/60">
+          <div className="flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                <span className="font-medium text-sm text-foreground">{r.source_title}</span>
+                <Badge variant="outline" className="capitalize">{r.source_type}</Badge>
+                <Badge variant="outline">{brainName(r.brain_id)}</Badge>
+                {r.node_id && nodeName(r.node_id) && <Badge variant="outline">↳ {nodeName(r.node_id)}</Badge>}
+                {(r.source_tags ?? []).slice(0, 3).map((t) => <Badge key={t} variant="secondary">#{t}</Badge>)}
+              </div>
+              <p className="mt-1.5 line-clamp-3 text-xs text-muted-foreground">{r.content}</p>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <Badge className="bg-gradient-primary text-primary-foreground">{Math.round(r.similarity * 100)}%</Badge>
+              <Button size="sm" variant="ghost" onClick={() => onOpen(r.source_id)}>Apri</Button>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -381,17 +542,40 @@ function FileSourceDialog({ brains, nodes, onCreated }: { brains: Brain[]; nodes
   );
 }
 
-function SourceDetailDialog({ source, brainName, nodeLabel, onClose }: {
-  source: KnowledgeSource | null; brainName: string; nodeLabel?: string; onClose: () => void;
+function SourceDetailDialog({ source, brainName, nodeLabel, onClose, onChunksChanged }: {
+  source: KnowledgeSource | null; brainName: string; nodeLabel?: string; onClose: () => void; onChunksChanged?: () => void;
 }) {
   const [chunks, setChunks] = useState<KnowledgeChunk[]>([]);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [embedding, setEmbedding] = useState(false);
+
+  const reloadChunks = useCallback(async () => {
+    if (!source) return;
+    try { setChunks(await listKnowledgeChunks(source.id)); } catch { setChunks([]); }
+  }, [source]);
 
   useEffect(() => {
     if (!source) { setChunks([]); setFileUrl(null); return; }
-    listKnowledgeChunks(source.id).then(setChunks).catch(() => setChunks([]));
+    reloadChunks();
     if (source.file_path) getFileSignedUrl(source.file_path).then(setFileUrl);
-  }, [source]);
+  }, [source, reloadChunks]);
+
+  const runEmbed = async () => {
+    if (!source) return;
+    setEmbedding(true);
+    try {
+      const res = await generateEmbeddingsForSource(source.id);
+      if (res.error) toast.error(friendlyEmbeddingError(res.error));
+      else toast.success(`Embeddings: ${res.processed}/${res.total}${res.failed ? ` (${res.failed} errori)` : ""}`);
+      await reloadChunks();
+      onChunksChanged?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore embeddings");
+    } finally { setEmbedding(false); }
+  };
+
+  const readyCount = chunks.filter((c) => (c as KnowledgeChunk & { embedding_status?: string }).embedding_status === "ready").length;
+  const errCount = chunks.filter((c) => (c as KnowledgeChunk & { embedding_status?: string }).embedding_status === "error").length;
 
   return (
     <Dialog open={!!source} onOpenChange={(o) => !o && onClose()}>
@@ -434,14 +618,34 @@ function SourceDetailDialog({ source, brainName, nodeLabel, onClose }: {
               )}
               {chunks.length > 0 && (
                 <div>
-                  <div className="mb-1 text-xs font-medium text-muted-foreground">{chunks.length} chunk generati</div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      {chunks.length} chunk · <span className="text-emerald-400">{readyCount} ready</span>
+                      {errCount > 0 && <> · <span className="text-destructive">{errCount} errori</span></>}
+                    </div>
+                    <Button size="sm" variant="outline" onClick={runEmbed} disabled={embedding}>
+                      {embedding ? <><RefreshCw className="mr-1 h-3 w-3 animate-spin" /> Genero…</> : <><Sparkles className="mr-1 h-3 w-3" /> Genera embeddings</>}
+                    </Button>
+                  </div>
                   <div className="space-y-1">
-                    {chunks.map((c) => (
-                      <div key={c.id} className="rounded border border-border/60 bg-background/40 p-2 text-[11px]">
-                        <div className="mb-1 text-muted-foreground">#{c.chunk_index} · ~{c.token_estimate} token</div>
-                        <div className="line-clamp-3">{c.content}</div>
-                      </div>
-                    ))}
+                    {chunks.map((c) => {
+                      const cs = c as KnowledgeChunk & { embedding_status?: string; embedding_error?: string | null };
+                      const st = cs.embedding_status ?? "pending";
+                      return (
+                        <div key={c.id} className="rounded border border-border/60 bg-background/40 p-2 text-[11px]">
+                          <div className="mb-1 flex items-center justify-between text-muted-foreground">
+                            <span>#{c.chunk_index} · ~{c.token_estimate} token</span>
+                            <Badge variant="outline" className={
+                              st === "ready" ? "text-emerald-400" :
+                              st === "error" ? "text-destructive" :
+                              st === "processing" ? "text-amber-400" : ""
+                            }>{st}</Badge>
+                          </div>
+                          <div className="line-clamp-3">{c.content}</div>
+                          {cs.embedding_error && <div className="mt-1 text-destructive text-[10px]">{cs.embedding_error}</div>}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
