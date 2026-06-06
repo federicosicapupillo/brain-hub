@@ -29,6 +29,7 @@ export interface ImportResult {
   ignored: number;
   errors: string[];
   edgesCreated: number;
+  chunksGenerated: number;
 }
 
 // ============ Parsing ============
