@@ -12,7 +12,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, Link2, Upload, Trash2, Eye, Library, Plus, Search, Sparkles, RefreshCw } from "lucide-react";
+import { FileText, Link2, Upload, Trash2, Eye, Library, Plus, Search, Sparkles, RefreshCw, FolderInput } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { importObsidianFiles, type ImportResult } from "@/lib/obsidian-import";
 import {
   listKnowledgeSources, deleteKnowledgeSource, createManualSource,
   createUrlSource, uploadFileSource, listKnowledgeChunks, getFileSignedUrl,
@@ -148,6 +150,7 @@ function FontiPage() {
           <ManualSourceDialog brains={brains} nodes={nodes} onCreated={reload} />
           <UrlSourceDialog brains={brains} nodes={nodes} onCreated={reload} />
           <FileSourceDialog brains={brains} nodes={nodes} onCreated={reload} />
+          <ObsidianImportDialog brains={brains} nodes={nodes} onCreated={reload} />
         </div>
       </div>
 
