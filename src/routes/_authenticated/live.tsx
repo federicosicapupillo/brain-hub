@@ -4,7 +4,7 @@ import { logs, agents, brainById } from "@/lib/demo-data";
 import { Card } from "@/components/ui/card";
 import { Activity } from "lucide-react";
 
-export const Route = createFileRoute("/live")({
+export const Route = createFileRoute("/_authenticated/live")({
   head: () => ({ meta: [{ title: "Live — AI Brain" }] }),
   component: LivePage,
 });

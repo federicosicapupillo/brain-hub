@@ -7,7 +7,7 @@ import { connectors } from "@/lib/demo-data";
 import * as Icons from "lucide-react";
 import { RefreshCw, Settings as Cog } from "lucide-react";
 
-export const Route = createFileRoute("/connettori")({
+export const Route = createFileRoute("/_authenticated/connettori")({
   head: () => ({ meta: [{ title: "Connettori — AI Brain" }] }),
   component: ConnectorsPage,
 });

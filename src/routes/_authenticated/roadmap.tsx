@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { tasks, brainById, type TaskStatus } from "@/lib/demo-data";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/roadmap")({
+export const Route = createFileRoute("/_authenticated/roadmap")({
   head: () => ({ meta: [{ title: "Roadmap — AI Brain" }] }),
   component: RoadmapPage,
 });

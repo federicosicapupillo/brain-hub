@@ -11,10 +11,13 @@ import {
   Clock,
   Sparkles,
 } from "lucide-react";
-import { brainById, neighborsOf, nodes, brains, type BrainNode } from "@/lib/demo-data";
+import type { Brain, BrainNode, BrainEdge } from "@/lib/demo-data";
 
 interface Props {
   node?: BrainNode;
+  brains: Brain[];
+  nodes: BrainNode[];
+  edges: BrainEdge[];
   onSelect: (id: string) => void;
 }
 
@@ -22,10 +25,15 @@ function fmt(d: string) {
   return new Date(d).toLocaleString("it-IT", { dateStyle: "medium", timeStyle: "short" });
 }
 
-export function NodeDetailPanel({ node, onSelect }: Props) {
-  if (!node) return <OverviewPanel />;
-  const brain = brainById(node.brainId);
-  const links = neighborsOf(node.id);
+export function NodeDetailPanel({ node, brains, nodes, edges, onSelect }: Props) {
+  if (!node) return <OverviewPanel brains={brains} nodes={nodes} />;
+  const brain = brains.find((b) => b.id === node.brainId);
+  const neighborIds = new Set<string>();
+  edges.forEach((e) => {
+    if (e.source === node.id) neighborIds.add(e.target);
+    if (e.target === node.id) neighborIds.add(e.source);
+  });
+  const links = nodes.filter((n) => neighborIds.has(n.id));
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto scrollbar-thin p-4">
@@ -114,15 +122,12 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OverviewPanel() {
+function OverviewPanel({ brains, nodes }: { brains: Brain[]; nodes: BrainNode[] }) {
   const today = new Date().toISOString().slice(0, 10);
-  const updatedToday = nodes.filter((n) => n.updatedAt.startsWith(today)).length;
+  const updatedToday = nodes.filter((n) => n.updatedAt?.startsWith(today)).length;
   const totalDocs = nodes.filter((n) => n.type === "documento").length;
-  const totalWeight = nodes.length * 1.4; // demo "peso" KB-style
-  const lastUpdate = nodes
-    .map((n) => n.updatedAt)
-    .sort()
-    .at(-1)!;
+  const totalWeight = nodes.length * 1.4;
+  const lastUpdate = nodes.map((n) => n.updatedAt).sort().at(-1) ?? new Date().toISOString();
 
   const byType = nodes.reduce<Record<string, number>>((acc, n) => {
     acc[n.type] = (acc[n.type] || 0) + 1;

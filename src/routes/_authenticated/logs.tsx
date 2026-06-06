@@ -3,7 +3,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { logs } from "@/lib/demo-data";
 import { FileText, GitBranch, RefreshCw, Bot, AlertTriangle, CircleDot } from "lucide-react";
 
-export const Route = createFileRoute("/logs")({
+export const Route = createFileRoute("/_authenticated/logs")({
   head: () => ({ meta: [{ title: "Logs — AI Brain" }] }),
   component: LogsPage,
 });

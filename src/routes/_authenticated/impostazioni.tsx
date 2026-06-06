@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
-export const Route = createFileRoute("/impostazioni")({
+export const Route = createFileRoute("/_authenticated/impostazioni")({
   head: () => ({ meta: [{ title: "Impostazioni — AI Brain" }] }),
   component: SettingsPage,
 });
