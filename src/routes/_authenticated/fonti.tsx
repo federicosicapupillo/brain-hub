@@ -12,12 +12,17 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, Link2, Upload, Trash2, Eye, Library, Plus } from "lucide-react";
+import { FileText, Link2, Upload, Trash2, Eye, Library, Plus, Search, Sparkles, RefreshCw } from "lucide-react";
 import {
   listKnowledgeSources, deleteKnowledgeSource, createManualSource,
   createUrlSource, uploadFileSource, listKnowledgeChunks, getFileSignedUrl,
   type KnowledgeSource, type KnowledgeChunk,
 } from "@/lib/knowledge-api";
+import {
+  getEmbeddingStatus, generateEmbeddingsForBrain, generateEmbeddingsForSource,
+  semanticSearch, friendlyEmbeddingError,
+  type EmbeddingStatusCounts, type SemanticSearchResult,
+} from "@/lib/semantic-api";
 import { fetchAll } from "@/lib/brains-api";
 import type { Brain, BrainNode } from "@/lib/demo-data";
 
