@@ -659,3 +659,108 @@ function SourceDetailDialog({ source, brainName, nodeLabel, onClose, onChunksCha
     </Dialog>
   );
 }
+
+function ObsidianImportDialog({ brains, nodes, onCreated }: { brains: Brain[]; nodes: BrainNode[]; onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+  const [tags, setTags] = useState("");
+  const [useFilename, setUseFilename] = useState(false);
+  const [extractTags, setExtractTags] = useState(true);
+  const [detectLinks, setDetectLinks] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
+  const f = useBrainNodeForm(brains);
+
+  const reset = () => {
+    setFiles([]); setTags(""); setProgress(null); setResult(null);
+  };
+
+  const submit = async () => {
+    if (!f.brainId || files.length === 0) return;
+    setBusy(true); setProgress(null); setResult(null);
+    try {
+      const res = await importObsidianFiles(files, {
+        brainId: f.brainId,
+        nodeId: f.nodeId === "none" ? null : f.nodeId,
+        manualTags: parseTags(tags),
+        useFilenameAsTitle: useFilename,
+        extractObsidianTags: extractTags,
+        detectInternalLinks: detectLinks,
+      }, (done, total) => setProgress({ done, total }));
+      setResult(res);
+      toast.success(`Importate ${res.imported} note${res.ignored ? `, ${res.ignored} ignorate` : ""}`);
+      onCreated();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore import");
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" disabled={brains.length === 0}>
+          <FolderInput className="mr-1 h-3.5 w-3.5" /> Obsidian
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Importa da Obsidian</DialogTitle>
+          <DialogDescription>Carica file .md, .txt o un .zip esportato dal tuo vault.</DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <BrainNodeSelects brains={brains} nodes={nodes} {...f} />
+          <div>
+            <Label className="text-xs">File (.md, .txt, .zip)</Label>
+            <Input type="file" multiple accept=".md,.markdown,.txt,.zip"
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []))} />
+            {files.length > 0 && (
+              <p className="mt-1 text-[11px] text-muted-foreground">{files.length} file selezionati</p>
+            )}
+          </div>
+          <div>
+            <Label className="text-xs">Tag aggiuntivi (separati da virgola)</Label>
+            <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="obsidian, vault" />
+          </div>
+          <div className="space-y-2 rounded border border-border bg-background/40 p-2">
+            <label className="flex items-center gap-2 text-xs">
+              <Checkbox checked={useFilename} onCheckedChange={(v) => setUseFilename(Boolean(v))} />
+              Usa il nome del file come titolo
+            </label>
+            <label className="flex items-center gap-2 text-xs">
+              <Checkbox checked={extractTags} onCheckedChange={(v) => setExtractTags(Boolean(v))} />
+              Estrai tag Obsidian (#tag e frontmatter)
+            </label>
+            <label className="flex items-center gap-2 text-xs">
+              <Checkbox checked={detectLinks} onCheckedChange={(v) => setDetectLinks(Boolean(v))} />
+              Riconosci link interni [[...]]
+            </label>
+          </div>
+          {progress && (
+            <p className="text-[11px] text-muted-foreground">Processate {progress.done}/{progress.total} note…</p>
+          )}
+          {result && (
+            <div className="rounded border border-border bg-background/40 p-2 text-[11px]">
+              <div>Importate: <span className="text-emerald-400">{result.imported}</span></div>
+              {result.ignored > 0 && <div>Ignorate: <span className="text-amber-400">{result.ignored}</span></div>}
+              {result.errors.length > 0 && (
+                <details className="mt-1">
+                  <summary className="cursor-pointer text-destructive">{result.errors.length} errori</summary>
+                  <ul className="mt-1 max-h-24 overflow-auto pl-4">
+                    {result.errors.slice(0, 10).map((e, i) => <li key={i} className="truncate">{e}</li>)}
+                  </ul>
+                </details>
+              )}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Chiudi</Button>
+          <Button onClick={submit} disabled={busy || files.length === 0 || !f.brainId}>
+            {busy ? "Import…" : "Importa"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
