@@ -542,17 +542,40 @@ function FileSourceDialog({ brains, nodes, onCreated }: { brains: Brain[]; nodes
   );
 }
 
-function SourceDetailDialog({ source, brainName, nodeLabel, onClose }: {
-  source: KnowledgeSource | null; brainName: string; nodeLabel?: string; onClose: () => void;
+function SourceDetailDialog({ source, brainName, nodeLabel, onClose, onChunksChanged }: {
+  source: KnowledgeSource | null; brainName: string; nodeLabel?: string; onClose: () => void; onChunksChanged?: () => void;
 }) {
   const [chunks, setChunks] = useState<KnowledgeChunk[]>([]);
   const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [embedding, setEmbedding] = useState(false);
+
+  const reloadChunks = useCallback(async () => {
+    if (!source) return;
+    try { setChunks(await listKnowledgeChunks(source.id)); } catch { setChunks([]); }
+  }, [source]);
 
   useEffect(() => {
     if (!source) { setChunks([]); setFileUrl(null); return; }
-    listKnowledgeChunks(source.id).then(setChunks).catch(() => setChunks([]));
+    reloadChunks();
     if (source.file_path) getFileSignedUrl(source.file_path).then(setFileUrl);
-  }, [source]);
+  }, [source, reloadChunks]);
+
+  const runEmbed = async () => {
+    if (!source) return;
+    setEmbedding(true);
+    try {
+      const res = await generateEmbeddingsForSource(source.id);
+      if (res.error) toast.error(friendlyEmbeddingError(res.error));
+      else toast.success(`Embeddings: ${res.processed}/${res.total}${res.failed ? ` (${res.failed} errori)` : ""}`);
+      await reloadChunks();
+      onChunksChanged?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore embeddings");
+    } finally { setEmbedding(false); }
+  };
+
+  const readyCount = chunks.filter((c) => (c as KnowledgeChunk & { embedding_status?: string }).embedding_status === "ready").length;
+  const errCount = chunks.filter((c) => (c as KnowledgeChunk & { embedding_status?: string }).embedding_status === "error").length;
 
   return (
     <Dialog open={!!source} onOpenChange={(o) => !o && onClose()}>
@@ -595,14 +618,34 @@ function SourceDetailDialog({ source, brainName, nodeLabel, onClose }: {
               )}
               {chunks.length > 0 && (
                 <div>
-                  <div className="mb-1 text-xs font-medium text-muted-foreground">{chunks.length} chunk generati</div>
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      {chunks.length} chunk · <span className="text-emerald-400">{readyCount} ready</span>
+                      {errCount > 0 && <> · <span className="text-destructive">{errCount} errori</span></>}
+                    </div>
+                    <Button size="sm" variant="outline" onClick={runEmbed} disabled={embedding}>
+                      {embedding ? <><RefreshCw className="mr-1 h-3 w-3 animate-spin" /> Genero…</> : <><Sparkles className="mr-1 h-3 w-3" /> Genera embeddings</>}
+                    </Button>
+                  </div>
                   <div className="space-y-1">
-                    {chunks.map((c) => (
-                      <div key={c.id} className="rounded border border-border/60 bg-background/40 p-2 text-[11px]">
-                        <div className="mb-1 text-muted-foreground">#{c.chunk_index} · ~{c.token_estimate} token</div>
-                        <div className="line-clamp-3">{c.content}</div>
-                      </div>
-                    ))}
+                    {chunks.map((c) => {
+                      const cs = c as KnowledgeChunk & { embedding_status?: string; embedding_error?: string | null };
+                      const st = cs.embedding_status ?? "pending";
+                      return (
+                        <div key={c.id} className="rounded border border-border/60 bg-background/40 p-2 text-[11px]">
+                          <div className="mb-1 flex items-center justify-between text-muted-foreground">
+                            <span>#{c.chunk_index} · ~{c.token_estimate} token</span>
+                            <Badge variant="outline" className={
+                              st === "ready" ? "text-emerald-400" :
+                              st === "error" ? "text-destructive" :
+                              st === "processing" ? "text-amber-400" : ""
+                            }>{st}</Badge>
+                          </div>
+                          <div className="line-clamp-3">{c.content}</div>
+                          {cs.embedding_error && <div className="mt-1 text-destructive text-[10px]">{cs.embedding_error}</div>}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
