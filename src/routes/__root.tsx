@@ -78,6 +78,34 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const router = useRouter();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isAuthPage = pathname === "/auth";
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        router.invalidate();
+        if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [router, queryClient]);
+
+  async function handleSignOut() {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await supabase.auth.signOut();
+  }
+
+  if (isAuthPage) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+        <Toaster richColors theme="dark" />
+      </QueryClientProvider>
+    );
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -91,6 +119,9 @@ function RootComponent() {
               <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
                 <span className="inline-flex h-2 w-2 animate-pulse-glow rounded-full bg-emerald-400 text-emerald-400" />
                 Live · sync attivo
+                <Button variant="ghost" size="sm" onClick={handleSignOut} className="ml-2 h-7 px-2">
+                  <LogOut className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </header>
             <main className="min-w-0 flex-1">
