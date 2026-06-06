@@ -303,6 +303,7 @@ export async function importObsidianFiles(
   // 3. Insert sources + chunks
   const createdByTitle = new Map<string, { id: string; brain_id: string; node_id: string | null }>();
   let imported = 0;
+  let chunksGenerated = 0;
 
   for (const note of notes) {
     try {
@@ -321,7 +322,7 @@ export async function importObsidianFiles(
       const ref = { id: src.id, brain_id: options.brainId, node_id: options.nodeId };
       createdByTitle.set(note.title.toLowerCase(), ref);
       if (note.content.trim()) {
-        try { await insertChunks(user_id, ref, note.content); } catch (e) {
+        try { chunksGenerated += await insertChunks(user_id, ref, note.content); } catch (e) {
           errors.push(`${note.title}: chunk error`);
           void e;
         }
@@ -340,7 +341,7 @@ export async function importObsidianFiles(
     status: finalStatus,
     processed_items: imported,
     error_message: errors.length > 0 ? errors.slice(0, 5).join(" | ") : null,
-    metadata: { ignored, errors: errors.length, total_notes: notes.length } as never,
+    metadata: { ignored, errors: errors.length, total_notes: notes.length, chunks: chunksGenerated } as never,
   }).eq("id", jobId);
 
   await logAction({
@@ -355,5 +356,5 @@ export async function importObsidianFiles(
     brain_id: options.brainId,
   });
 
-  return { imported, ignored, errors, edgesCreated: 0 };
+  return { imported, ignored, errors, edgesCreated: 0, chunksGenerated };
 }
