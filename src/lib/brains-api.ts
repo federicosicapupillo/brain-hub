@@ -102,6 +102,8 @@ export async function createNode(input: {
     y: input.y ?? Math.random() * 0.6 + 0.2,
   }).select().single();
   if (error) throw error;
+  await logAction({ action: "node_created", message: `Nodo creato: ${input.label}`, entity_type: "brain_node", entity_id: data.id, brain_id: input.brain_id });
+  await pushLiveEvent({ event_type: "node", title: `Nuovo nodo: ${input.label}`, brain_id: input.brain_id });
   return data;
 }
 
@@ -118,5 +120,7 @@ export async function createEdge(input: {
     kind: input.kind ?? "link",
   }).select().single();
   if (error) throw error;
+  await logAction({ action: "edge_created", message: `Collegamento creato`, entity_type: "brain_edge", entity_id: data.id, brain_id: input.brain_id });
+  await pushLiveEvent({ event_type: "edge", title: `Nuovo collegamento`, brain_id: input.brain_id });
   return data;
 }
