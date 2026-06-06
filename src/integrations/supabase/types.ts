@@ -14,7 +14,174 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      brain_edges: {
+        Row: {
+          brain_id: string
+          created_at: string
+          id: string
+          kind: string
+          source: string
+          target: string
+          user_id: string
+        }
+        Insert: {
+          brain_id: string
+          created_at?: string
+          id?: string
+          kind?: string
+          source: string
+          target: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          source?: string
+          target?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_edges_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_edges_source_fkey"
+            columns: ["source"]
+            isOneToOne: false
+            referencedRelation: "brain_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_edges_target_fkey"
+            columns: ["target"]
+            isOneToOne: false
+            referencedRelation: "brain_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_nodes: {
+        Row: {
+          brain_id: string
+          created_at: string
+          id: string
+          label: string
+          origin: string
+          summary: string | null
+          tags: string[]
+          type: string
+          updated_at: string
+          user_id: string
+          x: number
+          y: number
+        }
+        Insert: {
+          brain_id: string
+          created_at?: string
+          id?: string
+          label: string
+          origin?: string
+          summary?: string | null
+          tags?: string[]
+          type?: string
+          updated_at?: string
+          user_id: string
+          x?: number
+          y?: number
+        }
+        Update: {
+          brain_id?: string
+          created_at?: string
+          id?: string
+          label?: string
+          origin?: string
+          summary?: string | null
+          tags?: string[]
+          type?: string
+          updated_at?: string
+          user_id?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_nodes_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brains: {
+        Row: {
+          color: string
+          created_at: string
+          description: string | null
+          id: string
+          kind: string
+          name: string
+          origin: string
+          updated_at: string
+          user_id: string
+          visibility: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          name: string
+          origin?: string
+          updated_at?: string
+          user_id: string
+          visibility?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          kind?: string
+          name?: string
+          origin?: string
+          updated_at?: string
+          user_id?: string
+          visibility?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
