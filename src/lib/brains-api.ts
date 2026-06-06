@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { logAction, pushLiveEvent } from "@/lib/workspace-api";
 import type { Brain, BrainNode, BrainEdge } from "@/lib/demo-data";
 
 type BrainRow = {
@@ -78,6 +79,8 @@ export async function createBrain(input: {
     user_id: userData.user.id,
   }).select().single();
   if (error) throw error;
+  await logAction({ action: "brain_created", message: `Cervello creato: ${input.name}`, entity_type: "brain", entity_id: data.id, brain_id: data.id });
+  await pushLiveEvent({ event_type: "brain", title: `Nuovo cervello: ${input.name}`, brain_id: data.id });
   return data;
 }
 
