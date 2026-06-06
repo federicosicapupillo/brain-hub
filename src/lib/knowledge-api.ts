@@ -82,7 +82,7 @@ export async function getKnowledgeSource(sourceId: string): Promise<KnowledgeSou
 }
 
 export async function updateKnowledgeSource(sourceId: string, patch: Partial<KnowledgeSource>): Promise<void> {
-  const { error } = await supabase.from("knowledge_sources").update(patch).eq("id", sourceId);
+  const { error } = await supabase.from("knowledge_sources").update(patch as never).eq("id", sourceId);
   if (error) throw error;
 }
 
@@ -223,7 +223,7 @@ export async function uploadFileSource(input: {
     status: "ready",
     extracted_text: extracted,
   };
-  const { error: updErr } = await supabase.from("knowledge_sources").update(patch).eq("id", src.id);
+  const { error: updErr } = await supabase.from("knowledge_sources").update(patch as never).eq("id", src.id);
   if (updErr) throw updErr;
 
   if (extracted && extracted.trim()) {
