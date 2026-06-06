@@ -209,9 +209,9 @@ async function insertSource(input: {
   return data as { id: string };
 }
 
-async function insertChunks(user_id: string, source: { id: string; brain_id: string; node_id: string | null }, content: string): Promise<void> {
+async function insertChunks(user_id: string, source: { id: string; brain_id: string; node_id: string | null }, content: string): Promise<number> {
   const pieces = chunkText(content);
-  if (pieces.length === 0) return;
+  if (pieces.length === 0) return 0;
   const rows = pieces.map((c, idx) => ({
     user_id,
     brain_id: source.brain_id,
@@ -224,6 +224,7 @@ async function insertChunks(user_id: string, source: { id: string; brain_id: str
   }));
   const { error } = await supabase.from("knowledge_chunks").insert(rows);
   if (error) throw error;
+  return pieces.length;
 }
 
 export async function importObsidianFiles(
