@@ -359,6 +359,11 @@ export type Database = {
           chunk_index: number
           content: string
           created_at: string
+          embedded_at: string | null
+          embedding: string | null
+          embedding_error: string | null
+          embedding_model: string | null
+          embedding_status: string
           id: string
           metadata: Json
           node_id: string | null
@@ -372,6 +377,11 @@ export type Database = {
           chunk_index?: number
           content: string
           created_at?: string
+          embedded_at?: string | null
+          embedding?: string | null
+          embedding_error?: string | null
+          embedding_model?: string | null
+          embedding_status?: string
           id?: string
           metadata?: Json
           node_id?: string | null
@@ -385,6 +395,11 @@ export type Database = {
           chunk_index?: number
           content?: string
           created_at?: string
+          embedded_at?: string | null
+          embedding?: string | null
+          embedding_error?: string | null
+          embedding_model?: string | null
+          embedding_status?: string
           id?: string
           metadata?: Json
           node_id?: string | null
@@ -700,7 +715,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      match_knowledge_chunks: {
+        Args: {
+          match_brain_id?: string
+          match_count?: number
+          match_threshold?: number
+          query_embedding: string
+        }
+        Returns: {
+          brain_id: string
+          chunk_id: string
+          content: string
+          node_id: string
+          similarity: number
+          source_id: string
+          source_tags: string[]
+          source_title: string
+          source_type: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
