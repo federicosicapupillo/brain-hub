@@ -122,7 +122,7 @@ function BrainsPage() {
           {loading ? (
             <div className="grid h-full place-items-center rounded-2xl border border-border bg-card/40 text-sm text-muted-foreground glass">Caricamento…</div>
           ) : brains.length === 0 ? (
-            <EmptyState />
+            <EmptyState onReload={reload} />
           ) : view === "lista" ? (
             <BrainsListView filteredBrains={filteredBrains} nodes={nodes} onSelect={setSelected} />
           ) : (
