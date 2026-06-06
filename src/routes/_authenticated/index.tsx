@@ -153,7 +153,27 @@ function BrainsPage() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ onReload }: { onReload: () => void }) {
+  const [creating, setCreating] = useState(false);
+  async function handleStarter() {
+    setCreating(true);
+    try {
+      const { createStarterWorkspace } = await import("@/lib/starter-api");
+      await createStarterWorkspace();
+      toast.success("Workspace iniziale creato.");
+      onReload();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Errore";
+      if (msg === "ALREADY_EXISTS") {
+        toast("Hai già un workspace attivo.");
+        onReload();
+      } else {
+        toast.error(msg);
+      }
+    } finally {
+      setCreating(false);
+    }
+  }
   return (
     <div className="grid h-full place-items-center rounded-2xl border border-dashed border-border bg-card/40 p-8 text-center glass">
       <div className="max-w-md">
@@ -162,8 +182,17 @@ function EmptyState() {
           Il tuo spazio è collegato ai dati reali, ma non hai ancora creato nessun cervello. I dati demo sono stati rimossi.
         </p>
         <p className="mt-2 text-xs text-muted-foreground/80">
-          Usa il pulsante "+ Cervello" in alto a destra per crearne uno.
+          Usa il pulsante "+ Cervello" in alto a destra per crearne uno, oppure genera un workspace iniziale di esempio.
         </p>
+        <div className="mt-4 flex flex-wrap justify-center gap-2">
+          <Button
+            onClick={handleStarter}
+            disabled={creating}
+            className="bg-gradient-primary text-primary-foreground"
+          >
+            {creating ? "Creazione…" : "Crea workspace iniziale"}
+          </Button>
+        </div>
       </div>
     </div>
   );
