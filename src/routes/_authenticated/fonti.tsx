@@ -152,6 +152,12 @@ function FontiPage() {
           <UrlSourceDialog brains={brains} nodes={nodes} onCreated={reload} />
           <FileSourceDialog brains={brains} nodes={nodes} onCreated={reload} />
           <ObsidianImportDialog brains={brains} nodes={nodes} onCreated={reload} />
+          <MaterializeSourcesDialog
+            brains={brains} nodes={nodes}
+            sources={filtered}
+            defaultBrainId={brainFilter !== "all" ? brainFilter : undefined}
+            onDone={reload}
+          />
         </div>
       </div>
 
