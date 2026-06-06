@@ -12,10 +12,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { FileText, Link2, Upload, Trash2, Eye, Library, Plus, Search, Sparkles, RefreshCw, FolderInput, Network } from "lucide-react";
+import { FileText, Link2, Upload, Trash2, Eye, Library, Plus, Search, Sparkles, RefreshCw, FolderInput, Network, Download } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { importObsidianFiles, type ImportResult } from "@/lib/obsidian-import";
 import { materializeSourcesAsNodes, type MaterializeResult } from "@/lib/source-to-graph";
+import { exportBrainToObsidian, triggerDownload, type ExportStats } from "@/lib/obsidian-export";
 import {
   listKnowledgeSources, deleteKnowledgeSource, createManualSource,
   createUrlSource, uploadFileSource, listKnowledgeChunks, getFileSignedUrl,
