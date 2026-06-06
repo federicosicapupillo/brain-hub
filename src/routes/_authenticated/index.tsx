@@ -156,10 +156,13 @@ function BrainsPage() {
 function EmptyState() {
   return (
     <div className="grid h-full place-items-center rounded-2xl border border-dashed border-border bg-card/40 p-8 text-center glass">
-      <div>
+      <div className="max-w-md">
         <div className="text-lg font-semibold text-gradient-primary">Nessun cervello ancora</div>
         <p className="mt-2 text-sm text-muted-foreground">
-          Crea il tuo primo cervello dal pulsante in alto a destra per iniziare a popolare il grafo.
+          Il tuo spazio è collegato ai dati reali, ma non hai ancora creato nessun cervello. I dati demo sono stati rimossi.
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground/80">
+          Usa il pulsante "+ Cervello" in alto a destra per crearne uno.
         </p>
       </div>
     </div>
