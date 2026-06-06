@@ -978,3 +978,94 @@ function MaterializeSourcesDialog({ brains, nodes, sources, defaultBrainId, onDo
     </Dialog>
   );
 }
+
+function ExportObsidianDialog({ brains, defaultBrainId }: { brains: Brain[]; defaultBrainId?: string }) {
+  const [open, setOpen] = useState(false);
+  const [brainId, setBrainId] = useState<string>(defaultBrainId ?? "");
+  const [includeNodes, setIncludeNodes] = useState(true);
+  const [includeSources, setIncludeSources] = useState(true);
+  const [includeEdges, setIncludeEdges] = useState(true);
+  const [includeTags, setIncludeTags] = useState(true);
+  const [includeMetadata, setIncludeMetadata] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<ExportStats | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      setBrainId(defaultBrainId ?? brains[0]?.id ?? "");
+      setResult(null);
+    }
+  }, [open, defaultBrainId, brains]);
+
+  const submit = async () => {
+    if (!brainId) return;
+    setBusy(true);
+    try {
+      const res = await exportBrainToObsidian({
+        brainId, includeNodes, includeSources, includeEdges, includeTags, includeMetadata,
+      });
+      triggerDownload(res.blob, res.fileName);
+      setResult(res.stats);
+      toast.success(`Esportati ${res.stats.files} file Markdown`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore export");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" variant="outline" disabled={brains.length === 0}>
+          <Download className="mr-1.5 h-3.5 w-3.5" />
+          Esporta per Obsidian
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Esporta per Obsidian</DialogTitle>
+          <DialogDescription>
+            Genera uno zip di file Markdown con frontmatter YAML e link interni [[...]], pronto per il tuo vault.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Cervello da esportare</Label>
+            <Select value={brainId} onValueChange={setBrainId}>
+              <SelectTrigger><SelectValue placeholder="Scegli un cervello" /></SelectTrigger>
+              <SelectContent>
+                {brains.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Cosa includere</Label>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <label className="flex items-center gap-2"><Checkbox checked={includeNodes} onCheckedChange={(v) => setIncludeNodes(!!v)} /> Nodi</label>
+              <label className="flex items-center gap-2"><Checkbox checked={includeSources} onCheckedChange={(v) => setIncludeSources(!!v)} /> Fonti</label>
+              <label className="flex items-center gap-2"><Checkbox checked={includeEdges} onCheckedChange={(v) => setIncludeEdges(!!v)} /> Link tra nodi</label>
+              <label className="flex items-center gap-2"><Checkbox checked={includeTags} onCheckedChange={(v) => setIncludeTags(!!v)} /> Tag</label>
+              <label className="flex items-center gap-2"><Checkbox checked={includeMetadata} onCheckedChange={(v) => setIncludeMetadata(!!v)} /> Metadata</label>
+            </div>
+          </div>
+          {result && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-1">
+              <div className="font-medium text-sm">Export completato</div>
+              <div>File Markdown: {result.files}</div>
+              <div>Nodi esportati: {result.nodes}</div>
+              <div>Fonti esportate: {result.sources}</div>
+              <div>Link Obsidian generati: {result.links}</div>
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Chiudi</Button>
+          <Button onClick={submit} disabled={busy || !brainId}>
+            {busy ? "Esportazione…" : "Genera zip"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
