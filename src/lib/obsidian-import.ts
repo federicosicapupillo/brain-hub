@@ -29,6 +29,7 @@ export interface ImportResult {
   ignored: number;
   errors: string[];
   edgesCreated: number;
+  chunksGenerated: number;
 }
 
 // ============ Parsing ============
@@ -208,9 +209,9 @@ async function insertSource(input: {
   return data as { id: string };
 }
 
-async function insertChunks(user_id: string, source: { id: string; brain_id: string; node_id: string | null }, content: string): Promise<void> {
+async function insertChunks(user_id: string, source: { id: string; brain_id: string; node_id: string | null }, content: string): Promise<number> {
   const pieces = chunkText(content);
-  if (pieces.length === 0) return;
+  if (pieces.length === 0) return 0;
   const rows = pieces.map((c, idx) => ({
     user_id,
     brain_id: source.brain_id,
@@ -223,6 +224,7 @@ async function insertChunks(user_id: string, source: { id: string; brain_id: str
   }));
   const { error } = await supabase.from("knowledge_chunks").insert(rows);
   if (error) throw error;
+  return pieces.length;
 }
 
 export async function importObsidianFiles(
@@ -301,6 +303,7 @@ export async function importObsidianFiles(
   // 3. Insert sources + chunks
   const createdByTitle = new Map<string, { id: string; brain_id: string; node_id: string | null }>();
   let imported = 0;
+  let chunksGenerated = 0;
 
   for (const note of notes) {
     try {
@@ -319,7 +322,7 @@ export async function importObsidianFiles(
       const ref = { id: src.id, brain_id: options.brainId, node_id: options.nodeId };
       createdByTitle.set(note.title.toLowerCase(), ref);
       if (note.content.trim()) {
-        try { await insertChunks(user_id, ref, note.content); } catch (e) {
+        try { chunksGenerated += await insertChunks(user_id, ref, note.content); } catch (e) {
           errors.push(`${note.title}: chunk error`);
           void e;
         }
@@ -338,7 +341,7 @@ export async function importObsidianFiles(
     status: finalStatus,
     processed_items: imported,
     error_message: errors.length > 0 ? errors.slice(0, 5).join(" | ") : null,
-    metadata: { ignored, errors: errors.length, total_notes: notes.length } as never,
+    metadata: { ignored, errors: errors.length, total_notes: notes.length, chunks: chunksGenerated } as never,
   }).eq("id", jobId);
 
   await logAction({
@@ -353,5 +356,5 @@ export async function importObsidianFiles(
     brain_id: options.brainId,
   });
 
-  return { imported, ignored, errors, edgesCreated: 0 };
+  return { imported, ignored, errors, edgesCreated: 0, chunksGenerated };
 }
