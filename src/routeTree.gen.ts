@@ -9,8 +9,50 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as RoadmapRouteImport } from './routes/roadmap'
+import { Route as LogsRouteImport } from './routes/logs'
+import { Route as LiveRouteImport } from './routes/live'
+import { Route as ImpostazioniRouteImport } from './routes/impostazioni'
+import { Route as ConnettoriRouteImport } from './routes/connettori'
+import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 
+const TasksRoute = TasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoadmapRoute = RoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LogsRoute = LogsRouteImport.update({
+  id: '/logs',
+  path: '/logs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveRoute = LiveRouteImport.update({
+  id: '/live',
+  path: '/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImpostazioniRoute = ImpostazioniRouteImport.update({
+  id: '/impostazioni',
+  path: '/impostazioni',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnettoriRoute = ConnettoriRouteImport.update({
+  id: '/connettori',
+  path: '/connettori',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -19,28 +61,130 @@ const IndexRoute = IndexRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
+  '/connettori': typeof ConnettoriRoute
+  '/impostazioni': typeof ImpostazioniRoute
+  '/live': typeof LiveRoute
+  '/logs': typeof LogsRoute
+  '/roadmap': typeof RoadmapRoute
+  '/tasks': typeof TasksRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
+  '/connettori': typeof ConnettoriRoute
+  '/impostazioni': typeof ImpostazioniRoute
+  '/live': typeof LiveRoute
+  '/logs': typeof LogsRoute
+  '/roadmap': typeof RoadmapRoute
+  '/tasks': typeof TasksRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRoute
+  '/connettori': typeof ConnettoriRoute
+  '/impostazioni': typeof ImpostazioniRoute
+  '/live': typeof LiveRoute
+  '/logs': typeof LogsRoute
+  '/roadmap': typeof RoadmapRoute
+  '/tasks': typeof TasksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/agents'
+    | '/connettori'
+    | '/impostazioni'
+    | '/live'
+    | '/logs'
+    | '/roadmap'
+    | '/tasks'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/agents'
+    | '/connettori'
+    | '/impostazioni'
+    | '/live'
+    | '/logs'
+    | '/roadmap'
+    | '/tasks'
+  id:
+    | '__root__'
+    | '/'
+    | '/agents'
+    | '/connettori'
+    | '/impostazioni'
+    | '/live'
+    | '/logs'
+    | '/roadmap'
+    | '/tasks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentsRoute: typeof AgentsRoute
+  ConnettoriRoute: typeof ConnettoriRoute
+  ImpostazioniRoute: typeof ImpostazioniRoute
+  LiveRoute: typeof LiveRoute
+  LogsRoute: typeof LogsRoute
+  RoadmapRoute: typeof RoadmapRoute
+  TasksRoute: typeof TasksRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tasks': {
+      id: '/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/roadmap': {
+      id: '/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof RoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/logs': {
+      id: '/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof LogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/impostazioni': {
+      id: '/impostazioni'
+      path: '/impostazioni'
+      fullPath: '/impostazioni'
+      preLoaderRoute: typeof ImpostazioniRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connettori': {
+      id: '/connettori'
+      path: '/connettori'
+      fullPath: '/connettori'
+      preLoaderRoute: typeof ConnettoriRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -53,17 +197,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentsRoute: AgentsRoute,
+  ConnettoriRoute: ConnettoriRoute,
+  ImpostazioniRoute: ImpostazioniRoute,
+  LiveRoute: LiveRoute,
+  LogsRoute: LogsRoute,
+  RoadmapRoute: RoadmapRoute,
+  TasksRoute: TasksRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -1,0 +1,81 @@
+import { Link, useRouterState } from "@tanstack/react-router";
+import {
+  Activity,
+  Plug,
+  Brain,
+  Map as MapIcon,
+  CheckSquare,
+  Bot,
+  ScrollText,
+  Settings,
+  Sparkles,
+} from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@/components/ui/sidebar";
+
+const items = [
+  { title: "Live", url: "/live", icon: Activity },
+  { title: "Connettori", url: "/connettori", icon: Plug },
+  { title: "Cervelli", url: "/", icon: Brain },
+  { title: "Roadmap", url: "/roadmap", icon: MapIcon },
+  { title: "Tasks", url: "/tasks", icon: CheckSquare },
+  { title: "Agents", url: "/agents", icon: Bot },
+  { title: "Logs", url: "/logs", icon: ScrollText },
+  { title: "Impostazioni", url: "/impostazioni", icon: Settings },
+];
+
+export function AppSidebar() {
+  const { state } = useSidebar();
+  const collapsed = state === "collapsed";
+  const pathname = useRouterState({ select: (r) => r.location.pathname });
+
+  const isActive = (url: string) => (url === "/" ? pathname === "/" : pathname.startsWith(url));
+
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader>
+        <Link to="/" className="flex items-center gap-2 px-2 py-3">
+          <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-primary glow-violet">
+            <Sparkles className="h-5 w-5 text-primary-foreground" />
+          </div>
+          {!collapsed && (
+            <div className="leading-tight">
+              <div className="text-sm font-semibold text-gradient-primary">AI Brain</div>
+              <div className="text-[11px] text-muted-foreground">Personal Dashboard</div>
+            </div>
+          )}
+        </Link>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {items.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                    <Link to={item.url} className="flex items-center gap-2">
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+    </Sidebar>
+  );
+}
