@@ -175,7 +175,7 @@ export async function logAction(input: {
       entity_id: input.entity_id ?? null,
       action: input.action, message: input.message,
       severity: input.severity ?? "info",
-      metadata: input.metadata ?? {},
+      metadata: (input.metadata ?? {}) as never,
     });
   } catch (e) {
     console.warn("[logAction] failed", e instanceof Error ? e.message : "");
@@ -198,7 +198,7 @@ export async function pushLiveEvent(input: {
     await supabase.from("live_events").insert({
       user_id, brain_id: input.brain_id ?? null,
       event_type: input.event_type, title: input.title,
-      description: input.description ?? "", payload: input.payload ?? {},
+      description: input.description ?? "", payload: (input.payload ?? {}) as never,
     });
   } catch (e) {
     console.warn("[pushLiveEvent] failed", e instanceof Error ? e.message : "");
