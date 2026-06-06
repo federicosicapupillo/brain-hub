@@ -9,6 +9,7 @@ import {
   ScrollText,
   Settings,
   Sparkles,
+  Library,
 } from "lucide-react";
 import {
   Sidebar,
@@ -27,6 +28,7 @@ const items = [
   { title: "Live", url: "/live", icon: Activity },
   { title: "Connettori", url: "/connettori", icon: Plug },
   { title: "Cervelli", url: "/", icon: Brain },
+  { title: "Fonti", url: "/fonti", icon: Library },
   { title: "Roadmap", url: "/roadmap", icon: MapIcon },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Agents", url: "/agents", icon: Bot },

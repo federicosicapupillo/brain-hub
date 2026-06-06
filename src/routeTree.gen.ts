@@ -17,6 +17,7 @@ import { Route as AuthenticatedRoadmapRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
+import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 
@@ -60,6 +61,11 @@ const AuthenticatedImpostazioniRoute =
     path: '/impostazioni',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedFontiRoute = AuthenticatedFontiRouteImport.update({
+  id: '/fonti',
+  path: '/fonti',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConnettoriRoute = AuthenticatedConnettoriRouteImport.update({
   id: '/connettori',
   path: '/connettori',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
+  '/fonti': typeof AuthenticatedFontiRoute
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
+  '/fonti': typeof AuthenticatedFontiRoute
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
+  '/_authenticated/fonti': typeof AuthenticatedFontiRoute
   '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/agents'
     | '/connettori'
+    | '/fonti'
     | '/impostazioni'
     | '/live'
     | '/logs'
@@ -123,6 +133,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/agents'
     | '/connettori'
+    | '/fonti'
     | '/impostazioni'
     | '/live'
     | '/logs'
@@ -135,6 +146,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/agents'
     | '/_authenticated/connettori'
+    | '/_authenticated/fonti'
     | '/_authenticated/impostazioni'
     | '/_authenticated/live'
     | '/_authenticated/logs'
@@ -206,6 +218,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImpostazioniRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/fonti': {
+      id: '/_authenticated/fonti'
+      path: '/fonti'
+      fullPath: '/fonti'
+      preLoaderRoute: typeof AuthenticatedFontiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/connettori': {
       id: '/_authenticated/connettori'
       path: '/connettori'
@@ -226,6 +245,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
+  AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
   AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
@@ -237,6 +257,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
+  AuthenticatedFontiRoute: AuthenticatedFontiRoute,
   AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,

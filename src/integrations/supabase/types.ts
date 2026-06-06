@@ -303,6 +303,204 @@ export type Database = {
         }
         Relationships: []
       }
+      import_jobs: {
+        Row: {
+          brain_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          metadata: Json
+          processed_items: number
+          source_type: string
+          status: string
+          total_items: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          processed_items?: number
+          source_type: string
+          status?: string
+          total_items?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          processed_items?: number
+          source_type?: string
+          status?: string
+          total_items?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_jobs_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_chunks: {
+        Row: {
+          brain_id: string
+          chunk_index: number
+          content: string
+          created_at: string
+          id: string
+          metadata: Json
+          node_id: string | null
+          source_id: string
+          token_estimate: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id: string
+          chunk_index?: number
+          content: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          node_id?: string | null
+          source_id: string
+          token_estimate?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string
+          chunk_index?: number
+          content?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          node_id?: string | null
+          source_id?: string
+          token_estimate?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "brain_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_chunks_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_sources: {
+        Row: {
+          brain_id: string
+          content_hash: string | null
+          created_at: string
+          description: string | null
+          extracted_text: string | null
+          file_name: string | null
+          file_path: string | null
+          file_size: number | null
+          id: string
+          metadata: Json
+          mime_type: string | null
+          node_id: string | null
+          source_type: string
+          status: string
+          summary: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          brain_id: string
+          content_hash?: string | null
+          created_at?: string
+          description?: string | null
+          extracted_text?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          node_id?: string | null
+          source_type: string
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          brain_id?: string
+          content_hash?: string | null
+          created_at?: string
+          description?: string | null
+          extracted_text?: string | null
+          file_name?: string | null
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          node_id?: string | null
+          source_type?: string
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_sources_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "knowledge_sources_node_id_fkey"
+            columns: ["node_id"]
+            isOneToOne: false
+            referencedRelation: "brain_nodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_events: {
         Row: {
           brain_id: string | null
