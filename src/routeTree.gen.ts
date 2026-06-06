@@ -9,91 +9,91 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as TasksRouteImport } from './routes/tasks'
-import { Route as RoadmapRouteImport } from './routes/roadmap'
-import { Route as LogsRouteImport } from './routes/logs'
-import { Route as LiveRouteImport } from './routes/live'
-import { Route as ImpostazioniRouteImport } from './routes/impostazioni'
-import { Route as ConnettoriRouteImport } from './routes/connettori'
-import { Route as AgentsRouteImport } from './routes/agents'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as AuthenticatedRoadmapRouteImport } from './routes/_authenticated/roadmap'
+import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
+import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
+import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
+import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
+import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 
-const TasksRoute = TasksRouteImport.update({
-  id: '/tasks',
+const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
+  id: '/_authenticated/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
+  id: '/_authenticated/tasks',
   path: '/tasks',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RoadmapRoute = RoadmapRouteImport.update({
-  id: '/roadmap',
+const AuthenticatedRoadmapRoute = AuthenticatedRoadmapRouteImport.update({
+  id: '/_authenticated/roadmap',
   path: '/roadmap',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LogsRoute = LogsRouteImport.update({
-  id: '/logs',
+const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
+  id: '/_authenticated/logs',
   path: '/logs',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LiveRoute = LiveRouteImport.update({
-  id: '/live',
+const AuthenticatedLiveRoute = AuthenticatedLiveRouteImport.update({
+  id: '/_authenticated/live',
   path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ImpostazioniRoute = ImpostazioniRouteImport.update({
-  id: '/impostazioni',
-  path: '/impostazioni',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ConnettoriRoute = ConnettoriRouteImport.update({
-  id: '/connettori',
+const AuthenticatedImpostazioniRoute =
+  AuthenticatedImpostazioniRouteImport.update({
+    id: '/_authenticated/impostazioni',
+    path: '/impostazioni',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AuthenticatedConnettoriRoute = AuthenticatedConnettoriRouteImport.update({
+  id: '/_authenticated/connettori',
   path: '/connettori',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AgentsRoute = AgentsRouteImport.update({
-  id: '/agents',
+const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
+  id: '/_authenticated/agents',
   path: '/agents',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/agents': typeof AgentsRoute
-  '/connettori': typeof ConnettoriRoute
-  '/impostazioni': typeof ImpostazioniRoute
-  '/live': typeof LiveRoute
-  '/logs': typeof LogsRoute
-  '/roadmap': typeof RoadmapRoute
-  '/tasks': typeof TasksRoute
+  '/agents': typeof AuthenticatedAgentsRoute
+  '/connettori': typeof AuthenticatedConnettoriRoute
+  '/impostazioni': typeof AuthenticatedImpostazioniRoute
+  '/live': typeof AuthenticatedLiveRoute
+  '/logs': typeof AuthenticatedLogsRoute
+  '/roadmap': typeof AuthenticatedRoadmapRoute
+  '/tasks': typeof AuthenticatedTasksRoute
+  '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/agents': typeof AgentsRoute
-  '/connettori': typeof ConnettoriRoute
-  '/impostazioni': typeof ImpostazioniRoute
-  '/live': typeof LiveRoute
-  '/logs': typeof LogsRoute
-  '/roadmap': typeof RoadmapRoute
-  '/tasks': typeof TasksRoute
+  '/agents': typeof AuthenticatedAgentsRoute
+  '/connettori': typeof AuthenticatedConnettoriRoute
+  '/impostazioni': typeof AuthenticatedImpostazioniRoute
+  '/live': typeof AuthenticatedLiveRoute
+  '/logs': typeof AuthenticatedLogsRoute
+  '/roadmap': typeof AuthenticatedRoadmapRoute
+  '/tasks': typeof AuthenticatedTasksRoute
+  '/': typeof AuthenticatedIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/agents': typeof AgentsRoute
-  '/connettori': typeof ConnettoriRoute
-  '/impostazioni': typeof ImpostazioniRoute
-  '/live': typeof LiveRoute
-  '/logs': typeof LogsRoute
-  '/roadmap': typeof RoadmapRoute
-  '/tasks': typeof TasksRoute
+  '/_authenticated/agents': typeof AuthenticatedAgentsRoute
+  '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
+  '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
+  '/_authenticated/live': typeof AuthenticatedLiveRoute
+  '/_authenticated/logs': typeof AuthenticatedLogsRoute
+  '/_authenticated/roadmap': typeof AuthenticatedRoadmapRoute
+  '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/_authenticated/': typeof AuthenticatedIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/agents'
     | '/connettori'
     | '/impostazioni'
@@ -101,9 +101,9 @@ export interface FileRouteTypes {
     | '/logs'
     | '/roadmap'
     | '/tasks'
+    | '/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/agents'
     | '/connettori'
     | '/impostazioni'
@@ -111,99 +111,100 @@ export interface FileRouteTypes {
     | '/logs'
     | '/roadmap'
     | '/tasks'
+    | '/'
   id:
     | '__root__'
-    | '/'
-    | '/agents'
-    | '/connettori'
-    | '/impostazioni'
-    | '/live'
-    | '/logs'
-    | '/roadmap'
-    | '/tasks'
+    | '/_authenticated/agents'
+    | '/_authenticated/connettori'
+    | '/_authenticated/impostazioni'
+    | '/_authenticated/live'
+    | '/_authenticated/logs'
+    | '/_authenticated/roadmap'
+    | '/_authenticated/tasks'
+    | '/_authenticated/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AgentsRoute: typeof AgentsRoute
-  ConnettoriRoute: typeof ConnettoriRoute
-  ImpostazioniRoute: typeof ImpostazioniRoute
-  LiveRoute: typeof LiveRoute
-  LogsRoute: typeof LogsRoute
-  RoadmapRoute: typeof RoadmapRoute
-  TasksRoute: typeof TasksRoute
+  AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
+  AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
+  AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
+  AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
+  AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
+  AuthenticatedRoadmapRoute: typeof AuthenticatedRoadmapRoute
+  AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
+  AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/tasks': {
-      id: '/tasks'
-      path: '/tasks'
-      fullPath: '/tasks'
-      preLoaderRoute: typeof TasksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/roadmap': {
-      id: '/roadmap'
-      path: '/roadmap'
-      fullPath: '/roadmap'
-      preLoaderRoute: typeof RoadmapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/logs': {
-      id: '/logs'
-      path: '/logs'
-      fullPath: '/logs'
-      preLoaderRoute: typeof LogsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/live': {
-      id: '/live'
-      path: '/live'
-      fullPath: '/live'
-      preLoaderRoute: typeof LiveRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/impostazioni': {
-      id: '/impostazioni'
-      path: '/impostazioni'
-      fullPath: '/impostazioni'
-      preLoaderRoute: typeof ImpostazioniRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/connettori': {
-      id: '/connettori'
-      path: '/connettori'
-      fullPath: '/connettori'
-      preLoaderRoute: typeof ConnettoriRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/agents': {
-      id: '/agents'
-      path: '/agents'
-      fullPath: '/agents'
-      preLoaderRoute: typeof AgentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
+    '/_authenticated/': {
+      id: '/_authenticated/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+      preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/tasks': {
+      id: '/_authenticated/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof AuthenticatedTasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/roadmap': {
+      id: '/_authenticated/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof AuthenticatedRoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/logs': {
+      id: '/_authenticated/logs'
+      path: '/logs'
+      fullPath: '/logs'
+      preLoaderRoute: typeof AuthenticatedLogsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/live': {
+      id: '/_authenticated/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof AuthenticatedLiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/impostazioni': {
+      id: '/_authenticated/impostazioni'
+      path: '/impostazioni'
+      fullPath: '/impostazioni'
+      preLoaderRoute: typeof AuthenticatedImpostazioniRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/connettori': {
+      id: '/_authenticated/connettori'
+      path: '/connettori'
+      fullPath: '/connettori'
+      preLoaderRoute: typeof AuthenticatedConnettoriRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/agents': {
+      id: '/_authenticated/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AgentsRoute: AgentsRoute,
-  ConnettoriRoute: ConnettoriRoute,
-  ImpostazioniRoute: ImpostazioniRoute,
-  LiveRoute: LiveRoute,
-  LogsRoute: LogsRoute,
-  RoadmapRoute: RoadmapRoute,
-  TasksRoute: TasksRoute,
+  AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
+  AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
+  AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
+  AuthenticatedLiveRoute: AuthenticatedLiveRoute,
+  AuthenticatedLogsRoute: AuthenticatedLogsRoute,
+  AuthenticatedRoadmapRoute: AuthenticatedRoadmapRoute,
+  AuthenticatedTasksRoute: AuthenticatedTasksRoute,
+  AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

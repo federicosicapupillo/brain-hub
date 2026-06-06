@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { brains, edges, nodes, type BrainOrigin } from "@/lib/demo-data";
 import { Grid3x3, List, Box, LayoutGrid, Globe, Lock, ShieldCheck } from "lucide-react";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
   head: () => ({
     meta: [
       { title: "Cervelli — Personal AI Brain Dashboard" },

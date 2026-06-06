@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { agents, brainById } from "@/lib/demo-data";
 import { Bot, Play, Pause, MessageSquare } from "lucide-react";
 
-export const Route = createFileRoute("/agents")({
+export const Route = createFileRoute("/_authenticated/agents")({
   head: () => ({ meta: [{ title: "Agents — AI Brain" }] }),
   component: AgentsPage,
 });

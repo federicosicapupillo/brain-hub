@@ -4,7 +4,7 @@ import { tasks, brainById, agents } from "@/lib/demo-data";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export const Route = createFileRoute("/tasks")({
+export const Route = createFileRoute("/_authenticated/tasks")({
   head: () => ({ meta: [{ title: "Tasks — AI Brain" }] }),
   component: TasksPage,
 });
