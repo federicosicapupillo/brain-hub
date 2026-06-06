@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
-import { logs, agents, brainById } from "@/lib/demo-data";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Activity } from "lucide-react";
+import { toast } from "sonner";
+import { listLiveEvents, markLiveEventRead, type LiveEvent } from "@/lib/workspace-api";
 
 export const Route = createFileRoute("/_authenticated/live")({
   head: () => ({ meta: [{ title: "Live — AI Brain" }] }),
@@ -10,6 +13,21 @@ export const Route = createFileRoute("/_authenticated/live")({
 });
 
 function LivePage() {
+  const [items, setItems] = useState<LiveEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  async function reload() {
+    try { setItems(await listLiveEvents(80)); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Errore"); }
+    finally { setLoading(false); }
+  }
+  useEffect(() => { reload(); const t = setInterval(reload, 15000); return () => clearInterval(t); }, []);
+
+  async function markRead(id: string) {
+    try { await markLiveEventRead(id); reload(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Errore"); }
+  }
+
   return (
     <div className="p-4 lg:p-6">
       <PageHeader
@@ -22,44 +40,33 @@ function LivePage() {
           </span>
         }
       />
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <Card className="border-border/70 bg-card/60 p-4 glass">
-          <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-            <Activity className="h-4 w-4 text-accent" /> Eventi recenti
-          </div>
+      <Card className="border-border/70 bg-card/60 p-4 glass">
+        <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+          <Activity className="h-4 w-4 text-accent" /> Eventi recenti
+        </div>
+        {loading ? (
+          <p className="p-4 text-center text-sm text-muted-foreground">Caricamento…</p>
+        ) : items.length === 0 ? (
+          <p className="p-6 text-center text-sm text-muted-foreground">Nessun evento. Crea cervelli, nodi o agenti per popolare lo stream.</p>
+        ) : (
           <ul className="space-y-2">
-            {logs.slice(0, 12).map((l) => (
-              <li key={l.id} className="flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm">
+            {items.map((e) => (
+              <li key={e.id} className={`flex items-start gap-3 rounded-lg border border-border/60 bg-background/40 p-3 text-sm ${e.is_read ? "opacity-60" : ""}`}>
                 <div className="h-2 w-2 translate-y-1.5 rounded-full bg-gradient-primary" />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate">{l.message}</div>
+                  <div className="truncate">{e.title}</div>
                   <div className="text-[11px] text-muted-foreground">
-                    {new Date(l.at).toLocaleString("it-IT")}
+                    {new Date(e.created_at).toLocaleString("it-IT")} · {e.event_type}
                   </div>
                 </div>
+                {!e.is_read && (
+                  <Button size="sm" variant="ghost" onClick={() => markRead(e.id)}>Segna letto</Button>
+                )}
               </li>
             ))}
           </ul>
-        </Card>
-
-        <Card className="border-border/70 bg-card/60 p-4 glass">
-          <div className="mb-3 text-sm font-medium">Agenti attivi</div>
-          <ul className="space-y-2">
-            {agents.filter((a) => a.status === "attivo").map((a) => {
-              const brain = brainById(a.brainId);
-              return (
-                <li key={a.id} className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/40 p-3 text-sm">
-                  <span className="h-2 w-2 animate-pulse-glow rounded-full" style={{ background: brain?.color, color: brain?.color }} />
-                  <div className="min-w-0">
-                    <div className="truncate text-sm">{a.name}</div>
-                    <div className="text-[11px] text-muted-foreground">{a.role}</div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </Card>
-      </div>
+        )}
+      </Card>
     </div>
   );
 }
