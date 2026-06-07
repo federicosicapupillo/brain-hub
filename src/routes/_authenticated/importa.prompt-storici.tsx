@@ -105,6 +105,7 @@ function ImportPromptStoriciPage() {
   function storeFiles(fl: FileList | File[] | null) {
     if (!fl || fl.length === 0) return;
     setSelectedFiles(Array.from(fl));
+    setItems([]);
     setLastImport(null);
   }
 
@@ -238,6 +239,10 @@ function ImportPromptStoriciPage() {
         subtitle="Carica i prompt ChatGPT usati per costruire Pupillo con Lovable. I file restano come storico operativo del progetto."
       />
 
+      <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-medium text-primary">
+        SEI NELL&apos;IMPORTATORE PROMPT STORICI
+      </div>
+
       <Card>
         <CardContent className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -259,13 +264,56 @@ function ImportPromptStoriciPage() {
             </div>
             <div className="space-y-2">
               <Label>File (.md, .txt o .zip)</Label>
-              <Input
-                type="file"
-                multiple
-                accept=".md,.markdown,.txt,.zip"
-                onChange={(e) => handleFiles(e.target.files)}
-                disabled={parsing || importing}
-              />
+              <div
+                className="rounded-md border border-dashed border-border bg-background p-4"
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  storeFiles(event.dataTransfer.files);
+                }}
+              >
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".md,.markdown,.txt,.zip"
+                  onChange={(e) => storeFiles(e.target.files)}
+                  disabled={parsing || importing}
+                  className="hidden"
+                />
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-primary" />
+                    <span>Trascina qui file .md, .txt o .zip.</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={parsing || importing}
+                    >
+                      Seleziona file
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={analyzeSelectedFiles}
+                      disabled={selectedFiles.length === 0 || parsing || importing}
+                    >
+                      {parsing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                      Analizza file
+                    </Button>
+                    <span className="text-xs">
+                      {selectedFiles.length > 0
+                        ? `${selectedFiles.length} file selezionati`
+                        : "Nessun file selezionato"}
+                    </span>
+                  </div>
+                </div>
+              </div>
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Checkbox checked={splitByBlocks} onCheckedChange={(v) => setSplitByBlocks(!!v)} />
                 Dividi i file in più prompt sui titoli markdown (# H1)
