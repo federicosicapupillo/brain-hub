@@ -602,3 +602,81 @@ function EditDialog({
     </Dialog>
   );
 }
+
+function ViewDialog({
+  item, brainName, onClose, onEdit, onArchive,
+}: {
+  item: Item | null;
+  brainName: string;
+  onClose: () => void;
+  onEdit: (it: Item) => void;
+  onArchive: (it: Item) => void;
+}) {
+  if (!item) return null;
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="break-words">{item.title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <div className="flex flex-wrap gap-1.5">
+            <Badge>{brainName}</Badge>
+            <Badge variant="secondary">{item.type_label}</Badge>
+            {item.status && <Badge variant="outline">{item.status}</Badge>}
+            {item.tool && <Badge variant="outline">{item.tool}</Badge>}
+            {(item.tags ?? []).map((t) => (
+              <Badge key={t} variant="outline" className="opacity-70">{t}</Badge>
+            ))}
+          </div>
+          {item.url && (
+            <div>
+              <Label className="text-xs">URL</Label>
+              <a href={item.url} target="_blank" rel="noreferrer"
+                 className="block text-primary underline break-all">{item.url}</a>
+            </div>
+          )}
+          <div>
+            <Label className="text-xs">Contenuto</Label>
+            <div className="mt-1 rounded-md border bg-muted/30 p-3 whitespace-pre-wrap break-words text-xs leading-relaxed">
+              {item.content?.trim() || <span className="text-muted-foreground">— Nessun contenuto —</span>}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+            <div>
+              <div className="font-medium text-foreground">Creato</div>
+              {new Date(item.created_at).toLocaleString()}
+            </div>
+            {item.updated_at && (
+              <div>
+                <div className="font-medium text-foreground">Aggiornato</div>
+                {new Date(item.updated_at).toLocaleString()}
+              </div>
+            )}
+          </div>
+        </div>
+        <DialogFooter className="flex flex-wrap gap-2">
+          {item.brain_id && (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/progetti/$brainId" params={{ brainId: item.brain_id }}>
+                <FolderOpen className="h-4 w-4 mr-1" /> Apri progetto
+              </Link>
+            </Button>
+          )}
+          {item.source !== "brain" && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
+                <Pencil className="h-4 w-4 mr-1" /> Modifica
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onArchive(item)}>
+                <Archive className="h-4 w-4 mr-1" /> Archivia
+              </Button>
+            </>
+          )}
+          <Button size="sm" onClick={onClose}>Chiudi</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
