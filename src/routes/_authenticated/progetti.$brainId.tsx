@@ -124,11 +124,12 @@ function ProjectDetailPage() {
                   </Section>
                 </>
               )}
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 <Stat label="File collegati" value={sources.length} />
                 <Stat label="Task aperti" value={openTasks.length} />
                 <Stat label="Roadmap" value={roadmap.length} />
                 <Stat label="Prompt" value={promptNodes.length} />
+                <Stat label="Collegamenti" value={linksCount} />
               </div>
             </CardContent>
           </Card>
