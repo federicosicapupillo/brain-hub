@@ -695,16 +695,22 @@ function ViewDialog({
   };
 
   const linkToOther = async () => {
-    if (!item.brain_id || !targetBrain) { toast.error("Seleziona un progetto."); return; }
+    if (!targetBrain) { toast.error("Seleziona un progetto."); return; }
+    if (item.source === "brain") { toast.error("Seleziona un contenuto, non un progetto."); return; }
     setBusy("link");
     try {
       const uid = await getUid(); if (!uid) throw new Error("Non autenticato");
-      const { error } = await supabase.from("project_links").insert({
-        user_id: uid, brain_id: item.brain_id,
-        target_brain_id: targetBrain,
-        link_type: "project", relation_type: "collegato a",
-        title: item.title, notes: content.slice(0, 1000),
-      });
+      const [, rawId] = item.id.split(":");
+      const contentType = item.source; // node | task | roadmap | source | link
+      const { error } = await supabase.from("content_project_links").upsert({
+        user_id: uid,
+        content_id: rawId,
+        content_type: contentType,
+        source_project_id: item.brain_id,
+        target_project_id: targetBrain,
+        relationship_type: "collegato a",
+        notes: content.slice(0, 1000),
+      }, { onConflict: "user_id,content_id,content_type,target_project_id" });
       if (error) throw error;
       toast.success("Contenuto collegato al progetto selezionato.");
       setCreated({ label: "Apri progetto", brainId: targetBrain });
@@ -712,6 +718,7 @@ function ViewDialog({
     } catch (e) { toast.error((e as Error).message); }
     finally { setBusy(null); }
   };
+
 
   const duplicateTo = async () => {
     if (!targetBrain) { toast.error("Seleziona un progetto."); return; }
