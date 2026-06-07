@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, ExternalLink, FileText, Link2, ListChecks, Map as MapIcon, Sparkles, Wrench, Trash2, FolderKanban, LinkIcon } from "lucide-react";
-import { findMeta, priorityColor, priorityLabel, PROJECT_META } from "@/lib/projects-meta";
+import { findMeta, priorityColor, priorityLabel } from "@/lib/projects-meta";
 import { AddProjectLinkDialog } from "@/components/AddProjectLinkDialog";
 import { EditProjectLinkDialog } from "@/components/EditProjectLinkDialog";
 import { deleteProjectLink, listProjectLinksBidirectional, type DirectedProjectLink, type LinkType, type ProjectLink } from "@/lib/project-links-api";
