@@ -298,7 +298,9 @@ function ImportaPage() {
               <Select value={tool} onValueChange={setTool}>
                 <SelectTrigger><SelectValue placeholder="Nessuno" /></SelectTrigger>
                 <SelectContent>
-                  {TOOLS.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  {Array.from(new Set([...(tool ? [tool] : []), ...TOOLS])).map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
