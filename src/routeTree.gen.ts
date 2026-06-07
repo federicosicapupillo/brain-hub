@@ -21,6 +21,7 @@ import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authent
 import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticated/importa'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
+import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 
@@ -84,6 +85,11 @@ const AuthenticatedConnettoriRoute = AuthenticatedConnettoriRouteImport.update({
   path: '/connettori',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedArchivioRoute = AuthenticatedArchivioRouteImport.update({
+  id: '/archivio',
+  path: '/archivio',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
@@ -100,6 +106,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/agents': typeof AuthenticatedAgentsRoute
+  '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/importa': typeof AuthenticatedImportaRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/agents': typeof AuthenticatedAgentsRoute
+  '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/importa': typeof AuthenticatedImportaRoute
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
+  '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
   '/_authenticated/importa': typeof AuthenticatedImportaRoute
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/agents'
+    | '/archivio'
     | '/connettori'
     | '/fonti'
     | '/importa'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
   to:
     | '/auth'
     | '/agents'
+    | '/archivio'
     | '/connettori'
     | '/fonti'
     | '/importa'
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/agents'
+    | '/_authenticated/archivio'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
     | '/_authenticated/importa'
@@ -283,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConnettoriRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/archivio': {
+      id: '/_authenticated/archivio'
+      path: '/archivio'
+      fullPath: '/archivio'
+      preLoaderRoute: typeof AuthenticatedArchivioRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/agents': {
       id: '/_authenticated/agents'
       path: '/agents'
@@ -315,6 +334,7 @@ const AuthenticatedProgettiRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
+  AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
   AuthenticatedImportaRoute: typeof AuthenticatedImportaRoute
@@ -329,6 +349,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
+  AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
   AuthenticatedImportaRoute: AuthenticatedImportaRoute,
@@ -351,3 +372,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
