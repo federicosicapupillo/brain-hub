@@ -528,11 +528,20 @@ function ArchivioPage() {
         item={viewItem}
         brains={brains}
         brainName={viewItem ? brainMap.get(viewItem.brain_id ?? "") ?? "—" : ""}
+        secondaryProjects={(() => {
+          if (!viewItem) return [];
+          const [s, i] = viewItem.id.split(":");
+          if (s === "brain") return [];
+          return (linksByContent.get(`${s}:${i}`) ?? []).map((bid) => ({
+            id: bid, name: brainMap.get(bid) ?? "—",
+          }));
+        })()}
         onClose={() => setViewItem(null)}
         onEdit={(it) => { setViewItem(null); setEditItem(it); }}
         onArchive={async (it) => { await archive(it); setViewItem(null); }}
         onChanged={invalidate}
       />
+
 
 
       <EditDialog
