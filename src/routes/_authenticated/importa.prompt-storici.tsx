@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Upload, FileText, AlertTriangle, CheckCircle2, ExternalLink, Trash2 } from "lucide-react";
 import JSZip from "jszip";
@@ -59,7 +59,7 @@ function splitBlocks(content: string): string[] {
   return parts.map((p) => p.trim()).filter((p) => p.length > 0);
 }
 
-async function readFiles(fileList: FileList): Promise<{ name: string; text: string }[]> {
+async function readFiles(fileList: FileList | File[]): Promise<{ name: string; text: string }[]> {
   const out: { name: string; text: string }[] = [];
   for (const file of Array.from(fileList)) {
     const lower = file.name.toLowerCase();
@@ -81,6 +81,7 @@ async function readFiles(fileList: FileList): Promise<{ name: string; text: stri
 }
 
 function ImportPromptStoriciPage() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const qc = useQueryClient();
   const { data: brainsData } = useQuery({ queryKey: ["brains-all"], queryFn: fetchAll });
   const brains = brainsData?.brains ?? [];
@@ -96,16 +97,23 @@ function ImportPromptStoriciPage() {
   const [splitByBlocks, setSplitByBlocks] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [items, setItems] = useState<Parsed[]>([]);
 
   const selectedBrain = brains.find((b) => b.id === effectiveBrainId);
 
-  async function handleFiles(fl: FileList | null) {
+  function storeFiles(fl: FileList | File[] | null) {
     if (!fl || fl.length === 0) return;
+    setSelectedFiles(Array.from(fl));
+    setLastImport(null);
+  }
+
+  async function analyzeSelectedFiles() {
+    if (selectedFiles.length === 0) { toast.error("Seleziona almeno un file"); return; }
     if (!effectiveBrainId) { toast.error("Seleziona un progetto."); return; }
     setParsing(true);
     try {
-      const files = await readFiles(fl);
+      const files = await readFiles(selectedFiles);
       if (files.length === 0) { toast.warning("Nessun file .md/.txt trovato."); return; }
 
       // Fetch existing prompts in brain to dedup
