@@ -556,7 +556,7 @@ const PROMPT_FILTERS: { id: string; label: string; match: (n: PromptNode) => boo
   { id: "revisionare", label: "Da revisionare", match: (n) => (n.tags ?? []).some((t) => /revision/i.test(t)) },
 ];
 
-function PromptsTab({ nodes, brainId }: { nodes: PromptNode[]; brainId: string }) {
+function PromptsTab({ nodes, brainId, brainName }: { nodes: PromptNode[]; brainId: string; brainName: string }) {
   const [filter, setFilter] = useState<string>("all");
   const [onlyStorici, setOnlyStorici] = useState(false);
 
