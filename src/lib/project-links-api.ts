@@ -1,0 +1,118 @@
+import { supabase } from "@/integrations/supabase/client";
+import { logAction, pushLiveEvent } from "@/lib/workspace-api";
+
+export type LinkType = "project" | "file" | "prompt" | "roadmap" | "task" | "tool" | "external";
+
+export type ProjectLink = {
+  id: string;
+  user_id: string;
+  brain_id: string;
+  link_type: LinkType;
+  relation_type: string | null;
+  title: string;
+  url: string | null;
+  description: string | null;
+  category: string | null;
+  tool: string | null;
+  status: string | null;
+  notes: string | null;
+  target_brain_id: string | null;
+  target_table: string | null;
+  target_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateProjectLinkInput = {
+  brain_id: string;
+  link_type: LinkType;
+  title: string;
+  relation_type?: string;
+  url?: string;
+  description?: string;
+  category?: string;
+  tool?: string;
+  status?: string;
+  notes?: string;
+  target_brain_id?: string;
+  target_table?: string;
+  target_id?: string;
+};
+
+export async function listProjectLinks(brainId: string): Promise<ProjectLink[]> {
+  const { data, error } = await supabase
+    .from("project_links")
+    .select("*")
+    .eq("brain_id", brainId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ProjectLink[];
+}
+
+export async function createProjectLink(input: CreateProjectLinkInput): Promise<ProjectLink> {
+  const { data: userData, error: ue } = await supabase.auth.getUser();
+  if (ue || !userData.user) throw ue ?? new Error("Non autenticato");
+
+  // Dedupe: same brain + link_type + (target_id or url or title)
+  const dedupeKey = input.target_id ?? input.url ?? input.title;
+  if (dedupeKey) {
+    const { data: existing } = await supabase
+      .from("project_links")
+      .select("*")
+      .eq("brain_id", input.brain_id)
+      .eq("link_type", input.link_type)
+      .eq("user_id", userData.user.id);
+    const dup = (existing ?? []).find(
+      (e) => (e.target_id ?? e.url ?? e.title) === dedupeKey,
+    );
+    if (dup) return dup as ProjectLink;
+  }
+
+  const { data, error } = await supabase
+    .from("project_links")
+    .insert({
+      user_id: userData.user.id,
+      brain_id: input.brain_id,
+      link_type: input.link_type,
+      title: input.title,
+      relation_type: input.relation_type ?? null,
+      url: input.url ?? null,
+      description: input.description ?? null,
+      category: input.category ?? null,
+      tool: input.tool ?? null,
+      status: input.status ?? null,
+      notes: input.notes ?? null,
+      target_brain_id: input.target_brain_id ?? null,
+      target_table: input.target_table ?? null,
+      target_id: input.target_id ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+
+  await logAction({
+    action: "project_link_created",
+    message: `Collegamento ${input.link_type}: ${input.title}`,
+    entity_type: "project_link",
+    entity_id: data.id,
+    brain_id: input.brain_id,
+  });
+  await pushLiveEvent({
+    event_type: "link",
+    title: `Collegamento (${input.link_type}): ${input.title}`,
+    brain_id: input.brain_id,
+  });
+  return data as ProjectLink;
+}
+
+export async function deleteProjectLink(id: string, brainId: string): Promise<void> {
+  const { error } = await supabase.from("project_links").delete().eq("id", id);
+  if (error) throw error;
+  await logAction({
+    action: "project_link_deleted",
+    message: `Collegamento rimosso`,
+    entity_type: "project_link",
+    entity_id: id,
+    brain_id: brainId,
+  });
+}
