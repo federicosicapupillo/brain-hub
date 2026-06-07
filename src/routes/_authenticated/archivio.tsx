@@ -273,6 +273,8 @@ function ArchivioPage() {
     qc.invalidateQueries({ queryKey: ["brains-all"] });
     qc.invalidateQueries({ queryKey: ["tasks"] });
     qc.invalidateQueries({ queryKey: ["roadmap"] });
+    qc.invalidateQueries({ queryKey: ["progetti-hub"] });
+    qc.invalidateQueries({ queryKey: ["progetto"] });
     qc.invalidateQueries({ queryKey: ["project-links-counts"] });
     qc.invalidateQueries({ queryKey: ["project-links-bi"] });
     qc.invalidateQueries({ queryKey: ["knowledge-sources"] });
@@ -735,13 +737,20 @@ function ViewDialog({
   };
 
   const toExternalLink = async () => {
-    if (!item.url || !item.brain_id) { toast.error("Nessun URL disponibile."); return; }
+    if (!item.brain_id) { toast.error("Nessun progetto associato."); return; }
+    const raw = (item.url ?? "").trim();
+    let valid: string | null = null;
+    try {
+      const u = new URL(raw);
+      if (u.protocol === "http:" || u.protocol === "https:") valid = u.toString();
+    } catch { /* invalid */ }
+    if (!valid) { toast.error("URL non valido. Serve un link http(s)."); return; }
     setBusy("ext");
     try {
       const uid = await getUid(); if (!uid) throw new Error("Non autenticato");
       const { error } = await supabase.from("project_links").insert({
         user_id: uid, brain_id: item.brain_id,
-        link_type: "external", title: item.title, url: item.url,
+        link_type: "external", title: item.title, url: valid,
         notes: content.slice(0, 1000), tool: item.tool,
       });
       if (error) throw error;
