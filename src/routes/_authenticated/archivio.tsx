@@ -193,9 +193,47 @@ function ArchivioPage() {
   const [fTool, setFTool] = useState("all");
   const [fStatus, setFStatus] = useState("all");
   const [sort, setSort] = useState("recent");
+  const [onlyDup, setOnlyDup] = useState(false);
 
+  const [viewItem, setViewItem] = useState<Item | null>(null);
   const [editItem, setEditItem] = useState<Item | null>(null);
   const [delItem, setDelItem] = useState<Item | null>(null);
+
+  // Duplicate detection: same brain + same type + same normalized title,
+  // OR same brain + same type + very similar preview prefix.
+  const dupIds = useMemo(() => {
+    const norm = (s: string) =>
+      s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+    const buckets = new Map<string, Item[]>();
+    for (const it of items) {
+      if (it.source === "brain") continue;
+      const key = `${it.brain_id ?? "-"}|${it.type_key}|${norm(it.title)}`;
+      const arr = buckets.get(key) ?? [];
+      arr.push(it);
+      buckets.set(key, arr);
+    }
+    const dup = new Set<string>();
+    for (const arr of buckets.values()) {
+      if (arr.length > 1) arr.forEach((x) => dup.add(x.id));
+    }
+    // similar content prefix within same brain+type
+    const byBT = new Map<string, Item[]>();
+    for (const it of items) {
+      if (it.source === "brain") continue;
+      const k = `${it.brain_id ?? "-"}|${it.type_key}`;
+      const a = byBT.get(k) ?? []; a.push(it); byBT.set(k, a);
+    }
+    for (const arr of byBT.values()) {
+      for (let i = 0; i < arr.length; i++) {
+        for (let j = i + 1; j < arr.length; j++) {
+          const a = norm(arr[i].preview).slice(0, 80);
+          const b = norm(arr[j].preview).slice(0, 80);
+          if (a && a === b) { dup.add(arr[i].id); dup.add(arr[j].id); }
+        }
+      }
+    }
+    return dup;
+  }, [items]);
 
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase();
@@ -204,6 +242,7 @@ function ArchivioPage() {
       if (fType !== "all" && it.type_key !== fType) return false;
       if (fTool !== "all" && it.tool !== fTool) return false;
       if (fStatus !== "all" && it.status !== fStatus) return false;
+      if (onlyDup && !dupIds.has(it.id)) return false;
       if (ql) {
         const brainName = brainMap.get(it.brain_id ?? "") ?? "";
         const hay = [
@@ -224,7 +263,8 @@ function ArchivioPage() {
       }
     });
     return list;
-  }, [items, q, fBrain, fType, fTool, fStatus, sort, brainMap]);
+  }, [items, q, fBrain, fType, fTool, fStatus, sort, brainMap, onlyDup, dupIds]);
+
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["archivio-items"] });
