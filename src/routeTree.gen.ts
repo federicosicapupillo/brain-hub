@@ -23,6 +23,7 @@ import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
+import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 import { Route as AuthenticatedImportaPromptStoriciRouteImport } from './routes/_authenticated/importa.prompt-storici'
 
@@ -96,6 +97,12 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedImportaIndexRoute =
+  AuthenticatedImportaIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedImportaRoute,
+  } as any)
 const AuthenticatedProgettiBrainIdRoute =
   AuthenticatedProgettiBrainIdRouteImport.update({
     id: '/$brainId',
@@ -125,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
+  '/importa/': typeof AuthenticatedImportaIndexRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -132,7 +140,6 @@ export interface FileRoutesByTo {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
-  '/importa': typeof AuthenticatedImportaRouteWithChildren
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -142,6 +149,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
+  '/importa': typeof AuthenticatedImportaIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -161,6 +169,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
+  '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
+    | '/importa/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -187,7 +197,6 @@ export interface FileRouteTypes {
     | '/archivio'
     | '/connettori'
     | '/fonti'
-    | '/importa'
     | '/impostazioni'
     | '/live'
     | '/logs'
@@ -197,6 +206,7 @@ export interface FileRouteTypes {
     | '/'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
+    | '/importa'
   id:
     | '__root__'
     | '/_authenticated'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/importa/prompt-storici'
     | '/_authenticated/progetti/$brainId'
+    | '/_authenticated/importa/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -322,6 +333,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/importa/': {
+      id: '/_authenticated/importa/'
+      path: '/'
+      fullPath: '/importa/'
+      preLoaderRoute: typeof AuthenticatedImportaIndexRouteImport
+      parentRoute: typeof AuthenticatedImportaRoute
+    }
     '/_authenticated/progetti/$brainId': {
       id: '/_authenticated/progetti/$brainId'
       path: '/$brainId'
@@ -341,11 +359,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedImportaRouteChildren {
   AuthenticatedImportaPromptStoriciRoute: typeof AuthenticatedImportaPromptStoriciRoute
+  AuthenticatedImportaIndexRoute: typeof AuthenticatedImportaIndexRoute
 }
 
 const AuthenticatedImportaRouteChildren: AuthenticatedImportaRouteChildren = {
   AuthenticatedImportaPromptStoriciRoute:
     AuthenticatedImportaPromptStoriciRoute,
+  AuthenticatedImportaIndexRoute: AuthenticatedImportaIndexRoute,
 }
 
 const AuthenticatedImportaRouteWithChildren =

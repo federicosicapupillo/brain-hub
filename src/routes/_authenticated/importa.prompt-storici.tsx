@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Upload, FileText, AlertTriangle, CheckCircle2, ExternalLink, Trash2 } from "lucide-react";
 import JSZip from "jszip";
@@ -59,7 +59,7 @@ function splitBlocks(content: string): string[] {
   return parts.map((p) => p.trim()).filter((p) => p.length > 0);
 }
 
-async function readFiles(fileList: FileList): Promise<{ name: string; text: string }[]> {
+async function readFiles(fileList: FileList | File[]): Promise<{ name: string; text: string }[]> {
   const out: { name: string; text: string }[] = [];
   for (const file of Array.from(fileList)) {
     const lower = file.name.toLowerCase();
@@ -81,6 +81,7 @@ async function readFiles(fileList: FileList): Promise<{ name: string; text: stri
 }
 
 function ImportPromptStoriciPage() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const qc = useQueryClient();
   const { data: brainsData } = useQuery({ queryKey: ["brains-all"], queryFn: fetchAll });
   const brains = brainsData?.brains ?? [];
@@ -96,16 +97,24 @@ function ImportPromptStoriciPage() {
   const [splitByBlocks, setSplitByBlocks] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [items, setItems] = useState<Parsed[]>([]);
 
   const selectedBrain = brains.find((b) => b.id === effectiveBrainId);
 
-  async function handleFiles(fl: FileList | null) {
+  function storeFiles(fl: FileList | File[] | null) {
     if (!fl || fl.length === 0) return;
+    setSelectedFiles(Array.from(fl));
+    setItems([]);
+    setLastImport(null);
+  }
+
+  async function analyzeSelectedFiles() {
+    if (selectedFiles.length === 0) { toast.error("Seleziona almeno un file"); return; }
     if (!effectiveBrainId) { toast.error("Seleziona un progetto."); return; }
     setParsing(true);
     try {
-      const files = await readFiles(fl);
+      const files = await readFiles(selectedFiles);
       if (files.length === 0) { toast.warning("Nessun file .md/.txt trovato."); return; }
 
       // Fetch existing prompts in brain to dedup
@@ -230,6 +239,10 @@ function ImportPromptStoriciPage() {
         subtitle="Carica i prompt ChatGPT usati per costruire Pupillo con Lovable. I file restano come storico operativo del progetto."
       />
 
+      <div className="rounded-md border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-medium text-primary">
+        SEI NELL&apos;IMPORTATORE PROMPT STORICI
+      </div>
+
       <Card>
         <CardContent className="p-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -251,13 +264,56 @@ function ImportPromptStoriciPage() {
             </div>
             <div className="space-y-2">
               <Label>File (.md, .txt o .zip)</Label>
-              <Input
-                type="file"
-                multiple
-                accept=".md,.markdown,.txt,.zip"
-                onChange={(e) => handleFiles(e.target.files)}
-                disabled={parsing || importing}
-              />
+              <div
+                className="rounded-md border border-dashed border-border bg-background p-4"
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "copy";
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  storeFiles(event.dataTransfer.files);
+                }}
+              >
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".md,.markdown,.txt,.zip"
+                  onChange={(e) => storeFiles(e.target.files)}
+                  disabled={parsing || importing}
+                  className="hidden"
+                />
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-primary" />
+                    <span>Trascina qui file .md, .txt o .zip.</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={parsing || importing}
+                    >
+                      Seleziona file
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={analyzeSelectedFiles}
+                      disabled={selectedFiles.length === 0 || parsing || importing}
+                    >
+                      {parsing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                      Analizza file
+                    </Button>
+                    <span className="text-xs">
+                      {selectedFiles.length > 0
+                        ? `${selectedFiles.length} file selezionati`
+                        : "Nessun file selezionato"}
+                    </span>
+                  </div>
+                </div>
+              </div>
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Checkbox checked={splitByBlocks} onCheckedChange={(v) => setSplitByBlocks(!!v)} />
                 Dividi i file in più prompt sui titoli markdown (# H1)
