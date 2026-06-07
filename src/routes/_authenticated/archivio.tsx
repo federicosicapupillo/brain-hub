@@ -273,6 +273,8 @@ function ArchivioPage() {
     qc.invalidateQueries({ queryKey: ["brains-all"] });
     qc.invalidateQueries({ queryKey: ["tasks"] });
     qc.invalidateQueries({ queryKey: ["roadmap"] });
+    qc.invalidateQueries({ queryKey: ["progetti-hub"] });
+    qc.invalidateQueries({ queryKey: ["progetto"] });
     qc.invalidateQueries({ queryKey: ["project-links-counts"] });
     qc.invalidateQueries({ queryKey: ["project-links-bi"] });
     qc.invalidateQueries({ queryKey: ["knowledge-sources"] });
