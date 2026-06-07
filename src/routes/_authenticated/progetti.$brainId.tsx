@@ -360,38 +360,33 @@ const LINK_LABEL: Record<LinkType, string> = {
   roadmap: "Roadmap", task: "Task", tool: "Strumento AI", external: "Link esterno",
 };
 
-function RecentLinksSection({ brainId }: { brainId: string }) {
-  const qc = useQueryClient();
-  const { data: links = [], isLoading } = useQuery({
-    queryKey: ["project-links", brainId],
-    queryFn: () => listProjectLinks(brainId),
-  });
+/**
+ * Build bidirectional + virtual links for a brain. Exported as a hook so the
+ * detail page and the section share the same query/cache.
+ */
+function useBrainLinks(brainId: string) {
   const { data: progetto } = useQuery({
     queryKey: ["progetto", brainId],
     queryFn: () => loadProject(brainId),
   });
+  const brainsAll = progetto?.brainsAll ?? [];
+  const nameById = new Map(brainsAll.map((b) => [b.id, b.name ?? ""]));
+  const { data: links = [], isLoading } = useQuery({
+    queryKey: ["project-links-bi", brainId, brainsAll.length],
+    queryFn: () => listProjectLinksBidirectional(brainId, nameById),
+    enabled: !!progetto,
+  });
 
-  const onDelete = async (id: string) => {
-    try {
-      await deleteProjectLink(id, brainId);
-      toast.success("Collegamento rimosso");
-      await qc.invalidateQueries({ queryKey: ["project-links", brainId] });
-      await qc.invalidateQueries({ queryKey: ["progetto", brainId] });
-    } catch (e) { toast.error((e as Error).message); }
-  };
-
-  // Virtual project-to-project links derived from project meta connections.
-  // Only included when not already present in project_links (dedupe by target_brain_id).
-  const virtualLinks: ProjectLink[] = (() => {
+  const virtualLinks: DirectedProjectLink[] = (() => {
     if (!progetto?.brain) return [];
     const meta = findMeta(progetto.brain.name);
     if (!meta) return [];
     const existing = new Set(
       links.filter((l) => l.link_type === "project").map((l) => l.target_brain_id),
     );
-    const out: ProjectLink[] = [];
+    const out: DirectedProjectLink[] = [];
     for (const name of meta.connections) {
-      const target = progetto.brainsAll.find((x) => x.name?.toLowerCase() === name.toLowerCase());
+      const target = brainsAll.find((x) => x.name?.toLowerCase() === name.toLowerCase());
       if (!target || existing.has(target.id)) continue;
       out.push({
         id: `virtual:${target.id}`,
@@ -411,12 +406,28 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
         target_id: target.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        direction: "out",
       });
     }
     return out;
   })();
 
-  const allLinks = [...links, ...virtualLinks];
+  return { links, virtualLinks, allLinks: [...links, ...virtualLinks], isLoading };
+}
+
+function RecentLinksSection({ brainId }: { brainId: string }) {
+  const qc = useQueryClient();
+  const { allLinks, isLoading } = useBrainLinks(brainId);
+
+  const onDelete = async (id: string) => {
+    try {
+      await deleteProjectLink(id, brainId);
+      toast.success("Collegamento rimosso");
+      await qc.invalidateQueries({ queryKey: ["project-links-bi", brainId] });
+      await qc.invalidateQueries({ queryKey: ["progetto", brainId] });
+      await qc.invalidateQueries({ queryKey: ["progetti-hub"] });
+    } catch (e) { toast.error((e as Error).message); }
+  };
 
   if (isLoading) return null;
   if (allLinks.length === 0) {
@@ -442,9 +453,10 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {recent.map((l) => (
             <LinkRow
-              key={l.id}
+              key={`${l.direction}:${l.id}`}
               link={l}
-              onDelete={l.id.startsWith("virtual:") ? undefined : () => onDelete(l.id)}
+              currentBrainId={brainId}
+              onDelete={l.id.startsWith("virtual:") || l.direction === "in" ? undefined : () => onDelete(l.id)}
             />
           ))}
         </div>
@@ -453,12 +465,20 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
   );
 }
 
-function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void }) {
+function LinkRow({
+  link, currentBrainId, onDelete,
+}: { link: DirectedProjectLink; currentBrainId: string; onDelete?: () => void }) {
   const Icon = LINK_ICON[link.link_type];
   const isVirtual = link.id.startsWith("virtual:");
   const date = isVirtual ? null : new Date(link.created_at).toLocaleDateString();
   const openHref = link.url ?? (link.target_brain_id ? `/progetti/${link.target_brain_id}` : null);
-  const relation = link.relation_type ?? "collegato a";
+  const baseRelation = link.relation_type ?? "collegato a";
+  const relation = link.direction === "in" ? `collegato da · ${baseRelation}` : baseRelation;
+  // Editing inbound links would mutate the OTHER project's row from this view —
+  // allowed, but we set the "current" context to the link's real brain_id so the
+  // upsert/update writes back to the original source row.
+  const canEdit = !isVirtual || !!link.target_brain_id;
+  void currentBrainId;
   return (
     <div className="flex items-start gap-2 rounded-md border border-border/60 bg-card/40 p-2 text-sm">
       <Icon className="mt-0.5 h-4 w-4 text-primary" />
@@ -466,6 +486,9 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void 
         <div className="flex items-center gap-2">
           <div className="truncate font-medium">{link.title}</div>
           <Badge variant="outline" className="text-[10px]">{LINK_LABEL[link.link_type]}</Badge>
+          {link.direction === "in" && (
+            <Badge variant="secondary" className="text-[10px]">inbound</Badge>
+          )}
         </div>
         <div className="text-[11px] text-muted-foreground">
           {relation}{date ? ` · ${date}` : ""}
@@ -485,7 +508,7 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void 
           </Button>
         )
       )}
-      <EditProjectLinkDialog link={link} />
+      {canEdit && <EditProjectLinkDialog link={link} />}
       {onDelete && (
         <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete}>
           <Trash2 className="h-3.5 w-3.5" />
@@ -494,4 +517,5 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void 
     </div>
   );
 }
+
 
