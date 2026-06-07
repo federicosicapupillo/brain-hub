@@ -68,6 +68,10 @@ async function loadProjects(): Promise<ProjectAggregate[]> {
 function ProgettiDashboard() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["progetti-hub"], queryFn: loadProjects });
+  const { data: linkCounts = {} } = useQuery({
+    queryKey: ["project-links-counts"],
+    queryFn: countLinksPerBrain,
+  });
   const [seeding, setSeeding] = useState(false);
 
   const projects = data ?? [];
