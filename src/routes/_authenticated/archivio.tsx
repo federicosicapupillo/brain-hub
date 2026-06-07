@@ -30,6 +30,9 @@ import { fetchAll, createNode } from "@/lib/brains-api";
 import type { Brain } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/_authenticated/archivio")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    tool: typeof s.tool === "string" ? s.tool : undefined,
+  }),
   component: ArchivioPage,
   errorComponent: ({ error }) => (
     <div className="p-6" role="alert">Errore: {error.message}</div>
