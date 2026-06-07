@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Archive, ExternalLink, Pencil, Trash2, FolderOpen, Inbox,
+  Archive, ExternalLink, Pencil, Trash2, FolderOpen, Inbox, Eye, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -48,8 +48,10 @@ type Item = {
   tool: string | null;
   tags: string[];
   preview: string;
+  content: string; // full content for view modal
   url: string | null;
   created_at: string;
+  updated_at: string | null;
 };
 
 const TYPE_OPTIONS = [
@@ -86,18 +88,20 @@ async function loadAll(): Promise<Item[]> {
   const items: Item[] = [];
 
   for (const b of brains.data ?? []) {
+    const desc = b.description ?? "";
     items.push({
       id: `brain:${b.id}`, source: "brain", brain_id: b.id,
       title: `Scheda madre ${b.name}`, type_label: "Scheda madre", type_key: "scheda",
       status: null, tool: null, tags: [],
-      preview: b.description ?? "",
-      url: null, created_at: b.created_at,
+      preview: desc, content: desc,
+      url: null, created_at: b.created_at, updated_at: b.updated_at,
     });
   }
 
   for (const n of nodes.data ?? []) {
     const t = (n.type ?? "nota").toLowerCase();
     const isPrompt = t === "prompt";
+    const body = n.summary ?? "";
     items.push({
       id: `node:${n.id}`, source: "node", brain_id: n.brain_id,
       title: n.label,
@@ -106,28 +110,30 @@ async function loadAll(): Promise<Item[]> {
       status: (n.tags ?? []).find((x: string) => STATUSES.includes(x)) ?? null,
       tool: (n.tags ?? []).find((x: string) => TOOLS.includes(x)) ?? null,
       tags: n.tags ?? [],
-      preview: n.summary ?? "",
-      url: null, created_at: n.created_at,
+      preview: body, content: body,
+      url: null, created_at: n.created_at, updated_at: n.updated_at,
     });
   }
 
   for (const t of tasks.data ?? []) {
+    const body = t.description ?? "";
     items.push({
       id: `task:${t.id}`, source: "task", brain_id: t.brain_id,
       title: t.title, type_label: "Task", type_key: "task",
       status: t.status, tool: null, tags: [],
-      preview: t.description ?? "",
-      url: null, created_at: t.created_at,
+      preview: body, content: body,
+      url: null, created_at: t.created_at, updated_at: t.updated_at,
     });
   }
 
   for (const r of roadmap.data ?? []) {
+    const body = r.description ?? "";
     items.push({
       id: `roadmap:${r.id}`, source: "roadmap", brain_id: r.brain_id,
       title: r.title, type_label: "Roadmap", type_key: "roadmap",
       status: r.status, tool: null, tags: [],
-      preview: r.description ?? "",
-      url: null, created_at: r.created_at,
+      preview: body, content: body,
+      url: null, created_at: r.created_at, updated_at: r.updated_at,
     });
   }
 
@@ -144,25 +150,28 @@ async function loadAll(): Promise<Item[]> {
     const typeLabel = TYPE_OPTIONS.find((o) => o.value === typeKey)?.label ?? "File / Documento";
     const desc = s.description ?? "";
     const tool = /Strumento:\s*([^·]+)/i.exec(desc)?.[1]?.trim() ?? null;
+    const body = s.extracted_text ?? s.description ?? "";
     items.push({
       id: `source:${s.id}`, source: "source", brain_id: s.brain_id,
       title: s.title, type_label: typeLabel, type_key: typeKey,
       status: s.status, tool, tags: s.tags ?? [],
-      preview: s.extracted_text ?? s.description ?? "",
-      url: s.url, created_at: s.created_at,
+      preview: body, content: body,
+      url: s.url, created_at: s.created_at, updated_at: s.updated_at,
     });
   }
 
   for (const l of links.data ?? []) {
     if (l.link_type !== "external") continue;
+    const body = l.notes ?? l.description ?? "";
     items.push({
       id: `link:${l.id}`, source: "link", brain_id: l.brain_id,
       title: l.title, type_label: "Link esterno", type_key: "external",
       status: l.status, tool: l.tool, tags: l.category ? l.category.split(",") : [],
-      preview: l.notes ?? l.description ?? "",
-      url: l.url, created_at: l.created_at,
+      preview: body, content: body,
+      url: l.url, created_at: l.created_at, updated_at: l.updated_at,
     });
   }
+
 
   return items;
 }
@@ -184,9 +193,47 @@ function ArchivioPage() {
   const [fTool, setFTool] = useState("all");
   const [fStatus, setFStatus] = useState("all");
   const [sort, setSort] = useState("recent");
+  const [onlyDup, setOnlyDup] = useState(false);
 
+  const [viewItem, setViewItem] = useState<Item | null>(null);
   const [editItem, setEditItem] = useState<Item | null>(null);
   const [delItem, setDelItem] = useState<Item | null>(null);
+
+  // Duplicate detection: same brain + same type + same normalized title,
+  // OR same brain + same type + very similar preview prefix.
+  const dupIds = useMemo(() => {
+    const norm = (s: string) =>
+      s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+    const buckets = new Map<string, Item[]>();
+    for (const it of items) {
+      if (it.source === "brain") continue;
+      const key = `${it.brain_id ?? "-"}|${it.type_key}|${norm(it.title)}`;
+      const arr = buckets.get(key) ?? [];
+      arr.push(it);
+      buckets.set(key, arr);
+    }
+    const dup = new Set<string>();
+    for (const arr of buckets.values()) {
+      if (arr.length > 1) arr.forEach((x) => dup.add(x.id));
+    }
+    // similar content prefix within same brain+type
+    const byBT = new Map<string, Item[]>();
+    for (const it of items) {
+      if (it.source === "brain") continue;
+      const k = `${it.brain_id ?? "-"}|${it.type_key}`;
+      const a = byBT.get(k) ?? []; a.push(it); byBT.set(k, a);
+    }
+    for (const arr of byBT.values()) {
+      for (let i = 0; i < arr.length; i++) {
+        for (let j = i + 1; j < arr.length; j++) {
+          const a = norm(arr[i].preview).slice(0, 80);
+          const b = norm(arr[j].preview).slice(0, 80);
+          if (a && a === b) { dup.add(arr[i].id); dup.add(arr[j].id); }
+        }
+      }
+    }
+    return dup;
+  }, [items]);
 
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase();
@@ -195,6 +242,7 @@ function ArchivioPage() {
       if (fType !== "all" && it.type_key !== fType) return false;
       if (fTool !== "all" && it.tool !== fTool) return false;
       if (fStatus !== "all" && it.status !== fStatus) return false;
+      if (onlyDup && !dupIds.has(it.id)) return false;
       if (ql) {
         const brainName = brainMap.get(it.brain_id ?? "") ?? "";
         const hay = [
@@ -215,7 +263,8 @@ function ArchivioPage() {
       }
     });
     return list;
-  }, [items, q, fBrain, fType, fTool, fStatus, sort, brainMap]);
+  }, [items, q, fBrain, fType, fTool, fStatus, sort, brainMap, onlyDup, dupIds]);
+
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["archivio-items"] });
@@ -326,8 +375,23 @@ function ArchivioPage() {
               <SelectItem value="type">Tipo contenuto</SelectItem>
             </SelectContent>
           </Select>
+          <div className="lg:col-span-6 flex items-center gap-2 text-xs">
+            <Button
+              type="button"
+              size="sm"
+              variant={onlyDup ? "default" : "outline"}
+              onClick={() => setOnlyDup((v) => !v)}
+            >
+              <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+              {onlyDup ? "Mostrando possibili duplicati" : "Mostra possibili duplicati"}
+              {dupIds.size > 0 && (
+                <span className="ml-1 opacity-70">({dupIds.size})</span>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
 
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Caricamento…</div>
@@ -347,16 +411,24 @@ function ArchivioPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((it) => {
             const brainName = brainMap.get(it.brain_id ?? "") ?? "—";
+            const isDup = dupIds.has(it.id);
             return (
               <Card key={it.id} className="flex flex-col">
                 <CardContent className="p-4 flex-1 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
+                      <Badge className="mb-1.5 max-w-full truncate" title={brainName}>
+                        {brainName}
+                      </Badge>
                       <div className="font-medium truncate" title={it.title}>{it.title}</div>
-                      <div className="text-xs text-muted-foreground truncate">{brainName}</div>
                     </div>
                     <Badge variant="secondary" className="shrink-0">{it.type_label}</Badge>
                   </div>
+                  {isDup && (
+                    <Badge variant="outline" className="text-amber-600 border-amber-500/40 bg-amber-500/5">
+                      <AlertTriangle className="h-3 w-3 mr-1" /> Possibile duplicato
+                    </Badge>
+                  )}
                   {it.preview && (
                     <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{it.preview}</p>
                   )}
@@ -372,6 +444,9 @@ function ArchivioPage() {
                   </div>
                 </CardContent>
                 <div className="flex flex-wrap gap-1 border-t p-2">
+                  <Button size="sm" variant="ghost" onClick={() => setViewItem(it)}>
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Apri contenuto
+                  </Button>
                   {it.brain_id && (
                     <Button asChild size="sm" variant="ghost">
                       <Link to="/progetti/$brainId" params={{ brainId: it.brain_id }}>
@@ -382,7 +457,7 @@ function ArchivioPage() {
                   {it.url && (
                     <Button asChild size="sm" variant="ghost">
                       <a href={it.url} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Apri
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Apri URL
                       </a>
                     </Button>
                   )}
@@ -405,6 +480,15 @@ function ArchivioPage() {
           })}
         </div>
       )}
+
+      <ViewDialog
+        item={viewItem}
+        brainName={viewItem ? brainMap.get(viewItem.brain_id ?? "") ?? "—" : ""}
+        onClose={() => setViewItem(null)}
+        onEdit={(it) => { setViewItem(null); setEditItem(it); }}
+        onArchive={async (it) => { await archive(it); setViewItem(null); }}
+      />
+
 
       <EditDialog
         item={editItem}
@@ -518,3 +602,81 @@ function EditDialog({
     </Dialog>
   );
 }
+
+function ViewDialog({
+  item, brainName, onClose, onEdit, onArchive,
+}: {
+  item: Item | null;
+  brainName: string;
+  onClose: () => void;
+  onEdit: (it: Item) => void;
+  onArchive: (it: Item) => void;
+}) {
+  if (!item) return null;
+  return (
+    <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="break-words">{item.title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          <div className="flex flex-wrap gap-1.5">
+            <Badge>{brainName}</Badge>
+            <Badge variant="secondary">{item.type_label}</Badge>
+            {item.status && <Badge variant="outline">{item.status}</Badge>}
+            {item.tool && <Badge variant="outline">{item.tool}</Badge>}
+            {(item.tags ?? []).map((t) => (
+              <Badge key={t} variant="outline" className="opacity-70">{t}</Badge>
+            ))}
+          </div>
+          {item.url && (
+            <div>
+              <Label className="text-xs">URL</Label>
+              <a href={item.url} target="_blank" rel="noreferrer"
+                 className="block text-primary underline break-all">{item.url}</a>
+            </div>
+          )}
+          <div>
+            <Label className="text-xs">Contenuto</Label>
+            <div className="mt-1 rounded-md border bg-muted/30 p-3 whitespace-pre-wrap break-words text-xs leading-relaxed">
+              {item.content?.trim() || <span className="text-muted-foreground">— Nessun contenuto —</span>}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+            <div>
+              <div className="font-medium text-foreground">Creato</div>
+              {new Date(item.created_at).toLocaleString()}
+            </div>
+            {item.updated_at && (
+              <div>
+                <div className="font-medium text-foreground">Aggiornato</div>
+                {new Date(item.updated_at).toLocaleString()}
+              </div>
+            )}
+          </div>
+        </div>
+        <DialogFooter className="flex flex-wrap gap-2">
+          {item.brain_id && (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/progetti/$brainId" params={{ brainId: item.brain_id }}>
+                <FolderOpen className="h-4 w-4 mr-1" /> Apri progetto
+              </Link>
+            </Button>
+          )}
+          {item.source !== "brain" && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => onEdit(item)}>
+                <Pencil className="h-4 w-4 mr-1" /> Modifica
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onArchive(item)}>
+                <Archive className="h-4 w-4 mr-1" /> Archivia
+              </Button>
+            </>
+          )}
+          <Button size="sm" onClick={onClose}>Chiudi</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
