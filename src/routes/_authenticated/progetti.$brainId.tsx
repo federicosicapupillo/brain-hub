@@ -161,34 +161,7 @@ function ProjectDetailPage() {
         </TabsContent>
 
         <TabsContent value="prompts" className="mt-4">
-          {promptNodes.length === 0 ? (
-            <Empty
-              title="Nessun prompt collegato"
-              hint="Crea un nodo di tipo 'prompt' dalla pagina Cervelli per raccogliere i tuoi prompt operativi."
-              action={<Button asChild size="sm" variant="outline"><Link to="/">Vai ai Cervelli</Link></Button>}
-            />
-          ) : (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-              {promptNodes.map((n) => (
-                <Card key={n.id} className="glass">
-                  <CardContent className="p-3">
-                    <div className="flex items-center gap-2">
-                      <Wrench className="h-4 w-4 text-primary" />
-                      <div className="truncate text-sm font-medium">{n.label}</div>
-                    </div>
-                    {n.summary && <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">{n.summary}</p>}
-                    {Array.isArray(n.tags) && n.tags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {(n.tags as string[]).map((t) => (
-                          <Badge key={t} variant="secondary" className="text-[10px] font-normal">{t}</Badge>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <PromptsTab nodes={promptNodes} brainId={brainId} />
         </TabsContent>
 
         <TabsContent value="roadmap" className="mt-4">
