@@ -587,6 +587,81 @@ export type Database = {
         }
         Relationships: []
       }
+      project_links: {
+        Row: {
+          brain_id: string
+          category: string | null
+          created_at: string
+          description: string | null
+          id: string
+          link_type: string
+          notes: string | null
+          relation_type: string | null
+          status: string | null
+          target_brain_id: string | null
+          target_id: string | null
+          target_table: string | null
+          title: string
+          tool: string | null
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          brain_id: string
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          link_type: string
+          notes?: string | null
+          relation_type?: string | null
+          status?: string | null
+          target_brain_id?: string | null
+          target_id?: string | null
+          target_table?: string | null
+          title: string
+          tool?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          brain_id?: string
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          link_type?: string
+          notes?: string | null
+          relation_type?: string | null
+          status?: string | null
+          target_brain_id?: string | null
+          target_id?: string | null
+          target_table?: string | null
+          title?: string
+          tool?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_links_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_links_target_brain_id_fkey"
+            columns: ["target_brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roadmap_items: {
         Row: {
           brain_id: string | null
