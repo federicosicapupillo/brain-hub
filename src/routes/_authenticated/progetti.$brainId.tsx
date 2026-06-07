@@ -341,3 +341,98 @@ function Empty({ title, hint, action }: { title: string; hint: string; action?: 
     </div>
   );
 }
+
+const LINK_ICON: Record<LinkType, React.ElementType> = {
+  project: FolderKanban,
+  file: FileText,
+  prompt: Sparkles,
+  roadmap: MapIcon,
+  task: ListChecks,
+  tool: Wrench,
+  external: LinkIcon,
+};
+
+const LINK_LABEL: Record<LinkType, string> = {
+  project: "Progetto", file: "File", prompt: "Prompt",
+  roadmap: "Roadmap", task: "Task", tool: "Strumento AI", external: "Link esterno",
+};
+
+function RecentLinksSection({ brainId }: { brainId: string }) {
+  const qc = useQueryClient();
+  const { data: links = [], isLoading } = useQuery({
+    queryKey: ["project-links", brainId],
+    queryFn: () => listProjectLinks(brainId),
+  });
+
+  const onDelete = async (id: string) => {
+    try {
+      await deleteProjectLink(id, brainId);
+      toast.success("Collegamento rimosso");
+      await qc.invalidateQueries({ queryKey: ["project-links", brainId] });
+      await qc.invalidateQueries({ queryKey: ["progetto", brainId] });
+    } catch (e) { toast.error((e as Error).message); }
+  };
+
+  if (isLoading) return null;
+  if (links.length === 0) {
+    return (
+      <Card className="glass mb-4">
+        <CardContent className="p-4 text-xs text-muted-foreground">
+          Nessun collegamento ancora. Usa "Aggiungi collegamento" per collegare progetti, file, prompt, roadmap, task o strumenti.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const recent = links.slice(0, 6);
+
+  return (
+    <Card className="glass mb-4">
+      <CardContent className="p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            Collegamenti recenti ({links.length})
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {recent.map((l) => <LinkRow key={l.id} link={l} onDelete={() => onDelete(l.id)} />)}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete: () => void }) {
+  const Icon = LINK_ICON[link.link_type];
+  const date = new Date(link.created_at).toLocaleDateString();
+  const openHref = link.url ?? (link.target_brain_id ? `/progetti/${link.target_brain_id}` : null);
+  return (
+    <div className="flex items-start gap-2 rounded-md border border-border/60 bg-card/40 p-2 text-sm">
+      <Icon className="mt-0.5 h-4 w-4 text-primary" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <div className="truncate font-medium">{link.title}</div>
+          <Badge variant="outline" className="text-[10px]">{LINK_LABEL[link.link_type]}</Badge>
+        </div>
+        <div className="text-[11px] text-muted-foreground">
+          {link.relation_type ? `${link.relation_type} · ` : ""}{date}
+        </div>
+      </div>
+      {openHref && (
+        openHref.startsWith("/") ? (
+          <Button asChild size="icon" variant="ghost" className="h-7 w-7">
+            <a href={openHref}><ExternalLink className="h-3.5 w-3.5" /></a>
+          </Button>
+        ) : (
+          <Button asChild size="icon" variant="ghost" className="h-7 w-7">
+            <a href={openHref} target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" /></a>
+          </Button>
+        )
+      )}
+      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete}>
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
