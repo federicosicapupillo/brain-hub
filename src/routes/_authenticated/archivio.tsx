@@ -371,9 +371,15 @@ function ArchivioPage() {
         title="Archivio contenuti"
         subtitle="Tutti i file, prompt, task, roadmap, note e collegamenti salvati nei tuoi progetti."
         actions={
-          <Button asChild variant="outline" size="sm">
-            <Link to="/importa"><Inbox className="h-4 w-4 mr-1" /> Vai a Importa</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ExportResultsMenu
+              items={filtered}
+              brainMap={brainMap}
+            />
+            <Button asChild variant="outline" size="sm">
+              <Link to="/importa"><Inbox className="h-4 w-4 mr-1" /> Vai a Importa</Link>
+            </Button>
+          </div>
         }
       />
 
