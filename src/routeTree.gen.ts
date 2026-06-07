@@ -14,12 +14,14 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedRoadmapRouteImport } from './routes/_authenticated/roadmap'
+import { Route as AuthenticatedProgettiRouteImport } from './routes/_authenticated/progetti'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
+import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -43,6 +45,11 @@ const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
 const AuthenticatedRoadmapRoute = AuthenticatedRoadmapRouteImport.update({
   id: '/roadmap',
   path: '/roadmap',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProgettiRoute = AuthenticatedProgettiRouteImport.update({
+  id: '/progetti',
+  path: '/progetti',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
@@ -76,6 +83,12 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProgettiBrainIdRoute =
+  AuthenticatedProgettiBrainIdRouteImport.update({
+    id: '/$brainId',
+    path: '/$brainId',
+    getParentRoute: () => AuthenticatedProgettiRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -86,8 +99,10 @@ export interface FileRoutesByFullPath {
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
+  '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/roadmap': typeof AuthenticatedRoadmapRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -97,9 +112,11 @@ export interface FileRoutesByTo {
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
+  '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/roadmap': typeof AuthenticatedRoadmapRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/': typeof AuthenticatedIndexRoute
+  '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -111,9 +128,11 @@ export interface FileRoutesById {
   '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
+  '/_authenticated/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/_authenticated/roadmap': typeof AuthenticatedRoadmapRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -126,8 +145,10 @@ export interface FileRouteTypes {
     | '/impostazioni'
     | '/live'
     | '/logs'
+    | '/progetti'
     | '/roadmap'
     | '/tasks'
+    | '/progetti/$brainId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -137,9 +158,11 @@ export interface FileRouteTypes {
     | '/impostazioni'
     | '/live'
     | '/logs'
+    | '/progetti'
     | '/roadmap'
     | '/tasks'
     | '/'
+    | '/progetti/$brainId'
   id:
     | '__root__'
     | '/_authenticated'
@@ -150,9 +173,11 @@ export interface FileRouteTypes {
     | '/_authenticated/impostazioni'
     | '/_authenticated/live'
     | '/_authenticated/logs'
+    | '/_authenticated/progetti'
     | '/_authenticated/roadmap'
     | '/_authenticated/tasks'
     | '/_authenticated/'
+    | '/_authenticated/progetti/$brainId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -197,6 +222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRoadmapRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/progetti': {
+      id: '/_authenticated/progetti'
+      path: '/progetti'
+      fullPath: '/progetti'
+      preLoaderRoute: typeof AuthenticatedProgettiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/logs': {
       id: '/_authenticated/logs'
       path: '/logs'
@@ -239,8 +271,28 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/progetti/$brainId': {
+      id: '/_authenticated/progetti/$brainId'
+      path: '/$brainId'
+      fullPath: '/progetti/$brainId'
+      preLoaderRoute: typeof AuthenticatedProgettiBrainIdRouteImport
+      parentRoute: typeof AuthenticatedProgettiRoute
+    }
   }
 }
+
+interface AuthenticatedProgettiRouteChildren {
+  AuthenticatedProgettiBrainIdRoute: typeof AuthenticatedProgettiBrainIdRoute
+}
+
+const AuthenticatedProgettiRouteChildren: AuthenticatedProgettiRouteChildren = {
+  AuthenticatedProgettiBrainIdRoute: AuthenticatedProgettiBrainIdRoute,
+}
+
+const AuthenticatedProgettiRouteWithChildren =
+  AuthenticatedProgettiRoute._addFileChildren(
+    AuthenticatedProgettiRouteChildren,
+  )
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
@@ -249,6 +301,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
+  AuthenticatedProgettiRoute: typeof AuthenticatedProgettiRouteWithChildren
   AuthenticatedRoadmapRoute: typeof AuthenticatedRoadmapRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -261,6 +314,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
+  AuthenticatedProgettiRoute: AuthenticatedProgettiRouteWithChildren,
   AuthenticatedRoadmapRoute: AuthenticatedRoadmapRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
