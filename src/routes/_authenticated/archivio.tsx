@@ -1014,6 +1014,26 @@ function ViewDialog({
               </Button>
             </>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              downloadMarkdown({
+                title: item.title,
+                brainName,
+                type: item.type_label,
+                status: item.status,
+                tool: item.tool,
+                tags: item.tags,
+                url: item.url,
+                content,
+                created_at: item.created_at,
+                updated_at: item.updated_at,
+              });
+            }}
+          >
+            <Download className="h-4 w-4 mr-1" /> Scarica
+          </Button>
           <Button size="sm" onClick={onClose}>Chiudi</Button>
         </DialogFooter>
 
