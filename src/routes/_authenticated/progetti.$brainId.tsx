@@ -1,12 +1,16 @@
 import { createFileRoute, Link, useParams } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ArrowLeft, ExternalLink, FileText, Link2, ListChecks, Map as MapIcon, Sparkles, Wrench } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText, Link2, ListChecks, Map as MapIcon, Sparkles, Wrench, Trash2, FolderKanban, LinkIcon } from "lucide-react";
 import { findMeta, priorityColor, priorityLabel, PROJECT_META } from "@/lib/projects-meta";
+import { AddProjectLinkDialog } from "@/components/AddProjectLinkDialog";
+import { deleteProjectLink, listProjectLinks, type LinkType, type ProjectLink } from "@/lib/project-links-api";
+import { toast } from "sonner";
+
 
 export const Route = createFileRoute("/_authenticated/progetti/$brainId")({
   head: () => ({
