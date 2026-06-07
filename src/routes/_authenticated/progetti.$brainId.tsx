@@ -470,6 +470,9 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void 
         <div className="text-[11px] text-muted-foreground">
           {relation}{date ? ` · ${date}` : ""}
         </div>
+        {link.notes && (
+          <div className="mt-1 line-clamp-2 text-[11px] text-foreground/70">{link.notes}</div>
+        )}
       </div>
       {openHref && (
         openHref.startsWith("/") ? (
