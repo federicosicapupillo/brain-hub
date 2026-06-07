@@ -99,10 +99,14 @@ function ImportaPage() {
         .eq("brain_id", brainId).eq("title", title).limit(1);
       return (data?.length ?? 0) > 0;
     }
-    if (contentType === "prompt" || contentType === "external") {
-      const lt = contentType === "prompt" ? "prompt" : "external";
+    if (contentType === "prompt") {
+      const { data } = await supabase.from("brain_nodes").select("id")
+        .eq("brain_id", brainId).eq("type", "prompt").eq("label", title).limit(1);
+      return (data?.length ?? 0) > 0;
+    }
+    if (contentType === "external") {
       const { data } = await supabase.from("project_links").select("id")
-        .eq("brain_id", brainId).eq("link_type", lt).eq("title", title).limit(1);
+        .eq("brain_id", brainId).eq("link_type", "external").eq("title", title).limit(1);
       return (data?.length ?? 0) > 0;
     }
     const { data } = await supabase.from("knowledge_sources").select("id")
