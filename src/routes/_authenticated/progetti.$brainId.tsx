@@ -48,6 +48,8 @@ async function loadProject(brainId: string) {
 function ProjectDetailPage() {
   const { brainId } = useParams({ from: "/_authenticated/progetti/$brainId" });
   const { data, isLoading } = useQuery({ queryKey: ["progetto", brainId], queryFn: () => loadProject(brainId) });
+  const { allLinks } = useBrainLinks(brainId);
+  const linksCount = allLinks.length;
 
   if (isLoading) {
     return <div className="p-6 text-sm text-muted-foreground">Caricamento progetto…</div>;
@@ -65,8 +67,6 @@ function ProjectDetailPage() {
   const meta = findMeta(brain.name);
   const promptNodes = nodes.filter((n) => n.type === "prompt");
   const openTasks = tasks.filter((t) => t.status !== "done" && t.status !== "completato");
-  const { allLinks } = useBrainLinks(brain.id);
-  const linksCount = allLinks.length;
 
   // Resolve connections: find brain ids whose name appears in meta.connections.
   const connectionsByName = (meta?.connections ?? []).map((name) => {
