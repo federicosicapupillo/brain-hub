@@ -5,7 +5,7 @@ import {
   Github, Database, HardDrive, BookOpen, Sparkles, Bot, Search, Mail,
   Calendar, Film, Image as ImageIcon, Mic, UserCircle, Wand2, Info,
   Inbox, FolderOpen, Settings2, AlertTriangle, CheckCircle2, ArrowRight,
-  Link2,
+  Link2, Plug,
 } from "lucide-react";
 
 import { PageHeader } from "@/components/PageHeader";
