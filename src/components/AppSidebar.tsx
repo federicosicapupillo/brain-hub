@@ -12,6 +12,7 @@ import {
   Library,
   FolderKanban,
   Inbox,
+  Archive,
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,6 +33,7 @@ const items = [
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },
   { title: "Importa", url: "/importa", icon: Inbox },
+  { title: "Archivio", url: "/archivio", icon: Archive },
   { title: "Fonti", url: "/fonti", icon: Library },
   { title: "Roadmap", url: "/roadmap", icon: MapIcon },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
