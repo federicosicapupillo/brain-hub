@@ -426,9 +426,10 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
     try {
       await deleteProjectLink(id, brainId);
       toast.success("Collegamento rimosso");
-      await qc.invalidateQueries({ queryKey: ["project-links-bi", brainId] });
+      await qc.invalidateQueries({ queryKey: ["project-links-bi"] });
       await qc.invalidateQueries({ queryKey: ["progetto", brainId] });
       await qc.invalidateQueries({ queryKey: ["progetti-hub"] });
+      await qc.invalidateQueries({ queryKey: ["project-links-counts"] });
     } catch (e) { toast.error((e as Error).message); }
   };
 
