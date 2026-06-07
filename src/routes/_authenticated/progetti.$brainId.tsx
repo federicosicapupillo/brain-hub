@@ -276,6 +276,7 @@ function ProjectDetailPage() {
                       <Button key={name} asChild size="sm" variant="outline" className="gap-1">
                         <Link to="/progetti/$brainId" params={{ brainId: target.id }}>
                           <Link2 className="h-3 w-3" />{name}
+                          <span className="ml-1 text-[10px] text-muted-foreground">· collegato a</span>
                         </Link>
                       </Button>
                     ) : (
@@ -284,6 +285,7 @@ function ProjectDetailPage() {
                       </Badge>
                     ))}
                   </div>
+
                 )}
               </div>
               <div>
@@ -363,6 +365,10 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
     queryKey: ["project-links", brainId],
     queryFn: () => listProjectLinks(brainId),
   });
+  const { data: progetto } = useQuery({
+    queryKey: ["progetto", brainId],
+    queryFn: () => loadProject(brainId),
+  });
 
   const onDelete = async (id: string) => {
     try {
@@ -373,8 +379,46 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
     } catch (e) { toast.error((e as Error).message); }
   };
 
+  // Virtual project-to-project links derived from project meta connections.
+  // Only included when not already present in project_links (dedupe by target_brain_id).
+  const virtualLinks: ProjectLink[] = (() => {
+    if (!progetto?.brain) return [];
+    const meta = findMeta(progetto.brain.name);
+    if (!meta) return [];
+    const existing = new Set(
+      links.filter((l) => l.link_type === "project").map((l) => l.target_brain_id),
+    );
+    const out: ProjectLink[] = [];
+    for (const name of meta.connections) {
+      const target = progetto.brainsAll.find((x) => x.name?.toLowerCase() === name.toLowerCase());
+      if (!target || existing.has(target.id)) continue;
+      out.push({
+        id: `virtual:${target.id}`,
+        user_id: "",
+        brain_id: brainId,
+        link_type: "project",
+        relation_type: "collegato a",
+        title: target.name ?? name,
+        url: null,
+        description: null,
+        category: null,
+        tool: null,
+        status: null,
+        notes: null,
+        target_brain_id: target.id,
+        target_table: "brains",
+        target_id: target.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+    }
+    return out;
+  })();
+
+  const allLinks = [...links, ...virtualLinks];
+
   if (isLoading) return null;
-  if (links.length === 0) {
+  if (allLinks.length === 0) {
     return (
       <Card className="glass mb-4">
         <CardContent className="p-4 text-xs text-muted-foreground">
@@ -384,28 +428,36 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
     );
   }
 
-  const recent = links.slice(0, 6);
+  const recent = allLinks.slice(0, 6);
 
   return (
     <Card className="glass mb-4">
       <CardContent className="p-4">
         <div className="mb-2 flex items-center justify-between">
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Collegamenti recenti ({links.length})
+            Collegamenti recenti ({allLinks.length})
           </div>
         </div>
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-          {recent.map((l) => <LinkRow key={l.id} link={l} onDelete={() => onDelete(l.id)} />)}
+          {recent.map((l) => (
+            <LinkRow
+              key={l.id}
+              link={l}
+              onDelete={l.id.startsWith("virtual:") ? undefined : () => onDelete(l.id)}
+            />
+          ))}
         </div>
       </CardContent>
     </Card>
   );
 }
 
-function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete: () => void }) {
+function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void }) {
   const Icon = LINK_ICON[link.link_type];
-  const date = new Date(link.created_at).toLocaleDateString();
+  const isVirtual = link.id.startsWith("virtual:");
+  const date = isVirtual ? null : new Date(link.created_at).toLocaleDateString();
   const openHref = link.url ?? (link.target_brain_id ? `/progetti/${link.target_brain_id}` : null);
+  const relation = link.relation_type ?? "collegato a";
   return (
     <div className="flex items-start gap-2 rounded-md border border-border/60 bg-card/40 p-2 text-sm">
       <Icon className="mt-0.5 h-4 w-4 text-primary" />
@@ -415,7 +467,7 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete: () => void }
           <Badge variant="outline" className="text-[10px]">{LINK_LABEL[link.link_type]}</Badge>
         </div>
         <div className="text-[11px] text-muted-foreground">
-          {link.relation_type ? `${link.relation_type} · ` : ""}{date}
+          {relation}{date ? ` · ${date}` : ""}
         </div>
       </div>
       {openHref && (
@@ -429,9 +481,11 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete: () => void }
           </Button>
         )
       )}
-      <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete}>
-        <Trash2 className="h-3.5 w-3.5" />
-      </Button>
+      {onDelete && (
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      )}
     </div>
   );
 }
