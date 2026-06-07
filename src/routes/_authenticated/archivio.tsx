@@ -48,8 +48,10 @@ type Item = {
   tool: string | null;
   tags: string[];
   preview: string;
+  content: string; // full content for view modal
   url: string | null;
   created_at: string;
+  updated_at: string | null;
 };
 
 const TYPE_OPTIONS = [
