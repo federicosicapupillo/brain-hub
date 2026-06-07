@@ -98,7 +98,17 @@ function ProjectDetailPage() {
         {meta && (
           <Badge variant="secondary" className="text-[10px]">{meta.category}</Badge>
         )}
-        <div className="ml-auto"><AddProjectLinkDialog brainId={brain.id} /></div>
+        <div className="ml-auto flex items-center gap-2">
+          <ExportProjectMenu
+            brainName={brain.name ?? "progetto"}
+            sources={sources}
+            tasks={tasks}
+            roadmap={roadmap}
+            nodes={nodes}
+            allLinks={allLinks}
+          />
+          <AddProjectLinkDialog brainId={brain.id} />
+        </div>
       </div>
 
       <RecentLinksSection brainId={brain.id} />
