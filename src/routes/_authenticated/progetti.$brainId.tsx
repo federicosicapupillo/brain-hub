@@ -87,7 +87,11 @@ function ProjectDetailPage() {
         {meta && (
           <Badge variant="secondary" className="text-[10px]">{meta.category}</Badge>
         )}
+        <div className="ml-auto"><AddProjectLinkDialog brainId={brain.id} /></div>
       </div>
+
+      <RecentLinksSection brainId={brain.id} />
+
 
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="flex flex-wrap">
