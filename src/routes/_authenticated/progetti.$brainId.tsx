@@ -276,6 +276,7 @@ function ProjectDetailPage() {
                       <Button key={name} asChild size="sm" variant="outline" className="gap-1">
                         <Link to="/progetti/$brainId" params={{ brainId: target.id }}>
                           <Link2 className="h-3 w-3" />{name}
+                          <span className="ml-1 text-[10px] text-muted-foreground">· collegato a</span>
                         </Link>
                       </Button>
                     ) : (
@@ -284,6 +285,7 @@ function ProjectDetailPage() {
                       </Badge>
                     ))}
                   </div>
+
                 )}
               </div>
               <div>
