@@ -88,18 +88,20 @@ async function loadAll(): Promise<Item[]> {
   const items: Item[] = [];
 
   for (const b of brains.data ?? []) {
+    const desc = b.description ?? "";
     items.push({
       id: `brain:${b.id}`, source: "brain", brain_id: b.id,
       title: `Scheda madre ${b.name}`, type_label: "Scheda madre", type_key: "scheda",
       status: null, tool: null, tags: [],
-      preview: b.description ?? "",
-      url: null, created_at: b.created_at,
+      preview: desc, content: desc,
+      url: null, created_at: b.created_at, updated_at: b.updated_at,
     });
   }
 
   for (const n of nodes.data ?? []) {
     const t = (n.type ?? "nota").toLowerCase();
     const isPrompt = t === "prompt";
+    const body = n.summary ?? "";
     items.push({
       id: `node:${n.id}`, source: "node", brain_id: n.brain_id,
       title: n.label,
@@ -108,28 +110,30 @@ async function loadAll(): Promise<Item[]> {
       status: (n.tags ?? []).find((x: string) => STATUSES.includes(x)) ?? null,
       tool: (n.tags ?? []).find((x: string) => TOOLS.includes(x)) ?? null,
       tags: n.tags ?? [],
-      preview: n.summary ?? "",
-      url: null, created_at: n.created_at,
+      preview: body, content: body,
+      url: null, created_at: n.created_at, updated_at: n.updated_at,
     });
   }
 
   for (const t of tasks.data ?? []) {
+    const body = t.description ?? "";
     items.push({
       id: `task:${t.id}`, source: "task", brain_id: t.brain_id,
       title: t.title, type_label: "Task", type_key: "task",
       status: t.status, tool: null, tags: [],
-      preview: t.description ?? "",
-      url: null, created_at: t.created_at,
+      preview: body, content: body,
+      url: null, created_at: t.created_at, updated_at: t.updated_at,
     });
   }
 
   for (const r of roadmap.data ?? []) {
+    const body = r.description ?? "";
     items.push({
       id: `roadmap:${r.id}`, source: "roadmap", brain_id: r.brain_id,
       title: r.title, type_label: "Roadmap", type_key: "roadmap",
       status: r.status, tool: null, tags: [],
-      preview: r.description ?? "",
-      url: null, created_at: r.created_at,
+      preview: body, content: body,
+      url: null, created_at: r.created_at, updated_at: r.updated_at,
     });
   }
 
@@ -146,25 +150,28 @@ async function loadAll(): Promise<Item[]> {
     const typeLabel = TYPE_OPTIONS.find((o) => o.value === typeKey)?.label ?? "File / Documento";
     const desc = s.description ?? "";
     const tool = /Strumento:\s*([^·]+)/i.exec(desc)?.[1]?.trim() ?? null;
+    const body = s.extracted_text ?? s.description ?? "";
     items.push({
       id: `source:${s.id}`, source: "source", brain_id: s.brain_id,
       title: s.title, type_label: typeLabel, type_key: typeKey,
       status: s.status, tool, tags: s.tags ?? [],
-      preview: s.extracted_text ?? s.description ?? "",
-      url: s.url, created_at: s.created_at,
+      preview: body, content: body,
+      url: s.url, created_at: s.created_at, updated_at: s.updated_at,
     });
   }
 
   for (const l of links.data ?? []) {
     if (l.link_type !== "external") continue;
+    const body = l.notes ?? l.description ?? "";
     items.push({
       id: `link:${l.id}`, source: "link", brain_id: l.brain_id,
       title: l.title, type_label: "Link esterno", type_key: "external",
       status: l.status, tool: l.tool, tags: l.category ? l.category.split(",") : [],
-      preview: l.notes ?? l.description ?? "",
-      url: l.url, created_at: l.created_at,
+      preview: body, content: body,
+      url: l.url, created_at: l.created_at, updated_at: l.updated_at,
     });
   }
+
 
   return items;
 }
