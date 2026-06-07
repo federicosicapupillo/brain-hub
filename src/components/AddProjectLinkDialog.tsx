@@ -49,7 +49,9 @@ export function AddProjectLinkDialog({ brainId }: { brainId: string }) {
   const afterSave = async (msg: string) => {
     toast.success(msg);
     await qc.invalidateQueries({ queryKey: ["progetto", brainId] });
-    await qc.invalidateQueries({ queryKey: ["progetti-dashboard"] });
+    await qc.invalidateQueries({ queryKey: ["progetti-hub"] });
+    await qc.invalidateQueries({ queryKey: ["project-links-bi", brainId] });
+    await qc.invalidateQueries({ queryKey: ["project-links-counts"] });
     onClose(false);
   };
 
