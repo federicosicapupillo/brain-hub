@@ -223,6 +223,19 @@ function ImportaPage() {
         subtitle="Incolla prompt, note, export, link o testi e collegali al progetto corretto."
       />
 
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="p-4 flex flex-wrap items-center gap-3">
+          <Inbox className="h-5 w-5 text-primary" />
+          <div className="flex-1 text-sm">
+            <strong>Importa Prompt Storici</strong> — carica più file .md/.txt o un .zip dei prompt usati per costruire un progetto.
+          </div>
+          <Button size="sm" variant="outline" asChild>
+            <Link to="/importa/prompt-storici">Apri importatore massivo</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+
       {lastSaved && (
         <Card className="border-primary/40 bg-primary/5">
           <CardContent className="p-4 flex flex-wrap items-center gap-3">

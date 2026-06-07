@@ -24,6 +24,7 @@ import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authentic
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
+import { Route as AuthenticatedImportaPromptStoriciRouteImport } from './routes/_authenticated/importa.prompt-storici'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -101,6 +102,12 @@ const AuthenticatedProgettiBrainIdRoute =
     path: '/$brainId',
     getParentRoute: () => AuthenticatedProgettiRoute,
   } as any)
+const AuthenticatedImportaPromptStoriciRoute =
+  AuthenticatedImportaPromptStoriciRouteImport.update({
+    id: '/prompt-storici',
+    path: '/prompt-storici',
+    getParentRoute: () => AuthenticatedImportaRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -109,13 +116,14 @@ export interface FileRoutesByFullPath {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
-  '/importa': typeof AuthenticatedImportaRoute
+  '/importa': typeof AuthenticatedImportaRouteWithChildren
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/roadmap': typeof AuthenticatedRoadmapRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
 }
 export interface FileRoutesByTo {
@@ -124,7 +132,7 @@ export interface FileRoutesByTo {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
-  '/importa': typeof AuthenticatedImportaRoute
+  '/importa': typeof AuthenticatedImportaRouteWithChildren
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -132,6 +140,7 @@ export interface FileRoutesByTo {
   '/roadmap': typeof AuthenticatedRoadmapRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/': typeof AuthenticatedIndexRoute
+  '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
 }
 export interface FileRoutesById {
@@ -142,7 +151,7 @@ export interface FileRoutesById {
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
-  '/_authenticated/importa': typeof AuthenticatedImportaRoute
+  '/_authenticated/importa': typeof AuthenticatedImportaRouteWithChildren
   '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
@@ -150,6 +159,7 @@ export interface FileRoutesById {
   '/_authenticated/roadmap': typeof AuthenticatedRoadmapRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
+  '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
 }
 export interface FileRouteTypes {
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/progetti'
     | '/roadmap'
     | '/tasks'
+    | '/importa/prompt-storici'
     | '/progetti/$brainId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/roadmap'
     | '/tasks'
     | '/'
+    | '/importa/prompt-storici'
     | '/progetti/$brainId'
   id:
     | '__root__'
@@ -201,6 +213,7 @@ export interface FileRouteTypes {
     | '/_authenticated/roadmap'
     | '/_authenticated/tasks'
     | '/_authenticated/'
+    | '/_authenticated/importa/prompt-storici'
     | '/_authenticated/progetti/$brainId'
   fileRoutesById: FileRoutesById
 }
@@ -316,8 +329,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProgettiBrainIdRouteImport
       parentRoute: typeof AuthenticatedProgettiRoute
     }
+    '/_authenticated/importa/prompt-storici': {
+      id: '/_authenticated/importa/prompt-storici'
+      path: '/prompt-storici'
+      fullPath: '/importa/prompt-storici'
+      preLoaderRoute: typeof AuthenticatedImportaPromptStoriciRouteImport
+      parentRoute: typeof AuthenticatedImportaRoute
+    }
   }
 }
+
+interface AuthenticatedImportaRouteChildren {
+  AuthenticatedImportaPromptStoriciRoute: typeof AuthenticatedImportaPromptStoriciRoute
+}
+
+const AuthenticatedImportaRouteChildren: AuthenticatedImportaRouteChildren = {
+  AuthenticatedImportaPromptStoriciRoute:
+    AuthenticatedImportaPromptStoriciRoute,
+}
+
+const AuthenticatedImportaRouteWithChildren =
+  AuthenticatedImportaRoute._addFileChildren(AuthenticatedImportaRouteChildren)
 
 interface AuthenticatedProgettiRouteChildren {
   AuthenticatedProgettiBrainIdRoute: typeof AuthenticatedProgettiBrainIdRoute
@@ -337,7 +369,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
-  AuthenticatedImportaRoute: typeof AuthenticatedImportaRoute
+  AuthenticatedImportaRoute: typeof AuthenticatedImportaRouteWithChildren
   AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
@@ -352,7 +384,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
-  AuthenticatedImportaRoute: AuthenticatedImportaRoute,
+  AuthenticatedImportaRoute: AuthenticatedImportaRouteWithChildren,
   AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
