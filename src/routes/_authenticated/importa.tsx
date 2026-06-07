@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 
-import { fetchAll } from "@/lib/brains-api";
+import { fetchAll, createNode } from "@/lib/brains-api";
 import { supabase } from "@/integrations/supabase/client";
 import { createManualSource, createUrlSource } from "@/lib/knowledge-api";
 import { createTask, createRoadmapItem, logAction, pushLiveEvent } from "@/lib/workspace-api";
