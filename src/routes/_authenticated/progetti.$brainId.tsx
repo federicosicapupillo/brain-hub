@@ -6,7 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ArrowLeft, ExternalLink, FileText, Link2, ListChecks, Map as MapIcon, Sparkles, Wrench, Trash2, FolderKanban, LinkIcon } from "lucide-react";
+import { ArrowLeft, ExternalLink, FileText, Link2, ListChecks, Map as MapIcon, Sparkles, Wrench, Trash2, FolderKanban, LinkIcon, Download } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  buildZip, downloadBlob, downloadItemsAsMdZip, itemToMarkdown, fileNameForItem,
+  slugify, todayStamp, type ExportableItem, type ZipEntry,
+} from "@/lib/export-utils";
 import { findMeta, priorityColor, priorityLabel } from "@/lib/projects-meta";
 import { AddProjectLinkDialog } from "@/components/AddProjectLinkDialog";
 import { EditProjectLinkDialog } from "@/components/EditProjectLinkDialog";
