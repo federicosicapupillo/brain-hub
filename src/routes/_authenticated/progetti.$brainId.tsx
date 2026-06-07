@@ -9,7 +9,7 @@ import { ArrowLeft, ExternalLink, FileText, Link2, ListChecks, Map as MapIcon, S
 import { findMeta, priorityColor, priorityLabel, PROJECT_META } from "@/lib/projects-meta";
 import { AddProjectLinkDialog } from "@/components/AddProjectLinkDialog";
 import { EditProjectLinkDialog } from "@/components/EditProjectLinkDialog";
-import { deleteProjectLink, listProjectLinks, type LinkType, type ProjectLink } from "@/lib/project-links-api";
+import { deleteProjectLink, listProjectLinksBidirectional, type DirectedProjectLink, type LinkType, type ProjectLink } from "@/lib/project-links-api";
 import { toast } from "sonner";
 
 
