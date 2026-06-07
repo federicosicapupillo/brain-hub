@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive, ExternalLink, Pencil, Trash2, FolderOpen, Inbox, Eye, AlertTriangle,
+  ListTodo, Map as MapIcon, Sparkles, Link2, Copy, Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,7 +26,8 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAll } from "@/lib/brains-api";
+import { fetchAll, createNode } from "@/lib/brains-api";
+import type { Brain } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/_authenticated/archivio")({
   component: ArchivioPage,
@@ -483,10 +485,12 @@ function ArchivioPage() {
 
       <ViewDialog
         item={viewItem}
+        brains={brains}
         brainName={viewItem ? brainMap.get(viewItem.brain_id ?? "") ?? "—" : ""}
         onClose={() => setViewItem(null)}
         onEdit={(it) => { setViewItem(null); setEditItem(it); }}
         onArchive={async (it) => { await archive(it); setViewItem(null); }}
+        onChanged={invalidate}
       />
 
 
@@ -604,15 +608,150 @@ function EditDialog({
 }
 
 function ViewDialog({
-  item, brainName, onClose, onEdit, onArchive,
+  item, brains, brainName, onClose, onEdit, onArchive, onChanged,
 }: {
   item: Item | null;
+  brains: Brain[];
   brainName: string;
   onClose: () => void;
   onEdit: (it: Item) => void;
   onArchive: (it: Item) => void;
+  onChanged: () => void;
 }) {
+  const [targetBrain, setTargetBrain] = useState<string>("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirmDup, setConfirmDup] = useState(false);
+  const [created, setCreated] = useState<{ label: string; brainId: string } | null>(null);
+
+  useEffect(() => {
+    if (item) { setTargetBrain(""); setCreated(null); }
+  }, [item?.id]);
+
   if (!item) return null;
+
+  const otherBrains = brains.filter((b) => b.id !== item.brain_id);
+  const content = (item.content ?? "").trim();
+
+  const getUid = async () => {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  };
+
+  const toTask = async () => {
+    if (!item.brain_id) { toast.error("Nessun progetto associato."); return; }
+    setBusy("task");
+    try {
+      const uid = await getUid(); if (!uid) throw new Error("Non autenticato");
+      const { error } = await supabase.from("tasks").insert({
+        user_id: uid, brain_id: item.brain_id,
+        title: `Azione da: ${item.title}`,
+        description: content, status: "todo", priority: "medium",
+      });
+      if (error) throw error;
+      toast.success("Task creato correttamente.");
+      setCreated({ label: "Apri progetto", brainId: item.brain_id });
+      onChanged();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(null); }
+  };
+
+  const toRoadmap = async () => {
+    if (!item.brain_id) { toast.error("Nessun progetto associato."); return; }
+    setBusy("roadmap");
+    try {
+      const uid = await getUid(); if (!uid) throw new Error("Non autenticato");
+      const { error } = await supabase.from("roadmap_items").insert({
+        user_id: uid, brain_id: item.brain_id,
+        title: `Roadmap da: ${item.title}`,
+        description: content, status: "todo", priority: "medium",
+      });
+      if (error) throw error;
+      toast.success("Roadmap creata correttamente.");
+      setCreated({ label: "Apri progetto", brainId: item.brain_id });
+      onChanged();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(null); }
+  };
+
+  const toPrompt = async () => {
+    if (!item.brain_id) { toast.error("Nessun progetto associato."); return; }
+    setBusy("prompt");
+    try {
+      await createNode({
+        brain_id: item.brain_id,
+        label: `Prompt da: ${item.title}`,
+        type: "prompt",
+        origin: "archivio",
+        tags: ["bozza"],
+        summary: content,
+      });
+      toast.success("Prompt creato correttamente.");
+      setCreated({ label: "Apri progetto", brainId: item.brain_id });
+      onChanged();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(null); }
+  };
+
+  const linkToOther = async () => {
+    if (!item.brain_id || !targetBrain) { toast.error("Seleziona un progetto."); return; }
+    setBusy("link");
+    try {
+      const uid = await getUid(); if (!uid) throw new Error("Non autenticato");
+      const { error } = await supabase.from("project_links").insert({
+        user_id: uid, brain_id: item.brain_id,
+        target_brain_id: targetBrain,
+        link_type: "project", relation_type: "collegato a",
+        title: item.title, notes: content.slice(0, 1000),
+      });
+      if (error) throw error;
+      toast.success("Contenuto collegato al progetto selezionato.");
+      setCreated({ label: "Apri progetto", brainId: targetBrain });
+      onChanged();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(null); }
+  };
+
+  const duplicateTo = async () => {
+    if (!targetBrain) { toast.error("Seleziona un progetto."); return; }
+    setBusy("dup");
+    try {
+      const nodeType = item.type_key === "prompt" ? "prompt"
+        : item.type_key === "regola" ? "regola"
+        : item.type_key === "strategia" ? "strategia"
+        : "nota";
+      await createNode({
+        brain_id: targetBrain,
+        label: item.title,
+        type: nodeType,
+        origin: "duplicato",
+        tags: item.tags ?? [],
+        summary: content,
+      });
+      toast.success("Contenuto duplicato nel progetto selezionato.");
+      setCreated({ label: "Apri progetto", brainId: targetBrain });
+      onChanged();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(null); setConfirmDup(false); }
+  };
+
+  const toExternalLink = async () => {
+    if (!item.url || !item.brain_id) { toast.error("Nessun URL disponibile."); return; }
+    setBusy("ext");
+    try {
+      const uid = await getUid(); if (!uid) throw new Error("Non autenticato");
+      const { error } = await supabase.from("project_links").insert({
+        user_id: uid, brain_id: item.brain_id,
+        link_type: "external", title: item.title, url: item.url,
+        notes: content.slice(0, 1000), tool: item.tool,
+      });
+      if (error) throw error;
+      toast.success("Link esterno creato.");
+      setCreated({ label: "Apri progetto", brainId: item.brain_id });
+      onChanged();
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setBusy(null); }
+  };
+
   return (
     <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -639,7 +778,7 @@ function ViewDialog({
           <div>
             <Label className="text-xs">Contenuto</Label>
             <div className="mt-1 rounded-md border bg-muted/30 p-3 whitespace-pre-wrap break-words text-xs leading-relaxed">
-              {item.content?.trim() || <span className="text-muted-foreground">— Nessun contenuto —</span>}
+              {content || <span className="text-muted-foreground">— Nessun contenuto —</span>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
@@ -651,6 +790,59 @@ function ViewDialog({
               <div>
                 <div className="font-medium text-foreground">Aggiornato</div>
                 {new Date(item.updated_at).toLocaleString()}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-md border bg-card/40 p-3 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Sparkles className="h-4 w-4 text-primary" /> Azioni rapide
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" disabled={!!busy || !item.brain_id} onClick={toTask}>
+                <ListTodo className="h-3.5 w-3.5 mr-1" /> Trasforma in task
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy || !item.brain_id} onClick={toRoadmap}>
+                <MapIcon className="h-3.5 w-3.5 mr-1" /> Trasforma in roadmap
+              </Button>
+              <Button size="sm" variant="outline" disabled={!!busy || !item.brain_id} onClick={toPrompt}>
+                <Sparkles className="h-3.5 w-3.5 mr-1" /> Trasforma in prompt
+              </Button>
+              {item.url && (
+                <Button size="sm" variant="outline" disabled={!!busy || !item.brain_id} onClick={toExternalLink}>
+                  <Globe className="h-3.5 w-3.5 mr-1" /> Crea link esterno
+                </Button>
+              )}
+            </div>
+
+            {otherBrains.length > 0 && (
+              <div className="space-y-2 pt-1 border-t">
+                <Label className="text-xs">Altro progetto</Label>
+                <Select value={targetBrain} onValueChange={setTargetBrain}>
+                  <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Seleziona progetto…" /></SelectTrigger>
+                  <SelectContent>
+                    {otherBrains.map((b) => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="outline" disabled={!!busy || !targetBrain || !item.brain_id} onClick={linkToOther}>
+                    <Link2 className="h-3.5 w-3.5 mr-1" /> Collega ad altro progetto
+                  </Button>
+                  <Button size="sm" variant="outline" disabled={!!busy || !targetBrain} onClick={() => setConfirmDup(true)}>
+                    <Copy className="h-3.5 w-3.5 mr-1" /> Duplica in altro progetto
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {created && (
+              <div className="flex items-center gap-2 pt-1 border-t">
+                <span className="text-xs text-muted-foreground">Elemento creato.</span>
+                <Button asChild size="sm" variant="secondary">
+                  <Link to="/progetti/$brainId" params={{ brainId: created.brainId }} onClick={onClose}>
+                    <FolderOpen className="h-3.5 w-3.5 mr-1" /> {created.label}
+                  </Link>
+                </Button>
               </div>
             )}
           </div>
@@ -675,6 +867,21 @@ function ViewDialog({
           )}
           <Button size="sm" onClick={onClose}>Chiudi</Button>
         </DialogFooter>
+
+        <AlertDialog open={confirmDup} onOpenChange={setConfirmDup}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Duplicare contenuto?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Vuoi creare una copia separata di questo contenuto nel progetto selezionato?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Annulla</AlertDialogCancel>
+              <AlertDialogAction onClick={duplicateTo}>Duplica</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
