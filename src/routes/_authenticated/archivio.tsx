@@ -190,6 +190,31 @@ function ArchivioPage() {
     queryFn: loadAll,
   });
 
+  const { data: contentLinks = [] } = useQuery({
+    queryKey: ["content-project-links"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return [];
+      const { data, error } = await supabase
+        .from("content_project_links").select("*").eq("user_id", u.user.id);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Map: `${content_type}:${content_id}` -> target_project_id[]
+  const linksByContent = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const r of contentLinks) {
+      const k = `${r.content_type}:${r.content_id}`;
+      const arr = m.get(k) ?? [];
+      arr.push(r.target_project_id);
+      m.set(k, arr);
+    }
+    return m;
+  }, [contentLinks]);
+
+
   const [q, setQ] = useState("");
   const [fBrain, setFBrain] = useState("all");
   const [fType, setFType] = useState("all");
