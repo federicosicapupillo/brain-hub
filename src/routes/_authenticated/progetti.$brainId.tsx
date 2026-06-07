@@ -65,6 +65,8 @@ function ProjectDetailPage() {
   const meta = findMeta(brain.name);
   const promptNodes = nodes.filter((n) => n.type === "prompt");
   const openTasks = tasks.filter((t) => t.status !== "done" && t.status !== "completato");
+  const { allLinks } = useBrainLinks(brain.id);
+  const linksCount = allLinks.length;
 
   // Resolve connections: find brain ids whose name appears in meta.connections.
   const connectionsByName = (meta?.connections ?? []).map((name) => {
