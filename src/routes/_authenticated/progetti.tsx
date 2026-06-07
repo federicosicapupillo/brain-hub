@@ -9,6 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, FileText, ListChecks, Map as MapIcon, Plus, Sparkles, Wrench, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
 import { findMeta, PROJECT_META, priorityColor, priorityLabel, seedMissingProjects } from "@/lib/projects-meta";
+import { countLinksPerBrain } from "@/lib/project-links-api";
+import { Link2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/progetti")({
   head: () => ({
