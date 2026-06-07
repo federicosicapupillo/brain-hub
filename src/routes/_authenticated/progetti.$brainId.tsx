@@ -311,7 +311,7 @@ function ProjectDetailPage() {
 
       {!findMeta(brain.name) && (
         <div className="mt-6 rounded-md border border-dashed border-border bg-card/30 p-3 text-xs text-muted-foreground">
-          Questo progetto non corrisponde a uno dei {PROJECT_META.length} progetti principali. Categoria, priorità e strumenti consigliati non sono disponibili — puoi comunque collegare file, task, roadmap e prompt.
+          Progetto extra o archivio secondario: puoi collegarlo manualmente a uno dei progetti principali usando "Aggiungi collegamento".
         </div>
       )}
     </div>
