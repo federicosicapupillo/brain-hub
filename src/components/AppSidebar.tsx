@@ -11,6 +11,7 @@ import {
   Sparkles,
   Library,
   FolderKanban,
+  Inbox,
 } from "lucide-react";
 import {
   Sidebar,
