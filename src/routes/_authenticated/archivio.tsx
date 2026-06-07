@@ -658,11 +658,12 @@ function EditDialog({
 }
 
 function ViewDialog({
-  item, brains, brainName, onClose, onEdit, onArchive, onChanged,
+  item, brains, brainName, secondaryProjects, onClose, onEdit, onArchive, onChanged,
 }: {
   item: Item | null;
   brains: Brain[];
   brainName: string;
+  secondaryProjects: { id: string; name: string }[];
   onClose: () => void;
   onEdit: (it: Item) => void;
   onArchive: (it: Item) => void;
