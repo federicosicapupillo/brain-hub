@@ -20,6 +20,10 @@ import { createManualSource, createUrlSource } from "@/lib/knowledge-api";
 import { createTask, createRoadmapItem, logAction, pushLiveEvent } from "@/lib/workspace-api";
 
 export const Route = createFileRoute("/_authenticated/importa")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    tool: typeof s.tool === "string" ? s.tool : undefined,
+    brain: typeof s.brain === "string" ? s.brain : undefined,
+  }),
   component: ImportaPage,
   errorComponent: ({ error }) => (
     <div className="p-6" role="alert">Errore: {error.message}</div>
