@@ -116,3 +116,70 @@ export async function deleteProjectLink(id: string, brainId: string): Promise<vo
     brain_id: brainId,
   });
 }
+
+export async function updateProjectLink(
+  id: string,
+  patch: { relation_type?: string | null; notes?: string | null; title?: string },
+): Promise<ProjectLink> {
+  const { data, error } = await supabase
+    .from("project_links")
+    .update({
+      ...(patch.relation_type !== undefined ? { relation_type: patch.relation_type } : {}),
+      ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
+      ...(patch.title !== undefined ? { title: patch.title } : {}),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  await logAction({
+    action: "project_link_updated",
+    message: `Collegamento aggiornato`,
+    entity_type: "project_link",
+    entity_id: id,
+    brain_id: data.brain_id,
+  });
+  return data as ProjectLink;
+}
+
+/**
+ * Ensure a project→project link exists in project_links and matches the given
+ * relation_type/notes. Used to materialize "virtual" meta-derived links on edit.
+ */
+export async function upsertProjectProjectLink(input: {
+  brain_id: string;
+  target_brain_id: string;
+  target_title: string;
+  relation_type?: string | null;
+  notes?: string | null;
+}): Promise<ProjectLink> {
+  const { data: userData, error: ue } = await supabase.auth.getUser();
+  if (ue || !userData.user) throw ue ?? new Error("Non autenticato");
+
+  const { data: existing } = await supabase
+    .from("project_links")
+    .select("*")
+    .eq("brain_id", input.brain_id)
+    .eq("link_type", "project")
+    .eq("user_id", userData.user.id);
+  const dup = (existing ?? []).find((e) => e.target_brain_id === input.target_brain_id);
+  if (dup) {
+    return updateProjectLink(dup.id, {
+      relation_type: input.relation_type ?? null,
+      notes: input.notes ?? null,
+      title: input.target_title,
+    });
+  }
+  return createProjectLink({
+    brain_id: input.brain_id,
+    link_type: "project",
+    title: input.target_title,
+    relation_type: input.relation_type ?? "collegato a",
+    notes: input.notes ?? undefined,
+    target_brain_id: input.target_brain_id,
+    target_table: "brains",
+    target_id: input.target_brain_id,
+  });
+}
+
