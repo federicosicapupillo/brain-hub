@@ -586,6 +586,52 @@ function ArchivioPage() {
     </div>
   );
 }
+function itemToExportable(it: Item, brainMap: Map<string, string>): ExportableItem {
+  return {
+    title: it.title,
+    brainName: brainMap.get(it.brain_id ?? "") ?? null,
+    type: it.type_label,
+    status: it.status,
+    tool: it.tool,
+    tags: it.tags,
+    url: it.url,
+    content: it.content,
+    created_at: it.created_at,
+    updated_at: it.updated_at,
+  };
+}
+
+function ExportResultsMenu({
+  items, brainMap,
+}: { items: Item[]; brainMap: Map<string, string> }) {
+  const disabled = items.length === 0;
+  const exportable = () => items.map((i) => itemToExportable(i, brainMap));
+  const stamp = todayStamp();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" disabled={disabled}>
+          <Download className="h-4 w-4 mr-1" /> Esporta risultati ({items.length})
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => {
+          downloadItemsAsMdZip(exportable(), `ibrain-archivio-${stamp}.zip`);
+          toast.success(`Esportati ${items.length} contenuti (.zip Markdown).`);
+        }}>Markdown (.zip)</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => {
+          downloadItemsAsCsv(exportable(), `ibrain-archivio-${stamp}.csv`);
+          toast.success("Esportato CSV.");
+        }}>CSV</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => {
+          downloadItemsAsJson(exportable(), `ibrain-archivio-${stamp}.json`);
+          toast.success("Esportato JSON.");
+        }}>JSON</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 
 function EditDialog({
   item, onClose, onSaved,
