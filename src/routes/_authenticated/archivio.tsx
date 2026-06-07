@@ -304,6 +304,7 @@ function ArchivioPage() {
     qc.invalidateQueries({ queryKey: ["project-links-counts"] });
     qc.invalidateQueries({ queryKey: ["project-links-bi"] });
     qc.invalidateQueries({ queryKey: ["knowledge-sources"] });
+    qc.invalidateQueries({ queryKey: ["content-project-links"] });
   };
 
   const archive = async (it: Item) => {
