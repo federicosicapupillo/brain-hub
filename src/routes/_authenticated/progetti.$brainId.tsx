@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, ExternalLink, FileText, Link2, ListChecks, Map as MapIcon, Sparkles, Wrench, Trash2, FolderKanban, LinkIcon } from "lucide-react";
 import { findMeta, priorityColor, priorityLabel, PROJECT_META } from "@/lib/projects-meta";
 import { AddProjectLinkDialog } from "@/components/AddProjectLinkDialog";
+import { EditProjectLinkDialog } from "@/components/EditProjectLinkDialog";
 import { deleteProjectLink, listProjectLinks, type LinkType, type ProjectLink } from "@/lib/project-links-api";
 import { toast } from "sonner";
 
@@ -469,6 +470,9 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void 
         <div className="text-[11px] text-muted-foreground">
           {relation}{date ? ` · ${date}` : ""}
         </div>
+        {link.notes && (
+          <div className="mt-1 line-clamp-2 text-[11px] text-foreground/70">{link.notes}</div>
+        )}
       </div>
       {openHref && (
         openHref.startsWith("/") ? (
@@ -481,6 +485,7 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void 
           </Button>
         )
       )}
+      <EditProjectLinkDialog link={link} />
       {onDelete && (
         <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete}>
           <Trash2 className="h-3.5 w-3.5" />
