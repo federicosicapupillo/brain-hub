@@ -375,8 +375,23 @@ function ArchivioPage() {
               <SelectItem value="type">Tipo contenuto</SelectItem>
             </SelectContent>
           </Select>
+          <div className="lg:col-span-6 flex items-center gap-2 text-xs">
+            <Button
+              type="button"
+              size="sm"
+              variant={onlyDup ? "default" : "outline"}
+              onClick={() => setOnlyDup((v) => !v)}
+            >
+              <AlertTriangle className="h-3.5 w-3.5 mr-1" />
+              {onlyDup ? "Mostrando possibili duplicati" : "Mostra possibili duplicati"}
+              {dupIds.size > 0 && (
+                <span className="ml-1 opacity-70">({dupIds.size})</span>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
 
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Caricamento…</div>
