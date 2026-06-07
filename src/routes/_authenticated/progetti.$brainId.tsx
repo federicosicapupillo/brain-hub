@@ -521,4 +521,113 @@ function LinkRow({
   );
 }
 
+type PromptNode = {
+  id: string;
+  label: string;
+  summary?: string | null;
+  tags?: string[] | null;
+  origin?: string | null;
+};
+
+const PROMPT_FILTERS: { id: string; label: string; match: (n: PromptNode) => boolean }[] = [
+  { id: "all", label: "Tutti", match: () => true },
+  { id: "storico", label: "Storici", match: (n) => (n.tags ?? []).some((t) => t.toLowerCase().includes("prompt storico") || t.toLowerCase().includes("prompt_storico")) },
+  { id: "lovable", label: "Lovable", match: (n) => (n.tags ?? []).some((t) => /lovable/i.test(t)) },
+  { id: "chatgpt", label: "ChatGPT", match: (n) => (n.tags ?? []).some((t) => /chatgpt/i.test(t)) },
+  { id: "usato", label: "Usati", match: (n) => (n.tags ?? []).some((t) => /(^|:)usato$/i.test(t) || t.toLowerCase() === "usato") },
+  { id: "approvato", label: "Approvati", match: (n) => (n.tags ?? []).some((t) => /approvato/i.test(t)) },
+  { id: "revisionare", label: "Da revisionare", match: (n) => (n.tags ?? []).some((t) => /revision/i.test(t)) },
+];
+
+function PromptsTab({ nodes, brainId }: { nodes: PromptNode[]; brainId: string }) {
+  const [filter, setFilter] = useState<string>("all");
+  const [onlyStorici, setOnlyStorici] = useState(false);
+
+  const filtered = nodes.filter((n) => {
+    const f = PROMPT_FILTERS.find((x) => x.id === filter) ?? PROMPT_FILTERS[0];
+    if (!f.match(n)) return false;
+    if (onlyStorici && !PROMPT_FILTERS.find((x) => x.id === "storico")!.match(n)) return false;
+    return true;
+  });
+
+  if (nodes.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-border/60 p-8 text-center">
+        <div className="text-sm font-semibold">Nessun prompt collegato</div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Carica i prompt storici dall'importatore massivo o crea un nodo di tipo "prompt".
+        </p>
+        <div className="mt-3 flex justify-center gap-2">
+          <Button asChild size="sm" variant="outline"><Link to="/importa/prompt-storici">Importa prompt storici</Link></Button>
+          <Button asChild size="sm" variant="ghost"><Link to="/">Vai ai Cervelli</Link></Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        {PROMPT_FILTERS.map((f) => (
+          <Button
+            key={f.id}
+            size="sm"
+            variant={filter === f.id ? "default" : "outline"}
+            className="h-7 text-xs"
+            onClick={() => setFilter(f.id)}
+          >
+            {f.label} ({nodes.filter(f.match).length})
+          </Button>
+        ))}
+        <label className="ml-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={onlyStorici}
+            onChange={(e) => setOnlyStorici(e.target.checked)}
+          />
+          Solo prompt storici
+        </label>
+        <div className="ml-auto">
+          <Button asChild size="sm" variant="outline">
+            <Link to="/importa/prompt-storici">Importa prompt storici</Link>
+          </Button>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-xs text-muted-foreground p-4">Nessun prompt corrisponde al filtro.</div>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {filtered.map((n) => {
+            const tags = n.tags ?? [];
+            const isStorico = PROMPT_FILTERS.find((x) => x.id === "storico")!.match(n);
+            return (
+              <Card key={n.id} className="glass">
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-2">
+                    <Wrench className="h-4 w-4 text-primary" />
+                    <div className="truncate text-sm font-medium flex-1">{n.label}</div>
+                    {isStorico && <Badge variant="default" className="text-[10px]">Storico</Badge>}
+                  </div>
+                  {n.summary && <p className="mt-1 line-clamp-3 text-xs text-muted-foreground whitespace-pre-wrap">{n.summary}</p>}
+                  {tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {tags.slice(0, 8).map((t) => (
+                        <Badge key={t} variant="secondary" className="text-[10px] font-normal">{t}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+      {/* brainId reserved for future inline actions */}
+      <span className="hidden">{brainId}</span>
+    </div>
+  );
+}
+
+
 
