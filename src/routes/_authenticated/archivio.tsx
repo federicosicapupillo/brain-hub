@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive, ExternalLink, Pencil, Trash2, FolderOpen, Inbox, Eye, AlertTriangle,
+  ListTodo, Map as MapIcon, Sparkles, Link2, Copy, Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -25,7 +26,8 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { supabase } from "@/integrations/supabase/client";
-import { fetchAll } from "@/lib/brains-api";
+import { fetchAll, createNode } from "@/lib/brains-api";
+import type { Brain } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/_authenticated/archivio")({
   component: ArchivioPage,
