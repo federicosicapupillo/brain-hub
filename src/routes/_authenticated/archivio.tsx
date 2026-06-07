@@ -3,8 +3,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive, ExternalLink, Pencil, Trash2, FolderOpen, Inbox, Eye, AlertTriangle,
-  ListTodo, Map as MapIcon, Sparkles, Link2, Copy, Globe,
+  ListTodo, Map as MapIcon, Sparkles, Link2, Copy, Globe, Download,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  downloadItemsAsMdZip, downloadItemsAsCsv, downloadItemsAsJson,
+  downloadMarkdown, todayStamp, type ExportableItem,
+} from "@/lib/export-utils";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/PageHeader";
@@ -364,9 +371,15 @@ function ArchivioPage() {
         title="Archivio contenuti"
         subtitle="Tutti i file, prompt, task, roadmap, note e collegamenti salvati nei tuoi progetti."
         actions={
-          <Button asChild variant="outline" size="sm">
-            <Link to="/importa"><Inbox className="h-4 w-4 mr-1" /> Vai a Importa</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <ExportResultsMenu
+              items={filtered}
+              brainMap={brainMap}
+            />
+            <Button asChild variant="outline" size="sm">
+              <Link to="/importa"><Inbox className="h-4 w-4 mr-1" /> Vai a Importa</Link>
+            </Button>
+          </div>
         }
       />
 
@@ -573,6 +586,52 @@ function ArchivioPage() {
     </div>
   );
 }
+function itemToExportable(it: Item, brainMap: Map<string, string>): ExportableItem {
+  return {
+    title: it.title,
+    brainName: brainMap.get(it.brain_id ?? "") ?? null,
+    type: it.type_label,
+    status: it.status,
+    tool: it.tool,
+    tags: it.tags,
+    url: it.url,
+    content: it.content,
+    created_at: it.created_at,
+    updated_at: it.updated_at,
+  };
+}
+
+function ExportResultsMenu({
+  items, brainMap,
+}: { items: Item[]; brainMap: Map<string, string> }) {
+  const disabled = items.length === 0;
+  const exportable = () => items.map((i) => itemToExportable(i, brainMap));
+  const stamp = todayStamp();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" disabled={disabled}>
+          <Download className="h-4 w-4 mr-1" /> Esporta risultati ({items.length})
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => {
+          downloadItemsAsMdZip(exportable(), `ibrain-archivio-${stamp}.zip`);
+          toast.success(`Esportati ${items.length} contenuti (.zip Markdown).`);
+        }}>Markdown (.zip)</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => {
+          downloadItemsAsCsv(exportable(), `ibrain-archivio-${stamp}.csv`);
+          toast.success("Esportato CSV.");
+        }}>CSV</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => {
+          downloadItemsAsJson(exportable(), `ibrain-archivio-${stamp}.json`);
+          toast.success("Esportato JSON.");
+        }}>JSON</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 
 function EditDialog({
   item, onClose, onSaved,
@@ -955,6 +1014,26 @@ function ViewDialog({
               </Button>
             </>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              downloadMarkdown({
+                title: item.title,
+                brainName,
+                type: item.type_label,
+                status: item.status,
+                tool: item.tool,
+                tags: item.tags,
+                url: item.url,
+                content,
+                created_at: item.created_at,
+                updated_at: item.updated_at,
+              });
+            }}
+          >
+            <Download className="h-4 w-4 mr-1" /> Scarica
+          </Button>
           <Button size="sm" onClick={onClose}>Chiudi</Button>
         </DialogFooter>
 
