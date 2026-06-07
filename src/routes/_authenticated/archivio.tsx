@@ -411,16 +411,24 @@ function ArchivioPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {filtered.map((it) => {
             const brainName = brainMap.get(it.brain_id ?? "") ?? "—";
+            const isDup = dupIds.has(it.id);
             return (
               <Card key={it.id} className="flex flex-col">
                 <CardContent className="p-4 flex-1 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
+                      <Badge className="mb-1.5 max-w-full truncate" title={brainName}>
+                        {brainName}
+                      </Badge>
                       <div className="font-medium truncate" title={it.title}>{it.title}</div>
-                      <div className="text-xs text-muted-foreground truncate">{brainName}</div>
                     </div>
                     <Badge variant="secondary" className="shrink-0">{it.type_label}</Badge>
                   </div>
+                  {isDup && (
+                    <Badge variant="outline" className="text-amber-600 border-amber-500/40 bg-amber-500/5">
+                      <AlertTriangle className="h-3 w-3 mr-1" /> Possibile duplicato
+                    </Badge>
+                  )}
                   {it.preview && (
                     <p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap">{it.preview}</p>
                   )}
@@ -436,6 +444,9 @@ function ArchivioPage() {
                   </div>
                 </CardContent>
                 <div className="flex flex-wrap gap-1 border-t p-2">
+                  <Button size="sm" variant="ghost" onClick={() => setViewItem(it)}>
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Apri contenuto
+                  </Button>
                   {it.brain_id && (
                     <Button asChild size="sm" variant="ghost">
                       <Link to="/progetti/$brainId" params={{ brainId: it.brain_id }}>
@@ -446,7 +457,7 @@ function ArchivioPage() {
                   {it.url && (
                     <Button asChild size="sm" variant="ghost">
                       <a href={it.url} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Apri
+                        <ExternalLink className="h-3.5 w-3.5 mr-1" /> Apri URL
                       </a>
                     </Button>
                   )}
@@ -469,6 +480,15 @@ function ArchivioPage() {
           })}
         </div>
       )}
+
+      <ViewDialog
+        item={viewItem}
+        brainName={viewItem ? brainMap.get(viewItem.brain_id ?? "") ?? "—" : ""}
+        onClose={() => setViewItem(null)}
+        onEdit={(it) => { setViewItem(null); setEditItem(it); }}
+        onArchive={async (it) => { await archive(it); setViewItem(null); }}
+      />
+
 
       <EditDialog
         item={editItem}
