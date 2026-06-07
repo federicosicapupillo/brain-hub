@@ -30,6 +30,9 @@ import { fetchAll, createNode } from "@/lib/brains-api";
 import type { Brain } from "@/lib/demo-data";
 
 export const Route = createFileRoute("/_authenticated/archivio")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    tool: typeof s.tool === "string" ? s.tool : undefined,
+  }),
   component: ArchivioPage,
   errorComponent: ({ error }) => (
     <div className="p-6" role="alert">Errore: {error.message}</div>
@@ -70,7 +73,7 @@ const TYPE_OPTIONS = [
   { value: "external", label: "Link esterno" },
 ];
 
-const TOOLS = ["all", "ChatGPT", "Lovable", "Antigravity", "Claude", "Perplexity", "Runway", "Midjourney", "ElevenLabs", "D-ID", "Supabase", "GitHub", "Obsidian", "Altro"];
+const TOOLS = ["all", "ChatGPT", "Lovable", "Antigravity", "Claude", "Perplexity", "Runway", "Midjourney", "ElevenLabs", "D-ID", "Supabase", "GitHub", "Google Drive", "Gmail", "Google Calendar", "Obsidian", "Altro"];
 const STATUSES = ["all", "bozza", "importato", "pronto", "da revisionare", "approvato", "archiviato", "fatto", "in corso", "bloccato", "todo", "done"];
 
 async function loadAll(): Promise<Item[]> {
@@ -218,7 +221,8 @@ function ArchivioPage() {
   const [q, setQ] = useState("");
   const [fBrain, setFBrain] = useState("all");
   const [fType, setFType] = useState("all");
-  const [fTool, setFTool] = useState("all");
+  const search = Route.useSearch();
+  const [fTool, setFTool] = useState(search.tool ?? "all");
   const [fStatus, setFStatus] = useState("all");
   const [sort, setSort] = useState("recent");
   const [onlyDup, setOnlyDup] = useState(false);
