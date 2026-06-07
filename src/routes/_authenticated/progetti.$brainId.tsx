@@ -666,3 +666,145 @@ function PromptsTab({ nodes, brainId, brainName }: { nodes: PromptNode[]; brainI
 
 
 
+
+type AnyRow = Record<string, unknown>;
+
+function ExportProjectMenu({
+  brainName, sources, tasks, roadmap, nodes, allLinks,
+}: {
+  brainName: string;
+  sources: AnyRow[];
+  tasks: AnyRow[];
+  roadmap: AnyRow[];
+  nodes: AnyRow[];
+  allLinks: DirectedProjectLink[];
+}) {
+  const stamp = todayStamp();
+  const slug = slugify(brainName);
+
+  const promptNodes = nodes.filter((n) => (n.type as string) === "prompt");
+
+  const promptEntries = (): ZipEntry[] => promptNodes.map((n) => {
+    const item: ExportableItem = {
+      title: (n.label as string) ?? "prompt",
+      brainName,
+      type: "prompt",
+      tags: (n.tags as string[]) ?? [],
+      content: (n.summary as string) ?? "",
+      created_at: n.created_at as string,
+      updated_at: n.updated_at as string,
+    };
+    return { path: `prompt/${fileNameForItem(item, "md")}`, data: itemToMarkdown(item) };
+  });
+
+  const fileEntries = (): ZipEntry[] => sources.map((s) => {
+    const item: ExportableItem = {
+      title: (s.title as string) ?? "file",
+      brainName,
+      type: (s.source_type as string) ?? "file",
+      status: (s.status as string) ?? null,
+      tags: (s.tags as string[]) ?? [],
+      url: (s.url as string) ?? null,
+      content: (s.extracted_text as string) ?? (s.description as string) ?? "",
+      created_at: s.created_at as string,
+      updated_at: s.updated_at as string,
+    };
+    return { path: `file/${fileNameForItem(item, "md")}`, data: itemToMarkdown(item) };
+  });
+
+  const taskEntries = (): ZipEntry[] => tasks.map((t) => {
+    const item: ExportableItem = {
+      title: (t.title as string) ?? "task",
+      brainName,
+      type: "task",
+      status: (t.status as string) ?? null,
+      content: (t.description as string) ?? "",
+      created_at: t.created_at as string,
+      updated_at: t.updated_at as string,
+    };
+    return { path: `task/${fileNameForItem(item, "md")}`, data: itemToMarkdown(item) };
+  });
+
+  const roadmapEntries = (): ZipEntry[] => roadmap.map((r) => {
+    const item: ExportableItem = {
+      title: (r.title as string) ?? "roadmap",
+      brainName,
+      type: "roadmap",
+      status: (r.status as string) ?? null,
+      content: (r.description as string) ?? "",
+      created_at: r.created_at as string,
+      updated_at: r.updated_at as string,
+    };
+    return { path: `roadmap/${fileNameForItem(item, "md")}`, data: itemToMarkdown(item) };
+  });
+
+  const linkEntries = (): ZipEntry[] => allLinks.map((l) => {
+    const item: ExportableItem = {
+      title: l.title ?? "link",
+      brainName,
+      type: l.link_type,
+      tool: l.tool ?? null,
+      url: l.url ?? null,
+      content: l.notes ?? "",
+      created_at: l.created_at,
+      updated_at: l.updated_at,
+    };
+    return { path: `collegamenti/${fileNameForItem(item, "md")}`, data: itemToMarkdown(item) };
+  });
+
+  const metadataEntry = (counts: Record<string, number>): ZipEntry => ({
+    path: "metadata/progetto.json",
+    data: JSON.stringify({
+      progetto: brainName,
+      esportato_il: new Date().toISOString(),
+      conteggi: counts,
+    }, null, 2),
+  });
+
+  const exportZip = (kind: "all" | "prompts" | "files" | "tasks" | "roadmap" | "links") => {
+    let entries: ZipEntry[] = [];
+    let counts: Record<string, number> = {};
+    if (kind === "all" || kind === "prompts") {
+      const e = promptEntries(); entries = entries.concat(e); counts.prompt = e.length;
+    }
+    if (kind === "all" || kind === "files") {
+      const e = fileEntries(); entries = entries.concat(e); counts.file = e.length;
+    }
+    if (kind === "all" || kind === "tasks") {
+      const e = taskEntries(); entries = entries.concat(e); counts.task = e.length;
+    }
+    if (kind === "all" || kind === "roadmap") {
+      const e = roadmapEntries(); entries = entries.concat(e); counts.roadmap = e.length;
+    }
+    if (kind === "all" || kind === "links") {
+      const e = linkEntries(); entries = entries.concat(e); counts.collegamenti = e.length;
+    }
+    entries.push(metadataEntry(counts));
+    if (entries.length <= 1) {
+      toast.error("Nessun contenuto da esportare.");
+      return;
+    }
+    const suffix = kind === "all" ? "completo" : kind;
+    downloadBlob(buildZip(entries), `${slug}-${suffix}-${stamp}.zip`);
+    toast.success(`Esportato ${slug} (${entries.length - 1} file).`);
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="sm" variant="outline">
+          <Download className="h-4 w-4 mr-1" /> Esporta progetto
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem onClick={() => exportZip("all")}>Tutto il progetto (.zip)</DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => exportZip("prompts")}>Solo Prompt ({promptNodes.length})</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => exportZip("files")}>Solo File ({sources.length})</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => exportZip("tasks")}>Solo Task ({tasks.length})</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => exportZip("roadmap")}>Solo Roadmap ({roadmap.length})</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => exportZip("links")}>Solo Collegamenti ({allLinks.length})</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
