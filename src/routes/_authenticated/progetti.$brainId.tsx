@@ -604,7 +604,25 @@ function PromptsTab({ nodes, brainId, brainName }: { nodes: PromptNode[]; brainI
           />
           Solo prompt storici
         </label>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={filtered.length === 0}
+            onClick={() => {
+              const items: ExportableItem[] = filtered.map((n) => ({
+                title: n.label,
+                brainName,
+                type: "prompt",
+                tags: n.tags ?? [],
+                content: n.summary ?? "",
+              }));
+              downloadItemsAsMdZip(items, `${slugify(brainName)}-prompt-${todayStamp()}.zip`);
+              toast.success(`Esportati ${items.length} prompt.`);
+            }}
+          >
+            <Download className="h-4 w-4 mr-1" /> Esporta prompt ({filtered.length})
+          </Button>
           <Button asChild size="sm" variant="outline">
             <Link to="/importa/prompt-storici">Importa prompt storici</Link>
           </Button>
