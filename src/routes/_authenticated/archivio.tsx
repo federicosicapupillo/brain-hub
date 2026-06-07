@@ -73,7 +73,7 @@ const TYPE_OPTIONS = [
   { value: "external", label: "Link esterno" },
 ];
 
-const TOOLS = ["all", "ChatGPT", "Lovable", "Antigravity", "Claude", "Perplexity", "Runway", "Midjourney", "ElevenLabs", "D-ID", "Supabase", "GitHub", "Obsidian", "Altro"];
+const TOOLS = ["all", "ChatGPT", "Lovable", "Antigravity", "Claude", "Perplexity", "Runway", "Midjourney", "ElevenLabs", "D-ID", "Supabase", "GitHub", "Google Drive", "Gmail", "Google Calendar", "Obsidian", "Altro"];
 const STATUSES = ["all", "bozza", "importato", "pronto", "da revisionare", "approvato", "archiviato", "fatto", "in corso", "bloccato", "todo", "done"];
 
 async function loadAll(): Promise<Item[]> {
