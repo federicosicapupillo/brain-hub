@@ -567,6 +567,3 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   );
 }
-
-// Plug icon imported to avoid tree-shake removal warnings when unused.
-void Plug;
