@@ -124,7 +124,7 @@ function ProgettiDashboard() {
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {projects.map((p) => (
-              <ProjectCard key={p.brain.id} project={p} />
+              <ProjectCard key={p.brain.id} project={p} linkCount={linkCounts[p.brain.id] ?? 0} />
             ))}
           </div>
         </>
