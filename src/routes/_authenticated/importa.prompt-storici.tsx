@@ -154,17 +154,31 @@ function ImportPromptStoriciPage() {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   }
 
+  const [lastImport, setLastImport] = useState<{ ok: number; fail: number; skipped: number } | null>(null);
+
   async function handleImport() {
-    if (!effectiveBrainId) { toast.error("Seleziona un progetto."); return; }
-    const toImport = items.filter((i) => i.include);
-    if (toImport.length === 0) { toast.warning("Nessun prompt selezionato."); return; }
+    if (items.length === 0) { toast.error("Carica almeno un file"); return; }
+    if (!effectiveBrainId) { toast.error("Seleziona un progetto"); return; }
+    const { data: u, error: ue } = await supabase.auth.getUser();
+    if (ue || !u?.user) { toast.error("Devi essere autenticato"); return; }
+    const selected = items.filter((i) => i.include);
+    if (selected.length === 0) { toast.error("Seleziona almeno un prompt da importare"); return; }
+
+    const toImport = selected.filter((i) => !i.duplicate);
+    const skipped = selected.length - toImport.length;
+    if (toImport.length === 0) {
+      toast.warning(`Tutti i ${skipped} prompt selezionati sono duplicati: nulla da importare.`);
+      return;
+    }
+
     setImporting(true);
     let ok = 0, fail = 0;
+    const errors: string[] = [];
     for (const it of toImport) {
       try {
         await createNode({
           brain_id: effectiveBrainId,
-          label: it.title.slice(0, 200),
+          label: (it.title || it.fileName).slice(0, 200) || "Prompt senza titolo",
           type: "prompt",
           origin: "importatore",
           tags: [
@@ -178,17 +192,36 @@ function ImportPromptStoriciPage() {
           summary: it.content,
         });
         ok++;
-      } catch {
+      } catch (e) {
         fail++;
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("[prompt-storici] import error", e);
+        if (errors.length < 3) errors.push(msg);
       }
     }
     qc.invalidateQueries({ queryKey: ["brains-all"] });
     qc.invalidateQueries({ queryKey: ["progetto", effectiveBrainId] });
     qc.invalidateQueries({ queryKey: ["archivio"] });
-    toast.success(`Importati ${ok} prompt${fail ? ` · ${fail} errori` : ""}.`);
-    setItems((prev) => prev.filter((i) => !i.include));
+    qc.invalidateQueries({ queryKey: ["brain_nodes"] });
+    qc.invalidateQueries({ queryKey: ["prompts"] });
+
+    setLastImport({ ok, fail, skipped });
+    if (ok > 0) {
+      toast.success(
+        `Importati ${ok} prompt${skipped ? ` · ${skipped} duplicati saltati` : ""}${fail ? ` · ${fail} errori` : ""}.`
+      );
+      setItems((prev) => prev.filter((i) => !(i.include && !i.duplicate)));
+    } else {
+      toast.error(`Import fallito${fail ? `: ${errors[0] ?? "errore sconosciuto"}` : ""}`);
+    }
     setImporting(false);
   }
+
+  const canImport =
+    items.length > 0 &&
+    items.some((i) => i.include && !i.duplicate) &&
+    !!effectiveBrainId &&
+    !importing;
 
   return (
     <div className="p-6 space-y-6">
