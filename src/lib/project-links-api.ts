@@ -116,10 +116,11 @@ export async function countLinksPerBrain(): Promise<Record<string, number>> {
       seenPair.add(key);
       counts[a] = (counts[a] ?? 0) + 1;
       counts[b] = (counts[b] ?? 0) + 1;
-    } else {
+    } else if (r.link_type === "external") {
       const a = r.brain_id as string;
       counts[a] = (counts[a] ?? 0) + 1;
     }
+    // prompt / file / roadmap / task / tool are NOT counted as "Collegamenti".
   }
   return counts;
 }
