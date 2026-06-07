@@ -179,7 +179,7 @@ function ProjectDetailPage() {
         </TabsContent>
 
         <TabsContent value="prompts" className="mt-4">
-          <PromptsTab nodes={promptNodes} brainId={brainId} />
+          <PromptsTab nodes={promptNodes} brainId={brainId} brainName={brain.name ?? "progetto"} />
         </TabsContent>
 
         <TabsContent value="roadmap" className="mt-4">
