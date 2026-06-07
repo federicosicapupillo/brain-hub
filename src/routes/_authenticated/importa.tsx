@@ -57,6 +57,7 @@ const STATUSES = ["bozza","importato","pronto","da revisionare","approvato","arc
 function ImportaPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const search = Route.useSearch();
 
   const { data: brainsData } = useQuery({
     queryKey: ["brains-all"],
@@ -64,12 +65,12 @@ function ImportaPage() {
   });
   const brains = brainsData?.brains ?? [];
 
-  const [brainId, setBrainId] = useState<string>("");
+  const [brainId, setBrainId] = useState<string>(search.brain ?? "");
   const [contentType, setContentType] = useState<ContentType>("note");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [url, setUrl] = useState("");
-  const [tool, setTool] = useState<string>("");
+  const [tool, setTool] = useState<string>(search.tool ?? "");
   const [status, setStatus] = useState<string>("importato");
   const [tags, setTags] = useState("");
   const [saving, setSaving] = useState(false);
