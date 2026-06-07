@@ -443,6 +443,8 @@ function ArchivioPage() {
           {filtered.map((it) => {
             const brainName = brainMap.get(it.brain_id ?? "") ?? "—";
             const isDup = dupIds.has(it.id);
+            const [rawSrc, rawId] = it.id.split(":");
+            const secondary = rawSrc === "brain" ? [] : (linksByContent.get(`${rawSrc}:${rawId}`) ?? []);
             return (
               <Card key={it.id} className="flex flex-col">
                 <CardContent className="p-4 flex-1 space-y-3">
@@ -455,6 +457,16 @@ function ArchivioPage() {
                     </div>
                     <Badge variant="secondary" className="shrink-0">{it.type_label}</Badge>
                   </div>
+                  {secondary.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                      <span className="text-muted-foreground">Collegato anche a:</span>
+                      {secondary.map((bid) => (
+                        <Badge key={bid} variant="outline" className="border-primary/30 text-primary">
+                          <Link2 className="h-3 w-3 mr-1" />{brainMap.get(bid) ?? "—"}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                   {isDup && (
                     <Badge variant="outline" className="text-amber-600 border-amber-500/40 bg-amber-500/5">
                       <AlertTriangle className="h-3 w-3 mr-1" /> Possibile duplicato
