@@ -87,6 +87,7 @@ async function loadAll(): Promise<Item[]> {
     supabase.from("project_links").select("*").eq("user_id", uid),
   ]);
 
+
   const items: Item[] = [];
 
   for (const b of brains.data ?? []) {
@@ -189,6 +190,31 @@ function ArchivioPage() {
     queryFn: loadAll,
   });
 
+  const { data: contentLinks = [] } = useQuery({
+    queryKey: ["content-project-links"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return [];
+      const { data, error } = await supabase
+        .from("content_project_links").select("*").eq("user_id", u.user.id);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Map: `${content_type}:${content_id}` -> target_project_id[]
+  const linksByContent = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const r of contentLinks) {
+      const k = `${r.content_type}:${r.content_id}`;
+      const arr = m.get(k) ?? [];
+      arr.push(r.target_project_id);
+      m.set(k, arr);
+    }
+    return m;
+  }, [contentLinks]);
+
+
   const [q, setQ] = useState("");
   const [fBrain, setFBrain] = useState("all");
   const [fType, setFType] = useState("all");
@@ -278,6 +304,7 @@ function ArchivioPage() {
     qc.invalidateQueries({ queryKey: ["project-links-counts"] });
     qc.invalidateQueries({ queryKey: ["project-links-bi"] });
     qc.invalidateQueries({ queryKey: ["knowledge-sources"] });
+    qc.invalidateQueries({ queryKey: ["content-project-links"] });
   };
 
   const archive = async (it: Item) => {
@@ -416,6 +443,8 @@ function ArchivioPage() {
           {filtered.map((it) => {
             const brainName = brainMap.get(it.brain_id ?? "") ?? "—";
             const isDup = dupIds.has(it.id);
+            const [rawSrc, rawId] = it.id.split(":");
+            const secondary = rawSrc === "brain" ? [] : (linksByContent.get(`${rawSrc}:${rawId}`) ?? []);
             return (
               <Card key={it.id} className="flex flex-col">
                 <CardContent className="p-4 flex-1 space-y-3">
@@ -428,6 +457,16 @@ function ArchivioPage() {
                     </div>
                     <Badge variant="secondary" className="shrink-0">{it.type_label}</Badge>
                   </div>
+                  {secondary.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1 text-[11px]">
+                      <span className="text-muted-foreground">Collegato anche a:</span>
+                      {secondary.map((bid) => (
+                        <Badge key={bid} variant="outline" className="border-primary/30 text-primary">
+                          <Link2 className="h-3 w-3 mr-1" />{brainMap.get(bid) ?? "—"}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                   {isDup && (
                     <Badge variant="outline" className="text-amber-600 border-amber-500/40 bg-amber-500/5">
                       <AlertTriangle className="h-3 w-3 mr-1" /> Possibile duplicato
@@ -489,11 +528,20 @@ function ArchivioPage() {
         item={viewItem}
         brains={brains}
         brainName={viewItem ? brainMap.get(viewItem.brain_id ?? "") ?? "—" : ""}
+        secondaryProjects={(() => {
+          if (!viewItem) return [];
+          const [s, i] = viewItem.id.split(":");
+          if (s === "brain") return [];
+          return (linksByContent.get(`${s}:${i}`) ?? []).map((bid) => ({
+            id: bid, name: brainMap.get(bid) ?? "—",
+          }));
+        })()}
         onClose={() => setViewItem(null)}
         onEdit={(it) => { setViewItem(null); setEditItem(it); }}
         onArchive={async (it) => { await archive(it); setViewItem(null); }}
         onChanged={invalidate}
       />
+
 
 
       <EditDialog
@@ -610,11 +658,12 @@ function EditDialog({
 }
 
 function ViewDialog({
-  item, brains, brainName, onClose, onEdit, onArchive, onChanged,
+  item, brains, brainName, secondaryProjects, onClose, onEdit, onArchive, onChanged,
 }: {
   item: Item | null;
   brains: Brain[];
   brainName: string;
+  secondaryProjects: { id: string; name: string }[];
   onClose: () => void;
   onEdit: (it: Item) => void;
   onArchive: (it: Item) => void;
@@ -695,16 +744,22 @@ function ViewDialog({
   };
 
   const linkToOther = async () => {
-    if (!item.brain_id || !targetBrain) { toast.error("Seleziona un progetto."); return; }
+    if (!targetBrain) { toast.error("Seleziona un progetto."); return; }
+    if (item.source === "brain") { toast.error("Seleziona un contenuto, non un progetto."); return; }
     setBusy("link");
     try {
       const uid = await getUid(); if (!uid) throw new Error("Non autenticato");
-      const { error } = await supabase.from("project_links").insert({
-        user_id: uid, brain_id: item.brain_id,
-        target_brain_id: targetBrain,
-        link_type: "project", relation_type: "collegato a",
-        title: item.title, notes: content.slice(0, 1000),
-      });
+      const [, rawId] = item.id.split(":");
+      const contentType = item.source; // node | task | roadmap | source | link
+      const { error } = await supabase.from("content_project_links").upsert({
+        user_id: uid,
+        content_id: rawId,
+        content_type: contentType,
+        source_project_id: item.brain_id,
+        target_project_id: targetBrain,
+        relationship_type: "collegato a",
+        notes: content.slice(0, 1000),
+      }, { onConflict: "user_id,content_id,content_type,target_project_id" });
       if (error) throw error;
       toast.success("Contenuto collegato al progetto selezionato.");
       setCreated({ label: "Apri progetto", brainId: targetBrain });
@@ -712,6 +767,7 @@ function ViewDialog({
     } catch (e) { toast.error((e as Error).message); }
     finally { setBusy(null); }
   };
+
 
   const duplicateTo = async () => {
     if (!targetBrain) { toast.error("Seleziona un progetto."); return; }
@@ -802,6 +858,27 @@ function ViewDialog({
               </div>
             )}
           </div>
+
+          {secondaryProjects.length > 0 && (
+            <div className="rounded-md border bg-card/40 p-3 space-y-2">
+              <div className="text-sm font-medium flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-primary" /> Collegato anche a
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {secondaryProjects.map((p) => (
+                  <Button key={p.id} asChild size="sm" variant="outline" className="h-7">
+                    <Link to="/progetti/$brainId" params={{ brainId: p.id }} onClick={onClose}>
+                      <FolderOpen className="h-3 w-3 mr-1" /> {p.name}
+                    </Link>
+                  </Button>
+                ))}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                Il contenuto resta originale di <span className="font-medium">{brainName}</span>. I collegamenti contenuto→progetto non vengono conteggiati nei collegamenti progetto-progetto.
+              </div>
+            </div>
+          )}
+
 
           <div className="rounded-md border bg-card/40 p-3 space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium">
