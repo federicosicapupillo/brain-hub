@@ -149,7 +149,7 @@ function EmptyHub({ onSeed, seeding }: { onSeed: () => void; seeding: boolean })
   );
 }
 
-function ProjectCard({ project }: { project: ProjectAggregate }) {
+function ProjectCard({ project, linkCount }: { project: ProjectAggregate; linkCount: number }) {
   const { brain, fileCount, openTasks, roadmapCount, promptNodes } = project;
   const meta = findMeta(brain.name);
 
@@ -198,12 +198,14 @@ function ProjectCard({ project }: { project: ProjectAggregate }) {
           </div>
         )}
 
-        <div className="grid grid-cols-4 gap-2 rounded-md border border-border/60 bg-background/40 p-2 text-center text-[11px]">
+        <div className="grid grid-cols-5 gap-2 rounded-md border border-border/60 bg-background/40 p-2 text-center text-[11px]">
           <Stat icon={<FileText className="h-3 w-3" />} label="File" value={fileCount} />
           <Stat icon={<ListChecks className="h-3 w-3" />} label="Task" value={openTasks} />
           <Stat icon={<MapIcon className="h-3 w-3" />} label="Roadmap" value={roadmapCount} />
           <Stat icon={<Wrench className="h-3 w-3" />} label="Prompt" value={promptNodes} />
+          <Stat icon={<Link2 className="h-3 w-3" />} label="Coll." value={linkCount} />
         </div>
+
 
         {meta?.nextAction && (
           <div className="rounded-md border border-primary/20 bg-primary/5 p-2 text-[11px] text-foreground/90">
