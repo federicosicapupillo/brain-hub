@@ -50,7 +50,9 @@ export function EditProjectLinkDialog({ link }: { link: ProjectLink }) {
         });
       }
       toast.success("Collegamento aggiornato");
-      await qc.invalidateQueries({ queryKey: ["project-links", link.brain_id] });
+      await qc.invalidateQueries({ queryKey: ["project-links-bi"] });
+      await qc.invalidateQueries({ queryKey: ["progetti-hub"] });
+      await qc.invalidateQueries({ queryKey: ["project-links-counts"] });
       setOpen(false);
     } catch (e) {
       toast.error((e as Error).message);

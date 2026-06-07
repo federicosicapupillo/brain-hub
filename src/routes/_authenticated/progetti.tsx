@@ -9,6 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, FileText, ListChecks, Map as MapIcon, Plus, Sparkles, Wrench, FolderKanban } from "lucide-react";
 import { toast } from "sonner";
 import { findMeta, PROJECT_META, priorityColor, priorityLabel, seedMissingProjects } from "@/lib/projects-meta";
+import { countLinksPerBrain } from "@/lib/project-links-api";
+import { Link2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/progetti")({
   head: () => ({
@@ -66,6 +68,10 @@ async function loadProjects(): Promise<ProjectAggregate[]> {
 function ProgettiDashboard() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["progetti-hub"], queryFn: loadProjects });
+  const { data: linkCounts = {} } = useQuery({
+    queryKey: ["project-links-counts"],
+    queryFn: countLinksPerBrain,
+  });
   const [seeding, setSeeding] = useState(false);
 
   const projects = data ?? [];
@@ -118,7 +124,7 @@ function ProgettiDashboard() {
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {projects.map((p) => (
-              <ProjectCard key={p.brain.id} project={p} />
+              <ProjectCard key={p.brain.id} project={p} linkCount={linkCounts[p.brain.id] ?? 0} />
             ))}
           </div>
         </>
@@ -143,7 +149,7 @@ function EmptyHub({ onSeed, seeding }: { onSeed: () => void; seeding: boolean })
   );
 }
 
-function ProjectCard({ project }: { project: ProjectAggregate }) {
+function ProjectCard({ project, linkCount }: { project: ProjectAggregate; linkCount: number }) {
   const { brain, fileCount, openTasks, roadmapCount, promptNodes } = project;
   const meta = findMeta(brain.name);
 
@@ -192,12 +198,14 @@ function ProjectCard({ project }: { project: ProjectAggregate }) {
           </div>
         )}
 
-        <div className="grid grid-cols-4 gap-2 rounded-md border border-border/60 bg-background/40 p-2 text-center text-[11px]">
+        <div className="grid grid-cols-5 gap-2 rounded-md border border-border/60 bg-background/40 p-2 text-center text-[11px]">
           <Stat icon={<FileText className="h-3 w-3" />} label="File" value={fileCount} />
           <Stat icon={<ListChecks className="h-3 w-3" />} label="Task" value={openTasks} />
           <Stat icon={<MapIcon className="h-3 w-3" />} label="Roadmap" value={roadmapCount} />
           <Stat icon={<Wrench className="h-3 w-3" />} label="Prompt" value={promptNodes} />
+          <Stat icon={<Link2 className="h-3 w-3" />} label="Coll." value={linkCount} />
         </div>
+
 
         {meta?.nextAction && (
           <div className="rounded-md border border-primary/20 bg-primary/5 p-2 text-[11px] text-foreground/90">

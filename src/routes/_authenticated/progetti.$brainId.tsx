@@ -6,10 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ArrowLeft, ExternalLink, FileText, Link2, ListChecks, Map as MapIcon, Sparkles, Wrench, Trash2, FolderKanban, LinkIcon } from "lucide-react";
-import { findMeta, priorityColor, priorityLabel, PROJECT_META } from "@/lib/projects-meta";
+import { findMeta, priorityColor, priorityLabel } from "@/lib/projects-meta";
 import { AddProjectLinkDialog } from "@/components/AddProjectLinkDialog";
 import { EditProjectLinkDialog } from "@/components/EditProjectLinkDialog";
-import { deleteProjectLink, listProjectLinks, type LinkType, type ProjectLink } from "@/lib/project-links-api";
+import { deleteProjectLink, listProjectLinksBidirectional, type DirectedProjectLink, type LinkType } from "@/lib/project-links-api";
 import { toast } from "sonner";
 
 
@@ -48,6 +48,8 @@ async function loadProject(brainId: string) {
 function ProjectDetailPage() {
   const { brainId } = useParams({ from: "/_authenticated/progetti/$brainId" });
   const { data, isLoading } = useQuery({ queryKey: ["progetto", brainId], queryFn: () => loadProject(brainId) });
+  const { allLinks } = useBrainLinks(brainId);
+  const linksCount = allLinks.length;
 
   if (isLoading) {
     return <div className="p-6 text-sm text-muted-foreground">Caricamento progetto…</div>;
@@ -122,11 +124,12 @@ function ProjectDetailPage() {
                   </Section>
                 </>
               )}
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                 <Stat label="File collegati" value={sources.length} />
                 <Stat label="Task aperti" value={openTasks.length} />
                 <Stat label="Roadmap" value={roadmap.length} />
                 <Stat label="Prompt" value={promptNodes.length} />
+                <Stat label="Collegamenti" value={linksCount} />
               </div>
             </CardContent>
           </Card>
@@ -268,25 +271,49 @@ function ProjectDetailPage() {
           <Card className="glass">
             <CardContent className="space-y-4 p-5">
               <div>
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Collegamenti tra progetti</div>
-                {connectionsByName.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nessun collegamento dichiarato verso altri progetti.</p>
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Collegamenti tra progetti ({allLinks.filter((l) => l.link_type === "project").length})
+                </div>
+                {allLinks.filter((l) => l.link_type === "project").length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nessun collegamento verso altri progetti.</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {connectionsByName.map(({ name, target }) => target ? (
-                      <Button key={name} asChild size="sm" variant="outline" className="gap-1">
-                        <Link to="/progetti/$brainId" params={{ brainId: target.id }}>
-                          <Link2 className="h-3 w-3" />{name}
-                          <span className="ml-1 text-[10px] text-muted-foreground">· collegato a</span>
-                        </Link>
-                      </Button>
-                    ) : (
-                      <Badge key={name} variant="outline" className="text-[11px] text-muted-foreground">
-                        {name} · non ancora creato
-                      </Badge>
-                    ))}
+                  <div className="flex flex-col gap-2">
+                    {allLinks.filter((l) => l.link_type === "project").map((l) => {
+                      const rel = l.relation_type ?? "collegato a";
+                      const label = l.direction === "in" ? `collegato da · ${rel}` : rel;
+                      return l.target_brain_id ? (
+                        <Button
+                          key={`${l.direction}:${l.id}`}
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="justify-start gap-2"
+                        >
+                          <Link to="/progetti/$brainId" params={{ brainId: l.target_brain_id }}>
+                            <Link2 className="h-3 w-3" />
+                            <span className="font-medium">{l.title}</span>
+                            <span className="text-[11px] text-muted-foreground">— {label}</span>
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Badge key={l.id} variant="outline" className="text-[11px] text-muted-foreground">
+                          {l.title} · {label}
+                        </Badge>
+                      );
+                    })}
                   </div>
-
+                )}
+                {connectionsByName.some(({ target }) => !target) && (
+                  <div className="mt-3">
+                    <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Suggeriti dai metadati</div>
+                    <div className="flex flex-wrap gap-2">
+                      {connectionsByName.filter(({ target }) => !target).map(({ name }) => (
+                        <Badge key={name} variant="outline" className="text-[11px] text-muted-foreground">
+                          {name} · non ancora creato
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
               <div>
@@ -306,9 +333,10 @@ function ProjectDetailPage() {
         </TabsContent>
       </Tabs>
 
+
       {!findMeta(brain.name) && (
         <div className="mt-6 rounded-md border border-dashed border-border bg-card/30 p-3 text-xs text-muted-foreground">
-          Questo progetto non corrisponde a uno dei {PROJECT_META.length} progetti principali. Categoria, priorità e strumenti consigliati non sono disponibili — puoi comunque collegare file, task, roadmap e prompt.
+          Progetto extra o archivio secondario: puoi collegarlo manualmente a uno dei progetti principali usando "Aggiungi collegamento".
         </div>
       )}
     </div>
@@ -360,38 +388,33 @@ const LINK_LABEL: Record<LinkType, string> = {
   roadmap: "Roadmap", task: "Task", tool: "Strumento AI", external: "Link esterno",
 };
 
-function RecentLinksSection({ brainId }: { brainId: string }) {
-  const qc = useQueryClient();
-  const { data: links = [], isLoading } = useQuery({
-    queryKey: ["project-links", brainId],
-    queryFn: () => listProjectLinks(brainId),
-  });
+/**
+ * Build bidirectional + virtual links for a brain. Exported as a hook so the
+ * detail page and the section share the same query/cache.
+ */
+function useBrainLinks(brainId: string) {
   const { data: progetto } = useQuery({
     queryKey: ["progetto", brainId],
     queryFn: () => loadProject(brainId),
   });
+  const brainsAll = progetto?.brainsAll ?? [];
+  const nameById = new Map(brainsAll.map((b) => [b.id, b.name ?? ""]));
+  const { data: links = [], isLoading } = useQuery({
+    queryKey: ["project-links-bi", brainId, brainsAll.length],
+    queryFn: () => listProjectLinksBidirectional(brainId, nameById),
+    enabled: !!progetto,
+  });
 
-  const onDelete = async (id: string) => {
-    try {
-      await deleteProjectLink(id, brainId);
-      toast.success("Collegamento rimosso");
-      await qc.invalidateQueries({ queryKey: ["project-links", brainId] });
-      await qc.invalidateQueries({ queryKey: ["progetto", brainId] });
-    } catch (e) { toast.error((e as Error).message); }
-  };
-
-  // Virtual project-to-project links derived from project meta connections.
-  // Only included when not already present in project_links (dedupe by target_brain_id).
-  const virtualLinks: ProjectLink[] = (() => {
+  const virtualLinks: DirectedProjectLink[] = (() => {
     if (!progetto?.brain) return [];
     const meta = findMeta(progetto.brain.name);
     if (!meta) return [];
     const existing = new Set(
       links.filter((l) => l.link_type === "project").map((l) => l.target_brain_id),
     );
-    const out: ProjectLink[] = [];
+    const out: DirectedProjectLink[] = [];
     for (const name of meta.connections) {
-      const target = progetto.brainsAll.find((x) => x.name?.toLowerCase() === name.toLowerCase());
+      const target = brainsAll.find((x) => x.name?.toLowerCase() === name.toLowerCase());
       if (!target || existing.has(target.id)) continue;
       out.push({
         id: `virtual:${target.id}`,
@@ -411,12 +434,29 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
         target_id: target.id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
+        direction: "out",
       });
     }
     return out;
   })();
 
-  const allLinks = [...links, ...virtualLinks];
+  return { links, virtualLinks, allLinks: [...links, ...virtualLinks], isLoading };
+}
+
+function RecentLinksSection({ brainId }: { brainId: string }) {
+  const qc = useQueryClient();
+  const { allLinks, isLoading } = useBrainLinks(brainId);
+
+  const onDelete = async (id: string) => {
+    try {
+      await deleteProjectLink(id, brainId);
+      toast.success("Collegamento rimosso");
+      await qc.invalidateQueries({ queryKey: ["project-links-bi"] });
+      await qc.invalidateQueries({ queryKey: ["progetto", brainId] });
+      await qc.invalidateQueries({ queryKey: ["progetti-hub"] });
+      await qc.invalidateQueries({ queryKey: ["project-links-counts"] });
+    } catch (e) { toast.error((e as Error).message); }
+  };
 
   if (isLoading) return null;
   if (allLinks.length === 0) {
@@ -442,9 +482,10 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
         <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
           {recent.map((l) => (
             <LinkRow
-              key={l.id}
+              key={`${l.direction}:${l.id}`}
               link={l}
-              onDelete={l.id.startsWith("virtual:") ? undefined : () => onDelete(l.id)}
+              currentBrainId={brainId}
+              onDelete={l.id.startsWith("virtual:") || l.direction === "in" ? undefined : () => onDelete(l.id)}
             />
           ))}
         </div>
@@ -453,12 +494,20 @@ function RecentLinksSection({ brainId }: { brainId: string }) {
   );
 }
 
-function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void }) {
+function LinkRow({
+  link, currentBrainId, onDelete,
+}: { link: DirectedProjectLink; currentBrainId: string; onDelete?: () => void }) {
   const Icon = LINK_ICON[link.link_type];
   const isVirtual = link.id.startsWith("virtual:");
   const date = isVirtual ? null : new Date(link.created_at).toLocaleDateString();
   const openHref = link.url ?? (link.target_brain_id ? `/progetti/${link.target_brain_id}` : null);
-  const relation = link.relation_type ?? "collegato a";
+  const baseRelation = link.relation_type ?? "collegato a";
+  const relation = link.direction === "in" ? `collegato da · ${baseRelation}` : baseRelation;
+  // Editing inbound links would mutate the OTHER project's row from this view —
+  // allowed, but we set the "current" context to the link's real brain_id so the
+  // upsert/update writes back to the original source row.
+  const canEdit = !isVirtual || !!link.target_brain_id;
+  void currentBrainId;
   return (
     <div className="flex items-start gap-2 rounded-md border border-border/60 bg-card/40 p-2 text-sm">
       <Icon className="mt-0.5 h-4 w-4 text-primary" />
@@ -466,6 +515,9 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void 
         <div className="flex items-center gap-2">
           <div className="truncate font-medium">{link.title}</div>
           <Badge variant="outline" className="text-[10px]">{LINK_LABEL[link.link_type]}</Badge>
+          {link.direction === "in" && (
+            <Badge variant="secondary" className="text-[10px]">inbound</Badge>
+          )}
         </div>
         <div className="text-[11px] text-muted-foreground">
           {relation}{date ? ` · ${date}` : ""}
@@ -485,7 +537,7 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void 
           </Button>
         )
       )}
-      <EditProjectLinkDialog link={link} />
+      {canEdit && <EditProjectLinkDialog link={link} />}
       {onDelete && (
         <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={onDelete}>
           <Trash2 className="h-3.5 w-3.5" />
@@ -494,4 +546,5 @@ function LinkRow({ link, onDelete }: { link: ProjectLink; onDelete?: () => void 
     </div>
   );
 }
+
 

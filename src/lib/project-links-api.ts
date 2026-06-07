@@ -49,6 +49,81 @@ export async function listProjectLinks(brainId: string): Promise<ProjectLink[]> 
   return (data ?? []) as ProjectLink[];
 }
 
+export type DirectedProjectLink = ProjectLink & { direction: "out" | "in" };
+
+/**
+ * Return all project_links touching brainId — both outbound (brain_id=brainId)
+ * and inbound (target_brain_id=brainId, link_type='project'). Inbound rows are
+ * re-mapped so the "other end" appears in target_brain_id/title for display,
+ * while relation_type/notes keep the original semantic.
+ */
+export async function listProjectLinksBidirectional(
+  brainId: string,
+  brainNameById: Map<string, string>,
+): Promise<DirectedProjectLink[]> {
+  const [outRes, inRes] = await Promise.all([
+    supabase.from("project_links").select("*").eq("brain_id", brainId)
+      .order("created_at", { ascending: false }),
+    supabase.from("project_links").select("*").eq("link_type", "project")
+      .eq("target_brain_id", brainId).neq("brain_id", brainId)
+      .order("created_at", { ascending: false }),
+  ]);
+  if (outRes.error) throw outRes.error;
+  if (inRes.error) throw inRes.error;
+  const outbound: DirectedProjectLink[] = (outRes.data ?? []).map((r) => ({
+    ...(r as ProjectLink),
+    direction: "out" as const,
+  }));
+  const inbound: DirectedProjectLink[] = (inRes.data ?? []).map((r) => {
+    const src = r.brain_id as string;
+    return {
+      ...(r as ProjectLink),
+      direction: "in" as const,
+      target_brain_id: src,
+      target_id: src,
+      target_table: "brains",
+      title: brainNameById.get(src) ?? (r as ProjectLink).title,
+    };
+  });
+  const seen = new Set<string>();
+  const merged: DirectedProjectLink[] = [];
+  for (const l of [...outbound, ...inbound]) {
+    const key = `${l.link_type}:${l.target_brain_id ?? l.url ?? l.title}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(l);
+  }
+  return merged;
+}
+
+/**
+ * Count distinct project↔project pairs each brain participates in, plus
+ * non-project outbound links. Used by the dashboard cards.
+ */
+export async function countLinksPerBrain(): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("project_links")
+    .select("brain_id,target_brain_id,link_type");
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  const seenPair = new Set<string>();
+  for (const r of data ?? []) {
+    if (r.link_type === "project" && r.target_brain_id) {
+      const a = r.brain_id as string;
+      const b = r.target_brain_id as string;
+      const key = [a, b].sort().join("::");
+      if (seenPair.has(key)) continue;
+      seenPair.add(key);
+      counts[a] = (counts[a] ?? 0) + 1;
+      counts[b] = (counts[b] ?? 0) + 1;
+    } else {
+      const a = r.brain_id as string;
+      counts[a] = (counts[a] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
 export async function createProjectLink(input: CreateProjectLinkInput): Promise<ProjectLink> {
   const { data: userData, error: ue } = await supabase.auth.getUser();
   if (ue || !userData.user) throw ue ?? new Error("Non autenticato");
