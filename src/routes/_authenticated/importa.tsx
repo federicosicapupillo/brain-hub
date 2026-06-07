@@ -229,8 +229,8 @@ function ImportaPage() {
           <div className="flex-1 text-sm">
             <strong>Importa Prompt Storici</strong> — carica più file .md/.txt o un .zip dei prompt usati per costruire un progetto.
           </div>
-          <Button size="sm" variant="outline" asChild>
-            <Link to="/importa/prompt-storici">Apri importatore massivo</Link>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/importa/prompt-storici" preload="intent">Apri importatore massivo</Link>
           </Button>
         </CardContent>
       </Card>
