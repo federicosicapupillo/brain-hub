@@ -93,6 +93,16 @@ function ImportaPage() {
     setStatus("importato"); setTool(""); setDuplicateConfirm(false);
   };
 
+  const openBulkImporter = async () => {
+    console.log("CLICK IMPORTATORE MASSIVO");
+    try {
+      await navigate({ to: "/importa/prompt-storici" });
+    } catch (error) {
+      console.error("NAVIGAZIONE IMPORTATORE MASSIVO FALLITA", error);
+      window.location.href = "/importa/prompt-storici";
+    }
+  };
+
   const checkDuplicate = async (): Promise<boolean> => {
     // Same title + brain + type → warn
     if (contentType === "task") {
@@ -229,13 +239,21 @@ function ImportaPage() {
           <div className="flex-1 text-sm">
             <strong>Importa Prompt Storici</strong> — carica più file .md/.txt o un .zip dei prompt usati per costruire un progetto.
           </div>
-          <Link
-            to="/importa/prompt-storici"
-            preload="intent"
-            className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-          >
-            Apri importatore massivo
-          </Link>
+          <div className="flex flex-col items-start gap-1">
+            <button
+              type="button"
+              onClick={openBulkImporter}
+              className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              Apri importatore massivo
+            </button>
+            <a
+              href="/importa/prompt-storici"
+              className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              Apri direttamente /importa/prompt-storici
+            </a>
+          </div>
         </CardContent>
       </Card>
 
