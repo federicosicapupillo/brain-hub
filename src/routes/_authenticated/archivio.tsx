@@ -221,7 +221,8 @@ function ArchivioPage() {
   const [q, setQ] = useState("");
   const [fBrain, setFBrain] = useState("all");
   const [fType, setFType] = useState("all");
-  const [fTool, setFTool] = useState("all");
+  const search = Route.useSearch();
+  const [fTool, setFTool] = useState(search.tool ?? "all");
   const [fStatus, setFStatus] = useState("all");
   const [sort, setSort] = useState("recent");
   const [onlyDup, setOnlyDup] = useState(false);
