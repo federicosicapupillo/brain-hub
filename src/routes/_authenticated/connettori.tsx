@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Plug, Github, Database, HardDrive, BookOpen, Sparkles, Bot, Search, Mail,
+  Github, Database, HardDrive, BookOpen, Sparkles, Bot, Search, Mail,
   Calendar, Film, Image as ImageIcon, Mic, UserCircle, Wand2, Info,
   Inbox, FolderOpen, Settings2, AlertTriangle, CheckCircle2, ArrowRight,
   Link2,
