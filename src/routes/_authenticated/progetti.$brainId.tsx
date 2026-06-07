@@ -271,25 +271,49 @@ function ProjectDetailPage() {
           <Card className="glass">
             <CardContent className="space-y-4 p-5">
               <div>
-                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Collegamenti tra progetti</div>
-                {connectionsByName.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nessun collegamento dichiarato verso altri progetti.</p>
+                <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Collegamenti tra progetti ({allLinks.filter((l) => l.link_type === "project").length})
+                </div>
+                {allLinks.filter((l) => l.link_type === "project").length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nessun collegamento verso altri progetti.</p>
                 ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {connectionsByName.map(({ name, target }) => target ? (
-                      <Button key={name} asChild size="sm" variant="outline" className="gap-1">
-                        <Link to="/progetti/$brainId" params={{ brainId: target.id }}>
-                          <Link2 className="h-3 w-3" />{name}
-                          <span className="ml-1 text-[10px] text-muted-foreground">· collegato a</span>
-                        </Link>
-                      </Button>
-                    ) : (
-                      <Badge key={name} variant="outline" className="text-[11px] text-muted-foreground">
-                        {name} · non ancora creato
-                      </Badge>
-                    ))}
+                  <div className="flex flex-col gap-2">
+                    {allLinks.filter((l) => l.link_type === "project").map((l) => {
+                      const rel = l.relation_type ?? "collegato a";
+                      const label = l.direction === "in" ? `collegato da · ${rel}` : rel;
+                      return l.target_brain_id ? (
+                        <Button
+                          key={`${l.direction}:${l.id}`}
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="justify-start gap-2"
+                        >
+                          <Link to="/progetti/$brainId" params={{ brainId: l.target_brain_id }}>
+                            <Link2 className="h-3 w-3" />
+                            <span className="font-medium">{l.title}</span>
+                            <span className="text-[11px] text-muted-foreground">— {label}</span>
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Badge key={l.id} variant="outline" className="text-[11px] text-muted-foreground">
+                          {l.title} · {label}
+                        </Badge>
+                      );
+                    })}
                   </div>
-
+                )}
+                {connectionsByName.some(({ target }) => !target) && (
+                  <div className="mt-3">
+                    <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Suggeriti dai metadati</div>
+                    <div className="flex flex-wrap gap-2">
+                      {connectionsByName.filter(({ target }) => !target).map(({ name }) => (
+                        <Badge key={name} variant="outline" className="text-[11px] text-muted-foreground">
+                          {name} · non ancora creato
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </div>
               <div>
@@ -308,6 +332,7 @@ function ProjectDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
 
       {!findMeta(brain.name) && (
         <div className="mt-6 rounded-md border border-dashed border-border bg-card/30 p-3 text-xs text-muted-foreground">
