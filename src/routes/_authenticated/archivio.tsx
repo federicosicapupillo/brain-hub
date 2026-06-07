@@ -3,8 +3,15 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Archive, ExternalLink, Pencil, Trash2, FolderOpen, Inbox, Eye, AlertTriangle,
-  ListTodo, Map as MapIcon, Sparkles, Link2, Copy, Globe,
+  ListTodo, Map as MapIcon, Sparkles, Link2, Copy, Globe, Download,
 } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  downloadItemsAsMdZip, downloadItemsAsCsv, downloadItemsAsJson,
+  downloadMarkdown, todayStamp, type ExportableItem,
+} from "@/lib/export-utils";
 import { toast } from "sonner";
 
 import { PageHeader } from "@/components/PageHeader";
