@@ -485,10 +485,12 @@ function ArchivioPage() {
 
       <ViewDialog
         item={viewItem}
+        brains={brains}
         brainName={viewItem ? brainMap.get(viewItem.brain_id ?? "") ?? "—" : ""}
         onClose={() => setViewItem(null)}
         onEdit={(it) => { setViewItem(null); setEditItem(it); }}
         onArchive={async (it) => { await archive(it); setViewItem(null); }}
+        onChanged={invalidate}
       />
 
 
