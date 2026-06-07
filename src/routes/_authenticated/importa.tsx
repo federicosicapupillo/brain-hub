@@ -210,7 +210,6 @@ function ImportaPage() {
   return (
     <div className="p-6 space-y-6">
       <PageHeader
-        icon={Inbox}
         title="Importatore Manuale"
         subtitle="Incolla prompt, note, export, link o testi e collegali al progetto corretto."
       />
