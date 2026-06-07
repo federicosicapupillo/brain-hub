@@ -859,6 +859,27 @@ function ViewDialog({
             )}
           </div>
 
+          {secondaryProjects.length > 0 && (
+            <div className="rounded-md border bg-card/40 p-3 space-y-2">
+              <div className="text-sm font-medium flex items-center gap-2">
+                <Link2 className="h-4 w-4 text-primary" /> Collegato anche a
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {secondaryProjects.map((p) => (
+                  <Button key={p.id} asChild size="sm" variant="outline" className="h-7">
+                    <Link to="/progetti/$brainId" params={{ brainId: p.id }} onClick={onClose}>
+                      <FolderOpen className="h-3 w-3 mr-1" /> {p.name}
+                    </Link>
+                  </Button>
+                ))}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                Il contenuto resta originale di <span className="font-medium">{brainName}</span>. I collegamenti contenuto→progetto non vengono conteggiati nei collegamenti progetto-progetto.
+              </div>
+            </div>
+          )}
+
+
           <div className="rounded-md border bg-card/40 p-3 space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Sparkles className="h-4 w-4 text-primary" /> Azioni rapide
