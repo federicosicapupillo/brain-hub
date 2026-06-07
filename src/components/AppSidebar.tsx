@@ -10,6 +10,7 @@ import {
   Settings,
   Sparkles,
   Library,
+  FolderKanban,
 } from "lucide-react";
 import {
   Sidebar,
@@ -28,6 +29,7 @@ const items = [
   { title: "Live", url: "/live", icon: Activity },
   { title: "Connettori", url: "/connettori", icon: Plug },
   { title: "Cervelli", url: "/", icon: Brain },
+  { title: "Progetti", url: "/progetti", icon: FolderKanban },
   { title: "Fonti", url: "/fonti", icon: Library },
   { title: "Roadmap", url: "/roadmap", icon: MapIcon },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
