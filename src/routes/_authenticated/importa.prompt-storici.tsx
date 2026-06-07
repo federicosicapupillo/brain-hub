@@ -356,7 +356,30 @@ function ImportPromptStoriciPage() {
         </Card>
       )}
 
-      {items.length === 0 && !parsing && (
+      {lastImport && lastImport.ok > 0 && (
+        <Card>
+          <CardContent className="p-4 flex flex-wrap items-center gap-3">
+            <CheckCircle2 className="h-5 w-5 text-primary" />
+            <div className="text-sm flex-1">
+              Importati <strong>{lastImport.ok}</strong> prompt
+              {lastImport.skipped ? ` · ${lastImport.skipped} duplicati saltati` : ""}
+              {lastImport.fail ? ` · ${lastImport.fail} errori` : ""}.
+            </div>
+            {effectiveBrainId && (
+              <Button size="sm" variant="outline" asChild>
+                <Link to="/progetti/$brainId" params={{ brainId: effectiveBrainId }}>
+                  <ExternalLink className="h-4 w-4 mr-1" /> Vai ai prompt di {selectedBrain?.name ?? "Pupillo"}
+                </Link>
+              </Button>
+            )}
+            <Button size="sm" onClick={() => { setLastImport(null); setItems([]); }}>
+              <Upload className="h-4 w-4 mr-1" /> Importa altri file
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {items.length === 0 && !parsing && !lastImport && (
         <Card className="border-dashed">
           <CardContent className="p-8 text-center text-sm text-muted-foreground space-y-2">
             <CheckCircle2 className="h-6 w-6 mx-auto text-primary" />
