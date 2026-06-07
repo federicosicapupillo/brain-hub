@@ -297,9 +297,10 @@ function ImportPromptStoriciPage() {
                 <Button size="sm" variant="ghost" onClick={() => setItems([])}>
                   <Trash2 className="h-4 w-4 mr-1" /> Svuota
                 </Button>
-                <Button size="sm" onClick={handleImport} disabled={importing}>
-                  {importing && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                  <Upload className="h-4 w-4 mr-1" /> Importa selezionati
+                <Button size="sm" onClick={handleImport} disabled={!canImport}>
+                  {importing
+                    ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Importazione in corso…</>
+                    : <><Upload className="h-4 w-4 mr-1" /> Importa selezionati</>}
                 </Button>
                 {effectiveBrainId && (
                   <Button size="sm" variant="outline" asChild>
