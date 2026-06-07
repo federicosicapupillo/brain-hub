@@ -155,16 +155,15 @@ function ImportaPage() {
           description: content.trim(), status: "todo",
         });
       } else if (type === "prompt") {
-        const { data: u } = await supabase.auth.getUser();
-        const { error } = await supabase.from("project_links").insert({
-          user_id: u.user!.id, brain_id: brainId, link_type: "prompt",
-          relation_type: "prompt", title: title.trim(),
-          notes: content.trim() || null, url: url.trim() || null,
-          tool: tool || null, status: status || null, description: desc ?? null,
-          category: tagList.length ? tagList.join(",") : null,
+        await createNode({
+          brain_id: brainId,
+          label: title.trim(),
+          type: "prompt",
+          origin: "importatore",
+          tags: [...tagList, ...(tool ? [tool] : []), ...(status ? [status] : [])],
+          summary: content.trim() || url.trim() || "",
         });
-        if (error) throw error;
-        await logAction({ action: "prompt_imported", message: `Prompt importato: ${title}`, entity_type: "project_link", brain_id: brainId });
+        await logAction({ action: "prompt_imported", message: `Prompt importato: ${title}`, entity_type: "brain_node", brain_id: brainId });
         await pushLiveEvent({ event_type: "import", title: `Prompt importato: ${title}`, brain_id: brainId });
       } else if (type === "external") {
         const { data: u } = await supabase.auth.getUser();
