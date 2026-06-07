@@ -49,7 +49,8 @@ const CONTENT_TYPES: { value: ContentType; label: string }[] = [
 
 const TOOLS = [
   "Lovable","Antigravity","ChatGPT","Claude","Perplexity","Runway",
-  "Midjourney","ElevenLabs","D-ID","Supabase","GitHub","Obsidian","Altro",
+  "Midjourney","ElevenLabs","D-ID","Supabase","GitHub","Google Drive",
+  "Gmail","Google Calendar","Obsidian","Altro",
 ];
 
 const STATUSES = ["bozza","importato","pronto","da revisionare","approvato","archiviato"];
