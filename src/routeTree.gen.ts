@@ -20,6 +20,7 @@ import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/l
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
 import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticated/importa'
+import { Route as AuthenticatedGuidaRouteImport } from './routes/_authenticated/guida'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
@@ -84,6 +85,11 @@ const AuthenticatedImportaRoute = AuthenticatedImportaRouteImport.update({
   path: '/importa',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGuidaRoute = AuthenticatedGuidaRouteImport.update({
+  id: '/guida',
+  path: '/guida',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedFontiRoute = AuthenticatedFontiRouteImport.update({
   id: '/fonti',
   path: '/fonti',
@@ -130,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
+  '/guida': typeof AuthenticatedGuidaRoute
   '/importa': typeof AuthenticatedImportaRouteWithChildren
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
@@ -148,6 +155,7 @@ export interface FileRoutesByTo {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
+  '/guida': typeof AuthenticatedGuidaRoute
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
+  '/_authenticated/guida': typeof AuthenticatedGuidaRoute
   '/_authenticated/importa': typeof AuthenticatedImportaRouteWithChildren
   '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
@@ -190,6 +199,7 @@ export interface FileRouteTypes {
     | '/archivio'
     | '/connettori'
     | '/fonti'
+    | '/guida'
     | '/importa'
     | '/impostazioni'
     | '/live'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/archivio'
     | '/connettori'
     | '/fonti'
+    | '/guida'
     | '/impostazioni'
     | '/live'
     | '/logs'
@@ -227,6 +238,7 @@ export interface FileRouteTypes {
     | '/_authenticated/archivio'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
+    | '/_authenticated/guida'
     | '/_authenticated/importa'
     | '/_authenticated/impostazioni'
     | '/_authenticated/live'
@@ -325,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/guida': {
+      id: '/_authenticated/guida'
+      path: '/guida'
+      fullPath: '/guida'
+      preLoaderRoute: typeof AuthenticatedGuidaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/fonti': {
       id: '/_authenticated/fonti'
       path: '/fonti'
@@ -409,6 +428,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
+  AuthenticatedGuidaRoute: typeof AuthenticatedGuidaRoute
   AuthenticatedImportaRoute: typeof AuthenticatedImportaRouteWithChildren
   AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
@@ -425,6 +445,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
+  AuthenticatedGuidaRoute: AuthenticatedGuidaRoute,
   AuthenticatedImportaRoute: AuthenticatedImportaRouteWithChildren,
   AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
@@ -446,3 +467,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

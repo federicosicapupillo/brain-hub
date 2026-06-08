@@ -14,6 +14,7 @@ import {
   Inbox,
   Archive,
   ListChecks,
+  BookOpen,
 } from "lucide-react";
 import {
   Sidebar,
@@ -41,6 +42,7 @@ const items = [
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Agents", url: "/agents", icon: Bot },
   { title: "Logs", url: "/logs", icon: ScrollText },
+  { title: "Guida", url: "/guida", icon: BookOpen },
   { title: "Impostazioni", url: "/impostazioni", icon: Settings },
 ];
 
