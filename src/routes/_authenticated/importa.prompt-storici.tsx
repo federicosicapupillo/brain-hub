@@ -45,6 +45,33 @@ type Parsed = {
   duplicateReason?: string;
 };
 
+// --- M2: Security limits for client-side import validation ---
+const MAX_FILE_BYTES = 25 * 1024 * 1024; // 25 MB per file (single or zip)
+const MAX_FILES = 200;                    // max files selected at once
+const MAX_ZIP_ENTRIES = 2000;             // max entries inside a single zip
+const MAX_ENTRY_BYTES = 5 * 1024 * 1024;  // 5 MB max per decompressed entry
+const MAX_TOTAL_DECOMPRESSED = 50 * 1024 * 1024; // 50 MB total decompressed
+const ALLOWED_EXT = /\.(md|markdown|txt|zip)$/i;
+const ALLOWED_TEXT_EXT = /\.(md|markdown|txt)$/i;
+
+function isSafeEntryName(name: string): boolean {
+  if (!name) return false;
+  // Reject path traversal, absolute paths, backslashes, and null bytes.
+  if (name.includes("..")) return false;
+  if (name.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(name)) return false;
+  if (name.includes("\\")) return false;
+  if (name.includes("\u0000")) return false;
+  return true;
+}
+
+function isIgnoredEntry(name: string): boolean {
+  const base = name.split("/").pop() ?? name;
+  if (!base) return true;
+  if (base.startsWith(".")) return true;            // .DS_Store, .gitignore, …
+  if (name.includes("__MACOSX")) return true;
+  return false;
+}
+
 function deriveTitle(fileName: string, content: string): string {
   const h1 = content.match(/^\s*#\s+(.+?)\s*$/m);
   if (h1) return h1[1].trim().slice(0, 200);
@@ -59,25 +86,87 @@ function splitBlocks(content: string): string[] {
   return parts.map((p) => p.trim()).filter((p) => p.length > 0);
 }
 
-async function readFiles(fileList: FileList | File[]): Promise<{ name: string; text: string }[]> {
+export type ReadResult = {
+  files: { name: string; text: string }[];
+  warnings: string[];
+};
+
+async function readFiles(fileList: FileList | File[]): Promise<ReadResult> {
   const out: { name: string; text: string }[] = [];
+  const warnings: string[] = [];
+  let totalDecompressed = 0;
+
   for (const file of Array.from(fileList)) {
     const lower = file.name.toLowerCase();
+
+    if (!ALLOWED_EXT.test(lower)) {
+      warnings.push(`"${file.name}": formato non supportato. Usa .md, .txt o .zip.`);
+      continue;
+    }
+    if (file.size > MAX_FILE_BYTES) {
+      warnings.push(`"${file.name}": file troppo grande. Limite massimo 25 MB.`);
+      continue;
+    }
+
     if (lower.endsWith(".zip")) {
-      const zip = await JSZip.loadAsync(await file.arrayBuffer());
-      const entries = Object.values(zip.files).filter((e) => !e.dir);
-      for (const entry of entries) {
-        const en = entry.name.toLowerCase();
-        if (en.endsWith(".md") || en.endsWith(".txt") || en.endsWith(".markdown")) {
-          const text = await entry.async("string");
-          out.push({ name: entry.name.split("/").pop() || entry.name, text });
-        }
+      let zip: JSZip;
+      try {
+        zip = await JSZip.loadAsync(await file.arrayBuffer());
+      } catch {
+        warnings.push(`"${file.name}": archivio non valido o potenzialmente pericoloso.`);
+        continue;
       }
-    } else if (lower.endsWith(".md") || lower.endsWith(".txt") || lower.endsWith(".markdown")) {
-      out.push({ name: file.name, text: await file.text() });
+      const allEntries = Object.values(zip.files);
+      if (allEntries.length > MAX_ZIP_ENTRIES) {
+        warnings.push(`"${file.name}": lo ZIP contiene troppi file (max ${MAX_ZIP_ENTRIES}).`);
+        continue;
+      }
+
+      let zipAborted = false;
+      for (const entry of allEntries) {
+        if (entry.dir) continue;
+        if (isIgnoredEntry(entry.name)) continue;
+        if (!isSafeEntryName(entry.name)) {
+          warnings.push(`"${file.name}": archivio non valido o potenzialmente pericoloso.`);
+          zipAborted = true;
+          break;
+        }
+        const en = entry.name.toLowerCase();
+        if (!ALLOWED_TEXT_EXT.test(en)) continue; // silently skip non-text entries
+
+        // Read as Uint8Array first so we can enforce size limits before decoding.
+        let bytes: Uint8Array;
+        try {
+          bytes = await entry.async("uint8array");
+        } catch {
+          warnings.push(`"${file.name}" → "${entry.name}": impossibile leggere l'entry.`);
+          continue;
+        }
+        if (bytes.byteLength > MAX_ENTRY_BYTES) {
+          warnings.push(`"${file.name}" → "${entry.name}": un file interno supera il limite di 5 MB.`);
+          continue;
+        }
+        totalDecompressed += bytes.byteLength;
+        if (totalDecompressed > MAX_TOTAL_DECOMPRESSED) {
+          warnings.push(`ZIP troppo grande o troppo complesso (oltre 50 MB decompressi).`);
+          zipAborted = true;
+          break;
+        }
+        const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+        out.push({ name: entry.name.split("/").pop() || entry.name, text });
+      }
+      if (zipAborted) continue;
+    } else {
+      // Plain text/markdown
+      try {
+        const text = await file.text();
+        out.push({ name: file.name, text });
+      } catch {
+        warnings.push(`"${file.name}": impossibile leggere il file.`);
+      }
     }
   }
-  return out;
+  return { files: out, warnings };
 }
 
 function ImportPromptStoriciPage() {
@@ -104,7 +193,35 @@ function ImportPromptStoriciPage() {
 
   function storeFiles(fl: FileList | File[] | null) {
     if (!fl || fl.length === 0) return;
-    setSelectedFiles(Array.from(fl));
+    const arr = Array.from(fl);
+    if (arr.length > MAX_FILES) {
+      toast.error(`Troppi file selezionati. Massimo ${MAX_FILES}.`);
+      return;
+    }
+    // Upfront extension + size triage so the user sees errors immediately.
+    const accepted: File[] = [];
+    const rejections: string[] = [];
+    for (const f of arr) {
+      if (!ALLOWED_EXT.test(f.name)) {
+        rejections.push(`"${f.name}": formato non supportato. Usa .md, .txt o .zip.`);
+        continue;
+      }
+      if (f.size > MAX_FILE_BYTES) {
+        rejections.push(`"${f.name}": file troppo grande. Limite massimo 25 MB.`);
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (rejections.length > 0) {
+      toast.warning(rejections.slice(0, 3).join(" · ") + (rejections.length > 3 ? ` (+${rejections.length - 3})` : ""));
+    }
+    if (accepted.length === 0) {
+      setSelectedFiles([]);
+      setItems([]);
+      setLastImport(null);
+      return;
+    }
+    setSelectedFiles(accepted);
     setItems([]);
     setLastImport(null);
   }
@@ -114,8 +231,12 @@ function ImportPromptStoriciPage() {
     if (!effectiveBrainId) { toast.error("Seleziona un progetto."); return; }
     setParsing(true);
     try {
-      const files = await readFiles(selectedFiles);
-      if (files.length === 0) { toast.warning("Nessun file .md/.txt trovato."); return; }
+      const { files, warnings } = await readFiles(selectedFiles);
+      if (warnings.length > 0) {
+        for (const w of warnings.slice(0, 5)) toast.warning(w);
+        if (warnings.length > 5) toast.warning(`Altri ${warnings.length - 5} avvisi non mostrati.`);
+      }
+      if (files.length === 0) { toast.warning("Nessun file .md/.txt valido trovato."); return; }
 
       // Fetch existing prompts in brain to dedup
       const { data: existing } = await supabase
