@@ -193,7 +193,35 @@ function ImportPromptStoriciPage() {
 
   function storeFiles(fl: FileList | File[] | null) {
     if (!fl || fl.length === 0) return;
-    setSelectedFiles(Array.from(fl));
+    const arr = Array.from(fl);
+    if (arr.length > MAX_FILES) {
+      toast.error(`Troppi file selezionati. Massimo ${MAX_FILES}.`);
+      return;
+    }
+    // Upfront extension + size triage so the user sees errors immediately.
+    const accepted: File[] = [];
+    const rejections: string[] = [];
+    for (const f of arr) {
+      if (!ALLOWED_EXT.test(f.name)) {
+        rejections.push(`"${f.name}": formato non supportato. Usa .md, .txt o .zip.`);
+        continue;
+      }
+      if (f.size > MAX_FILE_BYTES) {
+        rejections.push(`"${f.name}": file troppo grande. Limite massimo 25 MB.`);
+        continue;
+      }
+      accepted.push(f);
+    }
+    if (rejections.length > 0) {
+      toast.warning(rejections.slice(0, 3).join(" · ") + (rejections.length > 3 ? ` (+${rejections.length - 3})` : ""));
+    }
+    if (accepted.length === 0) {
+      setSelectedFiles([]);
+      setItems([]);
+      setLastImport(null);
+      return;
+    }
+    setSelectedFiles(accepted);
     setItems([]);
     setLastImport(null);
   }
@@ -203,8 +231,12 @@ function ImportPromptStoriciPage() {
     if (!effectiveBrainId) { toast.error("Seleziona un progetto."); return; }
     setParsing(true);
     try {
-      const files = await readFiles(selectedFiles);
-      if (files.length === 0) { toast.warning("Nessun file .md/.txt trovato."); return; }
+      const { files, warnings } = await readFiles(selectedFiles);
+      if (warnings.length > 0) {
+        for (const w of warnings.slice(0, 5)) toast.warning(w);
+        if (warnings.length > 5) toast.warning(`Altri ${warnings.length - 5} avvisi non mostrati.`);
+      }
+      if (files.length === 0) { toast.warning("Nessun file .md/.txt valido trovato."); return; }
 
       // Fetch existing prompts in brain to dedup
       const { data: existing } = await supabase
