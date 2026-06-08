@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
+import { Route as AuthenticatedStrumentiProgettiRouteImport } from './routes/_authenticated/strumenti-progetti'
 import { Route as AuthenticatedRoadmapRouteImport } from './routes/_authenticated/roadmap'
 import { Route as AuthenticatedProssimeAzioniRouteImport } from './routes/_authenticated/prossime-azioni'
 import { Route as AuthenticatedProgettiRouteImport } from './routes/_authenticated/progetti'
@@ -49,6 +50,12 @@ const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   path: '/tasks',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedStrumentiProgettiRoute =
+  AuthenticatedStrumentiProgettiRouteImport.update({
+    id: '/strumenti-progetti',
+    path: '/strumenti-progetti',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedRoadmapRoute = AuthenticatedRoadmapRouteImport.update({
   id: '/roadmap',
   path: '/roadmap',
@@ -152,6 +159,7 @@ export interface FileRoutesByFullPath {
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/prossime-azioni': typeof AuthenticatedProssimeAzioniRoute
   '/roadmap': typeof AuthenticatedRoadmapRoute
+  '/strumenti-progetti': typeof AuthenticatedStrumentiProgettiRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
@@ -171,6 +179,7 @@ export interface FileRoutesByTo {
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/prossime-azioni': typeof AuthenticatedProssimeAzioniRoute
   '/roadmap': typeof AuthenticatedRoadmapRoute
+  '/strumenti-progetti': typeof AuthenticatedStrumentiProgettiRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/': typeof AuthenticatedIndexRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
@@ -194,6 +203,7 @@ export interface FileRoutesById {
   '/_authenticated/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/_authenticated/prossime-azioni': typeof AuthenticatedProssimeAzioniRoute
   '/_authenticated/roadmap': typeof AuthenticatedRoadmapRoute
+  '/_authenticated/strumenti-progetti': typeof AuthenticatedStrumentiProgettiRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
@@ -218,6 +228,7 @@ export interface FileRouteTypes {
     | '/progetti'
     | '/prossime-azioni'
     | '/roadmap'
+    | '/strumenti-progetti'
     | '/tasks'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
@@ -237,6 +248,7 @@ export interface FileRouteTypes {
     | '/progetti'
     | '/prossime-azioni'
     | '/roadmap'
+    | '/strumenti-progetti'
     | '/tasks'
     | '/'
     | '/importa/prompt-storici'
@@ -259,6 +271,7 @@ export interface FileRouteTypes {
     | '/_authenticated/progetti'
     | '/_authenticated/prossime-azioni'
     | '/_authenticated/roadmap'
+    | '/_authenticated/strumenti-progetti'
     | '/_authenticated/tasks'
     | '/_authenticated/'
     | '/_authenticated/importa/prompt-storici'
@@ -299,6 +312,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof AuthenticatedTasksRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/strumenti-progetti': {
+      id: '/_authenticated/strumenti-progetti'
+      path: '/strumenti-progetti'
+      fullPath: '/strumenti-progetti'
+      preLoaderRoute: typeof AuthenticatedStrumentiProgettiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/roadmap': {
@@ -457,6 +477,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProgettiRoute: typeof AuthenticatedProgettiRouteWithChildren
   AuthenticatedProssimeAzioniRoute: typeof AuthenticatedProssimeAzioniRoute
   AuthenticatedRoadmapRoute: typeof AuthenticatedRoadmapRoute
+  AuthenticatedStrumentiProgettiRoute: typeof AuthenticatedStrumentiProgettiRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
@@ -475,6 +496,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProgettiRoute: AuthenticatedProgettiRouteWithChildren,
   AuthenticatedProssimeAzioniRoute: AuthenticatedProssimeAzioniRoute,
   AuthenticatedRoadmapRoute: AuthenticatedRoadmapRoute,
+  AuthenticatedStrumentiProgettiRoute: AuthenticatedStrumentiProgettiRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
