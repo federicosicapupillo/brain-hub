@@ -24,6 +24,7 @@ import { Route as AuthenticatedGuidaRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
+import { Route as AuthenticatedAllineamentoRouteImport } from './routes/_authenticated/allineamento'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
@@ -105,6 +106,12 @@ const AuthenticatedArchivioRoute = AuthenticatedArchivioRouteImport.update({
   path: '/archivio',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAllineamentoRoute =
+  AuthenticatedAllineamentoRouteImport.update({
+    id: '/allineamento',
+    path: '/allineamento',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
@@ -133,6 +140,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/agents': typeof AuthenticatedAgentsRoute
+  '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -152,6 +160,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/agents': typeof AuthenticatedAgentsRoute
+  '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -173,6 +182,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
+  '/_authenticated/allineamento': typeof AuthenticatedAllineamentoRoute
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/agents'
+    | '/allineamento'
     | '/archivio'
     | '/connettori'
     | '/fonti'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
   to:
     | '/auth'
     | '/agents'
+    | '/allineamento'
     | '/archivio'
     | '/connettori'
     | '/fonti'
@@ -235,6 +247,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/agents'
+    | '/_authenticated/allineamento'
     | '/_authenticated/archivio'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
@@ -365,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedArchivioRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/allineamento': {
+      id: '/_authenticated/allineamento'
+      path: '/allineamento'
+      fullPath: '/allineamento'
+      preLoaderRoute: typeof AuthenticatedAllineamentoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/agents': {
       id: '/_authenticated/agents'
       path: '/agents'
@@ -425,6 +445,7 @@ const AuthenticatedProgettiRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
+  AuthenticatedAllineamentoRoute: typeof AuthenticatedAllineamentoRoute
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
@@ -442,6 +463,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
+  AuthenticatedAllineamentoRoute: AuthenticatedAllineamentoRoute,
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
