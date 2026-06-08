@@ -15,6 +15,7 @@ import {
   Archive,
   ListChecks,
   BookOpen,
+  GitBranch,
 } from "lucide-react";
 import {
   Sidebar,
