@@ -716,6 +716,71 @@ export type Database = {
           },
         ]
       }
+      project_tool_links: {
+        Row: {
+          brain_id: string
+          connection_mode: string
+          connection_status: string
+          created_at: string
+          folder_path: string | null
+          id: string
+          last_checked_at: string | null
+          last_sync_at: string | null
+          metadata: Json
+          notes: string | null
+          repo_url: string | null
+          tool_category: string
+          tool_name: string
+          updated_at: string
+          url: string | null
+          user_id: string
+        }
+        Insert: {
+          brain_id: string
+          connection_mode?: string
+          connection_status?: string
+          created_at?: string
+          folder_path?: string | null
+          id?: string
+          last_checked_at?: string | null
+          last_sync_at?: string | null
+          metadata?: Json
+          notes?: string | null
+          repo_url?: string | null
+          tool_category?: string
+          tool_name: string
+          updated_at?: string
+          url?: string | null
+          user_id: string
+        }
+        Update: {
+          brain_id?: string
+          connection_mode?: string
+          connection_status?: string
+          created_at?: string
+          folder_path?: string | null
+          id?: string
+          last_checked_at?: string | null
+          last_sync_at?: string | null
+          metadata?: Json
+          notes?: string | null
+          repo_url?: string | null
+          tool_category?: string
+          tool_name?: string
+          updated_at?: string
+          url?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tool_links_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roadmap_items: {
         Row: {
           brain_id: string | null
