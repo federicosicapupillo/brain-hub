@@ -160,7 +160,7 @@ function StrumentiPage() {
       const userId = u.user?.id;
       if (!userId) return;
       const existing = new Set(links.map((l) => `${l.brain_id}:${l.tool_name}`));
-      const rows: Record<string, unknown>[] = [];
+      const rows: { user_id: string; brain_id: string; tool_name: string; tool_category: string; connection_mode: Mode; connection_status: Status }[] = [];
       for (const b of brains) {
         const tools = DEFAULTS_BY_PROJECT[b.name];
         if (!tools) continue;
