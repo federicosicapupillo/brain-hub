@@ -192,7 +192,7 @@ function GitHubSyncPage() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="GitHub Sync Manuale"
-        description="Gestisci i repository collegati ai progetti e importa manualmente README, changelog, file markdown e note tecniche."
+        subtitle="Gestisci i repository collegati ai progetti e importa manualmente README, changelog, file markdown e note tecniche."
       />
 
       {/* Quick actions */}

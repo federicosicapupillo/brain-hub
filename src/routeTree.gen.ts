@@ -22,6 +22,7 @@ import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/l
 import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
 import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticated/importa'
 import { Route as AuthenticatedGuidaRouteImport } from './routes/_authenticated/guida'
+import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authenticated/github-sync'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
@@ -98,6 +99,11 @@ const AuthenticatedGuidaRoute = AuthenticatedGuidaRouteImport.update({
   path: '/guida',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGithubSyncRoute = AuthenticatedGithubSyncRouteImport.update({
+  id: '/github-sync',
+  path: '/github-sync',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedFontiRoute = AuthenticatedFontiRouteImport.update({
   id: '/fonti',
   path: '/fonti',
@@ -151,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
+  '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/importa': typeof AuthenticatedImportaRouteWithChildren
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
@@ -172,6 +179,7 @@ export interface FileRoutesByTo {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
+  '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
+  '/_authenticated/github-sync': typeof AuthenticatedGithubSyncRoute
   '/_authenticated/guida': typeof AuthenticatedGuidaRoute
   '/_authenticated/importa': typeof AuthenticatedImportaRouteWithChildren
   '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/archivio'
     | '/connettori'
     | '/fonti'
+    | '/github-sync'
     | '/guida'
     | '/importa'
     | '/impostazioni'
@@ -241,6 +251,7 @@ export interface FileRouteTypes {
     | '/archivio'
     | '/connettori'
     | '/fonti'
+    | '/github-sync'
     | '/guida'
     | '/impostazioni'
     | '/live'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/_authenticated/archivio'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
+    | '/_authenticated/github-sync'
     | '/_authenticated/guida'
     | '/_authenticated/importa'
     | '/_authenticated/impostazioni'
@@ -377,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGuidaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/github-sync': {
+      id: '/_authenticated/github-sync'
+      path: '/github-sync'
+      fullPath: '/github-sync'
+      preLoaderRoute: typeof AuthenticatedGithubSyncRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/fonti': {
       id: '/_authenticated/fonti'
       path: '/fonti'
@@ -469,6 +488,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
+  AuthenticatedGithubSyncRoute: typeof AuthenticatedGithubSyncRoute
   AuthenticatedGuidaRoute: typeof AuthenticatedGuidaRoute
   AuthenticatedImportaRoute: typeof AuthenticatedImportaRouteWithChildren
   AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
@@ -488,6 +508,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
+  AuthenticatedGithubSyncRoute: AuthenticatedGithubSyncRoute,
   AuthenticatedGuidaRoute: AuthenticatedGuidaRoute,
   AuthenticatedImportaRoute: AuthenticatedImportaRouteWithChildren,
   AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
