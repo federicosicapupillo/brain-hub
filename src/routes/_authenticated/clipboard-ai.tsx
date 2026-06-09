@@ -644,6 +644,50 @@ function ClipboardAIPage() {
                   <Label>Note</Label>
                   <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </div>
+                <div className="rounded-md border border-primary/20 p-4 space-y-4 bg-primary/5">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Sparkles className="h-4 w-4 text-primary" /> Execution Package
+                  </div>
+                  <div>
+                    <Label>Istruzioni di esecuzione</Label>
+                    <Textarea rows={3} value={form.execution_instructions}
+                      onChange={(e) => setForm({ ...form, execution_instructions: e.target.value })}
+                      placeholder="Passo-passo per eseguire questo prompt: dove incollarlo, come interpretare la risposta, parametri da sostituire…" />
+                  </div>
+                  <div>
+                    <Label>Output atteso</Label>
+                    <Textarea rows={2} value={form.expected_output}
+                      onChange={(e) => setForm({ ...form, expected_output: e.target.value })}
+                      placeholder="Cosa ci si aspetta di ricevere dopo l'esecuzione" />
+                  </div>
+                  <div>
+                    <Label>Criteri di successo</Label>
+                    <Textarea rows={2} value={form.success_criteria}
+                      onChange={(e) => setForm({ ...form, success_criteria: e.target.value })}
+                      placeholder="Come verificare che il risultato sia valido" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Livello rischio</Label>
+                      <Select value={form.risk_level} onValueChange={(v) => setForm({ ...form, risk_level: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {RISK_LEVELS.map((r) => <SelectItem key={r.v} value={r.v}>{r.l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-3 pt-6">
+                      <input
+                        id="requires_approval"
+                        type="checkbox"
+                        checked={form.requires_approval}
+                        onChange={(e) => setForm({ ...form, requires_approval: e.target.checked })}
+                        className="h-4 w-4 rounded border-border accent-primary"
+                      />
+                      <Label htmlFor="requires_approval" className="text-sm cursor-pointer">Richiede approvazione umana</Label>
+                    </div>
+                  </div>
+                </div>
                 <div className="rounded-md border border-dashed p-3 space-y-3">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Zap className="h-3.5 w-3.5" /> Predisposizione automazione esterna (n8n / Playwright) — non ancora attiva
