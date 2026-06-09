@@ -44,6 +44,7 @@ type RoadmapItem = {
   id: string;
   brain_id: string | null;
   title: string;
+  description: string | null;
   status: string;
   priority: string | null;
   updated_at: string;
