@@ -753,11 +753,21 @@ function ClipboardAIPage() {
                         🔗 {toolLink.tool_name}
                       </Badge>
                     )}
-                    {item.automation_status && item.automation_status !== "manual" && (
-                      <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-300 border-yellow-500/30">
-                        <Zap className="h-3 w-3 mr-1" />{autoLabel}
-                      </Badge>
-                    )}
+                    {item.automation_status && item.automation_status !== "manual" && (() => {
+                      const cls: Record<string, string> = {
+                        ready_for_automation: "bg-sky-500/20 text-sky-300 border-sky-500/40",
+                        queued: "bg-amber-500/20 text-amber-300 border-amber-500/40",
+                        running: "bg-blue-500/20 text-blue-300 border-blue-500/40 animate-pulse",
+                        done: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+                        failed: "bg-red-500/20 text-red-300 border-red-500/40",
+                      };
+                      return (
+                        <Badge variant="outline" className={`text-xs font-medium ${cls[item.automation_status] ?? "bg-muted"}`}>
+                          <Zap className="h-3 w-3 mr-1" />{autoLabel}
+                          {item.automation_attempts > 0 && ` · ${item.automation_attempts}x`}
+                        </Badge>
+                      );
+                    })()}
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col gap-3">
@@ -768,6 +778,25 @@ function ClipboardAIPage() {
                     <div className="text-xs flex items-start gap-2 bg-emerald-500/5 border border-emerald-500/20 rounded-md p-2">
                       <ListChecks className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
                       <div><span className="text-emerald-400 font-medium">Prossima azione:</span> {item.next_action}</div>
+                    </div>
+                  )}
+                  {item.automation_status && item.automation_status !== "manual" && (
+                    <div className="text-xs rounded-md border border-border bg-muted/30 p-2 space-y-1">
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+                        <span>Tentativi: <span className="text-foreground font-medium">{item.automation_attempts}</span></span>
+                        {item.automation_target && <span>Target: <span className="text-foreground">{item.automation_target}</span></span>}
+                        {item.automation_last_run_at && (
+                          <span>Ultima esecuzione: <span className="text-foreground">{new Date(item.automation_last_run_at).toLocaleString("it-IT")}</span></span>
+                        )}
+                        {item.automation_completed_at && (
+                          <span>Completato: <span className="text-emerald-400">{new Date(item.automation_completed_at).toLocaleString("it-IT")}</span></span>
+                        )}
+                      </div>
+                      {item.automation_last_error && (
+                        <div className="text-red-400 break-words">
+                          <span className="font-medium">Ultimo errore:</span> {item.automation_last_error}
+                        </div>
+                      )}
                     </div>
                   )}
                   {item.output_result && (
@@ -826,6 +855,50 @@ function ClipboardAIPage() {
                     <Button size="sm" variant="outline" onClick={() => generateNextPrompt(item)}>
                       <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Prossimo prompt
                     </Button>
+
+                    {/* Automation Queue actions */}
+                    {(item.automation_status === "manual" || item.automation_status === "ready_for_automation") && (
+                      <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300"
+                        onClick={() => automationMut.mutate({ id: item.id, action: "queue", currentAttempts: item.automation_attempts })}>
+                        <Zap className="h-3.5 w-3.5 mr-1.5" /> Metti in coda
+                      </Button>
+                    )}
+                    {item.automation_status === "queued" && (
+                      <>
+                        <Button size="sm" variant="outline"
+                          onClick={() => automationMut.mutate({ id: item.id, action: "unqueue", currentAttempts: item.automation_attempts })}>
+                          Rimuovi dalla coda
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-blue-500/40 text-blue-300"
+                          onClick={() => automationMut.mutate({ id: item.id, action: "running", currentAttempts: item.automation_attempts })}>
+                          Segna running
+                        </Button>
+                      </>
+                    )}
+                    {item.automation_status === "running" && (
+                      <>
+                        <Button size="sm" variant="outline" className="border-emerald-500/40 text-emerald-300"
+                          onClick={() => automationMut.mutate({ id: item.id, action: "done", currentAttempts: item.automation_attempts })}>
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Completato
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-red-500/40 text-red-300"
+                          onClick={() => {
+                            const msg = window.prompt("Descrivi l'errore:");
+                            if (msg && msg.trim()) {
+                              automationMut.mutate({ id: item.id, action: "failed", currentAttempts: item.automation_attempts, errorMessage: msg.trim() });
+                            }
+                          }}>
+                          Segna fallito
+                        </Button>
+                      </>
+                    )}
+                    {item.automation_status === "failed" && (
+                      <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300"
+                        onClick={() => automationMut.mutate({ id: item.id, action: "retry", currentAttempts: item.automation_attempts })}>
+                        <Zap className="h-3.5 w-3.5 mr-1.5" /> Riprova
+                      </Button>
+                    )}
+
                     <Button size="sm" variant="ghost" className="text-destructive ml-auto"
                       onClick={() => { if (confirm("Eliminare definitivamente?")) deleteMut.mutate(item.id); }}>
                       <Trash2 className="h-3.5 w-3.5" />
