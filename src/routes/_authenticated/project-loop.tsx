@@ -13,6 +13,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Workflow,
@@ -214,10 +222,28 @@ RICHIESTA FINALE:
 Procedi con build pulita e verifica i criteri sopra elencati.`;
 }
 
+function suggestNextStep(output: string): string {
+  const t = (output ?? "").toLowerCase();
+  if (/(errore|error|failed|fail|fix|bug|exception|crash)/.test(t)) {
+    return "Analizzare l'errore e applicare un bugfix mirato, poi verificare con test.";
+  }
+  if (/(done|created|added|implemented|completato|fatto|aggiunto)/.test(t)) {
+    return "Verificare il risultato con test funzionali e pianificare il prossimo miglioramento.";
+  }
+  return "Analizzare il risultato e definire il prossimo intervento";
+}
+
 function ProjectLoopPage() {
   const queryClient = useQueryClient();
   const [genTarget, setGenTarget] = useState<{ brain: Brain; roadmap: RoadmapItem } | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState("");
+  const [nextStepItem, setNextStepItem] = useState<ClipboardItem | null>(null);
+  const [nextStepForm, setNextStepForm] = useState<{
+    suggestion: string;
+    actionType: "roadmap" | "task" | "prompt";
+    priority: string;
+    riskLevel: string;
+  }>({ suggestion: "", actionType: "roadmap", priority: "medium", riskLevel: "medium" });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["project-loop"],
@@ -360,6 +386,139 @@ function ProjectLoopPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const nextStepMut = useMutation({
+    mutationFn: async ({
+      item,
+      suggestion,
+      actionType,
+      priority,
+      riskLevel,
+    }: {
+      item: ClipboardItem;
+      suggestion: string;
+      actionType: "roadmap" | "task" | "prompt";
+      priority: string;
+      riskLevel: string;
+    }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+      const title = suggestion.trim().slice(0, 200);
+      if (!title) throw new Error("Inserisci un prossimo step");
+
+      let newId: string | null = null;
+      if (actionType === "roadmap") {
+        const { data: ins, error } = await supabase
+          .from("roadmap_items")
+          .insert({
+            user_id: userId,
+            brain_id: item.brain_id,
+            title,
+            description: `Generato da output di "${item.title}".\n\nOutput originale:\n${item.output_result}`,
+            status: "open",
+            priority,
+          } as never)
+          .select("id")
+          .single();
+        if (error) throw error;
+        newId = ins.id;
+      } else if (actionType === "task") {
+        const { data: ins, error } = await supabase
+          .from("tasks")
+          .insert({
+            user_id: userId,
+            brain_id: item.brain_id,
+            title,
+            description: `Generato da output di "${item.title}".\n\nOutput originale:\n${item.output_result}`,
+            status: "todo",
+            priority,
+          } as never)
+          .select("id")
+          .single();
+        if (error) throw error;
+        newId = ins.id;
+      } else {
+        const promptContent = `REGOLE DI SICUREZZA OBBLIGATORIE:
+- Non modificare auth, login, signup, sessioni, RLS o policy Supabase esistenti.
+- Non toccare dati, tabelle o logiche non richieste.
+- Non rompere route, sidebar, link, layout globale o componenti condivisi.
+- Modifica solo i file strettamente necessari.
+- Mantieni compatibilità TypeScript.
+
+CONTESTO:
+- Origine: output dell'item "${item.title}"
+- Output precedente:
+${item.output_result}
+
+PROSSIMO STEP:
+${suggestion}
+
+OUTPUT ATTESO:
+- Implementazione del prossimo step senza regressioni.
+
+CRITERI DI SUCCESSO:
+- Build pulita, nessun errore TypeScript, nessun errore console.
+- Funzionalità richiesta visibile e usabile.`;
+        const { data: ins, error } = await supabase
+          .from("clipboard_items")
+          .insert({
+            user_id: userId,
+            brain_id: item.brain_id,
+            title: `Prompt Lovable — ${title}`,
+            content: promptContent,
+            content_type: "prompt",
+            target_tool: "Lovable",
+            source_tool: "Project Loop",
+            status: "active",
+            approval_status: "pending",
+            automation_status: "ready_for_automation",
+            human_review_required: true,
+            execution_instructions:
+              "Inviare a Lovable, verificare build/console/navigazione, salvare il risultato.",
+            expected_output: "Implementazione del prossimo step senza regressioni.",
+            success_criteria:
+              "Build pulita · No errori TS · No errori console · Funzionalità attiva",
+            risk_level: riskLevel,
+            requires_approval: true,
+            next_action: "Inviare a Lovable e salvare il risultato",
+          } as never)
+          .select("id")
+          .single();
+        if (error) throw error;
+        newId = ins.id;
+      }
+
+      const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "generated_next_step_from_result",
+        notes: `Generato ${actionType} da output_result`,
+        user_id: userId,
+        metadata: {
+          source_clipboard_item_id: item.id,
+          action_type: actionType,
+          brain_id: item.brain_id,
+          new_record_id: newId,
+        },
+      } as never);
+      if (logErr) throw logErr;
+      return { newId, actionType };
+    },
+    onSuccess: ({ actionType }) => {
+      const label =
+        actionType === "roadmap"
+          ? "Roadmap item creato"
+          : actionType === "task"
+          ? "Task creato"
+          : "Prompt Lovable creato";
+      toast.success(label);
+      setNextStepItem(null);
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
 
   return (
     <div className="space-y-6 p-6">
@@ -539,6 +698,21 @@ function ProjectLoopPage() {
                   <Button size="sm" variant="ghost" onClick={() => copyText(i.output_result, "Output copiato")}>
                     <Copy className="mr-1 h-3 w-3" /> Copia output
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setNextStepItem(i);
+                      setNextStepForm({
+                        suggestion: suggestNextStep(i.output_result),
+                        actionType: "roadmap",
+                        priority: "medium",
+                        riskLevel: "medium",
+                      });
+                    }}
+                  >
+                    <Wand2 className="mr-1 h-3 w-3" /> Genera prossimo step
+                  </Button>
                   <Button asChild size="sm" variant="ghost">
                     <Link to="/clipboard-ai">
                       <ExternalLink className="mr-1 h-3 w-3" /> Apri in Clipboard AI
@@ -661,6 +835,106 @@ function ProjectLoopPage() {
             >
               <Sparkles className="mr-1 h-3 w-3" />
               {savePromptMut.isPending ? "Salvataggio…" : "Salva in Clipboard AI"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!nextStepItem}
+        onOpenChange={(o) => {
+          if (!o) setNextStepItem(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4" /> Genera prossimo step
+            </DialogTitle>
+          </DialogHeader>
+          {nextStepItem && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <div className="text-muted-foreground">Item</div>
+                  <div className="truncate font-medium">{nextStepItem.title || "(senza titolo)"}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Progetto / Brain</div>
+                  <div className="truncate font-medium">
+                    {nextStepItem.brain_id ? brainsById.get(nextStepItem.brain_id)?.name ?? "—" : "—"}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Output originale</div>
+                <div className="max-h-32 overflow-y-auto rounded-md border border-border/60 p-2 text-xs whitespace-pre-wrap">
+                  {nextStepItem.output_result}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Prossimo step suggerito</div>
+                <Textarea
+                  value={nextStepForm.suggestion}
+                  onChange={(e) => setNextStepForm((f) => ({ ...f, suggestion: e.target.value }))}
+                  className="min-h-[100px] text-xs"
+                />
+              </div>
+              <div className="grid gap-2 md:grid-cols-3">
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Tipo azione</div>
+                  <Select
+                    value={nextStepForm.actionType}
+                    onValueChange={(v) =>
+                      setNextStepForm((f) => ({ ...f, actionType: v as "roadmap" | "task" | "prompt" }))
+                    }
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="roadmap">Crea roadmap item</SelectItem>
+                      <SelectItem value="task">Crea task</SelectItem>
+                      <SelectItem value="prompt">Crea nuovo prompt Lovable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Priority</div>
+                  <Input
+                    value={nextStepForm.priority}
+                    onChange={(e) => setNextStepForm((f) => ({ ...f, priority: e.target.value }))}
+                    placeholder="low / medium / high"
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Risk level</div>
+                  <Input
+                    value={nextStepForm.riskLevel}
+                    onChange={(e) => setNextStepForm((f) => ({ ...f, riskLevel: e.target.value }))}
+                    placeholder="low / medium / high"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setNextStepItem(null)}>
+              Chiudi
+            </Button>
+            <Button
+              disabled={!nextStepItem || !nextStepForm.suggestion.trim() || nextStepMut.isPending}
+              onClick={() => {
+                if (!nextStepItem) return;
+                nextStepMut.mutate({
+                  item: nextStepItem,
+                  suggestion: nextStepForm.suggestion,
+                  actionType: nextStepForm.actionType,
+                  priority: nextStepForm.priority || "medium",
+                  riskLevel: nextStepForm.riskLevel || "medium",
+                });
+              }}
+            >
+              <Sparkles className="mr-1 h-3 w-3" />
+              {nextStepMut.isPending ? "Salvataggio…" : "Salva prossimo step"}
             </Button>
           </DialogFooter>
         </DialogContent>
