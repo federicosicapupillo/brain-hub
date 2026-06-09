@@ -218,6 +218,13 @@ function ProjectLoopPage() {
   const queryClient = useQueryClient();
   const [genTarget, setGenTarget] = useState<{ brain: Brain; roadmap: RoadmapItem } | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState("");
+  const [nextStepItem, setNextStepItem] = useState<ClipboardItem | null>(null);
+  const [nextStepForm, setNextStepForm] = useState<{
+    suggestion: string;
+    actionType: "roadmap" | "task" | "prompt";
+    priority: string;
+    riskLevel: string;
+  }>({ suggestion: "", actionType: "roadmap", priority: "medium", riskLevel: "medium" });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["project-loop"],
