@@ -661,6 +661,7 @@ function ClipboardAIPage() {
       requires_approval: item.requires_approval ?? true,
       automation_status: item.automation_status ?? "manual",
       automation_target: item.automation_target ?? "",
+      automation_connector_id: item.automation_connector_id ?? null,
     });
     setDialogOpen(true);
   }
