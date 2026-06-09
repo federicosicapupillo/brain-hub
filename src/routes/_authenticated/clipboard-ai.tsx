@@ -258,6 +258,11 @@ function ClipboardAIPage() {
         next_action: f.next_action,
         source_url: f.source_url,
         output_result: f.output_result,
+        execution_instructions: f.execution_instructions,
+        expected_output: f.expected_output,
+        success_criteria: f.success_criteria,
+        risk_level: f.risk_level,
+        requires_approval: f.requires_approval,
         automation_status: f.automation_status,
         automation_target: f.automation_target,
       };
@@ -372,6 +377,11 @@ function ClipboardAIPage() {
         next_action: item.next_action, source_url: item.source_url,
         output_result: "", automation_status: "manual",
         automation_target: item.automation_target,
+        execution_instructions: item.execution_instructions,
+        expected_output: item.expected_output,
+        success_criteria: item.success_criteria,
+        risk_level: item.risk_level ?? "medium",
+        requires_approval: item.requires_approval ?? true,
       });
       if (error) throw error;
     },
