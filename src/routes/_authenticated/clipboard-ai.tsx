@@ -18,7 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Clipboard, Copy, Edit2, Archive, CheckCircle2, Sparkles, Plus, Search,
   Trash2, Loader2, ExternalLink, ListChecks, Map as MapIcon, Zap,
-  ShieldCheck, RotateCcw, Ban,
+  ShieldCheck, RotateCcw, Ban, Plug, Power, PowerOff,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -51,6 +51,7 @@ type ClipboardItem = {
   requires_approval: boolean | null;
   automation_status: string;
   automation_target: string;
+  automation_connector_id: string | null;
   automation_last_run_at: string | null;
   automation_attempts: number;
   automation_last_error: string | null;
@@ -108,6 +109,39 @@ const RISK_LEVELS = [
   { v: "high", l: "Alto", color: "bg-orange-500/15 text-orange-300 border-orange-500/30" },
   { v: "critical", l: "Critico", color: "bg-red-500/15 text-red-300 border-red-500/30 animate-pulse" },
 ];
+const CONNECTOR_TYPES = [
+  { v: "n8n_webhook", l: "n8n Webhook" },
+  { v: "browser_automation", l: "Browser Automation" },
+  { v: "manual_copy", l: "Copia Manuale" },
+  { v: "api_connector", l: "API Connector" },
+];
+
+type AutomationConnector = {
+  id: string;
+  name: string;
+  type: string;
+  target_tool: string;
+  webhook_url: string | null;
+  browser_profile: string | null;
+  is_active: boolean;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+type ConnectorForm = {
+  id?: string;
+  name: string;
+  type: string;
+  target_tool: string;
+  webhook_url: string;
+  browser_profile: string;
+  is_active: boolean;
+};
+const EMPTY_CONNECTOR: ConnectorForm = {
+  name: "", type: "n8n_webhook", target_tool: "",
+  webhook_url: "", browser_profile: "", is_active: false,
+};
 
 const TOOL_COLOR: Record<string, string> = {
   ChatGPT: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
@@ -142,6 +176,7 @@ type FormState = {
   execution_instructions: string; expected_output: string; success_criteria: string;
   risk_level: string; requires_approval: boolean;
   automation_status: string; automation_target: string;
+  automation_connector_id: string | null;
 };
 const EMPTY_FORM: FormState = {
   title: "", content: "",
@@ -153,9 +188,10 @@ const EMPTY_FORM: FormState = {
   execution_instructions: "", expected_output: "", success_criteria: "",
   risk_level: "medium", requires_approval: true,
   automation_status: "manual", automation_target: "",
+  automation_connector_id: null,
 };
 
-type ViewKey = "all" | "to_lovable" | "responses_to_rework" | "automation_queue" | "approval_center";
+type ViewKey = "all" | "to_lovable" | "responses_to_rework" | "automation_queue" | "approval_center" | "connectors";
 const QUEUE_STATUSES = ["ready_for_automation", "queued", "running", "failed"];
 
 function ClipboardAIPage() {
@@ -343,6 +379,7 @@ function ClipboardAIPage() {
         requires_approval: f.requires_approval,
         automation_status: f.automation_status,
         automation_target: f.automation_target,
+        automation_connector_id: f.automation_connector_id,
       };
       if (f.id) {
         const { error } = await supabase.from("clipboard_items").update(payload).eq("id", f.id);
@@ -516,6 +553,85 @@ function ClipboardAIPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Automation Connectors (configuration only — no real automation is triggered)
+  const connectorsQ = useQuery({
+    queryKey: ["automation_connectors"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("automation_connectors")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as AutomationConnector[];
+    },
+  });
+  const connectors = connectorsQ.data ?? [];
+
+  const [connectorDialogOpen, setConnectorDialogOpen] = useState(false);
+  const [connectorForm, setConnectorForm] = useState<ConnectorForm>(EMPTY_CONNECTOR);
+
+  const saveConnectorMut = useMutation({
+    mutationFn: async (f: ConnectorForm) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Non autenticato");
+      const payload = {
+        user_id: u.user.id,
+        name: f.name.trim(),
+        type: f.type,
+        target_tool: f.target_tool.trim(),
+        webhook_url: f.webhook_url.trim() || null,
+        browser_profile: f.browser_profile.trim() || null,
+        is_active: f.is_active,
+      };
+      if (f.id) {
+        const { error } = await supabase.from("automation_connectors").update(payload).eq("id", f.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("automation_connectors").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["automation_connectors"] });
+      setConnectorDialogOpen(false);
+      setConnectorForm(EMPTY_CONNECTOR);
+      toast.success("Connector salvato");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleConnectorMut = useMutation({
+    mutationFn: async (c: AutomationConnector) => {
+      const { error } = await supabase.from("automation_connectors")
+        .update({ is_active: !c.is_active }).eq("id", c.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["automation_connectors"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteConnectorMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("automation_connectors").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["automation_connectors"] });
+      toast.success("Connector eliminato");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function openEditConnector(c: AutomationConnector) {
+    setConnectorForm({
+      id: c.id, name: c.name, type: c.type, target_tool: c.target_tool,
+      webhook_url: c.webhook_url ?? "", browser_profile: c.browser_profile ?? "",
+      is_active: c.is_active,
+    });
+    setConnectorDialogOpen(true);
+  }
+
+
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
@@ -543,6 +659,7 @@ function ClipboardAIPage() {
         next_action: item.next_action, source_url: item.source_url,
         output_result: "", automation_status: "manual",
         automation_target: item.automation_target,
+        automation_connector_id: item.automation_connector_id,
         execution_instructions: item.execution_instructions,
         expected_output: item.expected_output,
         success_criteria: item.success_criteria,
@@ -624,6 +741,7 @@ function ClipboardAIPage() {
       requires_approval: item.requires_approval ?? true,
       automation_status: item.automation_status ?? "manual",
       automation_target: item.automation_target ?? "",
+      automation_connector_id: item.automation_connector_id ?? null,
     });
     setDialogOpen(true);
   }
@@ -857,8 +975,26 @@ function ClipboardAIPage() {
                       <Input value={form.automation_target}
                         onChange={(e) => setForm({ ...form, automation_target: e.target.value })}
                         placeholder="es. n8n:webhook-lovable, playwright:chatgpt" />
-                    </div>
                   </div>
+                  <div>
+                    <Label className="text-xs">Connector (opzionale — solo associazione, nessuna esecuzione)</Label>
+                    <Select
+                      value={form.automation_connector_id ?? "none"}
+                      onValueChange={(v) => setForm({ ...form, automation_connector_id: v === "none" ? null : v })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">—</SelectItem>
+                        {connectors.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name} · {CONNECTOR_TYPES.find((t) => t.v === c.type)?.l ?? c.type}
+                            {c.is_active ? " · attivo" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 </div>
               </div>
               <DialogFooter>
@@ -907,9 +1043,13 @@ function ClipboardAIPage() {
           <TabsTrigger value="approval_center">
             <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Approval Center · {viewCounts.approval_center}
           </TabsTrigger>
+          <TabsTrigger value="connectors">
+            <Plug className="h-3.5 w-3.5 mr-1.5" /> Connectors · {connectors.length}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
+      {view !== "connectors" && (<>
       {/* Filters */}
       <Card>
         <CardContent className="p-4 space-y-3">
@@ -971,6 +1111,7 @@ function ClipboardAIPage() {
           {filtered.map((item) => {
             const project = (projectsQ.data ?? []).find((p) => p.id === item.project_id);
             const toolLink = (toolLinksQ.data ?? []).find((t) => t.id === item.project_tool_link_id);
+            const connector = connectors.find((c) => c.id === item.automation_connector_id);
             const autoLabel = AUTOMATION_STATUSES.find((s) => s.v === item.automation_status)?.l;
             return (
               <Card key={item.id} className="flex flex-col">
@@ -994,6 +1135,11 @@ function ClipboardAIPage() {
                     {toolLink && (
                       <Badge variant="outline" className="text-xs bg-primary/10 border-primary/30">
                         🔗 {toolLink.tool_name}
+                      </Badge>
+                    )}
+                    {connector && (
+                      <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-300 border-indigo-500/30">
+                        <Plug className="h-3 w-3 mr-1" /> {connector.name}{connector.is_active ? "" : " · inattivo"}
                       </Badge>
                     )}
                     {item.risk_level && item.risk_level !== "low" && (() => {
@@ -1290,6 +1436,168 @@ function ClipboardAIPage() {
             );
           })}
         </div>
+      )}
+      </>)}
+
+      {view === "connectors" && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Plug className="h-4 w-4" /> Connectors di automazione
+              <span className="text-xs font-normal text-muted-foreground">
+                (solo configurazione — nessuna esecuzione reale)
+              </span>
+            </CardTitle>
+            <Dialog
+              open={connectorDialogOpen}
+              onOpenChange={(o) => { setConnectorDialogOpen(o); if (!o) setConnectorForm(EMPTY_CONNECTOR); }}
+            >
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={() => setConnectorForm(EMPTY_CONNECTOR)}>
+                  <Plus className="h-4 w-4 mr-2" /> Nuovo connector
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{connectorForm.id ? "Modifica connector" : "Nuovo connector"}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div>
+                    <Label>Nome *</Label>
+                    <Input value={connectorForm.name}
+                      onChange={(e) => setConnectorForm({ ...connectorForm, name: e.target.value })}
+                      placeholder="es. n8n Lovable webhook" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Tipo *</Label>
+                      <Select value={connectorForm.type}
+                        onValueChange={(v) => setConnectorForm({ ...connectorForm, type: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {CONNECTOR_TYPES.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Target tool *</Label>
+                      <Input value={connectorForm.target_tool}
+                        onChange={(e) => setConnectorForm({ ...connectorForm, target_tool: e.target.value })}
+                        placeholder="es. Lovable, ChatGPT, Runway" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Webhook URL</Label>
+                    <Input value={connectorForm.webhook_url}
+                      onChange={(e) => setConnectorForm({ ...connectorForm, webhook_url: e.target.value })}
+                      placeholder="https://… (opzionale, non viene chiamato)" />
+                  </div>
+                  <div>
+                    <Label>Browser profile</Label>
+                    <Input value={connectorForm.browser_profile}
+                      onChange={(e) => setConnectorForm({ ...connectorForm, browser_profile: e.target.value })}
+                      placeholder="es. default, work (opzionale)" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="connector_active"
+                      type="checkbox"
+                      checked={connectorForm.is_active}
+                      onChange={(e) => setConnectorForm({ ...connectorForm, is_active: e.target.checked })}
+                      className="h-4 w-4 rounded border-border accent-primary"
+                    />
+                    <Label htmlFor="connector_active" className="text-sm cursor-pointer">
+                      Attivo (predisposto per uso futuro)
+                    </Label>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConnectorDialogOpen(false)}>Annulla</Button>
+                  <Button
+                    onClick={() => saveConnectorMut.mutate(connectorForm)}
+                    disabled={
+                      saveConnectorMut.isPending ||
+                      !connectorForm.name.trim() ||
+                      !connectorForm.target_tool.trim()
+                    }
+                  >
+                    {saveConnectorMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salva
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            {connectorsQ.isLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : connectors.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Nessun connector configurato. Creane uno per poter associare item ad automazioni future.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {connectors.map((c) => (
+                  <div key={c.id} className="rounded-md border border-border p-3 space-y-2 bg-card">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{c.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {CONNECTOR_TYPES.find((t) => t.v === c.type)?.l ?? c.type} · {c.target_tool}
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={
+                          c.is_active
+                            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                            : "bg-muted text-muted-foreground border-border"
+                        }
+                      >
+                        {c.is_active ? "Attivo" : "Inattivo"}
+                      </Badge>
+                    </div>
+                    {c.webhook_url && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        🔗 {c.webhook_url}
+                      </div>
+                    )}
+                    {c.browser_profile && (
+                      <div className="text-xs text-muted-foreground">
+                        Profilo: {c.browser_profile}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button size="sm" variant="outline" onClick={() => openEditConnector(c)}>
+                        <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Modifica
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleConnectorMut.mutate(c)}
+                        disabled={toggleConnectorMut.isPending}
+                      >
+                        {c.is_active
+                          ? <><PowerOff className="h-3.5 w-3.5 mr-1.5" /> Disattiva</>
+                          : <><Power className="h-3.5 w-3.5 mr-1.5" /> Attiva</>}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive ml-auto"
+                        onClick={() => { if (confirm("Eliminare connector?")) deleteConnectorMut.mutate(c.id); }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
