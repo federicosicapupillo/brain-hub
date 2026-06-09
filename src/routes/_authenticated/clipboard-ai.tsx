@@ -1666,6 +1666,159 @@ function ClipboardAIPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Automation Run Preview */}
+      <Dialog open={!!previewItem} onOpenChange={(o) => { if (!o) setPreviewItem(null); }}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-4 w-4" /> Automation Run Preview
+            </DialogTitle>
+          </DialogHeader>
+          {previewItem && (() => {
+            const connector = connectors.find((c) => c.id === previewItem.automation_connector_id);
+            const toolLink = (toolLinksQ.data ?? []).find((t) => t.id === previewItem.project_tool_link_id);
+            const payload = buildAutomationPayload(previewItem, connector);
+            const payloadJson = JSON.stringify(payload, null, 2);
+            const risk = RISK_LEVELS.find((r) => r.v === previewItem.risk_level);
+            const autoLabel = AUTOMATION_STATUSES.find((s) => s.v === previewItem.automation_status)?.l;
+            return (
+              <div className="space-y-4 text-sm">
+                <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-300">
+                  Anteprima sola lettura. Nessuna automazione, webhook o browser viene invocato.
+                </div>
+                <div>
+                  <div className="text-xs text-muted-foreground">Titolo</div>
+                  <div className="font-medium">{previewItem.title || "(senza titolo)"}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Target tool</div>
+                    <div>{previewItem.target_tool || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Connector</div>
+                    <div className="flex items-center gap-2">
+                      {connector ? (
+                        <>
+                          <Plug className="h-3.5 w-3.5 text-indigo-300" />
+                          <span>{connector.name}</span>
+                          <Badge variant="outline" className="text-[10px]">
+                            {CONNECTOR_TYPES.find((t) => t.v === connector.type)?.l ?? connector.type}
+                          </Badge>
+                          <Badge variant="outline" className={`text-[10px] ${
+                            connector.is_active
+                              ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                              : "bg-muted text-muted-foreground border-border"
+                          }`}>
+                            {connector.is_active ? "Attivo" : "Inattivo"}
+                          </Badge>
+                        </>
+                      ) : <span className="text-muted-foreground">— nessuno</span>}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Stato automazione</div>
+                    <div>{autoLabel ?? previewItem.automation_status}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Rischio</div>
+                    {risk
+                      ? <Badge variant="outline" className={`text-xs ${risk.color}`}>⚠ {risk.l}</Badge>
+                      : <span className="text-muted-foreground">—</span>}
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Richiede approvazione</div>
+                    <div>{previewItem.requires_approval ? "Sì" : "No"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Revisione umana richiesta</div>
+                    <div>{previewItem.human_review_required ? "Sì" : "No"}</div>
+                  </div>
+                </div>
+                {toolLink && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Project tool link</div>
+                    <div>🔗 {toolLink.tool_name}{toolLink.tool_category ? ` · ${toolLink.tool_category}` : ""}</div>
+                  </div>
+                )}
+                {previewItem.source_url && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Source URL</div>
+                    <a href={previewItem.source_url} target="_blank" rel="noopener noreferrer"
+                      className="text-primary hover:underline inline-flex items-center gap-1 break-all">
+                      <ExternalLink className="h-3 w-3" /> {previewItem.source_url}
+                    </a>
+                  </div>
+                )}
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Prompt / contenuto</div>
+                  <pre className="text-xs bg-muted/40 rounded-md p-3 max-h-48 overflow-y-auto whitespace-pre-wrap font-mono">
+                    {previewItem.content}
+                  </pre>
+                </div>
+                {previewItem.execution_instructions && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Istruzioni di esecuzione</div>
+                    <pre className="text-xs bg-muted/40 rounded-md p-3 max-h-32 overflow-y-auto whitespace-pre-wrap font-mono">
+                      {previewItem.execution_instructions}
+                    </pre>
+                  </div>
+                )}
+                {previewItem.expected_output && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Output atteso</div>
+                    <pre className="text-xs bg-muted/40 rounded-md p-3 max-h-32 overflow-y-auto whitespace-pre-wrap font-mono">
+                      {previewItem.expected_output}
+                    </pre>
+                  </div>
+                )}
+                {previewItem.success_criteria && (
+                  <div>
+                    <div className="text-xs text-muted-foreground mb-1">Criteri di successo</div>
+                    <pre className="text-xs bg-muted/40 rounded-md p-3 max-h-32 overflow-y-auto whitespace-pre-wrap font-mono">
+                      {previewItem.success_criteria}
+                    </pre>
+                  </div>
+                )}
+                <div>
+                  <div className="text-xs text-muted-foreground mb-1">Automation payload</div>
+                  <pre className="text-xs bg-muted/40 rounded-md p-3 max-h-64 overflow-y-auto whitespace-pre-wrap font-mono">
+                    {payloadJson}
+                  </pre>
+                </div>
+                <DialogFooter className="flex-wrap gap-2">
+                  <Button variant="outline" onClick={() => setPreviewItem(null)}>Chiudi</Button>
+                  <Button variant="outline"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(payloadJson);
+                        toast.success("Pacchetto completo copiato");
+                      } catch { toast.error("Impossibile copiare"); }
+                    }}>
+                    <Copy className="h-3.5 w-3.5 mr-1.5" /> Copia pacchetto completo
+                  </Button>
+                  <Button variant="outline"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(previewItem.content);
+                        toast.success("Prompt copiato");
+                      } catch { toast.error("Impossibile copiare"); }
+                    }}>
+                    <Copy className="h-3.5 w-3.5 mr-1.5" /> Copia solo prompt
+                  </Button>
+                  <Button
+                    onClick={() => confirmPreviewMut.mutate(previewItem)}
+                    disabled={confirmPreviewMut.isPending}>
+                    {confirmPreviewMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Conferma pronto per esecuzione
+                  </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
