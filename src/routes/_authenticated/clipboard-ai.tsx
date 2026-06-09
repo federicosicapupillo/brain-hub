@@ -261,6 +261,7 @@ function ClipboardAIPage() {
     previous_status?: string | null;
     new_status?: string | null;
     notes?: string | null;
+    metadata?: Record<string, unknown> | null;
   }) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
@@ -273,6 +274,7 @@ function ClipboardAIPage() {
         previous_status: vars.previous_status ?? null,
         new_status: vars.new_status ?? null,
         notes: vars.notes ?? null,
+        metadata: vars.metadata ?? null,
       });
   };
 
@@ -627,6 +629,69 @@ function ClipboardAIPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  type ManualResultOutcome = "completed" | "rework" | "failed";
+  const [manualResultItem, setManualResultItem] = useState<ClipboardItem | null>(null);
+  const [manualResultForm, setManualResultForm] = useState<{
+    output: string; outcome: ManualResultOutcome; notes: string;
+  }>({ output: "", outcome: "completed", notes: "" });
+
+  const manualResultMut = useMutation({
+    mutationFn: async (vars: { item: ClipboardItem; output: string; outcome: ManualResultOutcome; notes: string }) => {
+      const { item, output, outcome, notes } = vars;
+      const now = new Date().toISOString();
+      const prevAuto = item.automation_status;
+      let patch: Record<string, unknown> = { output_result: output };
+      if (outcome === "completed") {
+        patch = {
+          ...patch,
+          automation_status: "done",
+          automation_completed_at: now,
+          automation_last_error: null,
+          status: "used",
+        };
+      } else if (outcome === "rework") {
+        patch = {
+          ...patch,
+          automation_status: "manual",
+          status: "ai_response",
+          human_review_required: true,
+        };
+      } else {
+        patch = {
+          ...patch,
+          automation_status: "failed",
+          automation_attempts: (item.automation_attempts ?? 0) + 1,
+          automation_last_error: (notes && notes.trim()) || "Manual execution failed",
+        };
+      }
+      const { error } = await supabase.from("clipboard_items")
+        .update(patch as never).eq("id", item.id);
+      if (error) throw error;
+      await logExecution({
+        clipboard_item_id: item.id,
+        action: "manual_execution_result_saved",
+        previous_status: prevAuto,
+        new_status: (patch.automation_status as string) ?? null,
+        notes: notes || null,
+        metadata: {
+          result_status: outcome,
+          target_tool: item.target_tool || null,
+          connector_id: item.automation_connector_id || null,
+        },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      qc.invalidateQueries({ queryKey: ["clipboard_execution_logs"] });
+      setManualResultItem(null);
+      setManualResultForm({ output: "", outcome: "completed", notes: "" });
+      toast.success("Risultato salvato");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
 
 
   const saveConnectorMut = useMutation({
@@ -1450,6 +1515,23 @@ function ClipboardAIPage() {
                       </Button>
                     )}
 
+                    {/* Manual execution result */}
+                    {QUEUE_STATUSES.includes(item.automation_status) && (
+                      <Button size="sm" variant="outline" className="border-emerald-500/40 text-emerald-300"
+                        onClick={() => {
+                          setManualResultForm({
+                            output: item.output_result ?? "",
+                            outcome: "completed",
+                            notes: "",
+                          });
+                          setManualResultItem(item);
+                        }}>
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Aggiungi risultato
+                      </Button>
+                    )}
+
+
+
                     {/* Automation Queue actions */}
                     {(item.automation_status === "manual" || item.automation_status === "ready_for_automation") && (
                       <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300"
@@ -1812,6 +1894,75 @@ function ClipboardAIPage() {
                     disabled={confirmPreviewMut.isPending}>
                     {confirmPreviewMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Conferma pronto per esecuzione
+                  </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!manualResultItem} onOpenChange={(o) => { if (!o) setManualResultItem(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" /> Manual Execution Result
+            </DialogTitle>
+          </DialogHeader>
+          {manualResultItem && (() => {
+            const connector = connectors.find((c) => c.id === manualResultItem.automation_connector_id);
+            return (
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Titolo</div>
+                    <div className="font-medium">{manualResultItem.title || "(senza titolo)"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Target tool</div>
+                    <div>{manualResultItem.target_tool || "—"}</div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-xs text-muted-foreground">Connector</div>
+                    <div>{connector ? `${connector.name} (${connector.type})` : "—"}</div>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Risultato ottenuto</Label>
+                  <Textarea rows={6} value={manualResultForm.output}
+                    onChange={(e) => setManualResultForm({ ...manualResultForm, output: e.target.value })}
+                    placeholder="Incolla qui il risultato copiato dal tool esterno…" />
+                </div>
+                <div>
+                  <Label className="text-xs">Esito</Label>
+                  <Select value={manualResultForm.outcome}
+                    onValueChange={(v) => setManualResultForm({ ...manualResultForm, outcome: v as "completed" | "rework" | "failed" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="completed">Completato</SelectItem>
+                      <SelectItem value="rework">Da rielaborare</SelectItem>
+                      <SelectItem value="failed">Fallito</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Note (opzionale)</Label>
+                  <Textarea rows={2} value={manualResultForm.notes}
+                    onChange={(e) => setManualResultForm({ ...manualResultForm, notes: e.target.value })}
+                    placeholder="Annotazioni, motivo errore, …" />
+                </div>
+                <DialogFooter className="gap-2">
+                  <Button variant="ghost" onClick={() => setManualResultItem(null)}>Annulla</Button>
+                  <Button
+                    onClick={() => manualResultMut.mutate({
+                      item: manualResultItem,
+                      output: manualResultForm.output,
+                      outcome: manualResultForm.outcome,
+                      notes: manualResultForm.notes,
+                    })}
+                    disabled={manualResultMut.isPending}>
+                    {manualResultMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salva risultato
                   </Button>
                 </DialogFooter>
               </div>
