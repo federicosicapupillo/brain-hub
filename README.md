@@ -1,64 +1,64 @@
-# IdeaPilot IA
+# Sica Industrial Radar
 
-> Piattaforma che aiuta una persona a trasformare un'idea in una prima web app pronta da testare, presentare o vendere.
+> Sistema per ricercare, filtrare e analizzare capannoni industriali, logistici, artigianali, commerciali e navali.
 
 ---
 
-## Cos'è IdeaPilot IA
+## Cos'è Sica Industrial Radar
 
-IdeaPilot IA è una piattaforma SaaS che guida un utente dal concepimento di un'idea alla realizzazione di una prima web app funzionante, pronta per essere testata con utenti reali, presentata a investitori o messa in vendita.
+Sica Industrial Radar è un sistema digitale pensato per supportare l'attività di **Sica Immobiliare** nella ricerca, analisi e gestione di opportunità immobiliari industriali.
 
-Il prodotto si colloca all'intersezione tra **AI-assisted development**, **no-code/low-code rapid prototyping** e **go-to-market accelerazione**.
+Il prodotto si colloca nel settore **Real Estate Industriale**, con focus su capannoni, magazzini logistici, strutture artigianali e commerciali. L'obiettivo è fornire un "radar" intelligente che raccolga, filtri e valuti candidati immobiliari in base a parametri tecnici e commerciali rilevanti.
 
 ## A cosa serve
 
-- **Trasformare idee vaghe in prototipi concreti** in tempi ridotti rispetto allo sviluppo tradizionale.
-- **Abbassare la barriera d'ingresso** per founders, creator e professionisti che hanno un'idea digitale ma non hanno competenze tecniche avanzate.
-- **Fornire un percorso strutturato** dall'idea alla prima versione vendibile, con supporto AI in ogni fase.
-- **Accelerare il time-to-market** di MVP (Minimum Viable Product) per testare la domanda reale.
+- **Ricerca strutturata di capannoni** con filtri su metri quadri, altezza, piazzale, carroponte, portoni e posizione geografica.
+- **Analisi comparativa delle opportunità** per supportare decisioni di acquisizione o vendita.
+- **Gestione lead qualificati** provenienti da fonti multiple (annunci, contatti diretti, ricerca proattiva).
+- **Tracciamento stato avanzamento** di ogni candidato: da segnalato → in analisi → qualificato → scartato o convertito.
+- **Supporto decisionale** per l'agenzia immobiliare nel posizionamento come "specialista dei capannoni".
 
 ## Target
 
 | Segmento | Descrizione |
 |----------|-------------|
-| **Aspiring founders** | Persone con un'idea di startup ma senza team tecnico |
-| **Creator economy** | Creator che vogliono monetizzare il proprio pubblico con tool digitali |
-| **Professionisti indipendenti** | Consulenti, coach, esperti che vogliono digitalizzare il proprio metodo |
-| **Micro-SaaS builders** | Sviluppatori solitari che vogliono lanciare rapidamente micro-prodotti |
+| **Agenzia immobiliare (Sica Immobiliare)** | Operatore principale che usa il sistema per gestire il proprio portafoglio industriale |
+| **Proprietari di capannoni** | Persone o aziende che vogliono vendere o affittare strutture industriali |
+| **Investitori industriali** | Acquirenti che cercano strutture per attività produttive, logistica o artigianato |
+| **Intermediari e broker** | Figure che collaborano con Sica Immobiliare e necessitano di condivisione dati strutturata |
 
 ## Funzioni principali
 
-1. **Analisi idea / brief AI**: strutturazione dell'idea in brief tecnico e di prodotto tramite assistenza AI.
-2. **Prototipazione guidata**: creazione della prima web app con strumenti no-code/AI-code (es. Lovable) orchestrati dalla piattaforma.
-3. **Stack consigliato**: suggerimento automatico dello stack tecnologico in base al tipo di idea.
-4. **Onboarding interattivo**: percorso di avvio che porta l'utente dalla registrazione al primo prototipo.
-5. **Test & feedback loop**: strumenti per raccogliere feedback da beta-tester.
-6. **Marketing pack**: generazione di asset di marketing (copy, immagini, video) per il lancio.
-7. **Pricing & monetizzazione**: supporto alla definizione del modello di pricing e integrazione con gateway di pagamento.
+1. **Ricerca capannoni**: motore di ricerca con filtri avanzati (mq, altezza, piazzale, carroponte, portoni, località).
+2. **Schede candidato**: scheda tecnica e commerciale per ogni immobile individuato.
+3. **Analisi opportunità**: confronto tra candidati e stima rapida del valore tramite comparables di zona.
+4. **Salvataggio e scarto**: gestione stato di ogni risultato (salvato, scartato, da rivedere, ripristinabile).
+5. **Gestione lead**: tracciamento contatti, note operative e cronologia interazioni.
+6. **Export e condivisione**: esportazione dati in formato utilizzabile per report o condivisione con clienti.
+7. **Mappa interattiva**: visualizzazione geografica dei candidati su mappa (Google Earth / Mappe).
 
 ## Stack tecnico
 
 | Layer | Tecnologia / Strumento |
 |-------|------------------------|
-| **Frontend / App Builder** | Lovable (AI-assisted web app builder) — da verificare se integrato nativamente o usato come strumento esterno |
+| **Frontend / App Builder** | Lovable (AI-assisted web app builder) — da verificare se sarà il builder principale o usato come strumento esterno |
 | **Backend & Database** | Supabase (PostgreSQL, Auth, Storage, Realtime) |
-| **AI / LLM** | ChatGPT, Claude (OpenAI / Anthropic API) — da verificare quali modelli sono integrati direttamente |
-| **Ricerca / Intelligence** | Perplexity API — da verificare |
-| **Media / Generative AI** | Runway (video), ElevenLabs (voice), Midjourney / D-ID (immagini/avatar) — da verificare quali sono integrati |
-| **Pagamenti** | Stripe |
-| **Video / Social** | Klippify — da verificare il ruolo esatto |
+| **AI / Intelligence** | ChatGPT, Perplexity — da verificare quali sono integrati direttamente vs usati come strumenti esterni |
+| **Mappe / Geolocalizzazione** | Google Earth, Mappe — da verificare quale API è attiva |
 | **Project Management** | Brain Hub (dashboard centrale interna per tracciare sviluppo, prompt, task, roadmap) |
+| **Comunicazione** | Sica Immobiliare Comunicazione (progetto collegato per marketing e lead acquisition) |
 
 ## Stato attuale del progetto
 
-- **Fase**: In sviluppo / test marketing
+- **Fase**: Ideazione / sviluppo iniziale
 - **Priorità**: Alta (nel portfolio iBrain)
-- **Prossima azione critica**: Definire onboarding e prima landing per test marketing
+- **Prossima azione critica**: Definire schema dati capannoni e fonti iniziali
 - **Repository / codice sorgente**: Il codice applicativo risiede all'interno del monorepo iBrain (Brain Hub), che funge da sistema centrale di knowledge management per tutti i progetti.
+- **Schema dati**: Da definire. Attualmente non esistono tabelle dedicate nel database per i capannoni o i lead industriali.
 
 ## Come avviare il progetto (sviluppo)
 
-Il progetto IdeaPilot IA non ha un repository separato al momento. Lo sviluppo avviene all'interno dell'ecosistema **iBrain / Brain Hub**.
+Il progetto Sica Industrial Radar non ha un repository separato al momento. Lo sviluppo avviene all'interno dell'ecosistema **iBrain / Brain Hub**.
 
 Per avviare l'ambiente di sviluppo locale del sistema centrale:
 
@@ -82,16 +82,17 @@ bun run dev
 #    e autenticati per accedere alla dashboard.
 ```
 
-**Nota**: IdeaPilot IA è attualmente tracciato come progetto all'interno di Brain Hub. Per accedere alla documentazione, task, roadmap e asset collegati, naviga nella sezione **Progetti → IdeaPilot IA** dall'interno della dashboard.
+**Nota**: Sica Industrial Radar è attualmente tracciato come progetto all'interno di Brain Hub. Per accedere alla documentazione, task, roadmap e asset collegati, naviga nella sezione **Progetti → Sica Industrial Radar** dall'interno della dashboard.
 
 ## Note operative
 
-- **Separazione codice**: Il codice del "motore" di IdeaPilot IA (onboarding, brief AI, generazione app) non è ancora estratto in un servizio dedicato. Fa parte del codebase condiviso di Brain Hub oppure è orchestrato tramite strumenti esterni (Lovable, Claude, ecc.). *Da verificare l'architettura target.*
-- **Dipendenze**: Il progetto dipende fortemente dall'integrazione con API di terze parti (OpenAI, Stripe, Supabase). Assicurarsi che le chiavi siano configurate correttamente prima di testare i flussi di pagamento o AI.
-- **Ambiente di staging**: Da verificare se esiste un ambiente di staging separato per i test marketing.
-- **Analytics**: Da verificare quali strumenti di analytics sono collegati per i test di conversione della landing.
-- **Conformità**: prima di raccogliere pagamenti, verificare conformità GDPR, terms of service e privacy policy.
+- **Separazione codice**: Il codice specifico del "motore" di Sica Industrial Radar (ricerca capannoni, analisi, scoring) non è ancora estratto in un servizio dedicato. Fa parte del codebase condiviso di Brain Hub oppure è orchestrato tramite strumenti esterni. *Da verificare l'architettura target.*
+- **Dati immobiliari**: Al momento non esiste una tabella dedicata per i capannoni. I dati futuri potrebbero essere strutturati in una tabella `industrial_properties` o simile con campi per: metri quadri, altezza, piazzale, carroponte, portoni, località, prezzo, stato, fonte.
+- **Fonti dati**: Da verificare se verranno usate API esterne (portali immobiliari, Google Earth, scraping) o import manuale.
+- **Conformità**: prima di raccogliere dati personali di lead, verificare conformità GDPR e inserimento privacy policy.
+- **Integrazione con Furia Immobiliare**: esiste un progetto collegato (Furia Immobiliare) per il residenziale. Valutare se condividere parte dell'infrastruttura tecnica.
+- **Integrazione con Sica Immobiliare Comunicazione**: il marketing e l'acquisizione lead sono gestiti dal progetto collegato "Sica Immobiliare Comunicazione".
 
 ---
 
-*Ultimo aggiornamento: 2026-06-08*
+*Ultimo aggiornamento: 2026-06-09*
