@@ -263,6 +263,10 @@ export type Database = {
       }
       clipboard_items: {
         Row: {
+          automation_last_run_at: string | null
+          automation_payload: Json
+          automation_status: string
+          automation_target: string
           brain_id: string | null
           content: string
           content_type: string
@@ -271,9 +275,13 @@ export type Database = {
           id: string
           last_copied_at: string | null
           metadata: Json
+          next_action: string
           notes: string
+          output_result: string
           project_id: string | null
+          project_tool_link_id: string | null
           source_tool: string
+          source_url: string
           status: string
           tags: string[]
           target_tool: string
@@ -282,6 +290,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          automation_last_run_at?: string | null
+          automation_payload?: Json
+          automation_status?: string
+          automation_target?: string
           brain_id?: string | null
           content?: string
           content_type?: string
@@ -290,9 +302,13 @@ export type Database = {
           id?: string
           last_copied_at?: string | null
           metadata?: Json
+          next_action?: string
           notes?: string
+          output_result?: string
           project_id?: string | null
+          project_tool_link_id?: string | null
           source_tool?: string
+          source_url?: string
           status?: string
           tags?: string[]
           target_tool?: string
@@ -301,6 +317,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          automation_last_run_at?: string | null
+          automation_payload?: Json
+          automation_status?: string
+          automation_target?: string
           brain_id?: string | null
           content?: string
           content_type?: string
@@ -309,9 +329,13 @@ export type Database = {
           id?: string
           last_copied_at?: string | null
           metadata?: Json
+          next_action?: string
           notes?: string
+          output_result?: string
           project_id?: string | null
+          project_tool_link_id?: string | null
           source_tool?: string
+          source_url?: string
           status?: string
           tags?: string[]
           target_tool?: string
@@ -332,6 +356,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "project_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clipboard_items_project_tool_link_id_fkey"
+            columns: ["project_tool_link_id"]
+            isOneToOne: false
+            referencedRelation: "project_tool_links"
             referencedColumns: ["id"]
           },
         ]
