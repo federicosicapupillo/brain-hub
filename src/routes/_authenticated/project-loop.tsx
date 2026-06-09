@@ -496,6 +496,13 @@ CRITERI DI SUCCESSO:
         },
       } as never);
       if (logErr) throw logErr;
+
+      const { error: flagErr } = await supabase
+        .from("clipboard_items")
+        .update({ next_step_generated: true } as never)
+        .eq("id", item.id);
+      if (flagErr) throw flagErr;
+
       return { newId, actionType };
     },
     onSuccess: ({ actionType }) => {
