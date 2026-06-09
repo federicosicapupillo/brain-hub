@@ -425,6 +425,19 @@ function ProjectLoopPage() {
                 <div>
                   <div className="text-muted-foreground">Roadmap aperto</div>
                   <div className="truncate">{lastRoadmap?.title ?? "—"}</div>
+                  {lastRoadmap && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-1 h-7 text-[11px]"
+                      onClick={() => {
+                        setGenTarget({ brain, roadmap: lastRoadmap });
+                        setGeneratedPrompt(buildLovablePrompt(brain, lastRoadmap));
+                      }}
+                    >
+                      <Wand2 className="mr-1 h-3 w-3" /> Genera Prompt Lovable
+                    </Button>
+                  )}
                 </div>
                 <div>
                   <div className="text-muted-foreground">Ultimo prompt</div>
