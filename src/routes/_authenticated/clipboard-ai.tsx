@@ -56,6 +56,10 @@ type ClipboardItem = {
   automation_last_error: string | null;
   automation_completed_at: string | null;
   human_review_required: boolean;
+  approval_status: string;
+  approved_at: string | null;
+  blocked_reason: string | null;
+  approval_notes: string | null;
   metadata: Record<string, unknown>;
   copied_count: number;
   last_copied_at: string | null;
