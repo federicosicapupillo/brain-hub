@@ -279,7 +279,14 @@ function ClipboardAIPage() {
       errorMessage?: string;
     }) => {
       const now = new Date().toISOString();
-      let patch: Record<string, unknown> = {};
+      type AutoPatch = {
+        automation_status?: string;
+        automation_last_error?: string | null;
+        automation_last_run_at?: string;
+        automation_completed_at?: string;
+        automation_attempts?: number;
+      };
+      let patch: AutoPatch = {};
       switch (vars.action) {
         case "queue":
           patch = { automation_status: "queued", automation_last_error: null };
