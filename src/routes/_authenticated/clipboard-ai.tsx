@@ -1431,6 +1431,168 @@ function ClipboardAIPage() {
           })}
         </div>
       )}
+      </>)}
+
+      {view === "connectors" && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Plug className="h-4 w-4" /> Connectors di automazione
+              <span className="text-xs font-normal text-muted-foreground">
+                (solo configurazione — nessuna esecuzione reale)
+              </span>
+            </CardTitle>
+            <Dialog
+              open={connectorDialogOpen}
+              onOpenChange={(o) => { setConnectorDialogOpen(o); if (!o) setConnectorForm(EMPTY_CONNECTOR); }}
+            >
+              <DialogTrigger asChild>
+                <Button size="sm" onClick={() => setConnectorForm(EMPTY_CONNECTOR)}>
+                  <Plus className="h-4 w-4 mr-2" /> Nuovo connector
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>{connectorForm.id ? "Modifica connector" : "Nuovo connector"}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div>
+                    <Label>Nome *</Label>
+                    <Input value={connectorForm.name}
+                      onChange={(e) => setConnectorForm({ ...connectorForm, name: e.target.value })}
+                      placeholder="es. n8n Lovable webhook" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Tipo *</Label>
+                      <Select value={connectorForm.type}
+                        onValueChange={(v) => setConnectorForm({ ...connectorForm, type: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {CONNECTOR_TYPES.map((t) => <SelectItem key={t.v} value={t.v}>{t.l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label>Target tool *</Label>
+                      <Input value={connectorForm.target_tool}
+                        onChange={(e) => setConnectorForm({ ...connectorForm, target_tool: e.target.value })}
+                        placeholder="es. Lovable, ChatGPT, Runway" />
+                    </div>
+                  </div>
+                  <div>
+                    <Label>Webhook URL</Label>
+                    <Input value={connectorForm.webhook_url}
+                      onChange={(e) => setConnectorForm({ ...connectorForm, webhook_url: e.target.value })}
+                      placeholder="https://… (opzionale, non viene chiamato)" />
+                  </div>
+                  <div>
+                    <Label>Browser profile</Label>
+                    <Input value={connectorForm.browser_profile}
+                      onChange={(e) => setConnectorForm({ ...connectorForm, browser_profile: e.target.value })}
+                      placeholder="es. default, work (opzionale)" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="connector_active"
+                      type="checkbox"
+                      checked={connectorForm.is_active}
+                      onChange={(e) => setConnectorForm({ ...connectorForm, is_active: e.target.checked })}
+                      className="h-4 w-4 rounded border-border accent-primary"
+                    />
+                    <Label htmlFor="connector_active" className="text-sm cursor-pointer">
+                      Attivo (predisposto per uso futuro)
+                    </Label>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConnectorDialogOpen(false)}>Annulla</Button>
+                  <Button
+                    onClick={() => saveConnectorMut.mutate(connectorForm)}
+                    disabled={
+                      saveConnectorMut.isPending ||
+                      !connectorForm.name.trim() ||
+                      !connectorForm.target_tool.trim()
+                    }
+                  >
+                    {saveConnectorMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salva
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            {connectorsQ.isLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : connectors.length === 0 ? (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Nessun connector configurato. Creane uno per poter associare item ad automazioni future.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {connectors.map((c) => (
+                  <div key={c.id} className="rounded-md border border-border p-3 space-y-2 bg-card">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium truncate">{c.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {CONNECTOR_TYPES.find((t) => t.v === c.type)?.l ?? c.type} · {c.target_tool}
+                        </div>
+                      </div>
+                      <Badge
+                        variant="outline"
+                        className={
+                          c.is_active
+                            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                            : "bg-muted text-muted-foreground border-border"
+                        }
+                      >
+                        {c.is_active ? "Attivo" : "Inattivo"}
+                      </Badge>
+                    </div>
+                    {c.webhook_url && (
+                      <div className="text-xs text-muted-foreground truncate">
+                        🔗 {c.webhook_url}
+                      </div>
+                    )}
+                    {c.browser_profile && (
+                      <div className="text-xs text-muted-foreground">
+                        Profilo: {c.browser_profile}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button size="sm" variant="outline" onClick={() => openEditConnector(c)}>
+                        <Edit2 className="h-3.5 w-3.5 mr-1.5" /> Modifica
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleConnectorMut.mutate(c)}
+                        disabled={toggleConnectorMut.isPending}
+                      >
+                        {c.is_active
+                          ? <><PowerOff className="h-3.5 w-3.5 mr-1.5" /> Disattiva</>
+                          : <><Power className="h-3.5 w-3.5 mr-1.5" /> Attiva</>}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive ml-auto"
+                        onClick={() => { if (confirm("Eliminare connector?")) deleteConnectorMut.mutate(c.id); }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
