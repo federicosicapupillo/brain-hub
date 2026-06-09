@@ -261,6 +261,81 @@ export type Database = {
         }
         Relationships: []
       }
+      clipboard_items: {
+        Row: {
+          brain_id: string | null
+          content: string
+          content_type: string
+          copied_count: number
+          created_at: string
+          id: string
+          last_copied_at: string | null
+          metadata: Json
+          notes: string
+          project_id: string | null
+          source_tool: string
+          status: string
+          tags: string[]
+          target_tool: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          content?: string
+          content_type?: string
+          copied_count?: number
+          created_at?: string
+          id?: string
+          last_copied_at?: string | null
+          metadata?: Json
+          notes?: string
+          project_id?: string | null
+          source_tool?: string
+          status?: string
+          tags?: string[]
+          target_tool?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          content?: string
+          content_type?: string
+          copied_count?: number
+          created_at?: string
+          id?: string
+          last_copied_at?: string | null
+          metadata?: Json
+          notes?: string
+          project_id?: string | null
+          source_tool?: string
+          status?: string
+          tags?: string[]
+          target_tool?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clipboard_items_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clipboard_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "project_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connectors: {
         Row: {
           config: Json
