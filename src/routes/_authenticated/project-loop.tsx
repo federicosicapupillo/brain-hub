@@ -368,6 +368,139 @@ function ProjectLoopPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const nextStepMut = useMutation({
+    mutationFn: async ({
+      item,
+      suggestion,
+      actionType,
+      priority,
+      riskLevel,
+    }: {
+      item: ClipboardItem;
+      suggestion: string;
+      actionType: "roadmap" | "task" | "prompt";
+      priority: string;
+      riskLevel: string;
+    }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+      const title = suggestion.trim().slice(0, 200);
+      if (!title) throw new Error("Inserisci un prossimo step");
+
+      let newId: string | null = null;
+      if (actionType === "roadmap") {
+        const { data: ins, error } = await supabase
+          .from("roadmap_items")
+          .insert({
+            user_id: userId,
+            brain_id: item.brain_id,
+            title,
+            description: `Generato da output di "${item.title}".\n\nOutput originale:\n${item.output_result}`,
+            status: "open",
+            priority,
+          } as never)
+          .select("id")
+          .single();
+        if (error) throw error;
+        newId = ins.id;
+      } else if (actionType === "task") {
+        const { data: ins, error } = await supabase
+          .from("tasks")
+          .insert({
+            user_id: userId,
+            brain_id: item.brain_id,
+            title,
+            description: `Generato da output di "${item.title}".\n\nOutput originale:\n${item.output_result}`,
+            status: "todo",
+            priority,
+          } as never)
+          .select("id")
+          .single();
+        if (error) throw error;
+        newId = ins.id;
+      } else {
+        const promptContent = `REGOLE DI SICUREZZA OBBLIGATORIE:
+- Non modificare auth, login, signup, sessioni, RLS o policy Supabase esistenti.
+- Non toccare dati, tabelle o logiche non richieste.
+- Non rompere route, sidebar, link, layout globale o componenti condivisi.
+- Modifica solo i file strettamente necessari.
+- Mantieni compatibilità TypeScript.
+
+CONTESTO:
+- Origine: output dell'item "${item.title}"
+- Output precedente:
+${item.output_result}
+
+PROSSIMO STEP:
+${suggestion}
+
+OUTPUT ATTESO:
+- Implementazione del prossimo step senza regressioni.
+
+CRITERI DI SUCCESSO:
+- Build pulita, nessun errore TypeScript, nessun errore console.
+- Funzionalità richiesta visibile e usabile.`;
+        const { data: ins, error } = await supabase
+          .from("clipboard_items")
+          .insert({
+            user_id: userId,
+            brain_id: item.brain_id,
+            title: `Prompt Lovable — ${title}`,
+            content: promptContent,
+            content_type: "prompt",
+            target_tool: "Lovable",
+            source_tool: "Project Loop",
+            status: "active",
+            approval_status: "pending",
+            automation_status: "ready_for_automation",
+            human_review_required: true,
+            execution_instructions:
+              "Inviare a Lovable, verificare build/console/navigazione, salvare il risultato.",
+            expected_output: "Implementazione del prossimo step senza regressioni.",
+            success_criteria:
+              "Build pulita · No errori TS · No errori console · Funzionalità attiva",
+            risk_level: riskLevel,
+            requires_approval: true,
+            next_action: "Inviare a Lovable e salvare il risultato",
+          } as never)
+          .select("id")
+          .single();
+        if (error) throw error;
+        newId = ins.id;
+      }
+
+      const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "generated_next_step_from_result",
+        notes: `Generato ${actionType} da output_result`,
+        user_id: userId,
+        metadata: {
+          source_clipboard_item_id: item.id,
+          action_type: actionType,
+          brain_id: item.brain_id,
+          new_record_id: newId,
+        },
+      } as never);
+      if (logErr) throw logErr;
+      return { newId, actionType };
+    },
+    onSuccess: ({ actionType }) => {
+      const label =
+        actionType === "roadmap"
+          ? "Roadmap item creato"
+          : actionType === "task"
+          ? "Task creato"
+          : "Prompt Lovable creato";
+      toast.success(label);
+      setNextStepItem(null);
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
