@@ -261,6 +261,50 @@ export type Database = {
         }
         Relationships: []
       }
+      clipboard_execution_logs: {
+        Row: {
+          action: string
+          clipboard_item_id: string
+          created_at: string
+          id: string
+          metadata: Json
+          new_status: string | null
+          notes: string | null
+          previous_status: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          clipboard_item_id: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_status?: string | null
+          notes?: string | null
+          previous_status?: string | null
+          user_id?: string
+        }
+        Update: {
+          action?: string
+          clipboard_item_id?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_status?: string | null
+          notes?: string | null
+          previous_status?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clipboard_execution_logs_clipboard_item_id_fkey"
+            columns: ["clipboard_item_id"]
+            isOneToOne: false
+            referencedRelation: "clipboard_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clipboard_items: {
         Row: {
           approval_notes: string | null
