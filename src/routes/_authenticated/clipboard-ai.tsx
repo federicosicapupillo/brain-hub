@@ -553,6 +553,85 @@ function ClipboardAIPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Automation Connectors (configuration only — no real automation is triggered)
+  const connectorsQ = useQuery({
+    queryKey: ["automation_connectors"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("automation_connectors")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as AutomationConnector[];
+    },
+  });
+  const connectors = connectorsQ.data ?? [];
+
+  const [connectorDialogOpen, setConnectorDialogOpen] = useState(false);
+  const [connectorForm, setConnectorForm] = useState<ConnectorForm>(EMPTY_CONNECTOR);
+
+  const saveConnectorMut = useMutation({
+    mutationFn: async (f: ConnectorForm) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Non autenticato");
+      const payload = {
+        user_id: u.user.id,
+        name: f.name.trim(),
+        type: f.type,
+        target_tool: f.target_tool.trim(),
+        webhook_url: f.webhook_url.trim() || null,
+        browser_profile: f.browser_profile.trim() || null,
+        is_active: f.is_active,
+      };
+      if (f.id) {
+        const { error } = await supabase.from("automation_connectors").update(payload).eq("id", f.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("automation_connectors").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["automation_connectors"] });
+      setConnectorDialogOpen(false);
+      setConnectorForm(EMPTY_CONNECTOR);
+      toast.success("Connector salvato");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const toggleConnectorMut = useMutation({
+    mutationFn: async (c: AutomationConnector) => {
+      const { error } = await supabase.from("automation_connectors")
+        .update({ is_active: !c.is_active }).eq("id", c.id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["automation_connectors"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteConnectorMut = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("automation_connectors").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["automation_connectors"] });
+      toast.success("Connector eliminato");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function openEditConnector(c: AutomationConnector) {
+    setConnectorForm({
+      id: c.id, name: c.name, type: c.type, target_tool: c.target_tool,
+      webhook_url: c.webhook_url ?? "", browser_profile: c.browser_profile ?? "",
+      is_active: c.is_active,
+    });
+    setConnectorDialogOpen(true);
+  }
+
+
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
