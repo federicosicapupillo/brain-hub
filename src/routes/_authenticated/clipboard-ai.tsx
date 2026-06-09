@@ -43,6 +43,11 @@ type ClipboardItem = {
   next_action: string;
   source_url: string;
   output_result: string;
+  execution_instructions: string | null;
+  expected_output: string | null;
+  success_criteria: string | null;
+  risk_level: string | null;
+  requires_approval: boolean | null;
   automation_status: string;
   automation_target: string;
   automation_last_run_at: string | null;
@@ -86,6 +91,12 @@ const AUTOMATION_STATUSES = [
   { v: "done", l: "Completata" },
   { v: "failed", l: "Errore" },
 ];
+const RISK_LEVELS = [
+  { v: "low", l: "Basso", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+  { v: "medium", l: "Medio", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  { v: "high", l: "Alto", color: "bg-orange-500/15 text-orange-300 border-orange-500/30" },
+  { v: "critical", l: "Critico", color: "bg-red-500/15 text-red-300 border-red-500/30 animate-pulse" },
+];
 
 const TOOL_COLOR: Record<string, string> = {
   ChatGPT: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
@@ -117,6 +128,8 @@ type FormState = {
   content_type: string; status: string;
   tags: string; notes: string;
   next_action: string; source_url: string; output_result: string;
+  execution_instructions: string; expected_output: string; success_criteria: string;
+  risk_level: string; requires_approval: boolean;
   automation_status: string; automation_target: string;
 };
 const EMPTY_FORM: FormState = {
@@ -126,6 +139,8 @@ const EMPTY_FORM: FormState = {
   content_type: "prompt", status: "saved",
   tags: "", notes: "",
   next_action: "", source_url: "", output_result: "",
+  execution_instructions: "", expected_output: "", success_criteria: "",
+  risk_level: "medium", requires_approval: true,
   automation_status: "manual", automation_target: "",
 };
 
