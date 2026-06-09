@@ -21,6 +21,7 @@ import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/l
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
 import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticated/importa'
+import { Route as AuthenticatedHealthCheckRouteImport } from './routes/_authenticated/health-check'
 import { Route as AuthenticatedGuidaRouteImport } from './routes/_authenticated/guida'
 import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authenticated/github-sync'
 import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authenticated/github-coverage'
@@ -95,6 +96,12 @@ const AuthenticatedImportaRoute = AuthenticatedImportaRouteImport.update({
   path: '/importa',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedHealthCheckRoute =
+  AuthenticatedHealthCheckRouteImport.update({
+    id: '/health-check',
+    path: '/health-check',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedGuidaRoute = AuthenticatedGuidaRouteImport.update({
   id: '/guida',
   path: '/guida',
@@ -167,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/guida': typeof AuthenticatedGuidaRoute
+  '/health-check': typeof AuthenticatedHealthCheckRoute
   '/importa': typeof AuthenticatedImportaRouteWithChildren
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
@@ -190,6 +198,7 @@ export interface FileRoutesByTo {
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/guida': typeof AuthenticatedGuidaRoute
+  '/health-check': typeof AuthenticatedHealthCheckRoute
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -215,6 +224,7 @@ export interface FileRoutesById {
   '/_authenticated/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/_authenticated/github-sync': typeof AuthenticatedGithubSyncRoute
   '/_authenticated/guida': typeof AuthenticatedGuidaRoute
+  '/_authenticated/health-check': typeof AuthenticatedHealthCheckRoute
   '/_authenticated/importa': typeof AuthenticatedImportaRouteWithChildren
   '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
@@ -242,6 +252,7 @@ export interface FileRouteTypes {
     | '/github-coverage'
     | '/github-sync'
     | '/guida'
+    | '/health-check'
     | '/importa'
     | '/impostazioni'
     | '/live'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/github-coverage'
     | '/github-sync'
     | '/guida'
+    | '/health-check'
     | '/impostazioni'
     | '/live'
     | '/logs'
@@ -289,6 +301,7 @@ export interface FileRouteTypes {
     | '/_authenticated/github-coverage'
     | '/_authenticated/github-sync'
     | '/_authenticated/guida'
+    | '/_authenticated/health-check'
     | '/_authenticated/importa'
     | '/_authenticated/impostazioni'
     | '/_authenticated/live'
@@ -393,6 +406,13 @@ declare module '@tanstack/react-router' {
       path: '/importa'
       fullPath: '/importa'
       preLoaderRoute: typeof AuthenticatedImportaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/health-check': {
+      id: '/_authenticated/health-check'
+      path: '/health-check'
+      fullPath: '/health-check'
+      preLoaderRoute: typeof AuthenticatedHealthCheckRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/guida': {
@@ -511,6 +531,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGithubCoverageRoute: typeof AuthenticatedGithubCoverageRoute
   AuthenticatedGithubSyncRoute: typeof AuthenticatedGithubSyncRoute
   AuthenticatedGuidaRoute: typeof AuthenticatedGuidaRoute
+  AuthenticatedHealthCheckRoute: typeof AuthenticatedHealthCheckRoute
   AuthenticatedImportaRoute: typeof AuthenticatedImportaRouteWithChildren
   AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
@@ -532,6 +553,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGithubCoverageRoute: AuthenticatedGithubCoverageRoute,
   AuthenticatedGithubSyncRoute: AuthenticatedGithubSyncRoute,
   AuthenticatedGuidaRoute: AuthenticatedGuidaRoute,
+  AuthenticatedHealthCheckRoute: AuthenticatedHealthCheckRoute,
   AuthenticatedImportaRoute: AuthenticatedImportaRouteWithChildren,
   AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,

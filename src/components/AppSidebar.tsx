@@ -18,6 +18,7 @@ import {
   BookOpen,
   GitBranch,
   ShieldCheck,
+  Stethoscope,
 } from "lucide-react";
 import {
   Sidebar,
@@ -38,6 +39,7 @@ const items = [
   { title: "Strumenti Progetti", url: "/strumenti-progetti", icon: PlugZap },
   { title: "GitHub Sync", url: "/github-sync", icon: GitBranch },
   { title: "GitHub Coverage", url: "/github-coverage", icon: ShieldCheck },
+  { title: "Health Check", url: "/health-check", icon: Stethoscope },
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },
   { title: "Prossime Azioni", url: "/prossime-azioni", icon: ListChecks },
