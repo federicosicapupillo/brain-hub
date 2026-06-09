@@ -95,7 +95,7 @@ async function fetchAll() {
     supabase.from("brains").select("id,name,color,updated_at").order("updated_at", { ascending: false }),
     supabase
       .from("roadmap_items")
-      .select("id,brain_id,title,status,priority,updated_at")
+      .select("id,brain_id,title,description,status,priority,updated_at")
       .order("updated_at", { ascending: false })
       .limit(500),
     supabase
