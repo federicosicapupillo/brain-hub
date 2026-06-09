@@ -31,6 +31,19 @@ type KSource = {
   id: string; brain_id: string | null; title: string;
   tags: string[] | null; metadata: Record<string, unknown> | null;
 };
+type BNode = {
+  id: string; brain_id: string; label: string;
+  tags: string[] | null; summary: string | null;
+};
+
+/** Unified GitHub-import item from either knowledge_sources or brain_nodes. */
+type GhItem = {
+  key: string;          // for dedupe
+  brain_id: string;
+  title: string;
+  file_path: string;    // may be empty
+  haystack: string;     // used for doc matching
+};
 
 type DocKey = "readme" | "overview" | "features" | "database" | "flows";
 type Coverage = "completa" | "parziale" | "mancante" | "da_verificare";
@@ -60,23 +73,52 @@ function parseRepo(url: string | null | undefined) {
   return m ? { owner: m[1], name: m[2] } : null;
 }
 
-function isGithubSource(s: KSource): boolean {
-  const meta = s.metadata ?? {};
+function isGithubMeta(meta: Record<string, unknown> | null | undefined): boolean {
+  if (!meta) return false;
   if (meta.source === "github_manual_import") return true;
   if (meta.imported_from_tool === "GitHub") return true;
-  if (typeof meta.repo_url === "string" || typeof meta.repository === "string") return true;
-  if ((s.tags ?? []).map((t) => t.toLowerCase()).includes("github")) return true;
-  if (/^github\s*[—\-:]/i.test(s.title ?? "")) return true;
+  if (typeof meta.repo_url === "string" && meta.repo_url) return true;
+  if (typeof meta.repository === "string" && meta.repository) return true;
+  if (typeof meta.file_path === "string" && meta.file_path) return true;
   return false;
 }
 
-function matchDoc(s: KSource, key: DocKey): boolean {
+function tagsHaveGithub(tags: string[] | null | undefined): boolean {
+  return (tags ?? []).some((t) => t.toLowerCase() === "github");
+}
+
+function titleIsGithub(title: string | null | undefined): boolean {
+  return /^github\s*[—\-:]/i.test(title ?? "");
+}
+
+function sourceToGhItem(s: KSource): GhItem | null {
   const meta = s.metadata ?? {};
-  const fp = String(meta.file_path ?? "");
-  const cat = String(meta.category ?? "");
-  const it = String(meta.import_type ?? "");
-  const haystack = `${s.title ?? ""} ${fp} ${cat} ${it}`;
-  return DOC_PATTERNS[key].some((re) => re.test(haystack));
+  const isGh = isGithubMeta(meta) || tagsHaveGithub(s.tags) || titleIsGithub(s.title);
+  if (!isGh || !s.brain_id) return null;
+  const fp = typeof meta.file_path === "string" ? meta.file_path : "";
+  return {
+    key: `${s.brain_id}::${(fp || s.title || s.id).toLowerCase()}`,
+    brain_id: s.brain_id,
+    title: s.title ?? "",
+    file_path: fp,
+    haystack: `${s.title ?? ""} ${fp} ${String(meta.category ?? "")} ${String(meta.import_type ?? "")}`,
+  };
+}
+
+function nodeToGhItem(n: BNode): GhItem | null {
+  const isGh = tagsHaveGithub(n.tags) || titleIsGithub(n.label) || /github\.com/i.test(n.summary ?? "");
+  if (!isGh) return null;
+  return {
+    key: `${n.brain_id}::${(n.label || n.id).toLowerCase()}`,
+    brain_id: n.brain_id,
+    title: n.label ?? "",
+    file_path: "",
+    haystack: `${n.label ?? ""} ${n.summary ?? ""} ${(n.tags ?? []).join(" ")}`,
+  };
+}
+
+function matchDoc(item: GhItem, key: DocKey): boolean {
+  return DOC_PATTERNS[key].some((re) => re.test(item.haystack));
 }
 
 function coverageBadge(c: Coverage) {
