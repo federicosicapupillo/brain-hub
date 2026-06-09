@@ -172,7 +172,53 @@ async function copyText(text: string, label = "Testo copiato") {
   }
 }
 
+function buildLovablePrompt(brain: Brain, r: RoadmapItem) {
+  return `REGOLE DI SICUREZZA OBBLIGATORIE:
+- Non modificare auth, login, signup, sessioni, RLS o policy Supabase esistenti.
+- Non toccare dati, tabelle o logiche non richieste.
+- Non rompere route, sidebar, link, layout globale o componenti condivisi.
+- Non rimuovere funzionalità già funzionanti.
+- Modifica solo i file strettamente necessari.
+- Mantieni compatibilità TypeScript.
+- Verifica build, console error e navigazione dopo le modifiche.
+
+CONTESTO PROGETTO:
+- Brain/Progetto: ${brain.name}
+- Roadmap item: ${r.title}
+- Priorità: ${r.priority ?? "—"}
+- Stato attuale: ${r.status}
+
+OBIETTIVO:
+${r.description?.trim() || r.title}
+
+COSA MODIFICARE:
+- Implementare il roadmap item sopra descritto rispettando l'architettura esistente.
+- Toccare solo i file strettamente necessari.
+
+COSA NON MODIFICARE:
+- Auth, login, signup, sessioni.
+- RLS, policy Supabase, tabelle non correlate.
+- Sidebar, layout globale, route esistenti non collegate.
+
+OUTPUT ATTESO:
+- Implementazione funzionante del roadmap item "${r.title}".
+- Nessuna regressione sulle funzionalità esistenti.
+
+CRITERI DI SUCCESSO:
+- Build pulita senza errori TypeScript.
+- Nessun errore in console.
+- Navigazione e UI esistenti intatte.
+- Funzionalità richiesta visibile e usabile.
+
+RICHIESTA FINALE:
+Procedi con build pulita e verifica i criteri sopra elencati.`;
+}
+
 function ProjectLoopPage() {
+  const queryClient = useQueryClient();
+  const [genTarget, setGenTarget] = useState<{ brain: Brain; roadmap: RoadmapItem } | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState("");
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["project-loop"],
     queryFn: fetchAll,
