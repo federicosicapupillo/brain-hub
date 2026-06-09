@@ -301,6 +301,66 @@ function ProjectLoopPage() {
 
   const projectLinkById = new Map(projectLinks.map((p) => [p.id, p]));
 
+  const savePromptMut = useMutation({
+    mutationFn: async ({ brain, roadmap, prompt }: { brain: Brain; roadmap: RoadmapItem; prompt: string }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+      const execInstr = `Inviare il prompt a Lovable, attendere la modifica, verificare build/console/navigazione, poi salvare il risultato in Clipboard AI.`;
+      const expected = `Implementazione del roadmap item "${roadmap.title}" senza regressioni, build pulita, nessun errore TS o console.`;
+      const success = `- Build pulita\n- Nessun errore TypeScript\n- Nessun errore console\n- Funzionalità "${roadmap.title}" attiva e usabile\n- Nessuna regressione su auth/RLS/route esistenti`;
+
+      const insertPayload = {
+        user_id: userId,
+        title: `Prompt Lovable — ${roadmap.title}`,
+        content: prompt,
+        content_type: "prompt",
+        target_tool: "Lovable",
+        source_tool: "Project Loop",
+        brain_id: brain.id,
+        status: "active",
+        approval_status: "pending",
+        automation_status: "ready_for_automation",
+        human_review_required: true,
+        execution_instructions: execInstr,
+        expected_output: expected,
+        success_criteria: success,
+        risk_level: "medium",
+        requires_approval: true,
+        next_action: "Inviare a Lovable e salvare il risultato",
+      };
+
+      const { data: inserted, error: insErr } = await supabase
+        .from("clipboard_items")
+        .insert(insertPayload as never)
+        .select("id")
+        .single();
+      if (insErr) throw insErr;
+
+      const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: inserted.id,
+        action: "generated_prompt_from_roadmap_item",
+        notes: "Prompt Lovable generato da Project Loop",
+        new_status: "ready_for_automation",
+        user_id: userId,
+        metadata: {
+          roadmap_item_id: roadmap.id,
+          brain_id: brain.id,
+          target_tool: "Lovable",
+        },
+      } as never);
+      if (logErr) throw logErr;
+      return inserted.id;
+    },
+    onSuccess: () => {
+      toast.success("Prompt salvato in Clipboard AI");
+      setGenTarget(null);
+      setGeneratedPrompt("");
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
