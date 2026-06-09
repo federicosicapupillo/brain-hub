@@ -21,6 +21,7 @@ import {
   Stethoscope,
   Clipboard,
   Gauge,
+  RefreshCw,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,6 +45,7 @@ const items = [
   { title: "Health Check", url: "/health-check", icon: Stethoscope },
   { title: "Clipboard AI", url: "/clipboard-ai", icon: Clipboard },
   { title: "Automation Control", url: "/automation-control", icon: Gauge },
+  { title: "Project Loop", url: "/project-loop", icon: RefreshCw },
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },
   { title: "Prossime Azioni", url: "/prossime-azioni", icon: ListChecks },

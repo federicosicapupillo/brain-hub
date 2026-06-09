@@ -1,0 +1,453 @@
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import {
+  Workflow,
+  Rocket,
+  BrainCircuit,
+  RefreshCw,
+  ListChecks,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Copy,
+  Gauge,
+  Sparkles,
+} from "lucide-react";
+
+export const Route = createFileRoute("/_authenticated/project-loop")({
+  head: () => ({ meta: [{ title: "Project Loop — AI Brain" }] }),
+  component: ProjectLoopPage,
+  errorComponent: ({ error }) => (
+    <div className="p-6 text-sm text-destructive">{error.message}</div>
+  ),
+  notFoundComponent: () => <div className="p-6 text-sm">Pagina non trovata.</div>,
+});
+
+type Brain = { id: string; name: string; color: string | null; updated_at: string };
+type RoadmapItem = {
+  id: string;
+  brain_id: string | null;
+  title: string;
+  status: string;
+  priority: string | null;
+  updated_at: string;
+};
+type Task = {
+  id: string;
+  brain_id: string | null;
+  title: string;
+  status: string;
+  updated_at: string;
+};
+type ClipboardItem = {
+  id: string;
+  brain_id: string | null;
+  title: string;
+  content: string;
+  target_tool: string;
+  source_tool: string;
+  status: string;
+  approval_status: string;
+  automation_status: string;
+  human_review_required: boolean;
+  risk_level: string | null;
+  output_result: string;
+  next_action: string | null;
+  source_url: string | null;
+  project_tool_link_id: string | null;
+  updated_at: string;
+};
+type ExecLog = {
+  id: string;
+  clipboard_item_id: string;
+  action: string;
+  previous_status: string | null;
+  new_status: string | null;
+  notes: string | null;
+  created_at: string;
+};
+type ProjectToolLink = {
+  id: string;
+  brain_id: string | null;
+  tool_name: string;
+  url: string | null;
+};
+
+async function fetchAll() {
+  const [brainsRes, roadmapRes, tasksRes, itemsRes, logsRes, ptlRes] = await Promise.all([
+    supabase.from("brains").select("id,name,color,updated_at").order("updated_at", { ascending: false }),
+    supabase
+      .from("roadmap_items")
+      .select("id,brain_id,title,status,priority,updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("tasks")
+      .select("id,brain_id,title,status,updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("clipboard_items")
+      .select(
+        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,human_review_required,risk_level,output_result,next_action,source_url,project_tool_link_id,updated_at"
+      )
+      .order("updated_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("clipboard_execution_logs")
+      .select("id,clipboard_item_id,action,previous_status,new_status,notes,created_at")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase.from("project_tool_links").select("id,brain_id,tool_name,url"),
+  ]);
+
+  if (brainsRes.error) throw brainsRes.error;
+  if (roadmapRes.error) throw roadmapRes.error;
+  if (tasksRes.error) throw tasksRes.error;
+  if (itemsRes.error) throw itemsRes.error;
+  if (logsRes.error) throw logsRes.error;
+  if (ptlRes.error) throw ptlRes.error;
+
+  return {
+    brains: (brainsRes.data ?? []) as Brain[],
+    roadmap: (roadmapRes.data ?? []) as RoadmapItem[],
+    tasks: (tasksRes.data ?? []) as Task[],
+    items: (itemsRes.data ?? []) as ClipboardItem[],
+    logs: (logsRes.data ?? []) as ExecLog[],
+    projectLinks: (ptlRes.data ?? []) as ProjectToolLink[],
+  };
+}
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+}: {
+  label: string;
+  value: number | string;
+  icon: typeof Workflow;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-3 p-4">
+        <div className="grid h-10 w-10 place-items-center rounded-lg bg-muted">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">{label}</div>
+          <div className="text-xl font-semibold">{value}</div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function isOpenRoadmap(r: RoadmapItem) {
+  return !["done", "archived", "completed"].includes((r.status ?? "").toLowerCase());
+}
+
+async function copyText(text: string, label = "Testo copiato") {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast.success(label);
+  } catch {
+    toast.error("Impossibile copiare");
+  }
+}
+
+function ProjectLoopPage() {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["project-loop"],
+    queryFn: fetchAll,
+    refetchInterval: 20000,
+  });
+
+  if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento…</div>;
+  if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
+  if (!data) return null;
+
+  const { brains, roadmap, items, logs, projectLinks } = data;
+
+  // Active brains = with any open roadmap / task / clipboard item
+  const activeBrainIds = new Set<string>();
+  roadmap.filter(isOpenRoadmap).forEach((r) => r.brain_id && activeBrainIds.add(r.brain_id));
+  items.forEach((i) => {
+    if (i.brain_id && i.status !== "archived") activeBrainIds.add(i.brain_id);
+  });
+
+  const lovableItems = items.filter(
+    (i) => i.target_tool === "Lovable" && i.status !== "archived"
+  );
+
+  const readyForLovable = lovableItems.filter((i) => i.automation_status === "ready_for_automation").length;
+  const queuedLovable = lovableItems.filter((i) =>
+    ["queued", "running"].includes(i.automation_status)
+  ).length;
+  const toReprocess = items.filter(
+    (i) =>
+      i.output_result &&
+      i.output_result.trim() !== "" &&
+      (i.status === "ai_response" || i.status === "to_classify") &&
+      i.human_review_required
+  ).length;
+  const recentSavedOutputs = items.filter(
+    (i) => i.output_result && i.output_result.trim() !== ""
+  ).length;
+  const openRoadmap = roadmap.filter(isOpenRoadmap).length;
+
+  const lovableQueue = lovableItems
+    .filter((i) =>
+      ["ready_for_automation", "queued", "running", "failed"].includes(i.automation_status)
+    )
+    .slice(0, 20);
+
+  const resultsToProcess = items
+    .filter(
+      (i) =>
+        i.output_result &&
+        i.output_result.trim() !== "" &&
+        (i.status === "ai_response" || i.status === "to_classify") &&
+        i.human_review_required
+    )
+    .slice(0, 15);
+
+  const lovableItemIds = new Set(lovableItems.map((i) => i.id));
+  const recentLogs = logs.filter((l) => lovableItemIds.has(l.clipboard_item_id)).slice(0, 20);
+
+  const brainsById = new Map(brains.map((b) => [b.id, b]));
+
+  // Active project loop rows
+  const activeRows = Array.from(activeBrainIds)
+    .map((bid) => {
+      const brain = brainsById.get(bid);
+      if (!brain) return null;
+      const lastRoadmap = roadmap.find((r) => r.brain_id === bid && isOpenRoadmap(r));
+      const brainItems = items.filter((i) => i.brain_id === bid);
+      const lastPrompt = brainItems[0];
+      const lastOutput = brainItems.find((i) => i.output_result && i.output_result.trim() !== "");
+      const nextAction = brainItems.find((i) => i.next_action && i.next_action.trim() !== "")?.next_action;
+      return { brain, lastRoadmap, lastPrompt, lastOutput, nextAction };
+    })
+    .filter(Boolean) as Array<{
+      brain: Brain;
+      lastRoadmap?: RoadmapItem;
+      lastPrompt?: ClipboardItem;
+      lastOutput?: ClipboardItem;
+      nextAction?: string | null;
+    }>;
+
+  const projectLinkById = new Map(projectLinks.map((p) => [p.id, p]));
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <BrainCircuit className="h-6 w-6" /> Project Loop
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Ciclo operativo Brain Hub: Idea → Roadmap → Prompt → Lovable → Risultato → Nuovo prompt.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link to="/clipboard-ai">
+              <ExternalLink className="mr-2 h-4 w-4" /> Apri Clipboard AI
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/automation-control">
+              <Gauge className="mr-2 h-4 w-4" /> Apri Automation Control
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <StatCard label="Progetti attivi" value={activeBrainIds.size} icon={Rocket} />
+        <StatCard label="Roadmap aperti" value={openRoadmap} icon={ListChecks} />
+        <StatCard label="Pronti per Lovable" value={readyForLovable} icon={Workflow} />
+        <StatCard label="Prompt in coda" value={queuedLovable} icon={Clock} />
+        <StatCard label="Da rielaborare" value={toReprocess} icon={AlertTriangle} />
+        <StatCard label="Risultati salvati" value={recentSavedOutputs} icon={CheckCircle2} />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <RefreshCw className="h-4 w-4" /> Active Project Loop
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {activeRows.length === 0 && (
+            <div className="text-sm text-muted-foreground">Nessun progetto attivo.</div>
+          )}
+          {activeRows.map(({ brain, lastRoadmap, lastPrompt, lastOutput, nextAction }) => (
+            <div key={brain.id} className="rounded-md border border-border/60 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ background: brain.color ?? "var(--neon-violet)" }}
+                  />
+                  <span className="font-medium">{brain.name}</span>
+                </div>
+                <Button asChild variant="ghost" size="sm">
+                  <Link to="/progetti/$brainId" params={{ brainId: brain.id }}>
+                    <ExternalLink className="mr-1 h-3 w-3" /> Apri progetto
+                  </Link>
+                </Button>
+              </div>
+              <div className="mt-2 grid gap-2 text-xs md:grid-cols-2 lg:grid-cols-4">
+                <div>
+                  <div className="text-muted-foreground">Roadmap aperto</div>
+                  <div className="truncate">{lastRoadmap?.title ?? "—"}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Ultimo prompt</div>
+                  <div className="truncate">{lastPrompt?.title ?? "—"}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Ultimo output</div>
+                  <div className="truncate">
+                    {lastOutput ? (lastOutput.output_result.slice(0, 60) + (lastOutput.output_result.length > 60 ? "…" : "")) : "—"}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Prossimo step</div>
+                  <div className="truncate">{nextAction ?? "—"}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="h-4 w-4" /> Lovable Work Queue
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {lovableQueue.length === 0 && (
+            <div className="text-sm text-muted-foreground">Nessun item Lovable in coda.</div>
+          )}
+          {lovableQueue.map((i) => {
+            const brain = i.brain_id ? brainsById.get(i.brain_id) : null;
+            const ptl = i.project_tool_link_id ? projectLinkById.get(i.project_tool_link_id) : null;
+            return (
+              <div key={i.id} className="rounded-md border border-border/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {brain?.name ?? "—"}
+                      {ptl ? ` · ${ptl.tool_name}` : ""}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {i.risk_level && (
+                      <Badge variant="outline" className="text-[10px]">
+                        risk: {i.risk_level}
+                      </Badge>
+                    )}
+                    <Badge variant="secondary" className="text-[10px]">{i.approval_status}</Badge>
+                    <Badge variant="default" className="text-[10px]">{i.automation_status}</Badge>
+                  </div>
+                </div>
+                {i.next_action && (
+                  <div className="mt-1 text-xs text-muted-foreground">→ {i.next_action}</div>
+                )}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => copyText(i.content, "Prompt copiato")}>
+                    <Copy className="mr-1 h-3 w-3" /> Copia prompt
+                  </Button>
+                  {i.source_url && (
+                    <Button asChild size="sm" variant="ghost">
+                      <a href={i.source_url} target="_blank" rel="noreferrer">
+                        <ExternalLink className="mr-1 h-3 w-3" /> Apri source
+                      </a>
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <AlertTriangle className="h-4 w-4" /> Results To Process
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {resultsToProcess.length === 0 && (
+            <div className="text-sm text-muted-foreground">Nessun risultato da rielaborare.</div>
+          )}
+          {resultsToProcess.map((i) => {
+            const brain = i.brain_id ? brainsById.get(i.brain_id) : null;
+            return (
+              <div key={i.id} className="rounded-md border border-border/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</div>
+                    <div className="text-xs text-muted-foreground">{brain?.name ?? "—"}</div>
+                  </div>
+                  <Badge variant="secondary" className="text-[10px]">{i.status}</Badge>
+                </div>
+                <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">{i.output_result}</div>
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => copyText(i.output_result, "Output copiato")}>
+                    <Copy className="mr-1 h-3 w-3" /> Copia output
+                  </Button>
+                  <Button asChild size="sm" variant="ghost">
+                    <Link to="/clipboard-ai">
+                      <ExternalLink className="mr-1 h-3 w-3" /> Apri in Clipboard AI
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Gauge className="h-4 w-4" /> Recent Project Logs
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          {recentLogs.length === 0 && (
+            <div className="text-sm text-muted-foreground">Nessun log recente.</div>
+          )}
+          {recentLogs.map((l) => (
+            <div key={l.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border/40 p-2 text-xs">
+              <span className="text-muted-foreground">{new Date(l.created_at).toLocaleString()}</span>
+              <Badge variant="outline" className="text-[10px]">{l.action}</Badge>
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {l.clipboard_item_id.slice(0, 8)}
+              </span>
+              {(l.previous_status || l.new_status) && (
+                <span className="text-muted-foreground">
+                  {l.previous_status ?? "—"} → {l.new_status ?? "—"}
+                </span>
+              )}
+              {l.notes && <span className="truncate text-muted-foreground">· {l.notes}</span>}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
