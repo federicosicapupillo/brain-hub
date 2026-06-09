@@ -538,13 +538,13 @@ function ClipboardAIPage() {
                     </Button>
                     {item.status !== "used" && (
                       <Button size="sm" variant="outline"
-                        onClick={() => patchMut.mutate({ id: item.id, patch: { status: "used" } })}>
+                        onClick={() => patchMut.mutate({ id: item.id, status: "used" })}>
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Usato
                       </Button>
                     )}
                     {item.status !== "archived" && (
                       <Button size="sm" variant="outline"
-                        onClick={() => patchMut.mutate({ id: item.id, patch: { status: "archived" } })}>
+                        onClick={() => patchMut.mutate({ id: item.id, status: "archived" })}>
                         <Archive className="h-3.5 w-3.5 mr-1.5" /> Archivia
                       </Button>
                     )}
