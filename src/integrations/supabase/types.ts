@@ -117,6 +117,48 @@ export type Database = {
           },
         ]
       }
+      automation_connectors: {
+        Row: {
+          browser_profile: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          target_tool: string
+          type: string
+          updated_at: string
+          user_id: string
+          webhook_url: string | null
+        }
+        Insert: {
+          browser_profile?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          target_tool: string
+          type: string
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Update: {
+          browser_profile?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          target_tool?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+          webhook_url?: string | null
+        }
+        Relationships: []
+      }
       brain_edges: {
         Row: {
           brain_id: string
@@ -312,6 +354,7 @@ export type Database = {
           approved_at: string | null
           automation_attempts: number
           automation_completed_at: string | null
+          automation_connector_id: string | null
           automation_last_error: string | null
           automation_last_run_at: string | null
           automation_payload: Json
@@ -352,6 +395,7 @@ export type Database = {
           approved_at?: string | null
           automation_attempts?: number
           automation_completed_at?: string | null
+          automation_connector_id?: string | null
           automation_last_error?: string | null
           automation_last_run_at?: string | null
           automation_payload?: Json
@@ -392,6 +436,7 @@ export type Database = {
           approved_at?: string | null
           automation_attempts?: number
           automation_completed_at?: string | null
+          automation_connector_id?: string | null
           automation_last_error?: string | null
           automation_last_run_at?: string | null
           automation_payload?: Json
@@ -427,6 +472,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "clipboard_items_automation_connector_id_fkey"
+            columns: ["automation_connector_id"]
+            isOneToOne: false
+            referencedRelation: "automation_connectors"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clipboard_items_brain_id_fkey"
             columns: ["brain_id"]
