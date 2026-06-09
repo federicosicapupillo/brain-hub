@@ -879,6 +879,42 @@ function ClipboardAIPage() {
                       <div><span className="text-emerald-400 font-medium">Prossima azione:</span> {item.next_action}</div>
                     </div>
                   )}
+                  {(item.execution_instructions || item.expected_output || item.success_criteria || item.risk_level) && (
+                    <details className="text-xs rounded-md border border-primary/20 bg-primary/5">
+                      <summary className="cursor-pointer p-2 font-medium text-foreground hover:text-primary flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5" /> Execution Package
+                        {item.risk_level && item.risk_level !== "low" && (
+                          <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded border ${RISK_LEVELS.find((r) => r.v === item.risk_level)?.color}`}>
+                            {RISK_LEVELS.find((r) => r.v === item.risk_level)?.l}
+                          </span>
+                        )}
+                      </summary>
+                      <div className="p-3 space-y-2 border-t border-primary/10">
+                        {item.execution_instructions && (
+                          <div>
+                            <span className="text-muted-foreground font-medium">Istruzioni:</span>
+                            <pre className="mt-1 bg-muted/30 rounded p-2 whitespace-pre-wrap font-mono">{item.execution_instructions}</pre>
+                          </div>
+                        )}
+                        {item.expected_output && (
+                          <div>
+                            <span className="text-muted-foreground font-medium">Output atteso:</span>
+                            <pre className="mt-1 bg-muted/30 rounded p-2 whitespace-pre-wrap font-mono">{item.expected_output}</pre>
+                          </div>
+                        )}
+                        {item.success_criteria && (
+                          <div>
+                            <span className="text-muted-foreground font-medium">Criteri di successo:</span>
+                            <pre className="mt-1 bg-muted/30 rounded p-2 whitespace-pre-wrap font-mono">{item.success_criteria}</pre>
+                          </div>
+                        )}
+                        <div className="flex gap-x-4 text-muted-foreground">
+                          <span>Rischio: <span className="text-foreground">{RISK_LEVELS.find((r) => r.v === item.risk_level)?.l ?? item.risk_level ?? "—"}</span></span>
+                          <span>Approvazione: <span className="text-foreground">{item.requires_approval ? "Sì" : "No"}</span></span>
+                        </div>
+                      </div>
+                    </details>
+                  )}
                   {item.automation_status && item.automation_status !== "manual" && (
                     <div className="text-xs rounded-md border border-border bg-muted/30 p-2 space-y-1">
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
