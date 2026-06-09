@@ -659,6 +659,7 @@ function ClipboardAIPage() {
         next_action: item.next_action, source_url: item.source_url,
         output_result: "", automation_status: "manual",
         automation_target: item.automation_target,
+        automation_connector_id: item.automation_connector_id,
         execution_instructions: item.execution_instructions,
         expected_output: item.expected_output,
         success_criteria: item.success_criteria,
