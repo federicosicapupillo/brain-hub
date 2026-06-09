@@ -253,8 +253,8 @@ function ClipboardAIPage() {
       i.status !== "used" && i.status !== "archived").length,
     automation_queue: items.filter((i) => QUEUE_STATUSES.includes(i.automation_status)).length,
     approval_center: items.filter((i) =>
+      ["pending", "revision_needed", "blocked"].includes(i.approval_status ?? "pending") &&
       i.human_review_required &&
-      (i.automation_status === "ready_for_automation" || i.automation_status === "queued") &&
       i.status !== "archived").length,
   }), [items]);
 
