@@ -230,8 +230,9 @@ function ClipboardAIPage() {
       } else if (view === "automation_queue") {
         if (!QUEUE_STATUSES.includes(i.automation_status)) return false;
       } else if (view === "approval_center") {
+        const inReview = ["pending", "revision_needed", "blocked"].includes(i.approval_status ?? "pending");
+        if (!inReview) return false;
         if (!i.human_review_required) return false;
-        if (i.automation_status !== "ready_for_automation" && i.automation_status !== "queued") return false;
         if (i.status === "archived") return false;
       }
       if (q && !(`${i.title} ${i.content} ${i.notes} ${i.next_action} ${i.tags.join(" ")}`.toLowerCase().includes(q))) return false;
