@@ -1901,6 +1901,75 @@ function ClipboardAIPage() {
           })()}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!manualResultItem} onOpenChange={(o) => { if (!o) setManualResultItem(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" /> Manual Execution Result
+            </DialogTitle>
+          </DialogHeader>
+          {manualResultItem && (() => {
+            const connector = connectors.find((c) => c.id === manualResultItem.automation_connector_id);
+            return (
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs text-muted-foreground">Titolo</div>
+                    <div className="font-medium">{manualResultItem.title || "(senza titolo)"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-muted-foreground">Target tool</div>
+                    <div>{manualResultItem.target_tool || "—"}</div>
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-xs text-muted-foreground">Connector</div>
+                    <div>{connector ? `${connector.name} (${connector.type})` : "—"}</div>
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Risultato ottenuto</Label>
+                  <Textarea rows={6} value={manualResultForm.output}
+                    onChange={(e) => setManualResultForm({ ...manualResultForm, output: e.target.value })}
+                    placeholder="Incolla qui il risultato copiato dal tool esterno…" />
+                </div>
+                <div>
+                  <Label className="text-xs">Esito</Label>
+                  <Select value={manualResultForm.outcome}
+                    onValueChange={(v) => setManualResultForm({ ...manualResultForm, outcome: v as "completed" | "rework" | "failed" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="completed">Completato</SelectItem>
+                      <SelectItem value="rework">Da rielaborare</SelectItem>
+                      <SelectItem value="failed">Fallito</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Note (opzionale)</Label>
+                  <Textarea rows={2} value={manualResultForm.notes}
+                    onChange={(e) => setManualResultForm({ ...manualResultForm, notes: e.target.value })}
+                    placeholder="Annotazioni, motivo errore, …" />
+                </div>
+                <DialogFooter className="gap-2">
+                  <Button variant="ghost" onClick={() => setManualResultItem(null)}>Annulla</Button>
+                  <Button
+                    onClick={() => manualResultMut.mutate({
+                      item: manualResultItem,
+                      output: manualResultForm.output,
+                      outcome: manualResultForm.outcome,
+                      notes: manualResultForm.notes,
+                    })}
+                    disabled={manualResultMut.isPending}>
+                    {manualResultMut.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salva risultato
+                  </Button>
+                </DialogFooter>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
