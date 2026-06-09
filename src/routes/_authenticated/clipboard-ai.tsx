@@ -413,11 +413,25 @@ function ClipboardAIPage() {
           };
           break;
       }
+      const prev = items.find((i) => i.id === vars.id)?.automation_status ?? null;
       const { error } = await supabase.from("clipboard_items").update(patch).eq("id", vars.id);
       if (error) throw error;
+      const actionLabels: Record<string, string> = {
+        queue: "Metti in coda", unqueue: "Rimuovi dalla coda",
+        running: "Segna running", done: "Segna completato",
+        failed: "Segna fallito", retry: "Riprova",
+      };
+      await logExecution({
+        clipboard_item_id: vars.id,
+        action: actionLabels[vars.action] ?? vars.action,
+        previous_status: prev,
+        new_status: patch.automation_status ?? null,
+        notes: vars.errorMessage ?? null,
+      });
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      qc.invalidateQueries({ queryKey: ["clipboard_execution_logs"] });
       const labels: Record<string, string> = {
         queue: "In coda", unqueue: "Rimosso dalla coda",
         running: "Segnato come running", done: "Completato",
