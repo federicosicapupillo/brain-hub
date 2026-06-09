@@ -222,6 +222,17 @@ RICHIESTA FINALE:
 Procedi con build pulita e verifica i criteri sopra elencati.`;
 }
 
+function suggestNextStep(output: string): string {
+  const t = (output ?? "").toLowerCase();
+  if (/(errore|error|failed|fail|fix|bug|exception|crash)/.test(t)) {
+    return "Analizzare l'errore e applicare un bugfix mirato, poi verificare con test.";
+  }
+  if (/(done|created|added|implemented|completato|fatto|aggiunto)/.test(t)) {
+    return "Verificare il risultato con test funzionali e pianificare il prossimo miglioramento.";
+  }
+  return "Analizzare il risultato e definire il prossimo intervento";
+}
+
 function ProjectLoopPage() {
   const queryClient = useQueryClient();
   const [genTarget, setGenTarget] = useState<{ brain: Brain; roadmap: RoadmapItem } | null>(null);
