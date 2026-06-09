@@ -137,18 +137,21 @@ function GitHubCoveragePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["github-coverage"],
     queryFn: async () => {
-      const [b, t, k] = await Promise.all([
+      const [b, t, k, n] = await Promise.all([
         supabase.from("brains").select("id,name,color").order("name"),
         supabase.from("project_tool_links").select("*").ilike("tool_name", "github"),
         supabase.from("knowledge_sources").select("id,brain_id,title,tags,metadata"),
+        supabase.from("brain_nodes").select("id,brain_id,label,tags,summary"),
       ]);
       if (b.error) throw b.error;
       if (t.error) throw t.error;
       if (k.error) throw k.error;
+      if (n.error) throw n.error;
       return {
         brains: (b.data ?? []) as Brain[],
         links: (t.data ?? []) as ToolLink[],
         sources: (k.data ?? []) as KSource[],
+        nodes: (n.data ?? []) as BNode[],
       };
     },
   });
@@ -157,22 +160,31 @@ function GitHubCoveragePage() {
     if (!data) return [];
     const linkByBrain = new Map<string, ToolLink>();
     for (const l of data.links) if (!linkByBrain.has(l.brain_id)) linkByBrain.set(l.brain_id, l);
-    const ghSourcesByBrain = new Map<string, KSource[]>();
-    for (const s of data.sources) {
-      if (!s.brain_id || !isGithubSource(s)) continue;
-      const arr = ghSourcesByBrain.get(s.brain_id) ?? [];
-      arr.push(s);
-      ghSourcesByBrain.set(s.brain_id, arr);
-    }
+
+    // Merge both sources, dedupe per project+file_path/title
+    const itemsByBrain = new Map<string, GhItem[]>();
+    const seen = new Set<string>();
+    const pushItem = (it: GhItem | null) => {
+      if (!it) return;
+      const dedupeKey = `${it.brain_id}::${(it.file_path || it.title).toLowerCase().trim()}`;
+      if (seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+      const arr = itemsByBrain.get(it.brain_id) ?? [];
+      arr.push(it);
+      itemsByBrain.set(it.brain_id, arr);
+    };
+    for (const s of data.sources) pushItem(sourceToGhItem(s));
+    for (const nd of data.nodes) pushItem(nodeToGhItem(nd));
+
     return data.brains.map((br) => {
       const link = linkByBrain.get(br.id) ?? null;
-      const ghs = ghSourcesByBrain.get(br.id) ?? [];
+      const ghs = itemsByBrain.get(br.id) ?? [];
       const docs: Record<DocKey, boolean> = {
-        readme: ghs.some((s) => matchDoc(s, "readme")),
-        overview: ghs.some((s) => matchDoc(s, "overview")),
-        features: ghs.some((s) => matchDoc(s, "features")),
-        database: ghs.some((s) => matchDoc(s, "database")),
-        flows: ghs.some((s) => matchDoc(s, "flows")),
+        readme: ghs.some((i) => matchDoc(i, "readme")),
+        overview: ghs.some((i) => matchDoc(i, "overview")),
+        features: ghs.some((i) => matchDoc(i, "features")),
+        database: ghs.some((i) => matchDoc(i, "database")),
+        flows: ghs.some((i) => matchDoc(i, "flows")),
       };
       const meta = (link?.metadata ?? {}) as Record<string, unknown>;
       const checkStatus = String(meta.manual_check_status ?? "");
