@@ -263,6 +263,9 @@ export type Database = {
       }
       clipboard_items: {
         Row: {
+          approval_notes: string | null
+          approval_status: string
+          approved_at: string | null
           automation_attempts: number
           automation_completed_at: string | null
           automation_last_error: string | null
@@ -270,6 +273,7 @@ export type Database = {
           automation_payload: Json
           automation_status: string
           automation_target: string
+          blocked_reason: string | null
           brain_id: string | null
           content: string
           content_type: string
@@ -299,6 +303,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          approval_notes?: string | null
+          approval_status?: string
+          approved_at?: string | null
           automation_attempts?: number
           automation_completed_at?: string | null
           automation_last_error?: string | null
@@ -306,6 +313,7 @@ export type Database = {
           automation_payload?: Json
           automation_status?: string
           automation_target?: string
+          blocked_reason?: string | null
           brain_id?: string | null
           content?: string
           content_type?: string
@@ -335,6 +343,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          approval_notes?: string | null
+          approval_status?: string
+          approved_at?: string | null
           automation_attempts?: number
           automation_completed_at?: string | null
           automation_last_error?: string | null
@@ -342,6 +353,7 @@ export type Database = {
           automation_payload?: Json
           automation_status?: string
           automation_target?: string
+          blocked_reason?: string | null
           brain_id?: string | null
           content?: string
           content_type?: string
