@@ -1111,6 +1111,7 @@ function ClipboardAIPage() {
           {filtered.map((item) => {
             const project = (projectsQ.data ?? []).find((p) => p.id === item.project_id);
             const toolLink = (toolLinksQ.data ?? []).find((t) => t.id === item.project_tool_link_id);
+            const connector = connectors.find((c) => c.id === item.automation_connector_id);
             const autoLabel = AUTOMATION_STATUSES.find((s) => s.v === item.automation_status)?.l;
             return (
               <Card key={item.id} className="flex flex-col">
