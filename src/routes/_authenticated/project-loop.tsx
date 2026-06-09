@@ -698,6 +698,21 @@ CRITERI DI SUCCESSO:
                   <Button size="sm" variant="ghost" onClick={() => copyText(i.output_result, "Output copiato")}>
                     <Copy className="mr-1 h-3 w-3" /> Copia output
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setNextStepItem(i);
+                      setNextStepForm({
+                        suggestion: suggestNextStep(i.output_result),
+                        actionType: "roadmap",
+                        priority: "medium",
+                        riskLevel: "medium",
+                      });
+                    }}
+                  >
+                    <Wand2 className="mr-1 h-3 w-3" /> Genera prossimo step
+                  </Button>
                   <Button asChild size="sm" variant="ghost">
                     <Link to="/clipboard-ai">
                       <ExternalLink className="mr-1 h-3 w-3" /> Apri in Clipboard AI
