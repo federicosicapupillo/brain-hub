@@ -375,6 +375,27 @@ function ClipboardAIPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const approvalMut = useMutation({
+    mutationFn: async (vars: { id: string; action: "approve" | "review" | "block" }) => {
+      let patch: Record<string, unknown> = {};
+      if (vars.action === "approve") {
+        patch = { human_review_required: false, automation_status: "queued" };
+      } else if (vars.action === "review") {
+        patch = { human_review_required: false, automation_status: "manual" };
+      } else if (vars.action === "block") {
+        patch = { status: "archived", human_review_required: false };
+      }
+      const { error } = await supabase.from("clipboard_items").update(patch).eq("id", vars.id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      const labels = { approve: "Approvato per automazione", review: "Rimandato in revisione", block: "Item bloccato" };
+      toast.success(labels[vars.action]);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
