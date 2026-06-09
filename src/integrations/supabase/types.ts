@@ -275,6 +275,8 @@ export type Database = {
           content_type: string
           copied_count: number
           created_at: string
+          execution_instructions: string | null
+          expected_output: string | null
           human_review_required: boolean
           id: string
           last_copied_at: string | null
@@ -284,9 +286,12 @@ export type Database = {
           output_result: string
           project_id: string | null
           project_tool_link_id: string | null
+          requires_approval: boolean | null
+          risk_level: string | null
           source_tool: string
           source_url: string
           status: string
+          success_criteria: string | null
           tags: string[]
           target_tool: string
           title: string
@@ -306,6 +311,8 @@ export type Database = {
           content_type?: string
           copied_count?: number
           created_at?: string
+          execution_instructions?: string | null
+          expected_output?: string | null
           human_review_required?: boolean
           id?: string
           last_copied_at?: string | null
@@ -315,9 +322,12 @@ export type Database = {
           output_result?: string
           project_id?: string | null
           project_tool_link_id?: string | null
+          requires_approval?: boolean | null
+          risk_level?: string | null
           source_tool?: string
           source_url?: string
           status?: string
+          success_criteria?: string | null
           tags?: string[]
           target_tool?: string
           title?: string
@@ -337,6 +347,8 @@ export type Database = {
           content_type?: string
           copied_count?: number
           created_at?: string
+          execution_instructions?: string | null
+          expected_output?: string | null
           human_review_required?: boolean
           id?: string
           last_copied_at?: string | null
@@ -346,9 +358,12 @@ export type Database = {
           output_result?: string
           project_id?: string | null
           project_tool_link_id?: string | null
+          requires_approval?: boolean | null
+          risk_level?: string | null
           source_tool?: string
           source_url?: string
           status?: string
+          success_criteria?: string | null
           tags?: string[]
           target_tool?: string
           title?: string

@@ -43,6 +43,11 @@ type ClipboardItem = {
   next_action: string;
   source_url: string;
   output_result: string;
+  execution_instructions: string | null;
+  expected_output: string | null;
+  success_criteria: string | null;
+  risk_level: string | null;
+  requires_approval: boolean | null;
   automation_status: string;
   automation_target: string;
   automation_last_run_at: string | null;
@@ -86,6 +91,12 @@ const AUTOMATION_STATUSES = [
   { v: "done", l: "Completata" },
   { v: "failed", l: "Errore" },
 ];
+const RISK_LEVELS = [
+  { v: "low", l: "Basso", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+  { v: "medium", l: "Medio", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  { v: "high", l: "Alto", color: "bg-orange-500/15 text-orange-300 border-orange-500/30" },
+  { v: "critical", l: "Critico", color: "bg-red-500/15 text-red-300 border-red-500/30 animate-pulse" },
+];
 
 const TOOL_COLOR: Record<string, string> = {
   ChatGPT: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
@@ -117,6 +128,8 @@ type FormState = {
   content_type: string; status: string;
   tags: string; notes: string;
   next_action: string; source_url: string; output_result: string;
+  execution_instructions: string; expected_output: string; success_criteria: string;
+  risk_level: string; requires_approval: boolean;
   automation_status: string; automation_target: string;
 };
 const EMPTY_FORM: FormState = {
@@ -126,6 +139,8 @@ const EMPTY_FORM: FormState = {
   content_type: "prompt", status: "saved",
   tags: "", notes: "",
   next_action: "", source_url: "", output_result: "",
+  execution_instructions: "", expected_output: "", success_criteria: "",
+  risk_level: "medium", requires_approval: true,
   automation_status: "manual", automation_target: "",
 };
 
@@ -243,6 +258,11 @@ function ClipboardAIPage() {
         next_action: f.next_action,
         source_url: f.source_url,
         output_result: f.output_result,
+        execution_instructions: f.execution_instructions,
+        expected_output: f.expected_output,
+        success_criteria: f.success_criteria,
+        risk_level: f.risk_level,
+        requires_approval: f.requires_approval,
         automation_status: f.automation_status,
         automation_target: f.automation_target,
       };
@@ -330,6 +350,22 @@ function ClipboardAIPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const prepareAutoMut = useMutation({
+    mutationFn: async (item: ClipboardItem) => {
+      const forceReview = item.risk_level === "high" || item.risk_level === "critical";
+      const { error } = await supabase.from("clipboard_items").update({
+        automation_status: "ready_for_automation",
+        human_review_required: forceReview ? true : (item.requires_approval ?? true),
+      }).eq("id", item.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      toast.success("Preparato per automazione");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
@@ -357,6 +393,11 @@ function ClipboardAIPage() {
         next_action: item.next_action, source_url: item.source_url,
         output_result: "", automation_status: "manual",
         automation_target: item.automation_target,
+        execution_instructions: item.execution_instructions,
+        expected_output: item.expected_output,
+        success_criteria: item.success_criteria,
+        risk_level: item.risk_level ?? "medium",
+        requires_approval: item.requires_approval ?? true,
       });
       if (error) throw error;
     },
@@ -426,6 +467,11 @@ function ClipboardAIPage() {
       tags: item.tags.join(", "), notes: item.notes,
       next_action: item.next_action ?? "", source_url: item.source_url ?? "",
       output_result: item.output_result ?? "",
+      execution_instructions: item.execution_instructions ?? "",
+      expected_output: item.expected_output ?? "",
+      success_criteria: item.success_criteria ?? "",
+      risk_level: item.risk_level ?? "medium",
+      requires_approval: item.requires_approval ?? true,
       automation_status: item.automation_status ?? "manual",
       automation_target: item.automation_target ?? "",
     });
@@ -598,6 +644,50 @@ function ClipboardAIPage() {
                   <Label>Note</Label>
                   <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
                 </div>
+                <div className="rounded-md border border-primary/20 p-4 space-y-4 bg-primary/5">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Sparkles className="h-4 w-4 text-primary" /> Execution Package
+                  </div>
+                  <div>
+                    <Label>Istruzioni di esecuzione</Label>
+                    <Textarea rows={3} value={form.execution_instructions}
+                      onChange={(e) => setForm({ ...form, execution_instructions: e.target.value })}
+                      placeholder="Passo-passo per eseguire questo prompt: dove incollarlo, come interpretare la risposta, parametri da sostituire…" />
+                  </div>
+                  <div>
+                    <Label>Output atteso</Label>
+                    <Textarea rows={2} value={form.expected_output}
+                      onChange={(e) => setForm({ ...form, expected_output: e.target.value })}
+                      placeholder="Cosa ci si aspetta di ricevere dopo l'esecuzione" />
+                  </div>
+                  <div>
+                    <Label>Criteri di successo</Label>
+                    <Textarea rows={2} value={form.success_criteria}
+                      onChange={(e) => setForm({ ...form, success_criteria: e.target.value })}
+                      placeholder="Come verificare che il risultato sia valido" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label>Livello rischio</Label>
+                      <Select value={form.risk_level} onValueChange={(v) => setForm({ ...form, risk_level: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {RISK_LEVELS.map((r) => <SelectItem key={r.v} value={r.v}>{r.l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-3 pt-6">
+                      <input
+                        id="requires_approval"
+                        type="checkbox"
+                        checked={form.requires_approval}
+                        onChange={(e) => setForm({ ...form, requires_approval: e.target.checked })}
+                        className="h-4 w-4 rounded border-border accent-primary"
+                      />
+                      <Label htmlFor="requires_approval" className="text-sm cursor-pointer">Richiede approvazione umana</Label>
+                    </div>
+                  </div>
+                </div>
                 <div className="rounded-md border border-dashed p-3 space-y-3">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <Zap className="h-3.5 w-3.5" /> Predisposizione automazione esterna (n8n / Playwright) — non ancora attiva
@@ -753,6 +843,15 @@ function ClipboardAIPage() {
                         🔗 {toolLink.tool_name}
                       </Badge>
                     )}
+                    {item.risk_level && item.risk_level !== "low" && (() => {
+                      const r = RISK_LEVELS.find((x) => x.v === item.risk_level);
+                      if (!r) return null;
+                      return (
+                        <Badge variant="outline" className={`text-xs font-medium ${r.color}`}>
+                          ⚠ {r.l}
+                        </Badge>
+                      );
+                    })()}
                     {item.automation_status && item.automation_status !== "manual" && (() => {
                       const cls: Record<string, string> = {
                         ready_for_automation: "bg-sky-500/20 text-sky-300 border-sky-500/40",
@@ -779,6 +878,42 @@ function ClipboardAIPage() {
                       <ListChecks className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
                       <div><span className="text-emerald-400 font-medium">Prossima azione:</span> {item.next_action}</div>
                     </div>
+                  )}
+                  {(item.execution_instructions || item.expected_output || item.success_criteria || item.risk_level) && (
+                    <details className="text-xs rounded-md border border-primary/20 bg-primary/5">
+                      <summary className="cursor-pointer p-2 font-medium text-foreground hover:text-primary flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5" /> Execution Package
+                        {item.risk_level && item.risk_level !== "low" && (
+                          <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded border ${RISK_LEVELS.find((r) => r.v === item.risk_level)?.color}`}>
+                            {RISK_LEVELS.find((r) => r.v === item.risk_level)?.l}
+                          </span>
+                        )}
+                      </summary>
+                      <div className="p-3 space-y-2 border-t border-primary/10">
+                        {item.execution_instructions && (
+                          <div>
+                            <span className="text-muted-foreground font-medium">Istruzioni:</span>
+                            <pre className="mt-1 bg-muted/30 rounded p-2 whitespace-pre-wrap font-mono">{item.execution_instructions}</pre>
+                          </div>
+                        )}
+                        {item.expected_output && (
+                          <div>
+                            <span className="text-muted-foreground font-medium">Output atteso:</span>
+                            <pre className="mt-1 bg-muted/30 rounded p-2 whitespace-pre-wrap font-mono">{item.expected_output}</pre>
+                          </div>
+                        )}
+                        {item.success_criteria && (
+                          <div>
+                            <span className="text-muted-foreground font-medium">Criteri di successo:</span>
+                            <pre className="mt-1 bg-muted/30 rounded p-2 whitespace-pre-wrap font-mono">{item.success_criteria}</pre>
+                          </div>
+                        )}
+                        <div className="flex gap-x-4 text-muted-foreground">
+                          <span>Rischio: <span className="text-foreground">{RISK_LEVELS.find((r) => r.v === item.risk_level)?.l ?? item.risk_level ?? "—"}</span></span>
+                          <span>Approvazione: <span className="text-foreground">{item.requires_approval ? "Sì" : "No"}</span></span>
+                        </div>
+                      </div>
+                    </details>
                   )}
                   {item.automation_status && item.automation_status !== "manual" && (
                     <div className="text-xs rounded-md border border-border bg-muted/30 p-2 space-y-1">
@@ -855,6 +990,15 @@ function ClipboardAIPage() {
                     <Button size="sm" variant="outline" onClick={() => generateNextPrompt(item)}>
                       <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Prossimo prompt
                     </Button>
+
+                    {/* Prepare for automation */}
+                    {item.automation_status === "manual" && (
+                      <Button size="sm" variant="outline" className="border-primary/40 text-primary"
+                        onClick={() => prepareAutoMut.mutate(item)}
+                        disabled={prepareAutoMut.isPending}>
+                        <Zap className="h-3.5 w-3.5 mr-1.5" /> Prepara per automazione
+                      </Button>
+                    )}
 
                     {/* Automation Queue actions */}
                     {(item.automation_status === "manual" || item.automation_status === "ready_for_automation") && (
