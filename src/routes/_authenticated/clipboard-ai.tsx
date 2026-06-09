@@ -784,6 +784,9 @@ function ClipboardAIPage() {
           <TabsTrigger value="automation_queue">
             <Zap className="h-3.5 w-3.5 mr-1.5" /> Automation Queue · {viewCounts.automation_queue}
           </TabsTrigger>
+          <TabsTrigger value="approval_center">
+            <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Approval Center · {viewCounts.approval_center}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
