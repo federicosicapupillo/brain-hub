@@ -51,6 +51,7 @@ type ClipboardItem = {
   requires_approval: boolean | null;
   automation_status: string;
   automation_target: string;
+  automation_connector_id: string | null;
   automation_last_run_at: string | null;
   automation_attempts: number;
   automation_last_error: string | null;
