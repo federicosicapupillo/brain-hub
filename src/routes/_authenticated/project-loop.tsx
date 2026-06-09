@@ -80,6 +80,7 @@ type ClipboardItem = {
   next_action: string | null;
   source_url: string | null;
   project_tool_link_id: string | null;
+  next_step_generated: boolean;
   updated_at: string;
 };
 type ExecLog = {
@@ -114,7 +115,7 @@ async function fetchAll() {
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,human_review_required,risk_level,output_result,next_action,source_url,project_tool_link_id,updated_at"
+        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,human_review_required,risk_level,output_result,next_action,source_url,project_tool_link_id,next_step_generated,updated_at"
       )
       .order("updated_at", { ascending: false })
       .limit(500),
@@ -272,13 +273,14 @@ function ProjectLoopPage() {
   const queuedLovable = lovableItems.filter((i) =>
     ["queued", "running"].includes(i.automation_status)
   ).length;
-  const toReprocess = items.filter(
-    (i) =>
-      i.output_result &&
-      i.output_result.trim() !== "" &&
-      (i.status === "ai_response" || i.status === "to_classify") &&
-      i.human_review_required
-  ).length;
+  const needsNextStep = (i: ClipboardItem) =>
+    !!i.output_result &&
+    i.output_result.trim() !== "" &&
+    !i.next_step_generated &&
+    i.status !== "archived" &&
+    (!i.target_tool || i.target_tool === "Lovable");
+
+  const toReprocess = items.filter(needsNextStep).length;
   const recentSavedOutputs = items.filter(
     (i) => i.output_result && i.output_result.trim() !== ""
   ).length;
@@ -290,15 +292,7 @@ function ProjectLoopPage() {
     )
     .slice(0, 20);
 
-  const resultsToProcess = items
-    .filter(
-      (i) =>
-        i.output_result &&
-        i.output_result.trim() !== "" &&
-        (i.status === "ai_response" || i.status === "to_classify") &&
-        i.human_review_required
-    )
-    .slice(0, 15);
+  const resultsToProcess = items.filter(needsNextStep).slice(0, 15);
 
   const lovableItemIds = new Set(lovableItems.map((i) => i.id));
   const recentLogs = logs.filter((l) => lovableItemIds.has(l.clipboard_item_id)).slice(0, 20);
@@ -502,6 +496,13 @@ CRITERI DI SUCCESSO:
         },
       } as never);
       if (logErr) throw logErr;
+
+      const { error: flagErr } = await supabase
+        .from("clipboard_items")
+        .update({ next_step_generated: true } as never)
+        .eq("id", item.id);
+      if (flagErr) throw flagErr;
+
       return { newId, actionType };
     },
     onSuccess: ({ actionType }) => {
@@ -649,6 +650,11 @@ CRITERI DI SUCCESSO:
                     )}
                     <Badge variant="secondary" className="text-[10px]">{i.approval_status}</Badge>
                     <Badge variant="default" className="text-[10px]">{i.automation_status}</Badge>
+                    {i.next_step_generated && (
+                      <Badge variant="outline" className="text-[10px]">
+                        Prossimo step già generato
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 {i.next_action && (
