@@ -1,264 +1,220 @@
-# User Flows — IdeaPilot IA
+# User Flows — Sica Industrial Radar
 
-## Flusso utente pubblico
+## Flusso ricerca capannoni
 
-Questo è il percorso di un visitatore che arriva su IdeaPilot IA senza essere ancora registrato.
+### Attore
+Agente immobiliare o utente autorizzato
 
-```
-[Canale di acquisizione]
-        ↓
-[ Landing page ]
-  ├─ Headline: "Dall'idea alla tua prima web app in giorni, non mesi"
-  ├─ Video demo / GIF (da verificare se già prodotto)
-  ├─ Social proof (da verificare: testimonianze, numero utenti, loghi)
-  ├─ Chiaretta del valore: 3 step (Idea → Brief → App)
-  └─ CTA primario: "Inizia gratis" / "Metti in lista d'attesa"
-        ↓
-[ Form pre-registrazione / waitlist ]
-  ├─ Email
-  ├─ Tipo di idea (dropdown: SaaS, Marketplace, Tool, Community, Altro)
-  ├─ Hai già un'idea specifica? (sì/no + campo testo opzionale)
-  └─ CTA: "Riservami un posto"
-        ↓
-[ Conferma ]
-  ├─ Messaggio di ringraziamento
-  ├─ Stima posizione in coda (da verificare)
-  ├─ Invito a segire su social / newsletter
-  └─ Link a risorse gratuite (da verificare se esistono)
-```
+### Passaggi
 
-**KPI da tracciare:**
-- Tasso di conversione visitatore → email (target: da verificare)
-- Tasso di completamento form (target: da verificare)
-- Fonte di traffico più performante
-- Costo per lead (CPL)
+1. **Accesso alla sezione Ricerca**
+   - L'utente naviga su **Progetti → Sica Industrial Radar → Ricerca**
+   - Vede il form di ricerca con campi filtro
 
----
+2. **Impostazione filtri**
+   - Metri quadri (min / max)
+   - Altezza interna (min)
+   - Piazzale esterno (min)
+   - Presenza carroponte (sì / no)
+   - Numero portoni di carico
+   - Località / zona geografica
+   - Prezzo (min / max)
+   - Tipo: vendita o affitto
+   - Stato candidato: tutti, salvati, scartati, da rivedere
 
-## Flusso creazione idea / app
+3. **Esecuzione ricerca**
+   - L'utente clicca "Cerca"
+   - Il sistema interroga il database e restituisce i risultati
 
-Questo è il percorso core del prodotto: da un'idea grezza a un prodotto concreto.
+4. **Visualizzazione risultati**
+   - Lista schede candidato con dati sintetici
+   - Possibilità di passare alla visualizzazione mappa
+   - Ordinamento per rilevanza, prezzo, mq, data inserimento
 
-### Fase 1 — Idea Capture
+5. **Selezione candidato**
+   - L'utente clicca su una scheda per vedere il dettaglio
+   - *Da verificare*: se la mappa mostra già i risultati in fase iniziale
 
-```
-[ Utente autenticato accede a IdeaPilot IA ]
-        ↓
-[ Dashboard di progetto ]
-  ├─ Progetti attivi
-  ├─ "Nuova idea" → avvia wizard
-        ↓
-[ Wizard — Step 1: Descrivi la tua idea ]
-  ├─ Campo testo libero: "Descrivi la tua idea in 2-3 frasi"
-  ├─ Esempi di input (placeholder dinamico)
-  └─ Bottone: "Analizza idea"
-        ↓
-[ Wizard — Step 2: Validazione rapida ]
-  ├─ L'AI fa 3-5 domande di chiarimento
-  ├─ Esempio: "Chi è il tuo utente target?", "Esiste già qualcosa di simile?"
-  └─ Utente risponde (campi brevi)
-        ↓
-[ Wizard — Step 3: Brief generato ]
-  ├─ Titolo prodotto proposto
-  ├─ Descrizione one-liner
-  ├─ Problema che risolve
-  ├─ Soluzione chiave
-  ├─ Utente target primario
-  ├─ Metriche di successo suggerite
-  └─ Utente può: Modificare / Approvare / Rigenerare
-```
-
-### Fase 2 — Scelta dello Stack
-
-```
-[ Dopo approvazione brief ]
-        ↓
-[ Wizard — Step 4: Stack consigliato ]
-  ├─ Piattaforma di build: Lovable (default) — modificabile
-  ├─ Backend: Supabase (default) — modificabile
-  ├─ Auth: Supabase Auth (default)
-  ├─ Pagamenti: Stripe (se previsti)
-  ├─ AI / LLM: OpenAI / Claude (se previsti)
-  ├─ Hosting: da verificare
-  └─ Utente può: Accettare stack / Modificare / Vedere comparazione
-        ↓
-[ Wizard — Step 5: Template (opzionale) ]
-  ├─ Lista template filtrabili per categoria
-  ├─ Preview screenshot / descrizione
-  └─ Scelta: Partire da template / Da zero
-```
-
-### Fase 3 — Generazione / Orchestrazione
-
-```
-[ Dopo conferma stack e template ]
-        ↓
-[ Stato: "Stiamo costruendo la tua app…" ]
-  ├─ Progress indicator (da verificare la durata reale)
-  ├─ Link a documentazione / guida nel frattempo
-        ↓
-[ Output: Prototipo pronto ]
-  ├─ URL dell'app (su dominio temporaneo o custom)
-  ├─ Link al progetto su Lovable (se orchestrato via Lovable)
-  ├─ Credenziali di accesso demo (se previste)
-  ├─ Brief salvato in Brain Hub
-  └─ Task automatici generati in roadmap
-        ↓
-[ Azioni post-generazione ]
-  ├─ "Personalizza" → link all'editor (Lovable o interno)
-  ├─ "Condividi per feedback" → link pubblico / invita tester
-  ├─ "Prepara il lancio" → marketing pack
-  └─ "Collega dominio" → (funzione futura)
-```
-
-**Nota importante**: La generazione effettiva dell'app dipende dall'integrazione con strumenti esterni (principalmente Lovable). Se l'integrazione programmatica non è disponibile, il flusso attuale potrebbe prevedere:
-- Esportazione del brief in formato compatibile
-- Link diretto a Lovable con parametri pre-compilati
-- Guida manuale step-by-step per replicare il brief su Lovable
-
-*Da verificare quale dei due approcci è implementato o previsto.*
+### Output
+Lista di capannoni filtrati, pronti per analisi o salvataggio.
 
 ---
 
-## Flusso analisi idea
+## Flusso analisi opportunità
 
-Questo flusso riguarda la fase di validazione e analisi prima di procedere alla generazione.
+### Attore
+Agente immobiliare
 
-```
-[ Input: idea grezza dell'utente ]
-        ↓
-[ Analisi AI — Livello 1: Comprensione ]
-  ├─ Estrazione entità (prodotto, utente, problema, mercato)
-  ├─ Identificazione ambiguità → genera domande di chiarimento
-  └─ Flag: idea troppo vaga / troppo ampia / già esistente?
-        ↓
-[ Analisi AI — Livello 2: Valutazione ]
-  ├─ Similarità con prodotti esistenti (da verificare: Perplexity / web search?)
-  ├─ Stima dimensione mercato (TAM/SAM/SOM) — da verificare se implementato
-  ├─ Complessità tecnica stimata (bassa / media / alta)
-  ├─ Tempo stimato per MVP
-  └─ Rischi principali identificati
-        ↓
-[ Analisi AI — Livello 3: Structuring ]
-  ├─ Trasformazione in brief standardizzato
-  ├─ User story principali identificate
-  ├─ Feature must-have vs nice-to-have
-  └─ Milestone suggerite (MVP → V1 → Scaling)
-        ↓
-[ Output: Brief strutturato + Analisi di fattibilità ]
-  ├─ Salvato in Brain Hub come "Appunto strategico"
-  ├─ Collegato al progetto IdeaPilot IA
-  └─ Accessibile per future revisioni
-```
+### Passaggi
 
-**KPI da tracciare:**
-- Tempo medio per completare il wizard
-- Tasso di completamento per step
-- Percentuale di brief approvati vs rigenerati
-- Qualità percepita del brief (feedback utente)
+1. **Apertura scheda candidato**
+   - Dalla lista risultati, l'utente apre la scheda dettaglio di un capannone
+
+2. **Revisione dati tecnici**
+   - Metri quadri, altezza, piazzale, carroponte, portoni
+   - Localizzazione con mappa
+   - Immagini e documenti allegati
+   - Note operative
+
+3. **Confronto comparables**
+   - Il sistema mostra immobili simili nella stessa zona
+   - Prezzo al mq di riferimento
+   - *Da verificare*: se l'analisi comparativa è già implementata o manuale
+
+4. **Valutazione**
+   - L'utente aggiunge note personali
+   - Assegna un punteggio o etichetta (es. "ottima opportunità", "da verificare")
+
+5. **Decisione**
+   - Salva il candidato nel portafoglio
+   - Scarta il candidato con motivazione
+   - Lascia in stato "da rivedere"
+
+### Output
+Candidato con stato aggiornato e note analitiche.
 
 ---
 
-## Flusso eventuale pagamento / sblocco
+## Flusso salvataggio candidato
 
-Questo flusso è ancora da definire in dettaglio. Di seguito una proposta basata sullo stack tecnologico dichiarato.
+### Attore
+Agente immobiliare
 
-### Modello di pricing ipotizzato (da verificare)
+### Passaggi
 
-| Piano | Prezzo (indicativo) | Inclusioni |
-|-------|---------------------|------------|
-| **Free / Explorer** | Gratis | 1 idea, brief base, nessuna generazione app |
-| **Builder** | €29/mese | 3 idee/mese, brief avanzato, generazione app, marketing pack |
-| **Pro** | €79/mese | Illimitato, priorità coda, custom domain, supporto |
-| **Agency** | €199/mese | Multi-cliente, white-label, API access | 
+1. **Dalla ricerca o dalla scheda**
+   - L'utente trova un capannone di interesse
 
-*I prezzi sono puramente indicativi e devono essere validati con test di mercato.*
+2. **Clicca "Salva"**
+   - Il sistema chiede conferma
+   - Opzionale: categorizzazione (es. "per cliente X", "investimento", "da rivendere")
 
-### Flusso pagamento
+3. **Stato aggiornato**
+   - Il candidato passa a stato "salvato" o "in portafoglio"
+   - Appare nella lista "I miei candidati"
 
-```
-[ Utente raggiunge limite piano gratuito o clicca "Upgrade" ]
-        ↓
-[ Pagina pricing ]
-  ├─ Confronto piani (feature table)
-  ├─ Toggle mensile / annuale (sconto 20%? da verificare)
-  └─ CTA per piano scelto
-        ↓
-[ Checkout Stripe ]
-  ├─ Form dati carta (Stripe Elements)
-  ├─ Dati fatturazione (se richiesto)
-  └─ Conferma pagamento
-        ↓
-[ Conferma upgrade ]
-  ├─ Messaggio di benvenuto al nuovo piano
-  ├─ Sblocco feature premium
-  ├─ Invoice via email
-  └─ Redirect alla dashboard
-```
+4. **Aggiunta note**
+   - L'utente può aggiungere note operative
+   - Allegare documenti o immagini
 
-**KPI da tracciare:**
-- Tasso di conversione free → paid (target: da verificare)
-- ARPU (Average Revenue Per User)
-- Churn rate mensile
-- Piano più popolare
+5. **Collegamento lead**
+   - Se esiste un lead interessato, l'utente collega il candidato al lead
+   - *Da verificare*: se il collegamento è già implementato
+
+### Output
+Candidato salvato nel portafoglio, con eventuale collegamento a lead.
 
 ---
 
-## Flusso dashboard utente
+## Flusso scarto / ripristino risultati
 
-La dashboard utente è il centro operativo dopo l'onboarding iniziale.
+### Attore
+Agente immobiliare
 
-```
-[ Dashboard principale ]
-  ├─ Progetti / Idee attive
-  │   └─ Card per ogni idea con: titolo, stato, progresso, ultima modifica
-  ├─ Bottone "Nuova idea" (avvia wizard)
-  ├─ Roadmap personale
-  │   └─ Kanban con item generati automaticamente + personali
-  ├─ Task aperti
-  │   └─ Lista task con scadenza e priorità
-  ├─ Attività recenti
-  │   └─ Log delle ultime azioni (brief creato, app generata, ecc.)
-  └─ Quick links
-      ├─ Vai a Brain Hub (sistema centrale)
-      ├─ Esporta dati
-      └─ Impostazioni
-```
+### Passaggi
 
-**Per ogni progetto / idea:**
+1. **Scarto candidato**
+   - Dalla scheda o dalla lista, l'utente clicca "Scarta"
+   - Sistema chiede motivazione (opzionale): prezzo eccessivo, zona non idonea, dati incompleti, altro
 
-```
-[ Dettaglio progetto ]
-  ├─ Tab "Brief" — brief generato, modificabile
-  ├─ Tab "App" — link all'app / preview / editor
-  ├─ Tab "Roadmap" — milestone e task collegati
-  ├─ Tab "Prompt" — prompt storici usati per generare l'app
-  ├─ Tab "File" — documenti, asset, upload collegati
-  ├─ Tab "Collegamenti" — link esterni, repo GitHub, risorse
-  └─ Tab "Marketing" — copy, immagini, video generati
-```
+2. **Stato aggiornato**
+   - Il candidato passa a stato "scartato"
+   - Scompare dalla lista principale
+   - Rimane archiviato
 
-**Nota**: L'esperienza dashboard descritta sopra è un target. Attualmente, l'utente gestisce i progetti tramite **Brain Hub** (iBrain), che fornisce già molte di queste funzionalità in forma generica. Il flusso target prevede un'interfaccia dedicata e semplificata per IdeaPilot IA.
+3. **Visualizzazione scartati**
+   - L'utente può filtrare per vedere i candidati scartati
+   - Ricerca full-text anche tra gli scartati
+
+4. **Ripristino**
+   - L'utente trova un candidato scartato
+   - Clicca "Ripristina"
+   - Il candidato torna a stato "salvato" o "da rivedere"
+   - Motivo del ripristino opzionale
+
+### Output
+Candidato scartato o ripristinato, con tracciamento storico.
 
 ---
 
-## Flusso di supporto / guida
+## Flusso gestione lead
 
-```
-[ Utente ha un dubbio o un problema ]
-        ↓
-[ Sezione Guida (esistente in Brain Hub) ]
-  ├─ Documentazione per funzione
-  ├─ FAQ
-  └─ Link a risorse esterne
-        ↓
-[ Se non trova risposta ]
-  ├─ Form di contatto / supporto (da verificare se esiste)
-  └─ Comunità / Discord / Slack (da verificare se esiste)
-```
+### Attore
+Agente immobiliare
+
+### Passaggi
+
+1. **Accesso sezione Lead**
+   - L'utente naviga su **Sica Industrial Radar → Lead**
+   - Vede lista lead con stato pipeline
+
+2. **Nuovo lead**
+   - Inserimento manuale: nome, email, telefono, tipo (acquirente/venditore/inquilino/investitore)
+   - Oppure: arrivo da Sica Immobiliare Comunicazione (da verificare flusso automatico)
+
+3. **Qualifica lead**
+   - L'utente aggiorna lo stato: nuovo → qualificato → contattato → in trattativa → convertito / perso
+   - Aggiunge note ad ogni fase
+
+4. **Collegamento opportunità**
+   - Il lead mostra interesse per uno o più capannoni
+   - L'utente collega il lead ai candidati salvati
+
+5. **Follow-up**
+   - Note sull'ultimo contatto
+   - Promemoria per il prossimo contatto
+   - *Da verificare*: se esiste un sistema di reminder
+
+6. **Chiusura**
+   - Lead convertito: registrazione affare
+   - Lead perso: motivazione e archiviazione
+
+### Output
+Lead gestito con pipeline completa e storia delle interazioni.
 
 ---
 
-*I flussi descritti sono basati sul concept di IdeaPilot IA. Alcuni dettagli sono marcati come "da verificare" perché dipendono da decisioni di prodotto e implementazione ancora in corso.*
+## Flusso export o condivisione
 
-*Ultimo aggiornamento: 2026-06-08*
+### Attore
+Agente immobiliare
+
+### Passaggi
+
+1. **Selezione dati**
+   - Dalla lista candidati o lead, l'utente seleziona uno o più elementi
+   - Oppure seleziona tutti i risultati di una ricerca
+
+2. **Scelta formato**
+   - Esporta in PDF (report)
+   - Esporta in CSV (dati tabellari)
+   - Esporta in Markdown (documento testuale)
+   - Condividi via link (da verificare se implementato)
+
+3. **Configurazione export**
+   - Selezione campi da includere
+   - Ordinamento
+   - Eventuale intestazione personalizzata
+
+4. **Generazione e download**
+   - Il sistema genera il file
+   - Download automatico o apertura in nuova scheda
+
+5. **Condivisione**
+   - *Da verificare*: se esiste condivisione via email o link pubblico
+   - Oppure l'utente condivide manualmente il file generato
+
+### Output
+File esportato pronto per essere condiviso con clienti o collaboratori.
+
+---
+
+## Note sui flussi
+
+- Alcuni flussi dipendono dalla creazione delle tabelle dedicate (`industrial_properties`, `property_leads`).
+- I flussi sono descritti in modalità "target" — alcuni passaggi potrebbero non essere ancora implementati.
+- I punti marcati con *"da verificare"* indicano funzionalità che devono essere confermate o progettate.
+
+---
+
+*Documento di riferimento per i flussi utente di Sica Industrial Radar.*
