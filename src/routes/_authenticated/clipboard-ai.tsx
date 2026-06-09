@@ -1033,6 +1033,27 @@ function ClipboardAIPage() {
                       </Button>
                     )}
 
+                    {/* Approval Center actions */}
+                    {item.human_review_required && (item.automation_status === "ready_for_automation" || item.automation_status === "queued") && (
+                      <>
+                        <Button size="sm" variant="outline" className="border-emerald-500/40 text-emerald-300"
+                          onClick={() => approvalMut.mutate({ id: item.id, action: "approve" })}
+                          disabled={approvalMut.isPending}>
+                          <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Approva
+                        </Button>
+                        <Button size="sm" variant="outline"
+                          onClick={() => approvalMut.mutate({ id: item.id, action: "review" })}
+                          disabled={approvalMut.isPending}>
+                          <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Rimanda in revisione
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-red-500/40 text-red-300"
+                          onClick={() => approvalMut.mutate({ id: item.id, action: "block" })}
+                          disabled={approvalMut.isPending}>
+                          <Ban className="h-3.5 w-3.5 mr-1.5" /> Blocca
+                        </Button>
+                      </>
+                    )}
+
                     {/* Automation Queue actions */}
                     {(item.automation_status === "manual" || item.automation_status === "ready_for_automation") && (
                       <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300"
