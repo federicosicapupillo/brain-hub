@@ -271,6 +271,59 @@ function ClipboardAIPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["clipboard_items"] }),
   });
 
+  const automationMut = useMutation({
+    mutationFn: async (vars: {
+      id: string;
+      action: "queue" | "unqueue" | "running" | "done" | "failed" | "retry";
+      currentAttempts: number;
+      errorMessage?: string;
+    }) => {
+      const now = new Date().toISOString();
+      let patch: Record<string, unknown> = {};
+      switch (vars.action) {
+        case "queue":
+          patch = { automation_status: "queued", automation_last_error: null };
+          break;
+        case "unqueue":
+          patch = { automation_status: "ready_for_automation" };
+          break;
+        case "running":
+          patch = { automation_status: "running", automation_last_run_at: now };
+          break;
+        case "done":
+          patch = { automation_status: "done", automation_completed_at: now, automation_last_error: null };
+          break;
+        case "failed":
+          patch = {
+            automation_status: "failed",
+            automation_attempts: vars.currentAttempts + 1,
+            automation_last_error: vars.errorMessage ?? "Errore non specificato",
+          };
+          break;
+        case "retry":
+          patch = {
+            automation_status: "queued",
+            automation_attempts: vars.currentAttempts + 1,
+            automation_last_error: null,
+          };
+          break;
+      }
+      const { error } = await supabase.from("clipboard_items").update(patch).eq("id", vars.id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      const labels: Record<string, string> = {
+        queue: "In coda", unqueue: "Rimosso dalla coda",
+        running: "Segnato come running", done: "Completato",
+        failed: "Segnato come fallito", retry: "Rimesso in coda",
+      };
+      toast.success(labels[vars.action]);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from("clipboard_items").delete().eq("id", id);
