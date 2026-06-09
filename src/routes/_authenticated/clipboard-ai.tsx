@@ -350,6 +350,22 @@ function ClipboardAIPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const prepareAutoMut = useMutation({
+    mutationFn: async (item: ClipboardItem) => {
+      const forceReview = item.risk_level === "high" || item.risk_level === "critical";
+      const { error } = await supabase.from("clipboard_items").update({
+        automation_status: "ready_for_automation",
+        human_review_required: forceReview ? true : (item.requires_approval ?? true),
+      }).eq("id", item.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      toast.success("Preparato per automazione");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const deleteMut = useMutation({
     mutationFn: async (id: string) => {
