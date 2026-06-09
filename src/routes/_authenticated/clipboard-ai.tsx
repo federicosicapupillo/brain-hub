@@ -176,6 +176,7 @@ type FormState = {
   execution_instructions: string; expected_output: string; success_criteria: string;
   risk_level: string; requires_approval: boolean;
   automation_status: string; automation_target: string;
+  automation_connector_id: string | null;
 };
 const EMPTY_FORM: FormState = {
   title: "", content: "",
@@ -187,9 +188,10 @@ const EMPTY_FORM: FormState = {
   execution_instructions: "", expected_output: "", success_criteria: "",
   risk_level: "medium", requires_approval: true,
   automation_status: "manual", automation_target: "",
+  automation_connector_id: null,
 };
 
-type ViewKey = "all" | "to_lovable" | "responses_to_rework" | "automation_queue" | "approval_center";
+type ViewKey = "all" | "to_lovable" | "responses_to_rework" | "automation_queue" | "approval_center" | "connectors";
 const QUEUE_STATUSES = ["ready_for_automation", "queued", "running", "failed"];
 
 function ClipboardAIPage() {
