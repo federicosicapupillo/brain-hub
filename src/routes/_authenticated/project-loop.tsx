@@ -650,6 +650,11 @@ CRITERI DI SUCCESSO:
                     )}
                     <Badge variant="secondary" className="text-[10px]">{i.approval_status}</Badge>
                     <Badge variant="default" className="text-[10px]">{i.automation_status}</Badge>
+                    {i.next_step_generated && (
+                      <Badge variant="outline" className="text-[10px]">
+                        Prossimo step già generato
+                      </Badge>
+                    )}
                   </div>
                 </div>
                 {i.next_action && (
