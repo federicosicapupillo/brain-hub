@@ -1004,6 +1004,25 @@ function ClipboardAIPage() {
                       )}
                     </div>
                   )}
+                  {(item.approved_at || item.blocked_reason || item.approval_notes) && (
+                    <div className="text-xs rounded-md border border-violet-500/20 bg-violet-500/5 p-2 space-y-1">
+                      {item.approved_at && (
+                        <div className="text-emerald-400">
+                          <span className="font-medium">Approvato il:</span> {new Date(item.approved_at).toLocaleString("it-IT")}
+                        </div>
+                      )}
+                      {item.blocked_reason && (
+                        <div className="text-red-400 break-words">
+                          <span className="font-medium">Motivo blocco:</span> {item.blocked_reason}
+                        </div>
+                      )}
+                      {item.approval_notes && (
+                        <div className="text-muted-foreground break-words">
+                          <span className="font-medium text-foreground">Note revisione:</span> {item.approval_notes}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {item.output_result && (
                     <details className="text-xs">
                       <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
