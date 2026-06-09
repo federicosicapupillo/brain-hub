@@ -661,6 +661,9 @@ function ClipboardAIPage() {
           <TabsTrigger value="responses_to_rework">
             Risposte da rielaborare · {viewCounts.responses_to_rework}
           </TabsTrigger>
+          <TabsTrigger value="automation_queue">
+            <Zap className="h-3.5 w-3.5 mr-1.5" /> Automation Queue · {viewCounts.automation_queue}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
