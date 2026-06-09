@@ -377,7 +377,7 @@ function ClipboardAIPage() {
 
   const approvalMut = useMutation({
     mutationFn: async (vars: { id: string; action: "approve" | "review" | "block" }) => {
-      let patch: Record<string, unknown> = {};
+      let patch = {};
       if (vars.action === "approve") {
         patch = { human_review_required: false, automation_status: "queued" };
       } else if (vars.action === "review") {
@@ -385,7 +385,7 @@ function ClipboardAIPage() {
       } else if (vars.action === "block") {
         patch = { status: "archived", human_review_required: false };
       }
-      const { error } = await supabase.from("clipboard_items").update(patch).eq("id", vars.id);
+      const { error } = await supabase.from("clipboard_items").update(patch as never).eq("id", vars.id);
       if (error) throw error;
     },
     onSuccess: (_d, vars) => {
