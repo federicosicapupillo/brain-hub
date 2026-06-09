@@ -1049,6 +1049,7 @@ function ClipboardAIPage() {
         </TabsList>
       </Tabs>
 
+      {view !== "connectors" && (<>
       {/* Filters */}
       <Card>
         <CardContent className="p-4 space-y-3">
