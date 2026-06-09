@@ -387,14 +387,30 @@ function ClipboardAIPage() {
   });
 
   const approvalMut = useMutation({
-    mutationFn: async (vars: { id: string; action: "approve" | "review" | "block" }) => {
-      let patch = {};
+    mutationFn: async (vars: { id: string; action: "approve" | "review" | "block"; notes?: string; reason?: string }) => {
+      let patch: Record<string, unknown> = {};
       if (vars.action === "approve") {
-        patch = { human_review_required: false, automation_status: "queued" };
+        patch = {
+          approval_status: "approved",
+          approved_at: new Date().toISOString(),
+          human_review_required: false,
+          automation_status: "queued",
+          blocked_reason: null,
+        };
       } else if (vars.action === "review") {
-        patch = { human_review_required: false, automation_status: "manual" };
+        patch = {
+          approval_status: "revision_needed",
+          human_review_required: true,
+          automation_status: "ready_for_automation",
+          approval_notes: vars.notes ?? null,
+        };
       } else if (vars.action === "block") {
-        patch = { status: "archived", human_review_required: false };
+        patch = {
+          approval_status: "blocked",
+          human_review_required: true,
+          automation_status: "failed",
+          blocked_reason: vars.reason ?? null,
+        };
       }
       const { error } = await supabase.from("clipboard_items").update(patch as never).eq("id", vars.id);
       if (error) throw error;
