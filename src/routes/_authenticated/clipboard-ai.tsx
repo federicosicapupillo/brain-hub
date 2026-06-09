@@ -1043,6 +1043,9 @@ function ClipboardAIPage() {
           <TabsTrigger value="approval_center">
             <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Approval Center · {viewCounts.approval_center}
           </TabsTrigger>
+          <TabsTrigger value="connectors">
+            <Plug className="h-3.5 w-3.5 mr-1.5" /> Connectors · {connectors.length}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
