@@ -630,6 +630,69 @@ function ClipboardAIPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  type ManualResultOutcome = "completed" | "rework" | "failed";
+  const [manualResultItem, setManualResultItem] = useState<ClipboardItem | null>(null);
+  const [manualResultForm, setManualResultForm] = useState<{
+    output: string; outcome: ManualResultOutcome; notes: string;
+  }>({ output: "", outcome: "completed", notes: "" });
+
+  const manualResultMut = useMutation({
+    mutationFn: async (vars: { item: ClipboardItem; output: string; outcome: ManualResultOutcome; notes: string }) => {
+      const { item, output, outcome, notes } = vars;
+      const now = new Date().toISOString();
+      const prevAuto = item.automation_status;
+      let patch: Record<string, unknown> = { output_result: output };
+      if (outcome === "completed") {
+        patch = {
+          ...patch,
+          automation_status: "done",
+          automation_completed_at: now,
+          automation_last_error: null,
+          status: "used",
+        };
+      } else if (outcome === "rework") {
+        patch = {
+          ...patch,
+          automation_status: "manual",
+          status: "ai_response",
+          human_review_required: true,
+        };
+      } else {
+        patch = {
+          ...patch,
+          automation_status: "failed",
+          automation_attempts: (item.automation_attempts ?? 0) + 1,
+          automation_last_error: (notes && notes.trim()) || "Manual execution failed",
+        };
+      }
+      const { error } = await supabase.from("clipboard_items")
+        .update(patch).eq("id", item.id);
+      if (error) throw error;
+      await logExecution({
+        clipboard_item_id: item.id,
+        action: "manual_execution_result_saved",
+        previous_status: prevAuto,
+        new_status: (patch.automation_status as string) ?? null,
+        notes: notes || null,
+        metadata: {
+          result_status: outcome,
+          target_tool: item.target_tool || null,
+          connector_id: item.automation_connector_id || null,
+        },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      qc.invalidateQueries({ queryKey: ["clipboard_execution_logs"] });
+      setManualResultItem(null);
+      setManualResultForm({ output: "", outcome: "completed", notes: "" });
+      toast.success("Risultato salvato");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
 
   const saveConnectorMut = useMutation({
     mutationFn: async (f: ConnectorForm) => {
