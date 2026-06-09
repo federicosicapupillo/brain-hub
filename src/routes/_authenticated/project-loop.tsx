@@ -839,6 +839,106 @@ CRITERI DI SUCCESSO:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={!!nextStepItem}
+        onOpenChange={(o) => {
+          if (!o) setNextStepItem(null);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4" /> Genera prossimo step
+            </DialogTitle>
+          </DialogHeader>
+          {nextStepItem && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <div className="text-muted-foreground">Item</div>
+                  <div className="truncate font-medium">{nextStepItem.title || "(senza titolo)"}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Progetto / Brain</div>
+                  <div className="truncate font-medium">
+                    {nextStepItem.brain_id ? brainsById.get(nextStepItem.brain_id)?.name ?? "—" : "—"}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Output originale</div>
+                <div className="max-h-32 overflow-y-auto rounded-md border border-border/60 p-2 text-xs whitespace-pre-wrap">
+                  {nextStepItem.output_result}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Prossimo step suggerito</div>
+                <Textarea
+                  value={nextStepForm.suggestion}
+                  onChange={(e) => setNextStepForm((f) => ({ ...f, suggestion: e.target.value }))}
+                  className="min-h-[100px] text-xs"
+                />
+              </div>
+              <div className="grid gap-2 md:grid-cols-3">
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Tipo azione</div>
+                  <Select
+                    value={nextStepForm.actionType}
+                    onValueChange={(v) =>
+                      setNextStepForm((f) => ({ ...f, actionType: v as "roadmap" | "task" | "prompt" }))
+                    }
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="roadmap">Crea roadmap item</SelectItem>
+                      <SelectItem value="task">Crea task</SelectItem>
+                      <SelectItem value="prompt">Crea nuovo prompt Lovable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Priority</div>
+                  <Input
+                    value={nextStepForm.priority}
+                    onChange={(e) => setNextStepForm((f) => ({ ...f, priority: e.target.value }))}
+                    placeholder="low / medium / high"
+                  />
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Risk level</div>
+                  <Input
+                    value={nextStepForm.riskLevel}
+                    onChange={(e) => setNextStepForm((f) => ({ ...f, riskLevel: e.target.value }))}
+                    placeholder="low / medium / high"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setNextStepItem(null)}>
+              Chiudi
+            </Button>
+            <Button
+              disabled={!nextStepItem || !nextStepForm.suggestion.trim() || nextStepMut.isPending}
+              onClick={() => {
+                if (!nextStepItem) return;
+                nextStepMut.mutate({
+                  item: nextStepItem,
+                  suggestion: nextStepForm.suggestion,
+                  actionType: nextStepForm.actionType,
+                  priority: nextStepForm.priority || "medium",
+                  riskLevel: nextStepForm.riskLevel || "medium",
+                });
+              }}
+            >
+              <Sparkles className="mr-1 h-3 w-3" />
+              {nextStepMut.isPending ? "Salvataggio…" : "Salva prossimo step"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
