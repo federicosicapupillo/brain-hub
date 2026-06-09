@@ -96,6 +96,12 @@ const AUTOMATION_STATUSES = [
   { v: "done", l: "Completata" },
   { v: "failed", l: "Errore" },
 ];
+const APPROVAL_STATUSES: Record<string, { l: string; color: string }> = {
+  pending: { l: "In attesa", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  approved: { l: "Approvato", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+  revision_needed: { l: "Da rivedere", color: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
+  blocked: { l: "Bloccato", color: "bg-red-500/15 text-red-300 border-red-500/30" },
+};
 const RISK_LEVELS = [
   { v: "low", l: "Basso", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
   { v: "medium", l: "Medio", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
