@@ -31,6 +31,19 @@ type KSource = {
   id: string; brain_id: string | null; title: string;
   tags: string[] | null; metadata: Record<string, unknown> | null;
 };
+type BNode = {
+  id: string; brain_id: string; label: string;
+  tags: string[] | null; summary: string | null;
+};
+
+/** Unified GitHub-import item from either knowledge_sources or brain_nodes. */
+type GhItem = {
+  key: string;          // for dedupe
+  brain_id: string;
+  title: string;
+  file_path: string;    // may be empty
+  haystack: string;     // used for doc matching
+};
 
 type DocKey = "readme" | "overview" | "features" | "database" | "flows";
 type Coverage = "completa" | "parziale" | "mancante" | "da_verificare";
@@ -60,23 +73,52 @@ function parseRepo(url: string | null | undefined) {
   return m ? { owner: m[1], name: m[2] } : null;
 }
 
-function isGithubSource(s: KSource): boolean {
-  const meta = s.metadata ?? {};
+function isGithubMeta(meta: Record<string, unknown> | null | undefined): boolean {
+  if (!meta) return false;
   if (meta.source === "github_manual_import") return true;
   if (meta.imported_from_tool === "GitHub") return true;
-  if (typeof meta.repo_url === "string" || typeof meta.repository === "string") return true;
-  if ((s.tags ?? []).map((t) => t.toLowerCase()).includes("github")) return true;
-  if (/^github\s*[—\-:]/i.test(s.title ?? "")) return true;
+  if (typeof meta.repo_url === "string" && meta.repo_url) return true;
+  if (typeof meta.repository === "string" && meta.repository) return true;
+  if (typeof meta.file_path === "string" && meta.file_path) return true;
   return false;
 }
 
-function matchDoc(s: KSource, key: DocKey): boolean {
+function tagsHaveGithub(tags: string[] | null | undefined): boolean {
+  return (tags ?? []).some((t) => t.toLowerCase() === "github");
+}
+
+function titleIsGithub(title: string | null | undefined): boolean {
+  return /^github\s*[—\-:]/i.test(title ?? "");
+}
+
+function sourceToGhItem(s: KSource): GhItem | null {
   const meta = s.metadata ?? {};
-  const fp = String(meta.file_path ?? "");
-  const cat = String(meta.category ?? "");
-  const it = String(meta.import_type ?? "");
-  const haystack = `${s.title ?? ""} ${fp} ${cat} ${it}`;
-  return DOC_PATTERNS[key].some((re) => re.test(haystack));
+  const isGh = isGithubMeta(meta) || tagsHaveGithub(s.tags) || titleIsGithub(s.title);
+  if (!isGh || !s.brain_id) return null;
+  const fp = typeof meta.file_path === "string" ? meta.file_path : "";
+  return {
+    key: `${s.brain_id}::${(fp || s.title || s.id).toLowerCase()}`,
+    brain_id: s.brain_id,
+    title: s.title ?? "",
+    file_path: fp,
+    haystack: `${s.title ?? ""} ${fp} ${String(meta.category ?? "")} ${String(meta.import_type ?? "")}`,
+  };
+}
+
+function nodeToGhItem(n: BNode): GhItem | null {
+  const isGh = tagsHaveGithub(n.tags) || titleIsGithub(n.label) || /github\.com/i.test(n.summary ?? "");
+  if (!isGh) return null;
+  return {
+    key: `${n.brain_id}::${(n.label || n.id).toLowerCase()}`,
+    brain_id: n.brain_id,
+    title: n.label ?? "",
+    file_path: "",
+    haystack: `${n.label ?? ""} ${n.summary ?? ""} ${(n.tags ?? []).join(" ")}`,
+  };
+}
+
+function matchDoc(item: GhItem, key: DocKey): boolean {
+  return DOC_PATTERNS[key].some((re) => re.test(item.haystack));
 }
 
 function coverageBadge(c: Coverage) {
@@ -95,18 +137,21 @@ function GitHubCoveragePage() {
   const { data, isLoading } = useQuery({
     queryKey: ["github-coverage"],
     queryFn: async () => {
-      const [b, t, k] = await Promise.all([
+      const [b, t, k, n] = await Promise.all([
         supabase.from("brains").select("id,name,color").order("name"),
         supabase.from("project_tool_links").select("*").ilike("tool_name", "github"),
         supabase.from("knowledge_sources").select("id,brain_id,title,tags,metadata"),
+        supabase.from("brain_nodes").select("id,brain_id,label,tags,summary"),
       ]);
       if (b.error) throw b.error;
       if (t.error) throw t.error;
       if (k.error) throw k.error;
+      if (n.error) throw n.error;
       return {
         brains: (b.data ?? []) as Brain[],
         links: (t.data ?? []) as ToolLink[],
         sources: (k.data ?? []) as KSource[],
+        nodes: (n.data ?? []) as BNode[],
       };
     },
   });
@@ -115,22 +160,31 @@ function GitHubCoveragePage() {
     if (!data) return [];
     const linkByBrain = new Map<string, ToolLink>();
     for (const l of data.links) if (!linkByBrain.has(l.brain_id)) linkByBrain.set(l.brain_id, l);
-    const ghSourcesByBrain = new Map<string, KSource[]>();
-    for (const s of data.sources) {
-      if (!s.brain_id || !isGithubSource(s)) continue;
-      const arr = ghSourcesByBrain.get(s.brain_id) ?? [];
-      arr.push(s);
-      ghSourcesByBrain.set(s.brain_id, arr);
-    }
+
+    // Merge both sources, dedupe per project+file_path/title
+    const itemsByBrain = new Map<string, GhItem[]>();
+    const seen = new Set<string>();
+    const pushItem = (it: GhItem | null) => {
+      if (!it) return;
+      const dedupeKey = `${it.brain_id}::${(it.file_path || it.title).toLowerCase().trim()}`;
+      if (seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+      const arr = itemsByBrain.get(it.brain_id) ?? [];
+      arr.push(it);
+      itemsByBrain.set(it.brain_id, arr);
+    };
+    for (const s of data.sources) pushItem(sourceToGhItem(s));
+    for (const nd of data.nodes) pushItem(nodeToGhItem(nd));
+
     return data.brains.map((br) => {
       const link = linkByBrain.get(br.id) ?? null;
-      const ghs = ghSourcesByBrain.get(br.id) ?? [];
+      const ghs = itemsByBrain.get(br.id) ?? [];
       const docs: Record<DocKey, boolean> = {
-        readme: ghs.some((s) => matchDoc(s, "readme")),
-        overview: ghs.some((s) => matchDoc(s, "overview")),
-        features: ghs.some((s) => matchDoc(s, "features")),
-        database: ghs.some((s) => matchDoc(s, "database")),
-        flows: ghs.some((s) => matchDoc(s, "flows")),
+        readme: ghs.some((i) => matchDoc(i, "readme")),
+        overview: ghs.some((i) => matchDoc(i, "overview")),
+        features: ghs.some((i) => matchDoc(i, "features")),
+        database: ghs.some((i) => matchDoc(i, "database")),
+        flows: ghs.some((i) => matchDoc(i, "flows")),
       };
       const meta = (link?.metadata ?? {}) as Record<string, unknown>;
       const checkStatus = String(meta.manual_check_status ?? "");
