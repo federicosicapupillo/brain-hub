@@ -1145,6 +1145,101 @@ export type Database = {
           },
         ]
       }
+      warehouses: {
+        Row: {
+          brain_id: string | null
+          commercial_notes: string | null
+          covered_sqm: number | null
+          created_at: string
+          distance_highway_km: number | null
+          distance_logistics_hub_km: number | null
+          distance_port_km: number | null
+          doors_count: number | null
+          has_overhead_crane: boolean
+          heavy_vehicle_access: boolean
+          id: string
+          industrial_zone: string | null
+          intended_use: string | null
+          internal_height_m: number | null
+          latitude: number | null
+          longitude: number | null
+          municipality: string | null
+          name: string
+          outdoor_area_sqm: number | null
+          overhead_crane_capacity_kg: number | null
+          property_status: string | null
+          province: string | null
+          rent_price: number | null
+          sale_price: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          commercial_notes?: string | null
+          covered_sqm?: number | null
+          created_at?: string
+          distance_highway_km?: number | null
+          distance_logistics_hub_km?: number | null
+          distance_port_km?: number | null
+          doors_count?: number | null
+          has_overhead_crane?: boolean
+          heavy_vehicle_access?: boolean
+          id?: string
+          industrial_zone?: string | null
+          intended_use?: string | null
+          internal_height_m?: number | null
+          latitude?: number | null
+          longitude?: number | null
+          municipality?: string | null
+          name: string
+          outdoor_area_sqm?: number | null
+          overhead_crane_capacity_kg?: number | null
+          property_status?: string | null
+          province?: string | null
+          rent_price?: number | null
+          sale_price?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          commercial_notes?: string | null
+          covered_sqm?: number | null
+          created_at?: string
+          distance_highway_km?: number | null
+          distance_logistics_hub_km?: number | null
+          distance_port_km?: number | null
+          doors_count?: number | null
+          has_overhead_crane?: boolean
+          heavy_vehicle_access?: boolean
+          id?: string
+          industrial_zone?: string | null
+          intended_use?: string | null
+          internal_height_m?: number | null
+          latitude?: number | null
+          longitude?: number | null
+          municipality?: string | null
+          name?: string
+          outdoor_area_sqm?: number | null
+          overhead_crane_capacity_kg?: number | null
+          property_status?: string | null
+          province?: string | null
+          rent_price?: number | null
+          sale_price?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warehouses_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
