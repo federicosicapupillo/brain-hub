@@ -445,14 +445,23 @@ function ClipboardAIPage() {
   const prepareAutoMut = useMutation({
     mutationFn: async (item: ClipboardItem) => {
       const forceReview = item.risk_level === "high" || item.risk_level === "critical";
+      const prev = item.automation_status;
       const { error } = await supabase.from("clipboard_items").update({
         automation_status: "ready_for_automation",
         human_review_required: forceReview ? true : (item.requires_approval ?? true),
       }).eq("id", item.id);
       if (error) throw error;
+      await logExecution({
+        clipboard_item_id: item.id,
+        action: "Prepara per automazione",
+        previous_status: prev,
+        new_status: "ready_for_automation",
+        notes: forceReview ? "Revisione forzata per rischio elevato" : null,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      qc.invalidateQueries({ queryKey: ["clipboard_execution_logs"] });
       toast.success("Preparato per automazione");
     },
     onError: (e: Error) => toast.error(e.message),
