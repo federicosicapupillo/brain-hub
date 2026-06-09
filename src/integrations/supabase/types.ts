@@ -263,6 +263,9 @@ export type Database = {
       }
       clipboard_items: {
         Row: {
+          automation_attempts: number
+          automation_completed_at: string | null
+          automation_last_error: string | null
           automation_last_run_at: string | null
           automation_payload: Json
           automation_status: string
@@ -272,6 +275,7 @@ export type Database = {
           content_type: string
           copied_count: number
           created_at: string
+          human_review_required: boolean
           id: string
           last_copied_at: string | null
           metadata: Json
@@ -290,6 +294,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          automation_attempts?: number
+          automation_completed_at?: string | null
+          automation_last_error?: string | null
           automation_last_run_at?: string | null
           automation_payload?: Json
           automation_status?: string
@@ -299,6 +306,7 @@ export type Database = {
           content_type?: string
           copied_count?: number
           created_at?: string
+          human_review_required?: boolean
           id?: string
           last_copied_at?: string | null
           metadata?: Json
@@ -317,6 +325,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          automation_attempts?: number
+          automation_completed_at?: string | null
+          automation_last_error?: string | null
           automation_last_run_at?: string | null
           automation_payload?: Json
           automation_status?: string
@@ -326,6 +337,7 @@ export type Database = {
           content_type?: string
           copied_count?: number
           created_at?: string
+          human_review_required?: boolean
           id?: string
           last_copied_at?: string | null
           metadata?: Json
