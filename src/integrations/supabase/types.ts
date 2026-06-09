@@ -373,6 +373,7 @@ export type Database = {
           last_copied_at: string | null
           metadata: Json
           next_action: string
+          next_step_generated: boolean
           notes: string
           output_result: string
           project_id: string | null
@@ -414,6 +415,7 @@ export type Database = {
           last_copied_at?: string | null
           metadata?: Json
           next_action?: string
+          next_step_generated?: boolean
           notes?: string
           output_result?: string
           project_id?: string | null
@@ -455,6 +457,7 @@ export type Database = {
           last_copied_at?: string | null
           metadata?: Json
           next_action?: string
+          next_step_generated?: boolean
           notes?: string
           output_result?: string
           project_id?: string | null
