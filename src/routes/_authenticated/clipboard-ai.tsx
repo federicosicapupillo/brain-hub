@@ -182,6 +182,64 @@ function ClipboardAIPage() {
     },
   });
 
+  type ExecLog = {
+    id: string;
+    clipboard_item_id: string;
+    action: string;
+    previous_status: string | null;
+    new_status: string | null;
+    notes: string | null;
+    created_at: string;
+  };
+  const logsQ = useQuery({
+    queryKey: ["clipboard_execution_logs"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as never as {
+        from: (t: string) => {
+          select: (s: string) => {
+            order: (c: string, o: { ascending: boolean }) => {
+              limit: (n: number) => Promise<{ data: ExecLog[] | null; error: Error | null }>;
+            };
+          };
+        };
+      })
+        .from("clipboard_execution_logs")
+        .select("id,clipboard_item_id,action,previous_status,new_status,notes,created_at")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      return (data ?? []) as ExecLog[];
+    },
+  });
+  const logsByItem = useMemo(() => {
+    const m: Record<string, ExecLog[]> = {};
+    for (const l of logsQ.data ?? []) {
+      (m[l.clipboard_item_id] ??= []).push(l);
+    }
+    return m;
+  }, [logsQ.data]);
+
+  const logExecution = async (vars: {
+    clipboard_item_id: string;
+    action: string;
+    previous_status?: string | null;
+    new_status?: string | null;
+    notes?: string | null;
+  }) => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    await (supabase as never as { from: (t: string) => { insert: (r: unknown) => Promise<{ error: Error | null }> } })
+      .from("clipboard_execution_logs")
+      .insert({
+        user_id: u.user.id,
+        clipboard_item_id: vars.clipboard_item_id,
+        action: vars.action,
+        previous_status: vars.previous_status ?? null,
+        new_status: vars.new_status ?? null,
+        notes: vars.notes ?? null,
+      });
+  };
+
   const brainsQ = useQuery({
     queryKey: ["brains_min"],
     queryFn: async () => {
@@ -355,11 +413,25 @@ function ClipboardAIPage() {
           };
           break;
       }
+      const prev = items.find((i) => i.id === vars.id)?.automation_status ?? null;
       const { error } = await supabase.from("clipboard_items").update(patch).eq("id", vars.id);
       if (error) throw error;
+      const actionLabels: Record<string, string> = {
+        queue: "Metti in coda", unqueue: "Rimuovi dalla coda",
+        running: "Segna running", done: "Segna completato",
+        failed: "Segna fallito", retry: "Riprova",
+      };
+      await logExecution({
+        clipboard_item_id: vars.id,
+        action: actionLabels[vars.action] ?? vars.action,
+        previous_status: prev,
+        new_status: patch.automation_status ?? null,
+        notes: vars.errorMessage ?? null,
+      });
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      qc.invalidateQueries({ queryKey: ["clipboard_execution_logs"] });
       const labels: Record<string, string> = {
         queue: "In coda", unqueue: "Rimosso dalla coda",
         running: "Segnato come running", done: "Completato",
@@ -373,14 +445,23 @@ function ClipboardAIPage() {
   const prepareAutoMut = useMutation({
     mutationFn: async (item: ClipboardItem) => {
       const forceReview = item.risk_level === "high" || item.risk_level === "critical";
+      const prev = item.automation_status;
       const { error } = await supabase.from("clipboard_items").update({
         automation_status: "ready_for_automation",
         human_review_required: forceReview ? true : (item.requires_approval ?? true),
       }).eq("id", item.id);
       if (error) throw error;
+      await logExecution({
+        clipboard_item_id: item.id,
+        action: "Prepara per automazione",
+        previous_status: prev,
+        new_status: "ready_for_automation",
+        notes: forceReview ? "Revisione forzata per rischio elevato" : null,
+      });
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      qc.invalidateQueries({ queryKey: ["clipboard_execution_logs"] });
       toast.success("Preparato per automazione");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -412,11 +493,23 @@ function ClipboardAIPage() {
           blocked_reason: vars.reason ?? null,
         };
       }
+      const prev = items.find((i) => i.id === vars.id);
+      const prevApproval = prev?.approval_status ?? null;
+      const newApproval = (patch.approval_status as string) ?? null;
       const { error } = await supabase.from("clipboard_items").update(patch as never).eq("id", vars.id);
       if (error) throw error;
+      const actionLabels = { approve: "Approva per automazione", review: "Rimanda in revisione", block: "Blocca item" };
+      await logExecution({
+        clipboard_item_id: vars.id,
+        action: actionLabels[vars.action],
+        previous_status: prevApproval,
+        new_status: newApproval,
+        notes: vars.notes ?? vars.reason ?? null,
+      });
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      qc.invalidateQueries({ queryKey: ["clipboard_execution_logs"] });
       const labels = { approve: "Approvato per automazione", review: "Rimandato in revisione", block: "Item bloccato" };
       toast.success(labels[vars.action]);
     },
@@ -1022,6 +1115,31 @@ function ClipboardAIPage() {
                         </div>
                       )}
                     </div>
+                  )}
+                  {(logsByItem[item.id]?.length ?? 0) > 0 && (
+                    <details className="text-xs rounded-md border border-border bg-muted/20">
+                      <summary className="cursor-pointer p-2 font-medium text-foreground hover:text-primary flex items-center gap-2">
+                        📜 Execution Log <span className="text-muted-foreground">({logsByItem[item.id].length})</span>
+                      </summary>
+                      <div className="p-2 space-y-1.5 border-t border-border max-h-48 overflow-y-auto">
+                        {logsByItem[item.id].slice(0, 5).map((l) => (
+                          <div key={l.id} className="border-l-2 border-primary/30 pl-2">
+                            <div className="text-muted-foreground">
+                              {new Date(l.created_at).toLocaleString("it-IT")}
+                            </div>
+                            <div className="text-foreground font-medium">{l.action}</div>
+                            {(l.previous_status || l.new_status) && (
+                              <div className="text-muted-foreground">
+                                <span className="text-foreground">{l.previous_status ?? "—"}</span>
+                                {" → "}
+                                <span className="text-foreground">{l.new_status ?? "—"}</span>
+                              </div>
+                            )}
+                            {l.notes && <div className="text-muted-foreground italic break-words">{l.notes}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
                   )}
                   {item.output_result && (
                     <details className="text-xs">
