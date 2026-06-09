@@ -991,6 +991,15 @@ function ClipboardAIPage() {
                       <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Prossimo prompt
                     </Button>
 
+                    {/* Prepare for automation */}
+                    {item.automation_status === "manual" && (
+                      <Button size="sm" variant="outline" className="border-primary/40 text-primary"
+                        onClick={() => prepareAutoMut.mutate(item)}
+                        disabled={prepareAutoMut.isPending}>
+                        <Zap className="h-3.5 w-3.5 mr-1.5" /> Prepara per automazione
+                      </Button>
+                    )}
+
                     {/* Automation Queue actions */}
                     {(item.automation_status === "manual" || item.automation_status === "ready_for_automation") && (
                       <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300"
