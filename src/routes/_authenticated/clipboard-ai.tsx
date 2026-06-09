@@ -379,6 +379,7 @@ function ClipboardAIPage() {
         requires_approval: f.requires_approval,
         automation_status: f.automation_status,
         automation_target: f.automation_target,
+        automation_connector_id: f.automation_connector_id,
       };
       if (f.id) {
         const { error } = await supabase.from("clipboard_items").update(payload).eq("id", f.id);
