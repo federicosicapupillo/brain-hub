@@ -202,8 +202,8 @@ function ClipboardAIPage() {
   });
 
   const patchMut = useMutation({
-    mutationFn: async (vars: { id: string; patch: Partial<ClipboardItem> }) => {
-      const { error } = await supabase.from("clipboard_items").update(vars.patch).eq("id", vars.id);
+    mutationFn: async (vars: { id: string; status: string }) => {
+      const { error } = await supabase.from("clipboard_items").update({ status: vars.status }).eq("id", vars.id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["clipboard_items"] }),
@@ -303,9 +303,8 @@ function ClipboardAIPage() {
   return (
     <div className="container mx-auto p-6 space-y-6">
       <PageHeader
-        icon={Clipboard}
         title="Clipboard AI"
-        description="Salva, organizza e riutilizza prompt e testi copiati da qualsiasi piattaforma."
+        subtitle="Salva, organizza e riutilizza prompt e testi copiati da qualsiasi piattaforma."
         actions={
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setForm(EMPTY_FORM); }}>
             <DialogTrigger asChild>

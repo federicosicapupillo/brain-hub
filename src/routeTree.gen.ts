@@ -27,6 +27,7 @@ import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authentic
 import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authenticated/github-coverage'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
+import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
 import { Route as AuthenticatedAllineamentoRouteImport } from './routes/_authenticated/allineamento'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
@@ -128,6 +129,12 @@ const AuthenticatedConnettoriRoute = AuthenticatedConnettoriRouteImport.update({
   path: '/connettori',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedClipboardAiRoute =
+  AuthenticatedClipboardAiRouteImport.update({
+    id: '/clipboard-ai',
+    path: '/clipboard-ai',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedArchivioRoute = AuthenticatedArchivioRouteImport.update({
   id: '/archivio',
   path: '/archivio',
@@ -169,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
+  '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
@@ -193,6 +201,7 @@ export interface FileRoutesByTo {
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
+  '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
@@ -219,6 +228,7 @@ export interface FileRoutesById {
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/allineamento': typeof AuthenticatedAllineamentoRoute
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
+  '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
   '/_authenticated/github-coverage': typeof AuthenticatedGithubCoverageRoute
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/allineamento'
     | '/archivio'
+    | '/clipboard-ai'
     | '/connettori'
     | '/fonti'
     | '/github-coverage'
@@ -271,6 +282,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/allineamento'
     | '/archivio'
+    | '/clipboard-ai'
     | '/connettori'
     | '/fonti'
     | '/github-coverage'
@@ -296,6 +308,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agents'
     | '/_authenticated/allineamento'
     | '/_authenticated/archivio'
+    | '/_authenticated/clipboard-ai'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
     | '/_authenticated/github-coverage'
@@ -450,6 +463,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConnettoriRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/clipboard-ai': {
+      id: '/_authenticated/clipboard-ai'
+      path: '/clipboard-ai'
+      fullPath: '/clipboard-ai'
+      preLoaderRoute: typeof AuthenticatedClipboardAiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/archivio': {
       id: '/_authenticated/archivio'
       path: '/archivio'
@@ -526,6 +546,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAllineamentoRoute: typeof AuthenticatedAllineamentoRoute
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
+  AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
   AuthenticatedGithubCoverageRoute: typeof AuthenticatedGithubCoverageRoute
@@ -548,6 +569,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAllineamentoRoute: AuthenticatedAllineamentoRoute,
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
+  AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
   AuthenticatedGithubCoverageRoute: AuthenticatedGithubCoverageRoute,
