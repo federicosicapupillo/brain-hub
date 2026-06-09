@@ -56,6 +56,10 @@ type ClipboardItem = {
   automation_last_error: string | null;
   automation_completed_at: string | null;
   human_review_required: boolean;
+  approval_status: string;
+  approved_at: string | null;
+  blocked_reason: string | null;
+  approval_notes: string | null;
   metadata: Record<string, unknown>;
   copied_count: number;
   last_copied_at: string | null;
@@ -92,6 +96,12 @@ const AUTOMATION_STATUSES = [
   { v: "done", l: "Completata" },
   { v: "failed", l: "Errore" },
 ];
+const APPROVAL_STATUSES: Record<string, { l: string; color: string }> = {
+  pending: { l: "In attesa", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  approved: { l: "Approvato", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+  revision_needed: { l: "Da rivedere", color: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
+  blocked: { l: "Bloccato", color: "bg-red-500/15 text-red-300 border-red-500/30" },
+};
 const RISK_LEVELS = [
   { v: "low", l: "Basso", color: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
   { v: "medium", l: "Medio", color: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
@@ -220,8 +230,9 @@ function ClipboardAIPage() {
       } else if (view === "automation_queue") {
         if (!QUEUE_STATUSES.includes(i.automation_status)) return false;
       } else if (view === "approval_center") {
+        const inReview = ["pending", "revision_needed", "blocked"].includes(i.approval_status ?? "pending");
+        if (!inReview) return false;
         if (!i.human_review_required) return false;
-        if (i.automation_status !== "ready_for_automation" && i.automation_status !== "queued") return false;
         if (i.status === "archived") return false;
       }
       if (q && !(`${i.title} ${i.content} ${i.notes} ${i.next_action} ${i.tags.join(" ")}`.toLowerCase().includes(q))) return false;
@@ -242,8 +253,8 @@ function ClipboardAIPage() {
       i.status !== "used" && i.status !== "archived").length,
     automation_queue: items.filter((i) => QUEUE_STATUSES.includes(i.automation_status)).length,
     approval_center: items.filter((i) =>
+      ["pending", "revision_needed", "blocked"].includes(i.approval_status ?? "pending") &&
       i.human_review_required &&
-      (i.automation_status === "ready_for_automation" || i.automation_status === "queued") &&
       i.status !== "archived").length,
   }), [items]);
 
@@ -376,14 +387,30 @@ function ClipboardAIPage() {
   });
 
   const approvalMut = useMutation({
-    mutationFn: async (vars: { id: string; action: "approve" | "review" | "block" }) => {
-      let patch = {};
+    mutationFn: async (vars: { id: string; action: "approve" | "review" | "block"; notes?: string; reason?: string }) => {
+      let patch: Record<string, unknown> = {};
       if (vars.action === "approve") {
-        patch = { human_review_required: false, automation_status: "queued" };
+        patch = {
+          approval_status: "approved",
+          approved_at: new Date().toISOString(),
+          human_review_required: false,
+          automation_status: "queued",
+          blocked_reason: null,
+        };
       } else if (vars.action === "review") {
-        patch = { human_review_required: false, automation_status: "manual" };
+        patch = {
+          approval_status: "revision_needed",
+          human_review_required: true,
+          automation_status: "ready_for_automation",
+          approval_notes: vars.notes ?? null,
+        };
       } else if (vars.action === "block") {
-        patch = { status: "archived", human_review_required: false };
+        patch = {
+          approval_status: "blocked",
+          human_review_required: true,
+          automation_status: "failed",
+          blocked_reason: vars.reason ?? null,
+        };
       }
       const { error } = await supabase.from("clipboard_items").update(patch as never).eq("id", vars.id);
       if (error) throw error;
@@ -885,9 +912,14 @@ function ClipboardAIPage() {
                         </Badge>
                       );
                     })()}
-                    {item.human_review_required && (item.automation_status === "ready_for_automation" || item.automation_status === "queued") && (
+                    {item.human_review_required && ["pending", "revision_needed", "blocked"].includes(item.approval_status ?? "pending") && (
                       <Badge variant="outline" className="text-xs bg-violet-500/15 text-violet-300 border-violet-500/30 font-medium">
                         <ShieldCheck className="h-3 w-3 mr-1" /> Da approvare
+                      </Badge>
+                    )}
+                    {item.approval_status && APPROVAL_STATUSES[item.approval_status] && (
+                      <Badge variant="outline" className={`text-xs font-medium ${APPROVAL_STATUSES[item.approval_status].color}`}>
+                        {APPROVAL_STATUSES[item.approval_status].l}
                       </Badge>
                     )}
                     {item.automation_status && item.automation_status !== "manual" && (() => {
@@ -972,6 +1004,25 @@ function ClipboardAIPage() {
                       )}
                     </div>
                   )}
+                  {(item.approved_at || item.blocked_reason || item.approval_notes) && (
+                    <div className="text-xs rounded-md border border-violet-500/20 bg-violet-500/5 p-2 space-y-1">
+                      {item.approved_at && (
+                        <div className="text-emerald-400">
+                          <span className="font-medium">Approvato il:</span> {new Date(item.approved_at).toLocaleString("it-IT")}
+                        </div>
+                      )}
+                      {item.blocked_reason && (
+                        <div className="text-red-400 break-words">
+                          <span className="font-medium">Motivo blocco:</span> {item.blocked_reason}
+                        </div>
+                      )}
+                      {item.approval_notes && (
+                        <div className="text-muted-foreground break-words">
+                          <span className="font-medium text-foreground">Note revisione:</span> {item.approval_notes}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {item.output_result && (
                     <details className="text-xs">
                       <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
@@ -1039,7 +1090,7 @@ function ClipboardAIPage() {
                     )}
 
                     {/* Approval Center actions */}
-                    {item.human_review_required && (item.automation_status === "ready_for_automation" || item.automation_status === "queued") && (
+                    {item.human_review_required && ["pending", "revision_needed", "blocked"].includes(item.approval_status ?? "pending") && (
                       <>
                         <Button size="sm" variant="outline" className="border-emerald-500/40 text-emerald-300"
                           onClick={() => approvalMut.mutate({ id: item.id, action: "approve" })}
@@ -1047,12 +1098,21 @@ function ClipboardAIPage() {
                           <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Approva
                         </Button>
                         <Button size="sm" variant="outline"
-                          onClick={() => approvalMut.mutate({ id: item.id, action: "review" })}
+                          onClick={() => {
+                            const notes = window.prompt("Note per la revisione (opzionale):", item.approval_notes ?? "");
+                            if (notes === null) return;
+                            approvalMut.mutate({ id: item.id, action: "review", notes: notes.trim() || undefined });
+                          }}
                           disabled={approvalMut.isPending}>
                           <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Rimanda in revisione
                         </Button>
                         <Button size="sm" variant="outline" className="border-red-500/40 text-red-300"
-                          onClick={() => approvalMut.mutate({ id: item.id, action: "block" })}
+                          onClick={() => {
+                            const reason = window.prompt("Motivo del blocco:", item.blocked_reason ?? "");
+                            if (reason === null) return;
+                            if (!reason.trim()) { toast.error("Motivo richiesto"); return; }
+                            approvalMut.mutate({ id: item.id, action: "block", reason: reason.trim() });
+                          }}
                           disabled={approvalMut.isPending}>
                           <Ban className="h-3.5 w-3.5 mr-1.5" /> Blocca
                         </Button>
