@@ -1137,6 +1137,11 @@ function ClipboardAIPage() {
                         🔗 {toolLink.tool_name}
                       </Badge>
                     )}
+                    {connector && (
+                      <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-300 border-indigo-500/30">
+                        <Plug className="h-3 w-3 mr-1" /> {connector.name}{connector.is_active ? "" : " · inattivo"}
+                      </Badge>
+                    )}
                     {item.risk_level && item.risk_level !== "low" && (() => {
                       const r = RISK_LEVELS.find((x) => x.v === item.risk_level);
                       if (!r) return null;
