@@ -28,6 +28,7 @@ import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authe
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
+import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_authenticated/automation-control'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
 import { Route as AuthenticatedAllineamentoRouteImport } from './routes/_authenticated/allineamento'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
@@ -135,6 +136,12 @@ const AuthenticatedClipboardAiRoute =
     path: '/clipboard-ai',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAutomationControlRoute =
+  AuthenticatedAutomationControlRouteImport.update({
+    id: '/automation-control',
+    path: '/automation-control',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedArchivioRoute = AuthenticatedArchivioRouteImport.update({
   id: '/archivio',
   path: '/archivio',
@@ -176,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
+  '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -201,6 +209,7 @@ export interface FileRoutesByTo {
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
+  '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -228,6 +237,7 @@ export interface FileRoutesById {
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/allineamento': typeof AuthenticatedAllineamentoRoute
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
+  '/_authenticated/automation-control': typeof AuthenticatedAutomationControlRoute
   '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
@@ -257,6 +267,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/allineamento'
     | '/archivio'
+    | '/automation-control'
     | '/clipboard-ai'
     | '/connettori'
     | '/fonti'
@@ -282,6 +293,7 @@ export interface FileRouteTypes {
     | '/agents'
     | '/allineamento'
     | '/archivio'
+    | '/automation-control'
     | '/clipboard-ai'
     | '/connettori'
     | '/fonti'
@@ -308,6 +320,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agents'
     | '/_authenticated/allineamento'
     | '/_authenticated/archivio'
+    | '/_authenticated/automation-control'
     | '/_authenticated/clipboard-ai'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
@@ -470,6 +483,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClipboardAiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/automation-control': {
+      id: '/_authenticated/automation-control'
+      path: '/automation-control'
+      fullPath: '/automation-control'
+      preLoaderRoute: typeof AuthenticatedAutomationControlRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/archivio': {
       id: '/_authenticated/archivio'
       path: '/archivio'
@@ -546,6 +566,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAllineamentoRoute: typeof AuthenticatedAllineamentoRoute
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
+  AuthenticatedAutomationControlRoute: typeof AuthenticatedAutomationControlRoute
   AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
@@ -569,6 +590,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAllineamentoRoute: AuthenticatedAllineamentoRoute,
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
+  AuthenticatedAutomationControlRoute: AuthenticatedAutomationControlRoute,
   AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
@@ -598,3 +620,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
