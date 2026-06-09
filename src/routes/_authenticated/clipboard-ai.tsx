@@ -129,7 +129,8 @@ const EMPTY_FORM: FormState = {
   automation_status: "manual", automation_target: "",
 };
 
-type ViewKey = "all" | "to_lovable" | "responses_to_rework";
+type ViewKey = "all" | "to_lovable" | "responses_to_rework" | "automation_queue";
+const QUEUE_STATUSES = ["ready_for_automation", "queued", "running", "failed"];
 
 function ClipboardAIPage() {
   const qc = useQueryClient();
@@ -200,6 +201,8 @@ function ClipboardAIPage() {
       } else if (view === "responses_to_rework") {
         if (i.content_type !== "ai_response" && i.status !== "to_classify") return false;
         if (i.status === "used" || i.status === "archived") return false;
+      } else if (view === "automation_queue") {
+        if (!QUEUE_STATUSES.includes(i.automation_status)) return false;
       }
       if (q && !(`${i.title} ${i.content} ${i.notes} ${i.next_action} ${i.tags.join(" ")}`.toLowerCase().includes(q))) return false;
       if (fProject !== "all" && i.project_id !== fProject) return false;
@@ -217,6 +220,7 @@ function ClipboardAIPage() {
     responses_to_rework: items.filter((i) =>
       (i.content_type === "ai_response" || i.status === "to_classify") &&
       i.status !== "used" && i.status !== "archived").length,
+    automation_queue: items.filter((i) => QUEUE_STATUSES.includes(i.automation_status)).length,
   }), [items]);
 
   const saveMut = useMutation({
