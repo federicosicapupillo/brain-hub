@@ -885,6 +885,11 @@ function ClipboardAIPage() {
                         </Badge>
                       );
                     })()}
+                    {item.human_review_required && (item.automation_status === "ready_for_automation" || item.automation_status === "queued") && (
+                      <Badge variant="outline" className="text-xs bg-violet-500/15 text-violet-300 border-violet-500/30 font-medium">
+                        <ShieldCheck className="h-3 w-3 mr-1" /> Da approvare
+                      </Badge>
+                    )}
                     {item.automation_status && item.automation_status !== "manual" && (() => {
                       const cls: Record<string, string> = {
                         ready_for_automation: "bg-sky-500/20 text-sky-300 border-sky-500/40",
