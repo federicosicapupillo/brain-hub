@@ -441,6 +441,11 @@ function ClipboardAIPage() {
       tags: item.tags.join(", "), notes: item.notes,
       next_action: item.next_action ?? "", source_url: item.source_url ?? "",
       output_result: item.output_result ?? "",
+      execution_instructions: item.execution_instructions ?? "",
+      expected_output: item.expected_output ?? "",
+      success_criteria: item.success_criteria ?? "",
+      risk_level: item.risk_level ?? "medium",
+      requires_approval: item.requires_approval ?? true,
       automation_status: item.automation_status ?? "manual",
       automation_target: item.automation_target ?? "",
     });
