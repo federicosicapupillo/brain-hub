@@ -1,9 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   Workflow,
@@ -18,6 +27,7 @@ import {
   Copy,
   Gauge,
   Sparkles,
+  Wand2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/project-loop")({
@@ -34,6 +44,7 @@ type RoadmapItem = {
   id: string;
   brain_id: string | null;
   title: string;
+  description: string | null;
   status: string;
   priority: string | null;
   updated_at: string;
@@ -84,7 +95,7 @@ async function fetchAll() {
     supabase.from("brains").select("id,name,color,updated_at").order("updated_at", { ascending: false }),
     supabase
       .from("roadmap_items")
-      .select("id,brain_id,title,status,priority,updated_at")
+      .select("id,brain_id,title,description,status,priority,updated_at")
       .order("updated_at", { ascending: false })
       .limit(500),
     supabase
@@ -161,7 +172,53 @@ async function copyText(text: string, label = "Testo copiato") {
   }
 }
 
+function buildLovablePrompt(brain: Brain, r: RoadmapItem) {
+  return `REGOLE DI SICUREZZA OBBLIGATORIE:
+- Non modificare auth, login, signup, sessioni, RLS o policy Supabase esistenti.
+- Non toccare dati, tabelle o logiche non richieste.
+- Non rompere route, sidebar, link, layout globale o componenti condivisi.
+- Non rimuovere funzionalità già funzionanti.
+- Modifica solo i file strettamente necessari.
+- Mantieni compatibilità TypeScript.
+- Verifica build, console error e navigazione dopo le modifiche.
+
+CONTESTO PROGETTO:
+- Brain/Progetto: ${brain.name}
+- Roadmap item: ${r.title}
+- Priorità: ${r.priority ?? "—"}
+- Stato attuale: ${r.status}
+
+OBIETTIVO:
+${r.description?.trim() || r.title}
+
+COSA MODIFICARE:
+- Implementare il roadmap item sopra descritto rispettando l'architettura esistente.
+- Toccare solo i file strettamente necessari.
+
+COSA NON MODIFICARE:
+- Auth, login, signup, sessioni.
+- RLS, policy Supabase, tabelle non correlate.
+- Sidebar, layout globale, route esistenti non collegate.
+
+OUTPUT ATTESO:
+- Implementazione funzionante del roadmap item "${r.title}".
+- Nessuna regressione sulle funzionalità esistenti.
+
+CRITERI DI SUCCESSO:
+- Build pulita senza errori TypeScript.
+- Nessun errore in console.
+- Navigazione e UI esistenti intatte.
+- Funzionalità richiesta visibile e usabile.
+
+RICHIESTA FINALE:
+Procedi con build pulita e verifica i criteri sopra elencati.`;
+}
+
 function ProjectLoopPage() {
+  const queryClient = useQueryClient();
+  const [genTarget, setGenTarget] = useState<{ brain: Brain; roadmap: RoadmapItem } | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState("");
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["project-loop"],
     queryFn: fetchAll,
@@ -244,6 +301,66 @@ function ProjectLoopPage() {
 
   const projectLinkById = new Map(projectLinks.map((p) => [p.id, p]));
 
+  const savePromptMut = useMutation({
+    mutationFn: async ({ brain, roadmap, prompt }: { brain: Brain; roadmap: RoadmapItem; prompt: string }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+      const execInstr = `Inviare il prompt a Lovable, attendere la modifica, verificare build/console/navigazione, poi salvare il risultato in Clipboard AI.`;
+      const expected = `Implementazione del roadmap item "${roadmap.title}" senza regressioni, build pulita, nessun errore TS o console.`;
+      const success = `- Build pulita\n- Nessun errore TypeScript\n- Nessun errore console\n- Funzionalità "${roadmap.title}" attiva e usabile\n- Nessuna regressione su auth/RLS/route esistenti`;
+
+      const insertPayload = {
+        user_id: userId,
+        title: `Prompt Lovable — ${roadmap.title}`,
+        content: prompt,
+        content_type: "prompt",
+        target_tool: "Lovable",
+        source_tool: "Project Loop",
+        brain_id: brain.id,
+        status: "active",
+        approval_status: "pending",
+        automation_status: "ready_for_automation",
+        human_review_required: true,
+        execution_instructions: execInstr,
+        expected_output: expected,
+        success_criteria: success,
+        risk_level: "medium",
+        requires_approval: true,
+        next_action: "Inviare a Lovable e salvare il risultato",
+      };
+
+      const { data: inserted, error: insErr } = await supabase
+        .from("clipboard_items")
+        .insert(insertPayload as never)
+        .select("id")
+        .single();
+      if (insErr) throw insErr;
+
+      const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: inserted.id,
+        action: "generated_prompt_from_roadmap_item",
+        notes: "Prompt Lovable generato da Project Loop",
+        new_status: "ready_for_automation",
+        user_id: userId,
+        metadata: {
+          roadmap_item_id: roadmap.id,
+          brain_id: brain.id,
+          target_tool: "Lovable",
+        },
+      } as never);
+      if (logErr) throw logErr;
+      return inserted.id;
+    },
+    onSuccess: () => {
+      toast.success("Prompt salvato in Clipboard AI");
+      setGenTarget(null);
+      setGeneratedPrompt("");
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -308,6 +425,19 @@ function ProjectLoopPage() {
                 <div>
                   <div className="text-muted-foreground">Roadmap aperto</div>
                   <div className="truncate">{lastRoadmap?.title ?? "—"}</div>
+                  {lastRoadmap && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-1 h-7 text-[11px]"
+                      onClick={() => {
+                        setGenTarget({ brain, roadmap: lastRoadmap });
+                        setGeneratedPrompt(buildLovablePrompt(brain, lastRoadmap));
+                      }}
+                    >
+                      <Wand2 className="mr-1 h-3 w-3" /> Genera Prompt Lovable
+                    </Button>
+                  )}
                 </div>
                 <div>
                   <div className="text-muted-foreground">Ultimo prompt</div>
@@ -448,6 +578,93 @@ function ProjectLoopPage() {
           ))}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={!!genTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setGenTarget(null);
+            setGeneratedPrompt("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4" /> Anteprima Prompt Lovable
+            </DialogTitle>
+          </DialogHeader>
+          {genTarget && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <div className="text-muted-foreground">Progetto / Brain</div>
+                  <div className="font-medium">{genTarget.brain.name}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Roadmap item</div>
+                  <div className="font-medium truncate">{genTarget.roadmap.title}</div>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Prompt generato</div>
+                <Textarea
+                  value={generatedPrompt}
+                  onChange={(e) => setGeneratedPrompt(e.target.value)}
+                  className="min-h-[260px] font-mono text-xs"
+                />
+              </div>
+              <div className="grid gap-2 text-xs md:grid-cols-2">
+                <div className="rounded-md border border-border/60 p-2">
+                  <div className="text-muted-foreground">Execution instructions</div>
+                  <div>Inviare il prompt a Lovable, attendere la modifica, verificare build/console/navigazione, poi salvare il risultato.</div>
+                </div>
+                <div className="rounded-md border border-border/60 p-2">
+                  <div className="text-muted-foreground">Expected output</div>
+                  <div>Implementazione del roadmap item senza regressioni, build pulita.</div>
+                </div>
+                <div className="rounded-md border border-border/60 p-2 md:col-span-2">
+                  <div className="text-muted-foreground">Success criteria</div>
+                  <div>Build pulita · No errori TS · No errori console · Funzionalità attiva · Nessuna regressione auth/RLS.</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[10px]">
+                <Badge variant="outline">risk: medium</Badge>
+                <Badge variant="secondary">requires_approval: true</Badge>
+                <Badge variant="default">target: Lovable</Badge>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setGenTarget(null);
+                setGeneratedPrompt("");
+              }}
+            >
+              Chiudi
+            </Button>
+            <Button variant="outline" onClick={() => copyText(generatedPrompt, "Prompt copiato")}>
+              <Copy className="mr-1 h-3 w-3" /> Copia prompt
+            </Button>
+            <Button
+              disabled={!genTarget || !generatedPrompt.trim() || savePromptMut.isPending}
+              onClick={() => {
+                if (!genTarget) return;
+                savePromptMut.mutate({
+                  brain: genTarget.brain,
+                  roadmap: genTarget.roadmap,
+                  prompt: generatedPrompt,
+                });
+              }}
+            >
+              <Sparkles className="mr-1 h-3 w-3" />
+              {savePromptMut.isPending ? "Salvataggio…" : "Salva in Clipboard AI"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
