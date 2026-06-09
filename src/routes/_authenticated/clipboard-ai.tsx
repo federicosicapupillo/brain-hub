@@ -1515,6 +1515,23 @@ function ClipboardAIPage() {
                       </Button>
                     )}
 
+                    {/* Manual execution result */}
+                    {QUEUE_STATUSES.includes(item.automation_status) && (
+                      <Button size="sm" variant="outline" className="border-emerald-500/40 text-emerald-300"
+                        onClick={() => {
+                          setManualResultForm({
+                            output: item.output_result ?? "",
+                            outcome: "completed",
+                            notes: "",
+                          });
+                          setManualResultItem(item);
+                        }}>
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Aggiungi risultato
+                      </Button>
+                    )}
+
+
+
                     {/* Automation Queue actions */}
                     {(item.automation_status === "manual" || item.automation_status === "ready_for_automation") && (
                       <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300"
