@@ -493,11 +493,23 @@ function ClipboardAIPage() {
           blocked_reason: vars.reason ?? null,
         };
       }
+      const prev = items.find((i) => i.id === vars.id);
+      const prevApproval = prev?.approval_status ?? null;
+      const newApproval = (patch.approval_status as string) ?? null;
       const { error } = await supabase.from("clipboard_items").update(patch as never).eq("id", vars.id);
       if (error) throw error;
+      const actionLabels = { approve: "Approva per automazione", review: "Rimanda in revisione", block: "Blocca item" };
+      await logExecution({
+        clipboard_item_id: vars.id,
+        action: actionLabels[vars.action],
+        previous_status: prevApproval,
+        new_status: newApproval,
+        notes: vars.notes ?? vars.reason ?? null,
+      });
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      qc.invalidateQueries({ queryKey: ["clipboard_execution_logs"] });
       const labels = { approve: "Approvato per automazione", review: "Rimandato in revisione", block: "Item bloccato" };
       toast.success(labels[vars.action]);
     },
