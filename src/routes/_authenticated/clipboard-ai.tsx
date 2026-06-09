@@ -18,7 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Clipboard, Copy, Edit2, Archive, CheckCircle2, Sparkles, Plus, Search,
   Trash2, Loader2, ExternalLink, ListChecks, Map as MapIcon, Zap,
-  ShieldCheck, RotateCcw, Ban,
+  ShieldCheck, RotateCcw, Ban, Plug, Power, PowerOff,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
