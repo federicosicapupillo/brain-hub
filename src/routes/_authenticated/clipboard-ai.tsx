@@ -14,9 +14,10 @@ import {
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Clipboard, Copy, Edit2, Archive, CheckCircle2, Sparkles, Plus, Search,
-  Trash2, Loader2,
+  Trash2, Loader2, ExternalLink, ListChecks, Map as MapIcon, Zap,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ type ClipboardItem = {
   id: string;
   brain_id: string | null;
   project_id: string | null;
+  project_tool_link_id: string | null;
   title: string;
   content: string;
   source_tool: string;
@@ -38,6 +40,12 @@ type ClipboardItem = {
   status: string;
   tags: string[];
   notes: string;
+  next_action: string;
+  source_url: string;
+  output_result: string;
+  automation_status: string;
+  automation_target: string;
+  automation_last_run_at: string | null;
   metadata: Record<string, unknown>;
   copied_count: number;
   last_copied_at: string | null;
@@ -66,6 +74,14 @@ const STATUSES = [
   { v: "used", l: "Usato", color: "bg-violet-500/10 text-violet-400 border-violet-500/30" },
   { v: "archived", l: "Archiviato", color: "bg-muted text-muted-foreground border-muted" },
 ];
+const AUTOMATION_STATUSES = [
+  { v: "manual", l: "Manuale" },
+  { v: "ready_for_automation", l: "Pronto per automazione" },
+  { v: "queued", l: "In coda" },
+  { v: "running", l: "In esecuzione" },
+  { v: "done", l: "Completata" },
+  { v: "failed", l: "Errore" },
+];
 
 const TOOL_COLOR: Record<string, string> = {
   ChatGPT: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
@@ -92,17 +108,24 @@ type FormState = {
   id?: string;
   title: string; content: string;
   brain_id: string | null; project_id: string | null;
+  project_tool_link_id: string | null;
   source_tool: string; target_tool: string;
   content_type: string; status: string;
   tags: string; notes: string;
+  next_action: string; source_url: string; output_result: string;
+  automation_status: string; automation_target: string;
 };
 const EMPTY_FORM: FormState = {
   title: "", content: "",
-  brain_id: null, project_id: null,
+  brain_id: null, project_id: null, project_tool_link_id: null,
   source_tool: "", target_tool: "",
   content_type: "prompt", status: "saved",
   tags: "", notes: "",
+  next_action: "", source_url: "", output_result: "",
+  automation_status: "manual", automation_target: "",
 };
+
+type ViewKey = "all" | "to_lovable" | "responses_to_rework";
 
 function ClipboardAIPage() {
   const qc = useQueryClient();
@@ -112,6 +135,7 @@ function ClipboardAIPage() {
   const [fType, setFType] = useState<string>("all");
   const [fStatus, setFStatus] = useState<string>("all");
   const [fTag, setFTag] = useState<string>("all");
+  const [view, setView] = useState<ViewKey>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
@@ -139,11 +163,20 @@ function ClipboardAIPage() {
     queryKey: ["project_links_min"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("project_links")
-        .select("id,title,brain_id")
-        .order("title");
+        .from("project_links").select("id,title,brain_id").order("title");
       if (error) throw error;
       return (data ?? []) as { id: string; title: string; brain_id: string | null }[];
+    },
+  });
+  const toolLinksQ = useQuery({
+    queryKey: ["project_tool_links_min"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_tool_links")
+        .select("id,tool_name,tool_category,brain_id,url")
+        .order("tool_name");
+      if (error) throw error;
+      return (data ?? []) as { id: string; tool_name: string; tool_category: string | null; brain_id: string | null; url: string | null }[];
     },
   });
 
@@ -157,7 +190,14 @@ function ClipboardAIPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return items.filter((i) => {
-      if (q && !(`${i.title} ${i.content} ${i.notes} ${i.tags.join(" ")}`.toLowerCase().includes(q))) return false;
+      if (view === "to_lovable") {
+        if (i.target_tool !== "Lovable") return false;
+        if (i.status === "used" || i.status === "archived") return false;
+      } else if (view === "responses_to_rework") {
+        if (i.content_type !== "ai_response" && i.status !== "to_classify") return false;
+        if (i.status === "used" || i.status === "archived") return false;
+      }
+      if (q && !(`${i.title} ${i.content} ${i.notes} ${i.next_action} ${i.tags.join(" ")}`.toLowerCase().includes(q))) return false;
       if (fProject !== "all" && i.project_id !== fProject) return false;
       if (fTool !== "all" && i.source_tool !== fTool && i.target_tool !== fTool) return false;
       if (fType !== "all" && i.content_type !== fType) return false;
@@ -165,7 +205,15 @@ function ClipboardAIPage() {
       if (fTag !== "all" && !i.tags.includes(fTag)) return false;
       return true;
     });
-  }, [items, search, fProject, fTool, fType, fStatus, fTag]);
+  }, [items, search, fProject, fTool, fType, fStatus, fTag, view]);
+
+  const viewCounts = useMemo(() => ({
+    all: items.length,
+    to_lovable: items.filter((i) => i.target_tool === "Lovable" && i.status !== "used" && i.status !== "archived").length,
+    responses_to_rework: items.filter((i) =>
+      (i.content_type === "ai_response" || i.status === "to_classify") &&
+      i.status !== "used" && i.status !== "archived").length,
+  }), [items]);
 
   const saveMut = useMutation({
     mutationFn: async (f: FormState) => {
@@ -175,6 +223,7 @@ function ClipboardAIPage() {
         user_id: u.user.id,
         brain_id: f.brain_id,
         project_id: f.project_id,
+        project_tool_link_id: f.project_tool_link_id,
         title: f.title.trim() || f.content.slice(0, 60),
         content: f.content,
         source_tool: f.source_tool,
@@ -183,6 +232,11 @@ function ClipboardAIPage() {
         status: f.status,
         tags: f.tags.split(",").map((t) => t.trim()).filter(Boolean),
         notes: f.notes,
+        next_action: f.next_action,
+        source_url: f.source_url,
+        output_result: f.output_result,
+        automation_status: f.automation_status,
+        automation_target: f.automation_target,
       };
       if (f.id) {
         const { error } = await supabase.from("clipboard_items").update(payload).eq("id", f.id);
@@ -227,10 +281,14 @@ function ClipboardAIPage() {
       const { error } = await supabase.from("clipboard_items").insert({
         user_id: u.user.id,
         brain_id: item.brain_id, project_id: item.project_id,
+        project_tool_link_id: item.project_tool_link_id,
         title: `${item.title} (copia)`, content: item.content,
         source_tool: item.source_tool, target_tool: item.target_tool,
         content_type: item.content_type, status: "saved",
         tags: item.tags, notes: item.notes,
+        next_action: item.next_action, source_url: item.source_url,
+        output_result: "", automation_status: "manual",
+        automation_target: item.automation_target,
       });
       if (error) throw error;
     },
@@ -240,15 +298,47 @@ function ClipboardAIPage() {
     },
   });
 
+  const createTaskMut = useMutation({
+    mutationFn: async (item: ClipboardItem) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Non autenticato");
+      const title = item.next_action?.trim() || `Usa prompt: ${item.title || item.content.slice(0, 50)}`;
+      const desc = [
+        item.next_action && `Prossima azione: ${item.next_action}`,
+        item.target_tool && `Tool destinazione: ${item.target_tool}`,
+        item.source_url && `Origine: ${item.source_url}`,
+        `\n--- Contenuto ---\n${item.content}`,
+      ].filter(Boolean).join("\n");
+      const { error } = await supabase.from("tasks").insert({
+        user_id: u.user.id, brain_id: item.brain_id,
+        title, description: desc, status: "todo", priority: "medium",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => toast.success("Task creato"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const createRoadmapMut = useMutation({
+    mutationFn: async (item: ClipboardItem) => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) throw new Error("Non autenticato");
+      const title = item.next_action?.trim() || item.title || item.content.slice(0, 60);
+      const { error } = await supabase.from("roadmap_items").insert({
+        user_id: u.user.id, brain_id: item.brain_id,
+        title, description: item.content, status: "todo", priority: "medium",
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => toast.success("Roadmap item creato"),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   async function copyContent(item: ClipboardItem) {
     try {
       await navigator.clipboard.writeText(item.content);
-      await supabase
-        .from("clipboard_items")
-        .update({
-          copied_count: item.copied_count + 1,
-          last_copied_at: new Date().toISOString(),
-        })
+      await supabase.from("clipboard_items")
+        .update({ copied_count: item.copied_count + 1, last_copied_at: new Date().toISOString() })
         .eq("id", item.id);
       qc.invalidateQueries({ queryKey: ["clipboard_items"] });
       toast.success("Copiato negli appunti");
@@ -262,9 +352,14 @@ function ClipboardAIPage() {
       id: item.id,
       title: item.title, content: item.content,
       brain_id: item.brain_id, project_id: item.project_id,
+      project_tool_link_id: item.project_tool_link_id,
       source_tool: item.source_tool, target_tool: item.target_tool,
       content_type: item.content_type, status: item.status,
       tags: item.tags.join(", "), notes: item.notes,
+      next_action: item.next_action ?? "", source_url: item.source_url ?? "",
+      output_result: item.output_result ?? "",
+      automation_status: item.automation_status ?? "manual",
+      automation_target: item.automation_target ?? "",
     });
     setDialogOpen(true);
   }
@@ -273,6 +368,7 @@ function ClipboardAIPage() {
     const next =
       `# Prossimo prompt (da: ${item.title || "contenuto"})\n\n` +
       `Contesto precedente:\n"""\n${item.content.slice(0, 800)}\n"""\n\n` +
+      (item.next_action ? `Prossima azione richiesta: ${item.next_action}\n\n` : "") +
       `Obiettivo successivo: \n` +
       `Vincoli: \n` +
       `Output atteso: \n`;
@@ -281,6 +377,7 @@ function ClipboardAIPage() {
       title: `Next: ${item.title || "prompt"}`,
       content: next,
       brain_id: item.brain_id, project_id: item.project_id,
+      project_tool_link_id: item.project_tool_link_id,
       source_tool: item.target_tool || item.source_tool,
       target_tool: item.target_tool,
       content_type: "prompt", status: "to_classify",
@@ -292,19 +389,19 @@ function ClipboardAIPage() {
   const counts = useMemo(() => {
     const by = (s: string) => items.filter((i) => i.status === s).length;
     return {
-      total: items.length,
-      ready: by("ready"),
-      toClassify: by("to_classify"),
-      used: by("used"),
-      archived: by("archived"),
+      total: items.length, ready: by("ready"), toClassify: by("to_classify"),
+      used: by("used"), archived: by("archived"),
     };
   }, [items]);
+
+  const availableToolLinks = (toolLinksQ.data ?? [])
+    .filter((t) => !form.brain_id || t.brain_id === form.brain_id);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
       <PageHeader
         title="Clipboard AI"
-        subtitle="Salva, organizza e riutilizza prompt e testi copiati da qualsiasi piattaforma."
+        subtitle="Centro operativo: salva, riusa, trasforma in task o roadmap, predisposto per automazione."
         actions={
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setForm(EMPTY_FORM); }}>
             <DialogTrigger asChild>
@@ -328,11 +425,17 @@ function ClipboardAIPage() {
                     onChange={(e) => setForm({ ...form, content: e.target.value })}
                     placeholder="Incolla qui il prompt, la risposta, il codice…" />
                 </div>
+                <div>
+                  <Label>URL di origine</Label>
+                  <Input type="url" value={form.source_url}
+                    onChange={(e) => setForm({ ...form, source_url: e.target.value })}
+                    placeholder="https://chat.openai.com/... o thread Claude, link Gmail…" />
+                </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Cervello</Label>
                     <Select value={form.brain_id ?? "none"}
-                      onValueChange={(v) => setForm({ ...form, brain_id: v === "none" ? null : v, project_id: null })}>
+                      onValueChange={(v) => setForm({ ...form, brain_id: v === "none" ? null : v, project_id: null, project_tool_link_id: null })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
@@ -350,6 +453,21 @@ function ClipboardAIPage() {
                         {(projectsQ.data ?? [])
                           .filter((p) => !form.brain_id || p.brain_id === form.brain_id)
                           .map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Label>Strumento del progetto (project_tool_links)</Label>
+                    <Select value={form.project_tool_link_id ?? "none"}
+                      onValueChange={(v) => setForm({ ...form, project_tool_link_id: v === "none" ? null : v })}>
+                      <SelectTrigger><SelectValue placeholder="Seleziona uno strumento collegato al progetto" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">—</SelectItem>
+                        {availableToolLinks.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.tool_name}{t.tool_category ? ` · ${t.tool_category}` : ""}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -398,8 +516,41 @@ function ClipboardAIPage() {
                     placeholder="es. landing, brief, gpt5" />
                 </div>
                 <div>
+                  <Label>Prossima azione (next_action)</Label>
+                  <Input value={form.next_action} onChange={(e) => setForm({ ...form, next_action: e.target.value })}
+                    placeholder="es. Inviare a Lovable per generare la sezione hero" />
+                </div>
+                <div>
+                  <Label>Risultato / output ottenuto</Label>
+                  <Textarea rows={4} value={form.output_result}
+                    onChange={(e) => setForm({ ...form, output_result: e.target.value })}
+                    placeholder="Incolla qui la risposta ottenuta dopo aver usato il prompt" />
+                </div>
+                <div>
                   <Label>Note</Label>
-                  <Textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                  <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+                </div>
+                <div className="rounded-md border border-dashed p-3 space-y-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Zap className="h-3.5 w-3.5" /> Predisposizione automazione esterna (n8n / Playwright) — non ancora attiva
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs">Stato automazione</Label>
+                      <Select value={form.automation_status} onValueChange={(v) => setForm({ ...form, automation_status: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {AUTOMATION_STATUSES.map((s) => <SelectItem key={s.v} value={s.v}>{s.l}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Target automazione</Label>
+                      <Input value={form.automation_target}
+                        onChange={(e) => setForm({ ...form, automation_target: e.target.value })}
+                        placeholder="es. n8n:webhook-lovable, playwright:chatgpt" />
+                    </div>
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -432,12 +583,25 @@ function ClipboardAIPage() {
         ))}
       </div>
 
+      {/* Views */}
+      <Tabs value={view} onValueChange={(v) => setView(v as ViewKey)}>
+        <TabsList>
+          <TabsTrigger value="all">Tutti · {viewCounts.all}</TabsTrigger>
+          <TabsTrigger value="to_lovable">
+            <Sparkles className="h-3.5 w-3.5 mr-1.5" /> Da inviare a Lovable · {viewCounts.to_lovable}
+          </TabsTrigger>
+          <TabsTrigger value="responses_to_rework">
+            Risposte da rielaborare · {viewCounts.responses_to_rework}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Filters */}
       <Card>
         <CardContent className="p-4 space-y-3">
           <div className="relative">
             <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input className="pl-9" placeholder="Cerca per titolo, contenuto, tag, note…"
+            <Input className="pl-9" placeholder="Cerca per titolo, contenuto, next action, tag, note…"
               value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
@@ -486,12 +650,14 @@ function ClipboardAIPage() {
       ) : filtered.length === 0 ? (
         <Card><CardContent className="p-12 text-center text-muted-foreground">
           <Clipboard className="h-10 w-10 mx-auto mb-3 opacity-50" />
-          Nessun contenuto. Aggiungi il primo prompt o testo.
+          Nessun contenuto in questa vista.
         </CardContent></Card>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filtered.map((item) => {
             const project = (projectsQ.data ?? []).find((p) => p.id === item.project_id);
+            const toolLink = (toolLinksQ.data ?? []).find((t) => t.id === item.project_tool_link_id);
+            const autoLabel = AUTOMATION_STATUSES.find((s) => s.v === item.automation_status)?.l;
             return (
               <Card key={item.id} className="flex flex-col">
                 <CardHeader className="pb-3">
@@ -511,12 +677,42 @@ function ClipboardAIPage() {
                       {CONTENT_TYPES.find((t) => t.v === item.content_type)?.l ?? item.content_type}
                     </Badge>
                     {project && <Badge variant="outline" className="text-xs">{project.title}</Badge>}
+                    {toolLink && (
+                      <Badge variant="outline" className="text-xs bg-primary/10 border-primary/30">
+                        🔗 {toolLink.tool_name}
+                      </Badge>
+                    )}
+                    {item.automation_status && item.automation_status !== "manual" && (
+                      <Badge variant="outline" className="text-xs bg-yellow-500/10 text-yellow-300 border-yellow-500/30">
+                        <Zap className="h-3 w-3 mr-1" />{autoLabel}
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col gap-3">
                   <pre className="text-xs bg-muted/40 rounded-md p-3 max-h-32 overflow-y-auto whitespace-pre-wrap font-mono">
                     {item.content}
                   </pre>
+                  {item.next_action && (
+                    <div className="text-xs flex items-start gap-2 bg-emerald-500/5 border border-emerald-500/20 rounded-md p-2">
+                      <ListChecks className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                      <div><span className="text-emerald-400 font-medium">Prossima azione:</span> {item.next_action}</div>
+                    </div>
+                  )}
+                  {item.output_result && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                        Mostra output ottenuto
+                      </summary>
+                      <pre className="mt-2 bg-muted/40 rounded-md p-2 max-h-32 overflow-y-auto whitespace-pre-wrap font-mono">{item.output_result}</pre>
+                    </details>
+                  )}
+                  {item.source_url && (
+                    <a href={item.source_url} target="_blank" rel="noopener noreferrer"
+                       className="text-xs inline-flex items-center gap-1 text-primary hover:underline truncate">
+                      <ExternalLink className="h-3 w-3" /> {item.source_url}
+                    </a>
+                  )}
                   {item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1">
                       {item.tags.map((t) => <Badge key={t} variant="outline" className="text-[10px]">#{t}</Badge>)}
@@ -535,6 +731,14 @@ function ClipboardAIPage() {
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => duplicateMut.mutate(item)}>
                       Duplica
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => createTaskMut.mutate(item)}
+                      disabled={createTaskMut.isPending}>
+                      <ListChecks className="h-3.5 w-3.5 mr-1.5" /> Crea task
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => createRoadmapMut.mutate(item)}
+                      disabled={createRoadmapMut.isPending}>
+                      <MapIcon className="h-3.5 w-3.5 mr-1.5" /> Roadmap
                     </Button>
                     {item.status !== "used" && (
                       <Button size="sm" variant="outline"
