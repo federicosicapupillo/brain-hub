@@ -80,6 +80,7 @@ type ClipboardItem = {
   next_action: string | null;
   source_url: string | null;
   project_tool_link_id: string | null;
+  next_step_generated: boolean;
   updated_at: string;
 };
 type ExecLog = {
