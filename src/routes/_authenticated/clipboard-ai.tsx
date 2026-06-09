@@ -109,6 +109,39 @@ const RISK_LEVELS = [
   { v: "high", l: "Alto", color: "bg-orange-500/15 text-orange-300 border-orange-500/30" },
   { v: "critical", l: "Critico", color: "bg-red-500/15 text-red-300 border-red-500/30 animate-pulse" },
 ];
+const CONNECTOR_TYPES = [
+  { v: "n8n_webhook", l: "n8n Webhook" },
+  { v: "browser_automation", l: "Browser Automation" },
+  { v: "manual_copy", l: "Copia Manuale" },
+  { v: "api_connector", l: "API Connector" },
+];
+
+type AutomationConnector = {
+  id: string;
+  name: string;
+  type: string;
+  target_tool: string;
+  webhook_url: string | null;
+  browser_profile: string | null;
+  is_active: boolean;
+  config: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+type ConnectorForm = {
+  id?: string;
+  name: string;
+  type: string;
+  target_tool: string;
+  webhook_url: string;
+  browser_profile: string;
+  is_active: boolean;
+};
+const EMPTY_CONNECTOR: ConnectorForm = {
+  name: "", type: "n8n_webhook", target_tool: "",
+  webhook_url: "", browser_profile: "", is_active: false,
+};
 
 const TOOL_COLOR: Record<string, string> = {
   ChatGPT: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
