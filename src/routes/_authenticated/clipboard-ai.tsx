@@ -1066,7 +1066,7 @@ function ClipboardAIPage() {
                     )}
 
                     {/* Approval Center actions */}
-                    {item.human_review_required && (item.automation_status === "ready_for_automation" || item.automation_status === "queued") && (
+                    {item.human_review_required && ["pending", "revision_needed", "blocked"].includes(item.approval_status ?? "pending") && (
                       <>
                         <Button size="sm" variant="outline" className="border-emerald-500/40 text-emerald-300"
                           onClick={() => approvalMut.mutate({ id: item.id, action: "approve" })}
@@ -1074,12 +1074,21 @@ function ClipboardAIPage() {
                           <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Approva
                         </Button>
                         <Button size="sm" variant="outline"
-                          onClick={() => approvalMut.mutate({ id: item.id, action: "review" })}
+                          onClick={() => {
+                            const notes = window.prompt("Note per la revisione (opzionale):", item.approval_notes ?? "");
+                            if (notes === null) return;
+                            approvalMut.mutate({ id: item.id, action: "review", notes: notes.trim() || undefined });
+                          }}
                           disabled={approvalMut.isPending}>
                           <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Rimanda in revisione
                         </Button>
                         <Button size="sm" variant="outline" className="border-red-500/40 text-red-300"
-                          onClick={() => approvalMut.mutate({ id: item.id, action: "block" })}
+                          onClick={() => {
+                            const reason = window.prompt("Motivo del blocco:", item.blocked_reason ?? "");
+                            if (reason === null) return;
+                            if (!reason.trim()) { toast.error("Motivo richiesto"); return; }
+                            approvalMut.mutate({ id: item.id, action: "block", reason: reason.trim() });
+                          }}
                           disabled={approvalMut.isPending}>
                           <Ban className="h-3.5 w-3.5 mr-1.5" /> Blocca
                         </Button>
