@@ -975,8 +975,26 @@ function ClipboardAIPage() {
                       <Input value={form.automation_target}
                         onChange={(e) => setForm({ ...form, automation_target: e.target.value })}
                         placeholder="es. n8n:webhook-lovable, playwright:chatgpt" />
-                    </div>
                   </div>
+                  <div>
+                    <Label className="text-xs">Connector (opzionale — solo associazione, nessuna esecuzione)</Label>
+                    <Select
+                      value={form.automation_connector_id ?? "none"}
+                      onValueChange={(v) => setForm({ ...form, automation_connector_id: v === "none" ? null : v })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">—</SelectItem>
+                        {connectors.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name} · {CONNECTOR_TYPES.find((t) => t.v === c.type)?.l ?? c.type}
+                            {c.is_active ? " · attivo" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 </div>
               </div>
               <DialogFooter>
