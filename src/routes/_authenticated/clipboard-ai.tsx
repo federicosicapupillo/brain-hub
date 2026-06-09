@@ -145,7 +145,7 @@ const EMPTY_FORM: FormState = {
   automation_status: "manual", automation_target: "",
 };
 
-type ViewKey = "all" | "to_lovable" | "responses_to_rework" | "automation_queue";
+type ViewKey = "all" | "to_lovable" | "responses_to_rework" | "automation_queue" | "approval_center";
 const QUEUE_STATUSES = ["ready_for_automation", "queued", "running", "failed"];
 
 function ClipboardAIPage() {
