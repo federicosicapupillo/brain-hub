@@ -182,6 +182,64 @@ function ClipboardAIPage() {
     },
   });
 
+  type ExecLog = {
+    id: string;
+    clipboard_item_id: string;
+    action: string;
+    previous_status: string | null;
+    new_status: string | null;
+    notes: string | null;
+    created_at: string;
+  };
+  const logsQ = useQuery({
+    queryKey: ["clipboard_execution_logs"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as never as {
+        from: (t: string) => {
+          select: (s: string) => {
+            order: (c: string, o: { ascending: boolean }) => {
+              limit: (n: number) => Promise<{ data: ExecLog[] | null; error: Error | null }>;
+            };
+          };
+        };
+      })
+        .from("clipboard_execution_logs")
+        .select("id,clipboard_item_id,action,previous_status,new_status,notes,created_at")
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      return (data ?? []) as ExecLog[];
+    },
+  });
+  const logsByItem = useMemo(() => {
+    const m: Record<string, ExecLog[]> = {};
+    for (const l of logsQ.data ?? []) {
+      (m[l.clipboard_item_id] ??= []).push(l);
+    }
+    return m;
+  }, [logsQ.data]);
+
+  const logExecution = async (vars: {
+    clipboard_item_id: string;
+    action: string;
+    previous_status?: string | null;
+    new_status?: string | null;
+    notes?: string | null;
+  }) => {
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    await (supabase as never as { from: (t: string) => { insert: (r: unknown) => Promise<{ error: Error | null }> } })
+      .from("clipboard_execution_logs")
+      .insert({
+        user_id: u.user.id,
+        clipboard_item_id: vars.clipboard_item_id,
+        action: vars.action,
+        previous_status: vars.previous_status ?? null,
+        new_status: vars.new_status ?? null,
+        notes: vars.notes ?? null,
+      });
+  };
+
   const brainsQ = useQuery({
     queryKey: ["brains_min"],
     queryFn: async () => {
