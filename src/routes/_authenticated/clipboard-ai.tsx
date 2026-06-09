@@ -261,6 +261,7 @@ function ClipboardAIPage() {
     previous_status?: string | null;
     new_status?: string | null;
     notes?: string | null;
+    metadata?: Record<string, unknown> | null;
   }) => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
@@ -273,6 +274,7 @@ function ClipboardAIPage() {
         previous_status: vars.previous_status ?? null,
         new_status: vars.new_status ?? null,
         notes: vars.notes ?? null,
+        metadata: vars.metadata ?? null,
       });
   };
 
