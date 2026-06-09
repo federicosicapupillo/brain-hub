@@ -1442,6 +1442,14 @@ function ClipboardAIPage() {
                       </>
                     )}
 
+                    {/* Preview run (queue statuses) */}
+                    {QUEUE_STATUSES.includes(item.automation_status) && (
+                      <Button size="sm" variant="outline" className="border-primary/40 text-primary"
+                        onClick={() => setPreviewItem(item)}>
+                        <Eye className="h-3.5 w-3.5 mr-1.5" /> Preview run
+                      </Button>
+                    )}
+
                     {/* Automation Queue actions */}
                     {(item.automation_status === "manual" || item.automation_status === "ready_for_automation") && (
                       <Button size="sm" variant="outline" className="border-amber-500/40 text-amber-300"
