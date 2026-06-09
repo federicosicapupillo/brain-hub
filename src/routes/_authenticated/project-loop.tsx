@@ -578,6 +578,93 @@ function ProjectLoopPage() {
           ))}
         </CardContent>
       </Card>
+
+      <Dialog
+        open={!!genTarget}
+        onOpenChange={(o) => {
+          if (!o) {
+            setGenTarget(null);
+            setGeneratedPrompt("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wand2 className="h-4 w-4" /> Anteprima Prompt Lovable
+            </DialogTitle>
+          </DialogHeader>
+          {genTarget && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <div className="text-muted-foreground">Progetto / Brain</div>
+                  <div className="font-medium">{genTarget.brain.name}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Roadmap item</div>
+                  <div className="font-medium truncate">{genTarget.roadmap.title}</div>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Prompt generato</div>
+                <Textarea
+                  value={generatedPrompt}
+                  onChange={(e) => setGeneratedPrompt(e.target.value)}
+                  className="min-h-[260px] font-mono text-xs"
+                />
+              </div>
+              <div className="grid gap-2 text-xs md:grid-cols-2">
+                <div className="rounded-md border border-border/60 p-2">
+                  <div className="text-muted-foreground">Execution instructions</div>
+                  <div>Inviare il prompt a Lovable, attendere la modifica, verificare build/console/navigazione, poi salvare il risultato.</div>
+                </div>
+                <div className="rounded-md border border-border/60 p-2">
+                  <div className="text-muted-foreground">Expected output</div>
+                  <div>Implementazione del roadmap item senza regressioni, build pulita.</div>
+                </div>
+                <div className="rounded-md border border-border/60 p-2 md:col-span-2">
+                  <div className="text-muted-foreground">Success criteria</div>
+                  <div>Build pulita · No errori TS · No errori console · Funzionalità attiva · Nessuna regressione auth/RLS.</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[10px]">
+                <Badge variant="outline">risk: medium</Badge>
+                <Badge variant="secondary">requires_approval: true</Badge>
+                <Badge variant="default">target: Lovable</Badge>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setGenTarget(null);
+                setGeneratedPrompt("");
+              }}
+            >
+              Chiudi
+            </Button>
+            <Button variant="outline" onClick={() => copyText(generatedPrompt, "Prompt copiato")}>
+              <Copy className="mr-1 h-3 w-3" /> Copia prompt
+            </Button>
+            <Button
+              disabled={!genTarget || !generatedPrompt.trim() || savePromptMut.isPending}
+              onClick={() => {
+                if (!genTarget) return;
+                savePromptMut.mutate({
+                  brain: genTarget.brain,
+                  roadmap: genTarget.roadmap,
+                  prompt: generatedPrompt,
+                });
+              }}
+            >
+              <Sparkles className="mr-1 h-3 w-3" />
+              {savePromptMut.isPending ? "Salvataggio…" : "Salva in Clipboard AI"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
