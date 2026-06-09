@@ -666,7 +666,7 @@ function ClipboardAIPage() {
         };
       }
       const { error } = await supabase.from("clipboard_items")
-        .update(patch).eq("id", item.id);
+        .update(patch as never).eq("id", item.id);
       if (error) throw error;
       await logExecution({
         clipboard_item_id: item.id,
