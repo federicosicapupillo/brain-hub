@@ -843,6 +843,15 @@ function ClipboardAIPage() {
                         🔗 {toolLink.tool_name}
                       </Badge>
                     )}
+                    {item.risk_level && item.risk_level !== "low" && (() => {
+                      const r = RISK_LEVELS.find((x) => x.v === item.risk_level);
+                      if (!r) return null;
+                      return (
+                        <Badge variant="outline" className={`text-xs font-medium ${r.color}`}>
+                          ⚠ {r.l}
+                        </Badge>
+                      );
+                    })()}
                     {item.automation_status && item.automation_status !== "manual" && (() => {
                       const cls: Record<string, string> = {
                         ready_for_automation: "bg-sky-500/20 text-sky-300 border-sky-500/40",
