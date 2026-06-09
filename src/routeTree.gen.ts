@@ -23,6 +23,7 @@ import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authent
 import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticated/importa'
 import { Route as AuthenticatedGuidaRouteImport } from './routes/_authenticated/guida'
 import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authenticated/github-sync'
+import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authenticated/github-coverage'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
@@ -104,6 +105,12 @@ const AuthenticatedGithubSyncRoute = AuthenticatedGithubSyncRouteImport.update({
   path: '/github-sync',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGithubCoverageRoute =
+  AuthenticatedGithubCoverageRouteImport.update({
+    id: '/github-coverage',
+    path: '/github-coverage',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedFontiRoute = AuthenticatedFontiRouteImport.update({
   id: '/fonti',
   path: '/fonti',
@@ -157,6 +164,7 @@ export interface FileRoutesByFullPath {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
+  '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/importa': typeof AuthenticatedImportaRouteWithChildren
@@ -179,6 +187,7 @@ export interface FileRoutesByTo {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
+  '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
@@ -203,6 +212,7 @@ export interface FileRoutesById {
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
+  '/_authenticated/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/_authenticated/github-sync': typeof AuthenticatedGithubSyncRoute
   '/_authenticated/guida': typeof AuthenticatedGuidaRoute
   '/_authenticated/importa': typeof AuthenticatedImportaRouteWithChildren
@@ -229,6 +239,7 @@ export interface FileRouteTypes {
     | '/archivio'
     | '/connettori'
     | '/fonti'
+    | '/github-coverage'
     | '/github-sync'
     | '/guida'
     | '/importa'
@@ -251,6 +262,7 @@ export interface FileRouteTypes {
     | '/archivio'
     | '/connettori'
     | '/fonti'
+    | '/github-coverage'
     | '/github-sync'
     | '/guida'
     | '/impostazioni'
@@ -274,6 +286,7 @@ export interface FileRouteTypes {
     | '/_authenticated/archivio'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
+    | '/_authenticated/github-coverage'
     | '/_authenticated/github-sync'
     | '/_authenticated/guida'
     | '/_authenticated/importa'
@@ -396,6 +409,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGithubSyncRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/github-coverage': {
+      id: '/_authenticated/github-coverage'
+      path: '/github-coverage'
+      fullPath: '/github-coverage'
+      preLoaderRoute: typeof AuthenticatedGithubCoverageRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/fonti': {
       id: '/_authenticated/fonti'
       path: '/fonti'
@@ -488,6 +508,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
+  AuthenticatedGithubCoverageRoute: typeof AuthenticatedGithubCoverageRoute
   AuthenticatedGithubSyncRoute: typeof AuthenticatedGithubSyncRoute
   AuthenticatedGuidaRoute: typeof AuthenticatedGuidaRoute
   AuthenticatedImportaRoute: typeof AuthenticatedImportaRouteWithChildren
@@ -508,6 +529,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
+  AuthenticatedGithubCoverageRoute: AuthenticatedGithubCoverageRoute,
   AuthenticatedGithubSyncRoute: AuthenticatedGithubSyncRoute,
   AuthenticatedGuidaRoute: AuthenticatedGuidaRoute,
   AuthenticatedImportaRoute: AuthenticatedImportaRouteWithChildren,
