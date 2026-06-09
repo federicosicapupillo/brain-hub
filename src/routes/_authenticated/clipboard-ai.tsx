@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Clipboard, Copy, Edit2, Archive, CheckCircle2, Sparkles, Plus, Search,
   Trash2, Loader2, ExternalLink, ListChecks, Map as MapIcon, Zap,
+  ShieldCheck, RotateCcw, Ban,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -144,7 +145,7 @@ const EMPTY_FORM: FormState = {
   automation_status: "manual", automation_target: "",
 };
 
-type ViewKey = "all" | "to_lovable" | "responses_to_rework" | "automation_queue";
+type ViewKey = "all" | "to_lovable" | "responses_to_rework" | "automation_queue" | "approval_center";
 const QUEUE_STATUSES = ["ready_for_automation", "queued", "running", "failed"];
 
 function ClipboardAIPage() {
@@ -218,6 +219,10 @@ function ClipboardAIPage() {
         if (i.status === "used" || i.status === "archived") return false;
       } else if (view === "automation_queue") {
         if (!QUEUE_STATUSES.includes(i.automation_status)) return false;
+      } else if (view === "approval_center") {
+        if (!i.human_review_required) return false;
+        if (i.automation_status !== "ready_for_automation" && i.automation_status !== "queued") return false;
+        if (i.status === "archived") return false;
       }
       if (q && !(`${i.title} ${i.content} ${i.notes} ${i.next_action} ${i.tags.join(" ")}`.toLowerCase().includes(q))) return false;
       if (fProject !== "all" && i.project_id !== fProject) return false;
@@ -236,6 +241,10 @@ function ClipboardAIPage() {
       (i.content_type === "ai_response" || i.status === "to_classify") &&
       i.status !== "used" && i.status !== "archived").length,
     automation_queue: items.filter((i) => QUEUE_STATUSES.includes(i.automation_status)).length,
+    approval_center: items.filter((i) =>
+      i.human_review_required &&
+      (i.automation_status === "ready_for_automation" || i.automation_status === "queued") &&
+      i.status !== "archived").length,
   }), [items]);
 
   const saveMut = useMutation({
@@ -362,6 +371,27 @@ function ClipboardAIPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clipboard_items"] });
       toast.success("Preparato per automazione");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const approvalMut = useMutation({
+    mutationFn: async (vars: { id: string; action: "approve" | "review" | "block" }) => {
+      let patch = {};
+      if (vars.action === "approve") {
+        patch = { human_review_required: false, automation_status: "queued" };
+      } else if (vars.action === "review") {
+        patch = { human_review_required: false, automation_status: "manual" };
+      } else if (vars.action === "block") {
+        patch = { status: "archived", human_review_required: false };
+      }
+      const { error } = await supabase.from("clipboard_items").update(patch as never).eq("id", vars.id);
+      if (error) throw error;
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      const labels = { approve: "Approvato per automazione", review: "Rimandato in revisione", block: "Item bloccato" };
+      toast.success(labels[vars.action]);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -754,6 +784,9 @@ function ClipboardAIPage() {
           <TabsTrigger value="automation_queue">
             <Zap className="h-3.5 w-3.5 mr-1.5" /> Automation Queue · {viewCounts.automation_queue}
           </TabsTrigger>
+          <TabsTrigger value="approval_center">
+            <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Approval Center · {viewCounts.approval_center}
+          </TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -852,6 +885,11 @@ function ClipboardAIPage() {
                         </Badge>
                       );
                     })()}
+                    {item.human_review_required && (item.automation_status === "ready_for_automation" || item.automation_status === "queued") && (
+                      <Badge variant="outline" className="text-xs bg-violet-500/15 text-violet-300 border-violet-500/30 font-medium">
+                        <ShieldCheck className="h-3 w-3 mr-1" /> Da approvare
+                      </Badge>
+                    )}
                     {item.automation_status && item.automation_status !== "manual" && (() => {
                       const cls: Record<string, string> = {
                         ready_for_automation: "bg-sky-500/20 text-sky-300 border-sky-500/40",
@@ -998,6 +1036,27 @@ function ClipboardAIPage() {
                         disabled={prepareAutoMut.isPending}>
                         <Zap className="h-3.5 w-3.5 mr-1.5" /> Prepara per automazione
                       </Button>
+                    )}
+
+                    {/* Approval Center actions */}
+                    {item.human_review_required && (item.automation_status === "ready_for_automation" || item.automation_status === "queued") && (
+                      <>
+                        <Button size="sm" variant="outline" className="border-emerald-500/40 text-emerald-300"
+                          onClick={() => approvalMut.mutate({ id: item.id, action: "approve" })}
+                          disabled={approvalMut.isPending}>
+                          <ShieldCheck className="h-3.5 w-3.5 mr-1.5" /> Approva
+                        </Button>
+                        <Button size="sm" variant="outline"
+                          onClick={() => approvalMut.mutate({ id: item.id, action: "review" })}
+                          disabled={approvalMut.isPending}>
+                          <RotateCcw className="h-3.5 w-3.5 mr-1.5" /> Rimanda in revisione
+                        </Button>
+                        <Button size="sm" variant="outline" className="border-red-500/40 text-red-300"
+                          onClick={() => approvalMut.mutate({ id: item.id, action: "block" })}
+                          disabled={approvalMut.isPending}>
+                          <Ban className="h-3.5 w-3.5 mr-1.5" /> Blocca
+                        </Button>
+                      </>
                     )}
 
                     {/* Automation Queue actions */}
