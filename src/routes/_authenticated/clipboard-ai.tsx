@@ -1116,6 +1116,31 @@ function ClipboardAIPage() {
                       )}
                     </div>
                   )}
+                  {(logsByItem[item.id]?.length ?? 0) > 0 && (
+                    <details className="text-xs rounded-md border border-border bg-muted/20">
+                      <summary className="cursor-pointer p-2 font-medium text-foreground hover:text-primary flex items-center gap-2">
+                        📜 Execution Log <span className="text-muted-foreground">({logsByItem[item.id].length})</span>
+                      </summary>
+                      <div className="p-2 space-y-1.5 border-t border-border max-h-48 overflow-y-auto">
+                        {logsByItem[item.id].slice(0, 5).map((l) => (
+                          <div key={l.id} className="border-l-2 border-primary/30 pl-2">
+                            <div className="text-muted-foreground">
+                              {new Date(l.created_at).toLocaleString("it-IT")}
+                            </div>
+                            <div className="text-foreground font-medium">{l.action}</div>
+                            {(l.previous_status || l.new_status) && (
+                              <div className="text-muted-foreground">
+                                <span className="text-foreground">{l.previous_status ?? "—"}</span>
+                                {" → "}
+                                <span className="text-foreground">{l.new_status ?? "—"}</span>
+                              </div>
+                            )}
+                            {l.notes && <div className="text-muted-foreground italic break-words">{l.notes}</div>}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
                   {item.output_result && (
                     <details className="text-xs">
                       <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
