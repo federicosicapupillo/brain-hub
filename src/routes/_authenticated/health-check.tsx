@@ -135,18 +135,20 @@ function HealthCheckPage() {
     if (!data) return null;
     const { brains, nodes, sources, tasks, roadmap, tools, plinks } = data;
 
-    const byBrain = <T extends { brain_id: string | null }>(arr: T[]) => {
+    const byBrain = <T extends { brain_id: string | null }>(arr: T[]): Map<string, T[]> => {
       const m = new Map<string, T[]>();
       for (const it of arr) {
         if (!it.brain_id) continue;
-        (m.get(it.brain_id) ?? m.set(it.brain_id, []).get(it.brain_id)!).push(it);
+        const cur = m.get(it.brain_id) ?? [];
+        cur.push(it);
+        m.set(it.brain_id, cur);
       }
       return m;
     };
-    const nodesByB = byBrain(nodes as never);
-    const sourcesByB = byBrain(sources as never);
-    const tasksByB = byBrain(tasks as never);
-    const roadByB = byBrain(roadmap as never);
+    const nodesByB = byBrain<Node>(nodes);
+    const sourcesByB = byBrain<KSource>(sources);
+    const tasksByB = byBrain<Task>(tasks);
+    const roadByB = byBrain<Roadmap>(roadmap);
     const toolsByB = new Map<string, Tool[]>();
     for (const t of tools) (toolsByB.get(t.brain_id) ?? toolsByB.set(t.brain_id, []).get(t.brain_id)!).push(t);
 
