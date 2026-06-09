@@ -912,9 +912,14 @@ function ClipboardAIPage() {
                         </Badge>
                       );
                     })()}
-                    {item.human_review_required && (item.automation_status === "ready_for_automation" || item.automation_status === "queued") && (
+                    {item.human_review_required && ["pending", "revision_needed", "blocked"].includes(item.approval_status ?? "pending") && (
                       <Badge variant="outline" className="text-xs bg-violet-500/15 text-violet-300 border-violet-500/30 font-medium">
                         <ShieldCheck className="h-3 w-3 mr-1" /> Da approvare
+                      </Badge>
+                    )}
+                    {item.approval_status && APPROVAL_STATUSES[item.approval_status] && (
+                      <Badge variant="outline" className={`text-xs font-medium ${APPROVAL_STATUSES[item.approval_status].color}`}>
+                        {APPROVAL_STATUSES[item.approval_status].l}
                       </Badge>
                     )}
                     {item.automation_status && item.automation_status !== "manual" && (() => {
