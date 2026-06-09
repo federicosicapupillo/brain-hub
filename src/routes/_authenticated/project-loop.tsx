@@ -273,13 +273,14 @@ function ProjectLoopPage() {
   const queuedLovable = lovableItems.filter((i) =>
     ["queued", "running"].includes(i.automation_status)
   ).length;
-  const toReprocess = items.filter(
-    (i) =>
-      i.output_result &&
-      i.output_result.trim() !== "" &&
-      (i.status === "ai_response" || i.status === "to_classify") &&
-      i.human_review_required
-  ).length;
+  const needsNextStep = (i: ClipboardItem) =>
+    !!i.output_result &&
+    i.output_result.trim() !== "" &&
+    !i.next_step_generated &&
+    i.status !== "archived" &&
+    (!i.target_tool || i.target_tool === "Lovable");
+
+  const toReprocess = items.filter(needsNextStep).length;
   const recentSavedOutputs = items.filter(
     (i) => i.output_result && i.output_result.trim() !== ""
   ).length;
@@ -291,15 +292,7 @@ function ProjectLoopPage() {
     )
     .slice(0, 20);
 
-  const resultsToProcess = items
-    .filter(
-      (i) =>
-        i.output_result &&
-        i.output_result.trim() !== "" &&
-        (i.status === "ai_response" || i.status === "to_classify") &&
-        i.human_review_required
-    )
-    .slice(0, 15);
+  const resultsToProcess = items.filter(needsNextStep).slice(0, 15);
 
   const lovableItemIds = new Set(lovableItems.map((i) => i.id));
   const recentLogs = logs.filter((l) => lovableItemIds.has(l.clipboard_item_id)).slice(0, 20);
