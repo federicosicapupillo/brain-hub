@@ -569,6 +569,65 @@ function ClipboardAIPage() {
 
   const [connectorDialogOpen, setConnectorDialogOpen] = useState(false);
   const [connectorForm, setConnectorForm] = useState<ConnectorForm>(EMPTY_CONNECTOR);
+  const [previewItem, setPreviewItem] = useState<ClipboardItem | null>(null);
+
+  function buildAutomationPayload(item: ClipboardItem, connector: AutomationConnector | undefined) {
+    return {
+      item_id: item.id,
+      title: item.title,
+      target_tool: item.target_tool,
+      source_tool: item.source_tool,
+      content_type: item.content_type,
+      prompt: item.content,
+      next_action: item.next_action || null,
+      execution_instructions: item.execution_instructions,
+      expected_output: item.expected_output,
+      success_criteria: item.success_criteria,
+      risk_level: item.risk_level,
+      requires_approval: item.requires_approval,
+      human_review_required: item.human_review_required,
+      automation_status: item.automation_status,
+      automation_target: item.automation_target || null,
+      source_url: item.source_url || null,
+      project_id: item.project_id,
+      project_tool_link_id: item.project_tool_link_id,
+      tags: item.tags,
+      connector: connector ? {
+        id: connector.id,
+        name: connector.name,
+        type: connector.type,
+        target_tool: connector.target_tool,
+        is_active: connector.is_active,
+        webhook_url: connector.webhook_url,
+        browser_profile: connector.browser_profile,
+      } : null,
+    };
+  }
+
+  const confirmPreviewMut = useMutation({
+    mutationFn: async (item: ClipboardItem) => {
+      const prev = item.automation_status;
+      const { error } = await supabase.from("clipboard_items")
+        .update({ automation_status: "queued", automation_last_error: null })
+        .eq("id", item.id);
+      if (error) throw error;
+      await logExecution({
+        clipboard_item_id: item.id,
+        action: "run_preview_confirmed",
+        previous_status: prev,
+        new_status: "queued",
+        notes: "Preview confermata, item pronto per esecuzione futura",
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clipboard_items"] });
+      qc.invalidateQueries({ queryKey: ["clipboard_execution_logs"] });
+      setPreviewItem(null);
+      toast.success("Confermato e messo in coda");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
 
   const saveConnectorMut = useMutation({
     mutationFn: async (f: ConnectorForm) => {
