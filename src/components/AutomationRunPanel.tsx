@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bot, Copy, Play, CheckCircle2, AlertTriangle, XCircle, Shield, RefreshCw, FileJson, Workflow } from "lucide-react";
+import { Bot, Copy, Play, CheckCircle2, AlertTriangle, XCircle, Shield, RefreshCw, FileJson, Workflow, Inbox } from "lucide-react";
 import {
   buildAutomationPayload,
   defaultAutomationRun,
