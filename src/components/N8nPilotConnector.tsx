@@ -34,6 +34,7 @@ import {
   type ItemLike,
   type LogEventType,
 } from "@/lib/automation-run";
+import { ensureProjectLinkForBrain } from "@/lib/project-links-api";
 
 export const N8N_CALLBACK_SCHEMA_VERSION = 1;
 
@@ -110,28 +111,36 @@ type ClipItem = ItemLike & {
   automation_status: string | null;
   risk_level: string | null;
   output_result: string | null;
+  project_id: string | null;
+  success_criteria: string | null;
+  expected_output: string | null;
+  execution_instructions: string | null;
   updated_at: string;
 };
 
 type Brain = { id: string; name: string };
+type ProjectLinkLite = { id: string; brain_id: string; title: string };
 
 async function fetchData() {
-  const [itemsRes, brainsRes] = await Promise.all([
+  const [itemsRes, brainsRes, linksRes] = await Promise.all([
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,output_result,metadata,updated_at",
+        "id,brain_id,project_id,title,content,content_type,target_tool,automation_status,risk_level,output_result,success_criteria,expected_output,execution_instructions,metadata,updated_at",
       )
       .eq("content_type", "execution_package")
       .order("updated_at", { ascending: false })
       .limit(300),
     supabase.from("brains").select("id,name"),
+    supabase.from("project_links").select("id,brain_id,title"),
   ]);
   if (itemsRes.error) throw itemsRes.error;
   if (brainsRes.error) throw brainsRes.error;
+  if (linksRes.error) throw linksRes.error;
   return {
     items: (itemsRes.data ?? []) as ClipItem[],
     brains: (brainsRes.data ?? []) as Brain[],
+    links: (linksRes.data ?? []) as ProjectLinkLite[],
   };
 }
 
@@ -226,13 +235,54 @@ export function N8nPilotConnector() {
 
   const items = data?.items ?? [];
   const brains = data?.brains ?? [];
+  const links = data?.links ?? [];
   const brainMap = useMemo(() => new Map(brains.map((b) => [b.id, b])), [brains]);
+  // First project_link per brain (stable: pick lowest id alphabetically for determinism)
+  const linkByBrain = useMemo(() => {
+    const m = new Map<string, ProjectLinkLite>();
+    for (const l of links) {
+      const prev = m.get(l.brain_id);
+      if (!prev || l.id < prev.id) m.set(l.brain_id, l);
+    }
+    return m;
+  }, [links]);
 
   const eligible = useMemo(() => {
     return items
       .map((i) => ({ item: i, info: isEligible(i) }))
       .filter((x) => x.info.ok);
   }, [items]);
+
+  // Auto-ensure a project_link exists for every eligible brain (idempotent).
+  // Runs once per data load; on success refetches so payload becomes contract-valid.
+  const ensureMut = useMutation({
+    mutationFn: async (targets: Array<{ brainId: string; brainName: string | null }>) => {
+      for (const t of targets) {
+        await ensureProjectLinkForBrain(t.brainId, t.brainName);
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["n8n-pilot-connector"] }),
+  });
+  const pendingEnsureKey = useMemo(() => {
+    const brainIds = Array.from(
+      new Set(
+        eligible
+          .map(({ item }) => item.brain_id)
+          .filter((b): b is string => !!b && !linkByBrain.has(b)),
+      ),
+    );
+    return brainIds.join(",");
+  }, [eligible, linkByBrain]);
+  // Trigger ensure exactly once per unique missing-brain set
+  const [ensuredKey, setEnsuredKey] = useState<string>("");
+  if (pendingEnsureKey && pendingEnsureKey !== ensuredKey && !ensureMut.isPending) {
+    setEnsuredKey(pendingEnsureKey);
+    const targets = pendingEnsureKey.split(",").map((brainId) => ({
+      brainId,
+      brainName: brainMap.get(brainId)?.name ?? null,
+    }));
+    ensureMut.mutate(targets);
+  }
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["n8n-pilot-connector"] });
@@ -243,10 +293,11 @@ export function N8nPilotConnector() {
 
   function buildN8nPayload(item: ClipItem): Record<string, unknown> {
     const brain = item.brain_id ? brainMap.get(item.brain_id) : null;
+    const link = item.brain_id ? linkByBrain.get(item.brain_id) : null;
     const base = buildAutomationPayload(item, {
       brain_name: brain?.name ?? null,
-      project_id: null,
-      project_name: null,
+      project_id: item.project_id ?? link?.id ?? null,
+      project_name: link?.title ?? brain?.name ?? null,
     });
     return {
       ...base,
@@ -258,6 +309,7 @@ export function N8nPilotConnector() {
       created_at: new Date().toISOString(),
     };
   }
+
 
   function buildCallbackTemplateObj(item: ClipItem): Record<string, unknown> {
     const run = getAutomationRun(item);
@@ -449,10 +501,15 @@ export function N8nPilotConnector() {
   });
 
   type ReadinessCheck = { label: string; ok: boolean; critical: boolean };
-  function readinessFor(item: ClipItem): { checks: ReadinessCheck[]; contract: ReturnType<typeof validateN8nContract>; canMark: boolean } {
+  function readinessFor(item: ClipItem): {
+    checks: ReadinessCheck[];
+    contract: ReturnType<typeof validateN8nContract>;
+    canMark: boolean;
+    payload: Record<string, unknown>;
+    callbackTpl: Record<string, unknown>;
+  } {
     const run = getAutomationRun(item);
     const rm = resultMeta(item);
-    const ext = externalConnector(item);
     const reviewed = reviewStatus(item);
     const dryActive = ((run as unknown) as { dry_run?: { enabled?: boolean } }).dry_run?.enabled === true && run.run_status === "running";
     const realApproved = rm?.source !== "dry_run" && rm?.is_simulated !== true && (reviewed === "approvato" || run.run_status === "completed");
@@ -471,8 +528,9 @@ export function N8nPilotConnector() {
       { label: "Test manuale/pilota consapevole", ok: true, critical: false },
     ];
     const canMark = checks.filter((c) => c.critical).every((c) => c.ok);
-    return { checks, contract, canMark };
+    return { checks, contract, canMark, payload, callbackTpl: tpl };
   }
+
 
   const markReadyMut = useMutation({
     mutationFn: async (item: ClipItem) => {
@@ -805,6 +863,31 @@ Callback richiesta:
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-2 rounded-md border border-border/40 p-2">
+                    <div className="text-[11px] font-medium mb-1">Problemi contratto (per campo)</div>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+                      {[
+                        ["project_id", !!readiness.payload.project_id],
+                        ["project_name", typeof readiness.payload.project_name === "string" && (readiness.payload.project_name as string).trim().length > 0],
+                        ["success_criteria", typeof readiness.payload.success_criteria === "string" && (readiness.payload.success_criteria as string).trim().length > 0],
+                        ["expected_output", typeof readiness.payload.expected_output === "string" && (readiness.payload.expected_output as string).trim().length > 0],
+                        ["protected_areas", typeof readiness.payload.protected_areas === "string" && (readiness.payload.protected_areas as string).trim().length > 0],
+                        ["callback_schema_version", readiness.payload.callback_schema_version === N8N_CALLBACK_SCHEMA_VERSION],
+                        ["callback_required", readiness.payload.callback_required === true],
+                      ].map(([label, ok]) => (
+                        <div key={String(label)} className="flex items-center gap-1">
+                          {ok ? (
+                            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                          ) : (
+                            <XCircle className="h-3 w-3 text-red-400" />
+                          )}
+                          <span className={ok ? "text-muted-foreground" : "text-red-300"}>
+                            {String(label)}: {ok ? "ok" : "ko"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   {readiness.contract.status !== "valid" && readiness.contract.errors.length > 0 && (
                     <ul className="mt-2 list-disc pl-4 text-[10px] text-amber-300">
                       {readiness.contract.errors.slice(0, 5).map((e, idx) => <li key={idx}>{e}</li>)}

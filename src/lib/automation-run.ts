@@ -47,10 +47,41 @@ export type ItemLike = {
   target_tool?: string | null;
   risk_level?: string | null;
   automation_status?: string | null;
+  project_id?: string | null;
+  success_criteria?: string | null;
+  expected_output?: string | null;
+  execution_instructions?: string | null;
   metadata: Record<string, unknown> | null;
 };
 
 const ACTIVE_RUN_STATUSES: RunStatus[] = ["approved", "queued", "running"];
+
+export const DEFAULT_SUCCESS_CRITERIA =
+  "Build pulita, nessun errore TypeScript, nessun errore console, funzionalità richiesta completata senza modificare aree protette.";
+export const DEFAULT_EXPECTED_OUTPUT =
+  "Riepilogo modifiche effettuate, file modificati, stato build, eventuali errori console e note operative.";
+export const DEFAULT_PROTECTED_AREAS =
+  "Non modificare auth, login, signup, sessioni, RLS, policy Supabase, route, sidebar, layout globale o componenti condivisi se non esplicitamente richiesto.";
+export const DEFAULT_PROJECT_NAME = "Progetto non specificato";
+
+/** Extract a section by uppercase-ish heading from a prompt text. Best-effort. */
+export function extractPromptSection(text: string | null | undefined, headers: string[]): string {
+  if (!text || typeof text !== "string") return "";
+  for (const h of headers) {
+    const esc = h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(
+      `(?:^|\\n)[\\s*#>\\-]*${esc}[\\s*:#>\\-]*\\n([\\s\\S]*?)(?=\\n[\\s*#>\\-]*[A-ZÀ-Ý][A-ZÀ-Ý0-9 \\/&'\\-]{3,}[\\s*:#>\\-]*\\n|$)`,
+      "i",
+    );
+    const m = text.match(re);
+    if (m && m[1]) {
+      const v = m[1].trim();
+      if (v) return v;
+    }
+  }
+  return "";
+}
+
 
 export function defaultAutomationRun(): AutomationRun {
   return {
@@ -89,6 +120,13 @@ export function findActiveRun(item: ItemLike): AutomationRun | null {
   return ACTIVE_RUN_STATUSES.includes(run.run_status) ? run : null;
 }
 
+function firstNonEmpty(...vals: Array<string | null | undefined>): string {
+  for (const v of vals) {
+    if (typeof v === "string" && v.trim().length > 0) return v.trim();
+  }
+  return "";
+}
+
 export function buildAutomationPayload(
   item: ItemLike,
   ctx: { project_id?: string | null; brain_name?: string | null; project_name?: string | null },
@@ -96,20 +134,67 @@ export function buildAutomationPayload(
   const m = (item.metadata as Record<string, unknown> | null) ?? {};
   const pkg = (m.execution_package as Record<string, unknown> | undefined) ?? {};
   const run = getAutomationRun(item);
+  const prompt = firstNonEmpty(pkg.promptOnly as string | undefined, item.content) || "";
+
+  const checklist = Array.isArray(pkg.checklist)
+    ? (pkg.checklist as unknown[]).map(String).filter((s) => s.trim()).join("\n- ")
+    : "";
+
+  const success_criteria = firstNonEmpty(
+    item.success_criteria,
+    pkg.success_criteria as string | undefined,
+    pkg.successCriteria as string | undefined,
+    checklist ? `- ${checklist}` : "",
+    extractPromptSection(prompt, [
+      "CRITERI DI SUCCESSO",
+      "SUCCESS CRITERIA",
+      "CRITERI DI ACCETTAZIONE",
+    ]),
+  ) || DEFAULT_SUCCESS_CRITERIA;
+
+  const expected_output = firstNonEmpty(
+    item.expected_output,
+    pkg.expected_output as string | undefined,
+    pkg.expectedOutput as string | undefined,
+    extractPromptSection(prompt, [
+      "OUTPUT ATTESO",
+      "EXPECTED OUTPUT",
+      "RISULTATO ATTESO",
+    ]),
+  ) || DEFAULT_EXPECTED_OUTPUT;
+
+  const protected_areas = firstNonEmpty(
+    pkg.protected_areas as string | undefined,
+    pkg.protectedAreas as string | undefined,
+    pkg.protection_rules as string | undefined,
+    extractPromptSection(prompt, [
+      "REGOLE DI SICUREZZA OBBLIGATORIE",
+      "REGOLE DI SICUREZZA",
+      "AREE PROTETTE",
+      "PROTECTED AREAS",
+      "NON MODIFICARE",
+    ]),
+  ) || DEFAULT_PROTECTED_AREAS;
+
+  const project_name = firstNonEmpty(
+    ctx.project_name,
+    ctx.brain_name,
+  ) || DEFAULT_PROJECT_NAME;
+
   return {
     execution_package_id: item.id,
-    project_id: ctx.project_id ?? null,
+    project_id: ctx.project_id ?? item.project_id ?? null,
     brain_id: item.brain_id,
-    project_name: ctx.project_name ?? null,
+    project_name,
     brain_name: ctx.brain_name ?? null,
     package_type: (pkg.package_type as string | undefined) ?? "standard",
     risk_level: item.risk_level ?? (pkg.riskLevel as string | undefined) ?? null,
     target: run.target,
     execution_mode: run.execution_mode,
-    prompt: (pkg.promptOnly as string | undefined) ?? item.content ?? "",
-    success_criteria: (pkg.successCriteria as string | undefined) ?? "",
-    expected_output: (pkg.expectedOutput as string | undefined) ?? "",
-    protected_areas: (pkg.protectedAreas as string | undefined) ?? "",
+    prompt,
+    success_criteria,
+    expected_output,
+    protected_areas,
     callback_required: true,
     callback_expected_fields: [
       "build_status",
@@ -120,6 +205,7 @@ export function buildAutomationPayload(
     ],
   };
 }
+
 
 export type LogEventType =
   | "automation_approved"
