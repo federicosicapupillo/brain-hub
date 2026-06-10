@@ -121,6 +121,7 @@ export function DryRunOrchestrator() {
     const completed: ExecLog[] = [];
     const failed: ExecLog[] = [];
     const blocked: ExecLog[] = [];
+    const restored: ExecLog[] = [];
     const errors: string[] = [];
     for (const l of logs) {
       if (l.action === "automation_dry_run_started" && l.clipboard_item_id) startedIds.add(l.clipboard_item_id);
@@ -130,21 +131,45 @@ export function DryRunOrchestrator() {
         if (errors.length < 5 && l.notes) errors.push(l.notes);
       }
       if (l.action === "automation_dry_run_blocked") blocked.push(l);
+      if (l.action === "automation_dry_run_restored") restored.push(l);
     }
+    const itemsWithDry = items.filter((i) => dryRunMeta(i));
+    const itemsWithActiveSim = items.filter((i) => {
+      const rm = (i.metadata as Record<string, unknown> | null)?.result_meta as { is_simulated?: boolean } | undefined;
+      return rm?.is_simulated === true;
+    });
+    const restorable = itemsWithDry.filter((i) => !!dryRunMeta(i)?.previous_state_snapshot);
     const untested = items.filter((i) => !dryRunMeta(i));
+    const lastDry = itemsWithDry
+      .map((i) => dryRunMeta(i)!)
+      .sort((a, b) => new Date(b.executed_at).getTime() - new Date(a.executed_at).getTime())[0];
     return {
       executed: startedIds.size,
       completed: completed.length,
       failed: failed.length,
       blocked: blocked.length,
+      restoredCount: restored.length,
+      simulatedActive: itemsWithActiveSim.length,
+      restorable: restorable.length,
+      lastScenario: lastDry?.scenario ?? null,
       lastErrors: errors,
       untestedCount: untested.length,
     };
   }, [data]);
 
   const runMut = useMutation({
-    mutationFn: async ({ item, scenario, allowDup }: { item: ClipItem; scenario: DryRunScenario; allowDup: boolean }) => {
-      return runDryRunScenario(item, scenario, { allowRecentDup: allowDup });
+    mutationFn: async ({
+      item,
+      scenario,
+      allowDup,
+      allowOverwriteReal,
+    }: {
+      item: ClipItem;
+      scenario: DryRunScenario;
+      allowDup: boolean;
+      allowOverwriteReal: boolean;
+    }) => {
+      return runDryRunScenario(item, scenario, { allowRecentDup: allowDup, allowOverwriteReal });
     },
     onSuccess: (r: DryRunResult) => {
       const label = DRY_RUN_SCENARIO_LABELS[r.scenario];
@@ -161,6 +186,16 @@ export function DryRunOrchestrator() {
       qc.invalidateQueries({ queryKey: ["project-loop"] });
     },
     onError: (e: Error, vars) => {
+      if (e.message.startsWith("OVERWRITE_REAL:") && !vars.allowOverwriteReal) {
+        const msg = e.message.replace(/^OVERWRITE_REAL:\s*/, "");
+        const ok = window.confirm(`${msg}\n\nProcedere con il dry run?`);
+        if (ok) {
+          runMut.mutate({ ...vars, allowOverwriteReal: true });
+          return;
+        }
+        toast.message("Dry run annullato");
+        return;
+      }
       if (/Dry run recente/.test(e.message) && !vars.allowDup) {
         const ok = window.confirm(`${e.message}\n\nVuoi rieseguirlo lo stesso?`);
         if (ok) {
@@ -170,6 +205,27 @@ export function DryRunOrchestrator() {
         }
       }
       toast.error(e.message);
+    },
+  });
+
+  const restoreMut = useMutation({
+    mutationFn: async (item: ClipItem) => {
+      const ok = window.confirm(
+        `Ripristinare lo stato dell'item PRIMA del dry run?\n\nVerranno ripristinati: run_status, output_result, result_meta, post_execution_review.`,
+      );
+      if (!ok) throw new Error("Annullato");
+      await restoreDryRunSnapshot(item);
+    },
+    onSuccess: () => {
+      toast.success("Stato pre dry run ripristinato");
+      qc.invalidateQueries({ queryKey: ["dry-run-orchestrator"] });
+      qc.invalidateQueries({ queryKey: ["automation-run-panel"] });
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+      qc.invalidateQueries({ queryKey: ["callback-inbox-items"] });
+      qc.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => {
+      if (e.message !== "Annullato") toast.error(e.message);
     },
   });
 
