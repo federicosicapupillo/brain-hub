@@ -430,6 +430,56 @@ export function N8nPilotConnector() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  type ReadinessCheck = { label: string; ok: boolean; critical: boolean };
+  function readinessFor(item: ClipItem): { checks: ReadinessCheck[]; contract: ReturnType<typeof validateN8nContract>; canMark: boolean } {
+    const run = getAutomationRun(item);
+    const rm = resultMeta(item);
+    const ext = externalConnector(item);
+    const reviewed = reviewStatus(item);
+    const dryActive = ((run as unknown) as { dry_run?: { enabled?: boolean } }).dry_run?.enabled === true && run.run_status === "running";
+    const realApproved = rm?.source !== "dry_run" && rm?.is_simulated !== true && (reviewed === "approvato" || run.run_status === "completed");
+    const payload = buildN8nPayload(item);
+    const tpl = buildCallbackTemplateObj(item);
+    const contract = validateN8nContract(payload, tpl);
+    const checks: ReadinessCheck[] = [
+      { label: "Run approvata o in coda", ok: run.run_status === "approved" || run.run_status === "queued", critical: true },
+      { label: "Risk level non alto", ok: item.risk_level !== "alto", critical: true },
+      { label: "Payload contratto valido", ok: contract.status === "valid", critical: true },
+      { label: "Callback schema valido (v" + N8N_CALLBACK_SCHEMA_VERSION + ")", ok: contract.status === "valid", critical: true },
+      { label: "Nessun dry run attivo", ok: !dryActive, critical: true },
+      { label: "Nessun risultato reale già approvato", ok: !realApproved, critical: true },
+      { label: "Review precedente non bloccante", ok: reviewed !== "non_approvato_blocca", critical: true },
+      { label: "Webhook URL solo etichetta, nessun token salvato", ok: true, critical: false },
+      { label: "Test manuale/pilota consapevole", ok: true, critical: false },
+    ];
+    const canMark = checks.filter((c) => c.critical).every((c) => c.ok);
+    return { checks, contract, canMark };
+  }
+
+  const markReadyMut = useMutation({
+    mutationFn: async (item: ClipItem) => {
+      const r = readinessFor(item);
+      if (!r.canMark) throw new Error("Checklist non completa: alcuni controlli critici falliscono");
+      await persistExternalConnector(item, {
+        contract_status: r.contract.status,
+        callback_schema_version: N8N_CALLBACK_SCHEMA_VERSION,
+        ready_for_real_test: true,
+        ready_marked_at: new Date().toISOString(),
+      });
+      await logEvent(item, "n8n_ready_for_real_test", "Execution Package pronto per test n8n controllato", {
+        contract_status: r.contract.status,
+        callback_schema_version: N8N_CALLBACK_SCHEMA_VERSION,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Execution Package pronto per test n8n controllato");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   // Ledger touch helper: increment run touched timestamp without changing status
   async function touchRun(item: ClipItem) {
     try {
