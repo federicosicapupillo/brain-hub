@@ -23,6 +23,7 @@ import {
   type LogEventType,
 } from "@/lib/automation-run";
 import { CANONICAL_LOVABLE_URLS } from "@/components/LovableHandoffConnector";
+import { PlaywrightStarterKit } from "@/components/PlaywrightStarterKit";
 
 type LocalAgentStatus =
   | "not_prepared"
