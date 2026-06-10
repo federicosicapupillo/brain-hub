@@ -564,6 +564,7 @@ const TIMELINE_META: Record<TimelineEventType, { label: string; icon: typeof Wor
   next_prompt: { label: "next_prompt", icon: RefreshCw, cls: "bg-emerald-500/15 text-emerald-300" },
   review: { label: "review", icon: ClipboardCheck, cls: "bg-teal-500/15 text-teal-300" },
   automation: { label: "automation", icon: Workflow, cls: "bg-blue-500/15 text-blue-300" },
+  dry_run: { label: "dry run", icon: Workflow, cls: "bg-amber-500/15 text-amber-300 border border-amber-500/40" },
 };
 
 const AUTOMATION_LOG_LABELS: Record<string, string> = {
