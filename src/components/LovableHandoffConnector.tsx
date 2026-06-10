@@ -192,11 +192,66 @@ export function LovableHandoffConnector() {
   const items = data?.items ?? [];
   const brains = data?.brains ?? [];
   const brainMap = useMemo(() => new Map(brains.map((b) => [b.id, b])), [brains]);
+  const lovableLinkByBrain = useMemo(() => {
+    const m = new Map<string, LovableLinkRow>();
+    for (const l of data?.lovableLinks ?? []) {
+      if (l.brain_id) m.set(l.brain_id, l);
+    }
+    return m;
+  }, [data?.lovableLinks]);
+
+  /** project-level Lovable URL: stored row first, else canonical mapping by brain name */
+  const projectUrlForBrain = (brainId: string | null | undefined): string => {
+    if (!brainId) return "";
+    const stored = lovableLinkByBrain.get(brainId)?.url?.trim();
+    if (stored) return stored;
+    const b = brainMap.get(brainId);
+    return canonicalUrlForBrainName(b?.name) ?? "";
+  };
+
+  /** Sync canonical URLs into project_links once per dataset load. */
+  const syncedRef = useRef<string>("");
+  useEffect(() => {
+    if (!data) return;
+    const sig = `${brains.length}:${data.lovableLinks.length}`;
+    if (syncedRef.current === sig) return;
+    syncedRef.current = sig;
+    void (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+      for (const b of brains) {
+        const canonical = canonicalUrlForBrainName(b.name);
+        if (!canonical) continue;
+        const existing = lovableLinkByBrain.get(b.id);
+        if (existing) {
+          if ((existing.url ?? "").trim() !== canonical) {
+            await supabase
+              .from("project_links")
+              .update({ url: canonical, updated_at: new Date().toISOString() } as never)
+              .eq("id", existing.id);
+          }
+        } else {
+          await supabase.from("project_links").insert({
+            user_id: userData.user.id,
+            brain_id: b.id,
+            link_type: "external",
+            tool: "lovable",
+            title: `Lovable · ${b.name}`,
+            url: canonical,
+            relation_type: "lovable_project",
+            notes: "URL Lovable progetto (auto-mappato)",
+          } as never);
+        }
+      }
+      qc.invalidateQueries({ queryKey: ["lovable-handoff"] });
+    })();
+  }, [data, brains, lovableLinkByBrain, qc]);
 
   const eligible = useMemo(
     () => items.map((i) => ({ item: i, info: isEligible(i) })).filter((x) => x.info.ok),
     [items],
   );
+
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["lovable-handoff"] });
