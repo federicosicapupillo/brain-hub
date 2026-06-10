@@ -21,6 +21,10 @@ import {
   Inbox,
   Save,
   AlertTriangle,
+  ShieldCheck,
+  ListChecks,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import {
   buildAutomationPayload,
@@ -30,6 +34,74 @@ import {
   type ItemLike,
   type LogEventType,
 } from "@/lib/automation-run";
+
+export const N8N_CALLBACK_SCHEMA_VERSION = 1;
+
+export const N8N_PAYLOAD_SCHEMA = {
+  required: [
+    "execution_package_id",
+    "run_id",
+    "project_id",
+    "brain_id",
+    "prompt",
+    "success_criteria",
+    "expected_output",
+    "callback_required",
+    "callback_schema_version",
+  ],
+  optional: ["protected_areas", "risk_level", "package_type", "target", "execution_mode", "created_at"],
+};
+
+export const N8N_CALLBACK_SCHEMA = {
+  required: ["execution_package_id", "run_id", "status", "callback_schema_version"],
+  optional: [
+    "build_status",
+    "console_errors",
+    "modified_files",
+    "summary",
+    "notes",
+    "raw_output",
+    "external_result_reference",
+  ],
+  status_allowed: ["completed", "failed"],
+  build_status_allowed: ["ok", "failed", "not_verified"],
+};
+
+export type ContractStatus = "valid" | "incomplete" | "not_ready";
+
+export function validateN8nContract(
+  payload: Record<string, unknown>,
+  callbackTpl: Record<string, unknown>,
+): { status: ContractStatus; errors: string[] } {
+  const errors: string[] = [];
+  const need = (obj: Record<string, unknown>, k: string, label: string) => {
+    const v = obj[k];
+    if (v === undefined || v === null || v === "") errors.push(`${label}.${k} mancante`);
+  };
+  for (const k of ["execution_package_id", "run_id", "project_id", "brain_id", "prompt", "success_criteria", "expected_output"]) {
+    need(payload, k, "payload");
+  }
+  if (payload.callback_required !== true) errors.push("payload.callback_required deve essere true");
+  if (payload.callback_schema_version !== N8N_CALLBACK_SCHEMA_VERSION)
+    errors.push(`payload.callback_schema_version deve essere ${N8N_CALLBACK_SCHEMA_VERSION}`);
+
+  for (const k of ["execution_package_id", "run_id", "status"]) need(callbackTpl, k, "callback");
+  if (!N8N_CALLBACK_SCHEMA.status_allowed.includes(String(callbackTpl.status)))
+    errors.push("callback.status deve essere completed|failed");
+  if (callbackTpl.build_status && !N8N_CALLBACK_SCHEMA.build_status_allowed.includes(String(callbackTpl.build_status)))
+    errors.push("callback.build_status deve essere ok|failed|not_verified");
+  if (callbackTpl.callback_schema_version !== N8N_CALLBACK_SCHEMA_VERSION)
+    errors.push(`callback.callback_schema_version deve essere ${N8N_CALLBACK_SCHEMA_VERSION}`);
+  const hasRef = !!callbackTpl.external_result_reference;
+  const hasBody = !!(callbackTpl.raw_output || callbackTpl.summary);
+  if (!hasRef) errors.push("callback.external_result_reference assente o non generabile");
+  if (!hasBody) errors.push("callback.raw_output o summary richiesto");
+
+  if (errors.length === 0) return { status: "valid", errors };
+  // Distinguish "not_ready" if too many critical fields missing
+  const criticalMissing = errors.filter((e) => e.includes("execution_package_id") || e.includes("prompt") || e.includes("brain_id"));
+  return { status: criticalMissing.length > 0 ? "not_ready" : "incomplete", errors };
+}
 
 type ClipItem = ItemLike & {
   content: string | null;
