@@ -215,14 +215,41 @@ export function AutomationRunPanel() {
 
   const diagnostics = useMemo(() => {
     const totalLoaded = items.length;
+    const nativeCT = normalized.filter((n) => n.norm.detectionSource === "content_type").length;
+    const viaMetadata = normalized.filter((n) => n.norm.detectionSource === "metadata").length;
+    const viaFields = normalized.filter((n) => n.norm.detectionSource === "instructions_fields").length;
     const executionPackages = normalized.filter((n) => n.norm.isExecutionPackage).length;
+    const legacyCount = normalized.filter((n) => n.norm.isLegacyPackage).length;
     const pendingApproval = normalized.filter((n) => n.norm.isPendingApproval).length;
     const visibleInFilter = filtered.length;
     const excluded = normalized
       .filter((n) => n.norm.exclusionReason)
       .map((n) => ({ id: n.item.id, title: n.item.title, reason: n.norm.exclusionReason }));
-    return { totalLoaded, executionPackages, pendingApproval, visibleInFilter, excluded };
+    return { totalLoaded, nativeCT, viaMetadata, viaFields, executionPackages, legacyCount, pendingApproval, visibleInFilter, excluded };
   }, [normalized, items.length, filtered.length]);
+
+  const legacyItems = useMemo(
+    () => normalized.filter((n) => n.norm.isLegacyPackage).map((n) => n.item),
+    [normalized],
+  );
+
+  const normalizeLegacyMut = useMutation({
+    mutationFn: async () => {
+      const ids = legacyItems.map((i) => i.id);
+      if (ids.length === 0) return { updated: 0 };
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({ content_type: "execution_package" } as never)
+        .in("id", ids);
+      if (upErr) throw upErr;
+      return { updated: ids.length };
+    },
+    onSuccess: (r) => {
+      toast.success(`Normalizzati ${r.updated} Execution Package legacy`);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento Run Ledger…</div>;
   if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
