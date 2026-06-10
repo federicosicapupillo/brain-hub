@@ -1113,6 +1113,112 @@ CRITERI DI SUCCESSO:
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">{renderCta()}</div>
+                {(() => {
+                  const isOpen = expandedTimeline.has(brain.id);
+                  const events = buildTimelineEvents(brain.id, { roadmap, items, tasks, logs });
+                  return (
+                    <div className="mt-3 border-t border-border/40 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedTimeline((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(brain.id)) next.delete(brain.id);
+                            else next.add(brain.id);
+                            return next;
+                          });
+                        }}
+                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        Timeline operativa ({events.length})
+                      </button>
+                      {isOpen && (
+                        <div className="mt-2 space-y-1.5">
+                          {events.length === 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              Nessuna attività registrata per questo progetto.
+                            </div>
+                          )}
+                          {events.map((ev) => {
+                            const Icon = TIMELINE_META[ev.type].icon;
+                            const meta = TIMELINE_META[ev.type];
+                            return (
+                              <div
+                                key={ev.id}
+                                className="flex items-start gap-2 rounded-md border border-border/40 p-2 text-xs"
+                              >
+                                <div className={`grid h-6 w-6 shrink-0 place-items-center rounded ${meta.cls}`}>
+                                  <Icon className="h-3 w-3" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-medium truncate">{ev.title}</span>
+                                    <Badge variant="outline" className="text-[9px]">{meta.label}</Badge>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {new Date(ev.ts).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {ev.preview && (
+                                    <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                                      {ev.preview}
+                                    </div>
+                                  )}
+                                  {(ev.item || ev.type === "roadmap") && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {ev.type === "roadmap" && (
+                                        <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[10px]">
+                                          <Link to="/roadmap"><ExternalLink className="mr-1 h-3 w-3" /> Apri</Link>
+                                        </Button>
+                                      )}
+                                      {ev.item && (ev.type === "prompt" || ev.type === "next_prompt") && (
+                                        <>
+                                          <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[10px]">
+                                            <Link to="/clipboard-ai"><ExternalLink className="mr-1 h-3 w-3" /> Apri</Link>
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-6 px-2 text-[10px]"
+                                            onClick={() => copyPrompt(ev.item!.content)}
+                                          >
+                                            <Copy className="mr-1 h-3 w-3" /> Copia
+                                          </Button>
+                                        </>
+                                      )}
+                                      {ev.item && ev.type === "output" && (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-6 px-2 text-[10px]"
+                                            onClick={() => copyText(ev.item!.output_result, "Output copiato")}
+                                          >
+                                            <Copy className="mr-1 h-3 w-3" /> Copia
+                                          </Button>
+                                          {!(ev.item.next_step_generated ?? false) && (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-6 px-2 text-[10px]"
+                                              onClick={() => openNextStep(ev.item!)}
+                                            >
+                                              <Wand2 className="mr-1 h-3 w-3" /> Rielabora
+                                            </Button>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
