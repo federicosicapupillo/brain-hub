@@ -616,6 +616,21 @@ function buildTimelineEvents(
         preview: i.output_result.slice(0, 160),
         item: i,
       });
+      const rev = getReview(i);
+      if (rev) {
+        const meta = REVIEW_META[rev.review_status];
+        events.push({
+          id: `review:${i.id}`,
+          type: "review",
+          ts: rev.reviewed_at || i.updated_at,
+          title: `Review risultato — ${meta.label} · ${rev.completion_level}`,
+          preview:
+            `Next: ${rev.recommended_next_action}` +
+            (rev.review_notes ? ` · ${rev.review_notes.slice(0, 120)}` : "") +
+            (rev.detected_risks.length > 0 ? ` · ${rev.detected_risks.join(" · ").slice(0, 120)}` : ""),
+          item: i,
+        });
+      }
     }
   }
   // Logs: only "sent" / manual flags, dedupe vs item events
