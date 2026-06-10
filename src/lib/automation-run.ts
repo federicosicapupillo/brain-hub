@@ -283,6 +283,8 @@ const LOG_TITLES: Record<LogEventType, string> = {
   local_agent_starter_kit_copied: "Starter kit agente locale copiato",
   lovable_browser_bridge_prompt_copied: "Prompt copiato per Browser Bridge",
   lovable_browser_bridge_extension_downloaded: "Estensione Browser Bridge scaricata",
+  lovable_browser_bridge_prompt_inserted: "Prompt inserito in Lovable via Browser Bridge",
+  lovable_browser_bridge_prompt_sent_confirmed: "Prompt inviato a Lovable con conferma (Browser Bridge)",
 };
 
 
