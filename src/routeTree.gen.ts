@@ -34,6 +34,7 @@ import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAllineamentoRouteImport } from './routes/_authenticated/allineamento'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
+import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 import { Route as AuthenticatedImportaPromptStoriciRouteImport } from './routes/_authenticated/importa.prompt-storici'
@@ -172,6 +173,12 @@ const AuthenticatedImportaIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedImportaRoute,
   } as any)
+const ApiPublicN8nPilotCallbackRoute =
+  ApiPublicN8nPilotCallbackRouteImport.update({
+    id: '/api/public/n8n-pilot-callback',
+    path: '/api/public/n8n-pilot-callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicN8nCallbackRoute = ApiPublicN8nCallbackRouteImport.update({
   id: '/api/public/n8n-callback',
   path: '/api/public/n8n-callback',
@@ -217,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
+  '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/importa/': typeof AuthenticatedImportaIndexRoute
 }
 export interface FileRoutesByTo {
@@ -245,6 +253,7 @@ export interface FileRoutesByTo {
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
+  '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/importa': typeof AuthenticatedImportaIndexRoute
 }
 export interface FileRoutesById {
@@ -276,6 +285,7 @@ export interface FileRoutesById {
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
+  '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
 }
 export interface FileRouteTypes {
@@ -307,6 +317,7 @@ export interface FileRouteTypes {
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
+    | '/api/public/n8n-pilot-callback'
     | '/importa/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -335,6 +346,7 @@ export interface FileRouteTypes {
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
+    | '/api/public/n8n-pilot-callback'
     | '/importa'
   id:
     | '__root__'
@@ -365,6 +377,7 @@ export interface FileRouteTypes {
     | '/_authenticated/importa/prompt-storici'
     | '/_authenticated/progetti/$brainId'
     | '/api/public/n8n-callback'
+    | '/api/public/n8n-pilot-callback'
     | '/_authenticated/importa/'
   fileRoutesById: FileRoutesById
 }
@@ -372,6 +385,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
+  ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -551,6 +565,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportaIndexRouteImport
       parentRoute: typeof AuthenticatedImportaRoute
     }
+    '/api/public/n8n-pilot-callback': {
+      id: '/api/public/n8n-pilot-callback'
+      path: '/api/public/n8n-pilot-callback'
+      fullPath: '/api/public/n8n-pilot-callback'
+      preLoaderRoute: typeof ApiPublicN8nPilotCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/n8n-callback': {
       id: '/api/public/n8n-callback'
       path: '/api/public/n8n-callback'
@@ -659,6 +680,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
+  ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

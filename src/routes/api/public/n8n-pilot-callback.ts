@@ -197,7 +197,7 @@ export const Route = createFileRoute("/api/public/n8n-pilot-callback")({
 
         const { error: upErr } = await supabaseAdmin
           .from("clipboard_items")
-          .update(itemUpdate)
+          .update(itemUpdate as never)
           .eq("id", item.id);
         if (upErr) return json({ error: "db_update_failed", message: upErr.message }, 500);
 
