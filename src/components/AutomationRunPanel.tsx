@@ -24,6 +24,7 @@ import {
   updateAutomationRun,
   RUN_STATUS_LABELS,
 } from "@/lib/automation-run";
+import { normalizeAutomationItem } from "@/lib/automation-normalize";
 
 type ClipItem = ItemLike & {
   content: string | null;
