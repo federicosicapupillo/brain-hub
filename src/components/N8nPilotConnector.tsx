@@ -111,28 +111,36 @@ type ClipItem = ItemLike & {
   automation_status: string | null;
   risk_level: string | null;
   output_result: string | null;
+  project_id: string | null;
+  success_criteria: string | null;
+  expected_output: string | null;
+  execution_instructions: string | null;
   updated_at: string;
 };
 
 type Brain = { id: string; name: string };
+type ProjectLinkLite = { id: string; brain_id: string; title: string };
 
 async function fetchData() {
-  const [itemsRes, brainsRes] = await Promise.all([
+  const [itemsRes, brainsRes, linksRes] = await Promise.all([
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,output_result,metadata,updated_at",
+        "id,brain_id,project_id,title,content,content_type,target_tool,automation_status,risk_level,output_result,success_criteria,expected_output,execution_instructions,metadata,updated_at",
       )
       .eq("content_type", "execution_package")
       .order("updated_at", { ascending: false })
       .limit(300),
     supabase.from("brains").select("id,name"),
+    supabase.from("project_links").select("id,brain_id,title"),
   ]);
   if (itemsRes.error) throw itemsRes.error;
   if (brainsRes.error) throw brainsRes.error;
+  if (linksRes.error) throw linksRes.error;
   return {
     items: (itemsRes.data ?? []) as ClipItem[],
     brains: (brainsRes.data ?? []) as Brain[],
+    links: (linksRes.data ?? []) as ProjectLinkLite[],
   };
 }
 
