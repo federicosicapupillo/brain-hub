@@ -1,0 +1,1 @@
+ALTER TABLE public.clipboard_execution_logs ALTER COLUMN clipboard_item_id DROP NOT NULL;

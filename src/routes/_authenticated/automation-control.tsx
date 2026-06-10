@@ -1,10 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Activity, Bot, Workflow, Gauge, AlertTriangle, CheckCircle2, Clock, Plug, ListChecks, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
+import { Activity, Bot, Workflow, Gauge, AlertTriangle, CheckCircle2, Clock, Plug, ListChecks, ExternalLink, Send } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/automation-control")({
   component: AutomationControlPage,
@@ -34,7 +37,7 @@ type ClipboardItem = {
 
 type ExecLog = {
   id: string;
-  clipboard_item_id: string;
+  clipboard_item_id: string | null;
   action: string;
   previous_status: string | null;
   new_status: string | null;
@@ -42,13 +45,16 @@ type ExecLog = {
   created_at: string;
 };
 
+
 type Connector = {
   id: string;
   name: string;
   type: string;
   target_tool: string;
   is_active: boolean;
+  webhook_url: string | null;
 };
+
 
 async function fetchAll() {
   const todayStart = new Date();
@@ -69,7 +75,7 @@ async function fetchAll() {
       .limit(20),
     supabase
       .from("automation_connectors")
-      .select("id,name,type,target_tool,is_active")
+      .select("id,name,type,target_tool,is_active,webhook_url")
       .order("created_at", { ascending: false }),
     supabase.from("tasks").select("id", { count: "exact", head: true }),
     supabase.from("roadmap_items").select("id", { count: "exact", head: true }),
@@ -106,15 +112,76 @@ function StatCard({ label, value, icon: Icon, tone }: { label: string; value: nu
 }
 
 function AutomationControlPage() {
+  const qc = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ["automation-control"],
     queryFn: fetchAll,
     refetchInterval: 15000,
   });
 
+  const [testingId, setTestingId] = useState<string | null>(null);
+
+  const testWebhookMut = useMutation({
+    mutationFn: async (connector: Connector) => {
+      if (!connector.webhook_url) throw new Error("Webhook URL non configurata");
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Non autenticato");
+      const payload = {
+        source: "brain_hub",
+        mode: "test",
+        message: "n8n webhook test",
+        timestamp: new Date().toISOString(),
+        connector_id: connector.id,
+        target_tool: connector.target_tool,
+      };
+      let statusCode: number | null = null;
+      let responseText = "";
+      let ok = false;
+      let errorMsg: string | null = null;
+      try {
+        const res = await fetch(connector.webhook_url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        statusCode = res.status;
+        responseText = (await res.text()).slice(0, 500);
+        ok = res.status === 200 || res.status === 201;
+        if (!ok) errorMsg = `HTTP ${res.status}`;
+      } catch (e) {
+        errorMsg = e instanceof Error ? e.message : "Errore di rete";
+      }
+      await supabase.from("clipboard_execution_logs").insert({
+        user_id: userData.user.id,
+        clipboard_item_id: null,
+        action: ok ? "n8n_webhook_test_success" : "n8n_webhook_test_failed",
+        notes: ok ? "Test webhook n8n riuscito" : errorMsg,
+        metadata: {
+          connector_id: connector.id,
+          connector_name: connector.name,
+          target_tool: connector.target_tool,
+          status_code: statusCode,
+          response_preview: responseText,
+        },
+      } as never);
+      if (!ok) throw new Error(errorMsg ?? "Test fallito");
+      return { statusCode, responseText };
+    },
+    onSuccess: (r) => {
+      toast.success(`Webhook OK (${r.statusCode})`);
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
+    onError: (e: Error) => {
+      toast.error(`Webhook fallito: ${e.message}`);
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
+    onSettled: () => setTestingId(null),
+  });
+
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento…</div>;
   if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
   if (!data) return null;
+
 
   const { items, logs, connectors, tasksCount, todayStart } = data;
 
@@ -230,7 +297,7 @@ function AutomationControlPage() {
             <div key={l.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border/40 p-2 text-xs">
               <span className="text-muted-foreground">{new Date(l.created_at).toLocaleString()}</span>
               <Badge variant="outline" className="text-[10px]">{l.action}</Badge>
-              <span className="font-mono text-[10px] text-muted-foreground">{l.clipboard_item_id.slice(0, 8)}</span>
+              <span className="font-mono text-[10px] text-muted-foreground">{(l.clipboard_item_id ?? "connector").slice(0, 10)}</span>
               {(l.previous_status || l.new_status) && (
                 <span className="text-muted-foreground">
                   {l.previous_status ?? "—"} → {l.new_status ?? "—"}
@@ -241,6 +308,52 @@ function AutomationControlPage() {
           ))}
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Send className="h-4 w-4" /> n8n Webhook Test
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {(() => {
+            const n8nConnectors = connectors.filter((c) => c.type === "n8n_webhook" && c.is_active);
+            if (n8nConnectors.length === 0) {
+              return <div className="text-sm text-muted-foreground">Nessun connector n8n_webhook attivo.</div>;
+            }
+            return n8nConnectors.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-2 rounded-md border border-border/60 p-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{c.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {c.webhook_url ?? <span className="text-amber-300">webhook_url non configurata</span>}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge variant="outline" className="text-[10px]">{c.target_tool}</Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!c.webhook_url || testingId === c.id}
+                    onClick={() => {
+                      setTestingId(c.id);
+                      testWebhookMut.mutate(c);
+                    }}
+                  >
+                    <Send className="mr-1 h-3 w-3" />
+                    {testingId === c.id ? "Invio…" : "Test webhook"}
+                  </Button>
+                </div>
+              </div>
+            ));
+          })()}
+          <p className="text-[11px] text-muted-foreground">
+            Invia un payload di test (mode=&quot;test&quot;) al webhook n8n. Nessun prompt reale, nessun item modificato. Esito registrato in clipboard_execution_logs.
+          </p>
+        </CardContent>
+      </Card>
+
+
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

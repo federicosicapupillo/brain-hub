@@ -306,7 +306,7 @@ export type Database = {
       clipboard_execution_logs: {
         Row: {
           action: string
-          clipboard_item_id: string
+          clipboard_item_id: string | null
           created_at: string
           id: string
           metadata: Json
@@ -317,7 +317,7 @@ export type Database = {
         }
         Insert: {
           action: string
-          clipboard_item_id: string
+          clipboard_item_id?: string | null
           created_at?: string
           id?: string
           metadata?: Json
@@ -328,7 +328,7 @@ export type Database = {
         }
         Update: {
           action?: string
-          clipboard_item_id?: string
+          clipboard_item_id?: string | null
           created_at?: string
           id?: string
           metadata?: Json
