@@ -210,6 +210,20 @@ export function N8nPilotConnector() {
   const [callbackDialog, setCallbackDialog] = useState<CallbackTemplate | null>(null);
   const [webhookEdit, setWebhookEdit] = useState<Record<string, string>>({});
 
+  // Safe diagnostic: only knows whether the secret is configured server-side.
+  // The actual value is NEVER exposed to the frontend.
+  const secretStatusQ = useQuery({
+    queryKey: ["n8n-pilot-callback-secret-status"],
+    queryFn: async () => {
+      const res = await fetch("/api/public/n8n-pilot-callback", { method: "GET" });
+      if (!res.ok) return { configured: false };
+      const j = (await res.json()) as { configured?: boolean };
+      return { configured: j.configured === true };
+    },
+    staleTime: 60_000,
+  });
+  const secretConfigured = secretStatusQ.data?.configured === true;
+
   const items = data?.items ?? [];
   const brains = data?.brains ?? [];
   const brainMap = useMemo(() => new Map(brains.map((b) => [b.id, b])), [brains]);
