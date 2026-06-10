@@ -110,6 +110,8 @@ type ClipboardItem = {
   source_url: string | null;
   project_tool_link_id: string | null;
   next_step_generated: boolean;
+  copied_count: number | null;
+  metadata: Record<string, unknown> | null;
   updated_at: string;
 };
 type ExecLog = {
