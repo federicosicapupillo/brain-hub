@@ -275,6 +275,8 @@ const LOG_TITLES: Record<LogEventType, string> = {
   local_agent_job_cancelled: "Job agente locale annullato",
   local_agent_job_failed: "Job agente locale fallito",
   local_agent_callback_received: "Callback agente locale ricevuta",
+  local_agent_starter_kit_downloaded: "Starter kit agente locale scaricato",
+  local_agent_starter_kit_copied: "Starter kit agente locale copiato",
 };
 
 
