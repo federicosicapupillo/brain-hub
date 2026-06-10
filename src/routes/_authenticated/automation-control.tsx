@@ -319,6 +319,34 @@ function AutomationControlPage() {
     },
   });
 
+  const simulateCallbackMut = useMutation({
+    mutationFn: async ({ item, mode, text }: { item: ClipboardItem; mode: "done" | "failed"; text: string }) => {
+      const body: Record<string, unknown> = {
+        source: "n8n",
+        item_id: item.id,
+        status: mode,
+        metadata: { mode: "ui_simulation", simulated: true },
+      };
+      if (mode === "done") body.output_result = text;
+      else body.error_message = text;
+      const res = await fetch("/api/public/n8n-callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const resText = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${resText}`);
+      return { mode };
+    },
+    onSuccess: () => {
+      toast.success("Simulazione callback completata");
+      setSimulateItem(null);
+      setSimulateText("");
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
+    onError: (e: Error) => toast.error(`Simulazione fallita: ${e.message}`),
+  });
+
 
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento…</div>;
