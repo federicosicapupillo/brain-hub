@@ -603,6 +603,8 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   local_agent_starter_kit_copied: "[Agente locale] Starter kit copiato",
   lovable_browser_bridge_prompt_copied: "[Browser Bridge] Prompt copiato",
   lovable_browser_bridge_extension_downloaded: "[Browser Bridge] Estensione scaricata",
+  lovable_browser_bridge_prompt_inserted: "[Browser Bridge] Prompt inserito in Lovable",
+  lovable_browser_bridge_prompt_sent_confirmed: "[Browser Bridge] Prompt inviato con conferma",
 };
 
 
