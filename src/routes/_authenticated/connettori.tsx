@@ -59,7 +59,8 @@ type ConnStatus =
 
 type Category =
   | "AI" | "Sviluppo" | "File" | "Email" | "Calendario" | "Creatività"
-  | "Note" | "Database" | "Ricerca" | "App builder";
+  | "Note" | "Database" | "Ricerca" | "App builder" | "Automazione";
+
 
 type CatalogItem = {
   key: string;                 // matches "tool" field used elsewhere
