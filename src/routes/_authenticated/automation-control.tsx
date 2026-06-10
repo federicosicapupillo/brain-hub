@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Activity, Bot, Workflow, Gauge, AlertTriangle, CheckCircle2, Clock, Plug, ListChecks, ExternalLink, Send, FileJson, Copy } from "lucide-react";
 
