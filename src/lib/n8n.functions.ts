@@ -67,8 +67,7 @@ export const testN8nWebhook = createServerFn({ method: "POST" })
       },
     } as never);
 
-    if (!ok) throw new Error(errorMsg ?? "Test fallito");
-    return { ok: true, statusCode, responseText };
+    return { ok, statusCode, responseText, errorMsg };
   });
 
 export const sendVerifiedPayloadToN8n = createServerFn({ method: "POST" })
