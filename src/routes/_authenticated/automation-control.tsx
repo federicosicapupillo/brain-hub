@@ -34,7 +34,7 @@ type ClipboardItem = {
 
 type ExecLog = {
   id: string;
-  clipboard_item_id: string;
+  clipboard_item_id: string | null;
   action: string;
   previous_status: string | null;
   new_status: string | null;
@@ -42,13 +42,16 @@ type ExecLog = {
   created_at: string;
 };
 
+
 type Connector = {
   id: string;
   name: string;
   type: string;
   target_tool: string;
   is_active: boolean;
+  webhook_url: string | null;
 };
+
 
 async function fetchAll() {
   const todayStart = new Date();
@@ -69,7 +72,7 @@ async function fetchAll() {
       .limit(20),
     supabase
       .from("automation_connectors")
-      .select("id,name,type,target_tool,is_active")
+      .select("id,name,type,target_tool,is_active,webhook_url")
       .order("created_at", { ascending: false }),
     supabase.from("tasks").select("id", { count: "exact", head: true }),
     supabase.from("roadmap_items").select("id", { count: "exact", head: true }),
@@ -230,7 +233,7 @@ function AutomationControlPage() {
             <div key={l.id} className="flex flex-wrap items-center gap-2 rounded-md border border-border/40 p-2 text-xs">
               <span className="text-muted-foreground">{new Date(l.created_at).toLocaleString()}</span>
               <Badge variant="outline" className="text-[10px]">{l.action}</Badge>
-              <span className="font-mono text-[10px] text-muted-foreground">{l.clipboard_item_id.slice(0, 8)}</span>
+              <span className="font-mono text-[10px] text-muted-foreground">{(l.clipboard_item_id ?? "connector").slice(0, 10)}</span>
               {(l.previous_status || l.new_status) && (
                 <span className="text-muted-foreground">
                   {l.previous_status ?? "—"} → {l.new_status ?? "—"}
