@@ -64,14 +64,6 @@ const FILTER_LABELS: Record<Filter, string> = {
   next_prompt: "Next prompt",
 };
 
-const VALID_AUTOMATION_STATUSES = [
-  "da_approvare",
-  "pronto",
-  "copiato",
-  "inviato",
-  "risultato_salvato",
-  "rielaborato",
-];
 
 const RUN_BADGE: Record<RunStatus, string> = {
   draft: "bg-slate-500/15 text-slate-200",
