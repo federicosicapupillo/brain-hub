@@ -456,6 +456,23 @@ export function AutomationRunPanel() {
           ))}
         </div>
 
+        {import.meta.env.DEV && (
+          <div className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-200/90 space-y-1">
+            <div className="font-mono uppercase tracking-wide text-amber-300">[dev] Run Ledger diagnostics</div>
+            <div>clipboard_items caricati: <b>{diagnostics.totalLoaded}</b> · execution_package: <b>{diagnostics.executionPackages}</b> · da_approvare normalizzati: <b>{diagnostics.pendingApproval}</b> · visibili nel filtro "{FILTER_LABELS[filter]}": <b>{diagnostics.visibleInFilter}</b></div>
+            {diagnostics.excluded.length > 0 && (
+              <details>
+                <summary className="cursor-pointer">Esclusi ({diagnostics.excluded.length})</summary>
+                <ul className="mt-1 space-y-0.5 pl-3">
+                  {diagnostics.excluded.slice(0, 20).map((e) => (
+                    <li key={e.id} className="truncate">· {(e.title || e.id).slice(0, 60)} — {e.reason}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+
         {filtered.length === 0 && (
           <div className="rounded-md border border-border/60 p-4 text-sm text-muted-foreground">
             Nessun Execution Package per questo filtro.
