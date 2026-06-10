@@ -351,9 +351,12 @@ function ProjectLoopPage() {
   const openRoadmap = roadmap.filter(isOpenRoadmap).length;
 
   const lovableQueue = lovableItems
-    .filter((i) =>
-      ["ready_for_automation", "queued", "running", "failed"].includes(i.automation_status)
-    )
+    .filter((i) => {
+      const hasOutput = !!(i.output_result ?? "").trim();
+      if (hasOutput) return false;
+      const st = (i.automation_status ?? "").toLowerCase();
+      return ["ready_for_automation", "queued", "running", "failed", "sent", "copiato", "inviato_manualmente"].includes(st);
+    })
     .slice(0, 20);
 
   const resultsToProcess = items.filter(needsNextStep).slice(0, 15);
@@ -370,10 +373,12 @@ function ProjectLoopPage() {
       if (!brain) return null;
       const lastRoadmap = roadmap.find((r) => r.brain_id === bid && isOpenRoadmap(r));
       const brainItems = items.filter((i) => i.brain_id === bid);
-      const lastPrompt = brainItems[0];
+      const brainPrompts = brainItems.filter((i) => i.target_tool === "Lovable");
+      const lastPrompt = brainPrompts[0];
       const lastOutput = brainItems.find((i) => i.output_result && i.output_result.trim() !== "");
       const nextAction = brainItems.find((i) => i.next_action && i.next_action.trim() !== "")?.next_action;
-      return { brain, lastRoadmap, lastPrompt, lastOutput, nextAction };
+      const loopState = computeLoopState({ lastRoadmap, lastPrompt });
+      return { brain, lastRoadmap, lastPrompt, lastOutput, nextAction, loopState };
     })
     .filter(Boolean) as Array<{
       brain: Brain;
@@ -381,6 +386,7 @@ function ProjectLoopPage() {
       lastPrompt?: ClipboardItem;
       lastOutput?: ClipboardItem;
       nextAction?: string | null;
+      loopState: LoopState;
     }>;
 
   const projectLinkById = new Map(projectLinks.map((p) => [p.id, p]));
