@@ -26,7 +26,7 @@ const PACKAGE_JSON = `{
 const ENV_EXAMPLE = `# Optional configuration for the local agent.
 # Nothing here is required. NEVER put Lovable passwords or tokens.
 
-# Path to the persistent Chromium profile (default: ./browser-profile)
+# Path to the persistent browser profile (default: ./browser-profile)
 AGENT_PROFILE_DIR=./browser-profile
 
 # Milliseconds to wait for Lovable UI before giving up (default: 45000)
@@ -46,7 +46,7 @@ const AGENT_JS = `#!/usr/bin/env node
  * What it does:
  *   1. Reads a Brain Hub agent-job.json
  *   2. Validates required fields
- *   3. Opens Chromium (NON headless) with a persistent profile
+ *   3. Opens Google Chrome (NON headless) with a persistent profile
  *   4. Navigates to the Lovable project URL
  *   5. Tries to locate the chat input and pastes the prompt
  *   6. Waits for the human to press ENTER manually (default)
@@ -123,10 +123,23 @@ console.log("Send mode:            ", sendMode ? "AUTO SEND (--send)" : "MANUAL 
 console.log();
 
 (async () => {
-  const context = await chromium.launchPersistentContext(absProfileDir, {
-    headless: false,
-    viewport: { width: 1280, height: 900 },
-  });
+  let context;
+  try {
+    context = await chromium.launchPersistentContext(absProfileDir, {
+      channel: "chrome",
+      headless: false,
+      viewport: null,
+      args: ["--start-maximized"],
+    });
+  } catch (e) {
+    const msg = e?.message || String(e);
+    if (msg.toLowerCase().includes("chrome")) {
+      console.error("Google Chrome non trovato. Installa Chrome oppure modifica lo script per usare Chromium.");
+    } else {
+      console.error("Failed to launch browser:", msg);
+    }
+    process.exit(1);
+  }
 
   const page = context.pages()[0] ?? (await context.newPage());
 
@@ -212,6 +225,13 @@ Agente Playwright locale che apre Lovable nel tuo Mac, incolla il prompt
 dell'Execution Package preparato dal Brain Hub e ti lascia premere INVIO
 manualmente. Pensato per uso personale e supervisionato.
 
+## Prerequisito
+
+Devi avere **Google Chrome** installato sul tuo Mac. Lo script usa
+\`channel: "chrome"\` in modo che Playwright apra la tua installazione
+locale di Chrome, evitando il messaggio di sicurezza di Google sui
+browser non verificati.
+
 ## Cosa NON fa
 - non salva password Lovable
 - non salva token
@@ -228,8 +248,10 @@ mkdir brainhub-lovable-agent
 cd brainhub-lovable-agent
 npm init -y
 npm install playwright
-npx playwright install chromium
 \`\`\`
+
+Non serve \`npx playwright install chromium\`: lo script usa direttamente
+il tuo Google Chrome installato.
 
 Poi copia in questa cartella i file dello starter kit:
 - \`package.json\`
@@ -239,20 +261,28 @@ Poi copia in questa cartella i file dello starter kit:
 
 ## Primo avvio e login manuale
 
-1. Lancia l'agente una prima volta senza job per fare login Lovable:
+1. Lancia l'agente una prima volta con un job valido (o anche un job
+   fittizio) per aprire Chrome:
 
    \`\`\`bash
    node brainhub-lovable-agent.js --job ./agent-job.json
    \`\`\`
 
-   Se non hai ancora un job, puoi anche aprire Chromium con il profilo
-   persistente lanciando uno script tuo. Il punto e' che la cartella
-   \`./browser-profile\` conservi la tua sessione Lovable.
-
-2. Nel browser che si apre, fai login Lovable a mano una sola volta.
+2. Nella finestra di Chrome che si apre, fai login a Lovable a mano una
+   sola volta.
 3. Chiudi tutto.
 
-Da ora in poi il profilo \`./browser-profile\` ricorda il login.
+Da ora in poi il profilo \`./browser-profile\` conserva la tua sessione
+Lovable. Il primo login deve essere fatto nella finestra aperta
+dall'agente perché il profilo persistente sia quello corretto.
+
+## Se Google blocca ancora il login
+
+A volte Google mostra comunque un avviso. In questo caso:
+
+1. Apri **Google Chrome normalmente** dal tuo Mac (non quello dell'agente).
+2. Verifica che l'account Google sia attivo e senza blocchi di sicurezza.
+3. Chiudi Chrome normale e riprova a lanciare l'agente.
 
 ## Uso senza invio automatico (default)
 
@@ -283,7 +313,7 @@ comando sopra.
 
 ## Sicurezza
 - Nessuna credenziale viene salvata dallo script.
-- La sessione Lovable vive solo nel profilo Chromium \`./browser-profile\`
+- La sessione Lovable vive solo nel profilo \`./browser-profile\`
   sul tuo Mac. Non viene mai inviata da nessuna parte.
 - Lo script NON invia nulla senza \`--send\`.
 - Tieni il browser aperto durante l'esecuzione: sei tu il supervisore.
@@ -293,7 +323,6 @@ const TERMINAL_INSTRUCTIONS = `mkdir brainhub-lovable-agent
 cd brainhub-lovable-agent
 npm init -y
 npm install playwright
-npx playwright install chromium
 node brainhub-lovable-agent.js --job ./agent-job.json
 `;
 
