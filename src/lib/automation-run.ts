@@ -140,7 +140,8 @@ export type LogEventType =
   | "n8n_payload_prepared"
   | "n8n_callback_template_generated"
   | "n8n_callback_sent_to_inbox"
-  | "n8n_ready_for_real_test";
+  | "n8n_ready_for_real_test"
+  | "n8n_callback_received";
 
 const LOG_TITLES: Record<LogEventType, string> = {
   automation_approved: "Run approvata",
