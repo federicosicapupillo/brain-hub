@@ -21,6 +21,10 @@ import {
   Inbox,
   Save,
   AlertTriangle,
+  ShieldCheck,
+  ListChecks,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import {
   buildAutomationPayload,
@@ -30,6 +34,74 @@ import {
   type ItemLike,
   type LogEventType,
 } from "@/lib/automation-run";
+
+export const N8N_CALLBACK_SCHEMA_VERSION = 1;
+
+export const N8N_PAYLOAD_SCHEMA = {
+  required: [
+    "execution_package_id",
+    "run_id",
+    "project_id",
+    "brain_id",
+    "prompt",
+    "success_criteria",
+    "expected_output",
+    "callback_required",
+    "callback_schema_version",
+  ],
+  optional: ["protected_areas", "risk_level", "package_type", "target", "execution_mode", "created_at"],
+};
+
+export const N8N_CALLBACK_SCHEMA = {
+  required: ["execution_package_id", "run_id", "status", "callback_schema_version"],
+  optional: [
+    "build_status",
+    "console_errors",
+    "modified_files",
+    "summary",
+    "notes",
+    "raw_output",
+    "external_result_reference",
+  ],
+  status_allowed: ["completed", "failed"],
+  build_status_allowed: ["ok", "failed", "not_verified"],
+};
+
+export type ContractStatus = "valid" | "incomplete" | "not_ready";
+
+export function validateN8nContract(
+  payload: Record<string, unknown>,
+  callbackTpl: Record<string, unknown>,
+): { status: ContractStatus; errors: string[] } {
+  const errors: string[] = [];
+  const need = (obj: Record<string, unknown>, k: string, label: string) => {
+    const v = obj[k];
+    if (v === undefined || v === null || v === "") errors.push(`${label}.${k} mancante`);
+  };
+  for (const k of ["execution_package_id", "run_id", "project_id", "brain_id", "prompt", "success_criteria", "expected_output"]) {
+    need(payload, k, "payload");
+  }
+  if (payload.callback_required !== true) errors.push("payload.callback_required deve essere true");
+  if (payload.callback_schema_version !== N8N_CALLBACK_SCHEMA_VERSION)
+    errors.push(`payload.callback_schema_version deve essere ${N8N_CALLBACK_SCHEMA_VERSION}`);
+
+  for (const k of ["execution_package_id", "run_id", "status"]) need(callbackTpl, k, "callback");
+  if (!N8N_CALLBACK_SCHEMA.status_allowed.includes(String(callbackTpl.status)))
+    errors.push("callback.status deve essere completed|failed");
+  if (callbackTpl.build_status && !N8N_CALLBACK_SCHEMA.build_status_allowed.includes(String(callbackTpl.build_status)))
+    errors.push("callback.build_status deve essere ok|failed|not_verified");
+  if (callbackTpl.callback_schema_version !== N8N_CALLBACK_SCHEMA_VERSION)
+    errors.push(`callback.callback_schema_version deve essere ${N8N_CALLBACK_SCHEMA_VERSION}`);
+  const hasRef = !!callbackTpl.external_result_reference;
+  const hasBody = !!(callbackTpl.raw_output || callbackTpl.summary);
+  if (!hasRef) errors.push("callback.external_result_reference assente o non generabile");
+  if (!hasBody) errors.push("callback.raw_output o summary richiesto");
+
+  if (errors.length === 0) return { status: "valid", errors };
+  // Distinguish "not_ready" if too many critical fields missing
+  const criticalMissing = errors.filter((e) => e.includes("execution_package_id") || e.includes("prompt") || e.includes("brain_id"));
+  return { status: criticalMissing.length > 0 ? "not_ready" : "incomplete", errors };
+}
 
 type ClipItem = ItemLike & {
   content: string | null;
@@ -85,6 +157,10 @@ function externalConnector(i: ClipItem):
       last_payload_version?: number;
       last_callback_template_at?: string;
       last_sent_to_inbox_at?: string;
+      contract_status?: ContractStatus;
+      callback_schema_version?: number;
+      ready_for_real_test?: boolean;
+      ready_marked_at?: string;
     }
   | null {
   const run = getAutomationRun(i);
@@ -163,16 +239,16 @@ export function N8nPilotConnector() {
       source: "brain_hub",
       connector: "n8n_pilot",
       callback_mode: "manual_or_webhook_future",
-      callback_schema_version: 1,
+      callback_schema_version: N8N_CALLBACK_SCHEMA_VERSION,
       dry_run: false,
       created_at: new Date().toISOString(),
     };
   }
 
-  function buildCallbackTemplate(item: ClipItem): string {
+  function buildCallbackTemplateObj(item: ClipItem): Record<string, unknown> {
     const run = getAutomationRun(item);
     const stamp = Date.now().toString(36);
-    const tpl = {
+    return {
       execution_package_id: item.id,
       run_id: run.run_id,
       status: "completed",
@@ -183,9 +259,14 @@ export function N8nPilotConnector() {
       notes: "",
       external_result_reference: `n8n_pilot_${stamp}`,
       raw_output: "",
+      callback_schema_version: N8N_CALLBACK_SCHEMA_VERSION,
     };
-    return JSON.stringify(tpl, null, 2);
   }
+
+  function buildCallbackTemplate(item: ClipItem): string {
+    return JSON.stringify(buildCallbackTemplateObj(item), null, 2);
+  }
+
 
   async function logEvent(item: ClipItem, action: LogEventType, notes: string, extra?: Record<string, unknown>) {
     const { data: userData } = await supabase.auth.getUser();
@@ -353,6 +434,56 @@ export function N8nPilotConnector() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  type ReadinessCheck = { label: string; ok: boolean; critical: boolean };
+  function readinessFor(item: ClipItem): { checks: ReadinessCheck[]; contract: ReturnType<typeof validateN8nContract>; canMark: boolean } {
+    const run = getAutomationRun(item);
+    const rm = resultMeta(item);
+    const ext = externalConnector(item);
+    const reviewed = reviewStatus(item);
+    const dryActive = ((run as unknown) as { dry_run?: { enabled?: boolean } }).dry_run?.enabled === true && run.run_status === "running";
+    const realApproved = rm?.source !== "dry_run" && rm?.is_simulated !== true && (reviewed === "approvato" || run.run_status === "completed");
+    const payload = buildN8nPayload(item);
+    const tpl = buildCallbackTemplateObj(item);
+    const contract = validateN8nContract(payload, tpl);
+    const checks: ReadinessCheck[] = [
+      { label: "Run approvata o in coda", ok: run.run_status === "approved" || run.run_status === "queued", critical: true },
+      { label: "Risk level non alto", ok: item.risk_level !== "alto", critical: true },
+      { label: "Payload contratto valido", ok: contract.status === "valid", critical: true },
+      { label: "Callback schema valido (v" + N8N_CALLBACK_SCHEMA_VERSION + ")", ok: contract.status === "valid", critical: true },
+      { label: "Nessun dry run attivo", ok: !dryActive, critical: true },
+      { label: "Nessun risultato reale già approvato", ok: !realApproved, critical: true },
+      { label: "Review precedente non bloccante", ok: reviewed !== "non_approvato_blocca", critical: true },
+      { label: "Webhook URL solo etichetta, nessun token salvato", ok: true, critical: false },
+      { label: "Test manuale/pilota consapevole", ok: true, critical: false },
+    ];
+    const canMark = checks.filter((c) => c.critical).every((c) => c.ok);
+    return { checks, contract, canMark };
+  }
+
+  const markReadyMut = useMutation({
+    mutationFn: async (item: ClipItem) => {
+      const r = readinessFor(item);
+      if (!r.canMark) throw new Error("Checklist non completa: alcuni controlli critici falliscono");
+      await persistExternalConnector(item, {
+        contract_status: r.contract.status,
+        callback_schema_version: N8N_CALLBACK_SCHEMA_VERSION,
+        ready_for_real_test: true,
+        ready_marked_at: new Date().toISOString(),
+      });
+      await logEvent(item, "n8n_ready_for_real_test", "Execution Package pronto per test n8n controllato", {
+        contract_status: r.contract.status,
+        callback_schema_version: N8N_CALLBACK_SCHEMA_VERSION,
+      });
+    },
+    onSuccess: () => {
+      toast.success("Execution Package pronto per test n8n controllato");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   // Ledger touch helper: increment run touched timestamp without changing status
   async function touchRun(item: ClipItem) {
     try {
@@ -422,6 +553,46 @@ Callback richiesta:
           </Button>
         </details>
 
+        <details className="rounded-md border border-border/60 p-3" open>
+          <summary className="cursor-pointer text-sm font-medium flex items-center gap-2">
+            <ShieldCheck className="h-3 w-3 text-emerald-400" /> Webhook Contract (schema v{N8N_CALLBACK_SCHEMA_VERSION})
+          </summary>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="rounded-md border border-border/40 p-2 text-xs space-y-1">
+              <div className="font-medium">Payload in uscita</div>
+              <div className="text-muted-foreground">Obbligatori:</div>
+              <div className="font-mono text-[10px]">{N8N_PAYLOAD_SCHEMA.required.join(", ")}</div>
+              <div className="text-muted-foreground mt-1">Opzionali:</div>
+              <div className="font-mono text-[10px]">{N8N_PAYLOAD_SCHEMA.optional.join(", ")}</div>
+            </div>
+            <div className="rounded-md border border-border/40 p-2 text-xs space-y-1">
+              <div className="font-medium">Callback attesa</div>
+              <div className="text-muted-foreground">Obbligatori:</div>
+              <div className="font-mono text-[10px]">{N8N_CALLBACK_SCHEMA.required.join(", ")}</div>
+              <div className="text-muted-foreground mt-1">Opzionali:</div>
+              <div className="font-mono text-[10px]">{N8N_CALLBACK_SCHEMA.optional.join(", ")}</div>
+              <div className="text-muted-foreground mt-1">status: {N8N_CALLBACK_SCHEMA.status_allowed.join(" | ")}</div>
+              <div className="text-muted-foreground">build_status: {N8N_CALLBACK_SCHEMA.build_status_allowed.join(" | ")}</div>
+            </div>
+          </div>
+        </details>
+
+        <details className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+          <summary className="cursor-pointer text-sm font-medium flex items-center gap-2">
+            <AlertTriangle className="h-3 w-3 text-amber-400" /> Istruzioni sicurezza n8n
+          </summary>
+          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-1">
+            <li>Non salvare token nel frontend.</li>
+            <li>Non esporre secret in chiaro.</li>
+            <li>Il primo test deve essere fatto su un solo Execution Package.</li>
+            <li>Il risultato deve rientrare come callback JSON compatibile.</li>
+            <li>Se la callback non valida il contratto, non applicarla.</li>
+            <li>Se il risultato modifica aree protette, passare da Post Execution Review e Fix Prompt.</li>
+          </ul>
+        </details>
+
+
+
         {eligible.length === 0 && (
           <div className="rounded-md border border-border/60 p-4 text-sm text-muted-foreground">
             Nessun Execution Package eleggibile (richiede run_status approved o queued, senza dry run attivo).
@@ -437,6 +608,20 @@ Callback richiesta:
             const ext = externalConnector(item);
             const editing = webhookEdit[item.id];
             const callbackState = rm?.source === "callback_inbox" ? "applicata" : ext?.last_sent_to_inbox_at ? "inviata alla inbox" : ext?.last_callback_template_at ? "template generato" : "nessuna";
+            const readiness = readinessFor(item);
+            const contractBadgeCls =
+              readiness.contract.status === "valid"
+                ? "bg-emerald-500/15 text-emerald-300"
+                : readiness.contract.status === "incomplete"
+                ? "bg-amber-500/15 text-amber-300"
+                : "bg-red-500/15 text-red-300";
+            const contractLabel =
+              readiness.contract.status === "valid"
+                ? "Contratto valido"
+                : readiness.contract.status === "incomplete"
+                ? "Contratto incompleto"
+                : "Contratto non pronto";
+            const alreadyReady = ext?.ready_for_real_test === true;
             return (
               <div key={item.id} className="rounded-md border border-border/60 p-3 space-y-2">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -460,6 +645,10 @@ Callback richiesta:
                     <Badge className="bg-blue-500/15 text-blue-300 text-[10px]">
                       run: {RUN_STATUS_LABELS[run.run_status]}
                     </Badge>
+                    <Badge className={`text-[10px] ${contractBadgeCls}`}>{contractLabel}</Badge>
+                    {alreadyReady && (
+                      <Badge className="bg-emerald-500/15 text-emerald-300 text-[10px]">pronto per test reale</Badge>
+                    )}
                   </div>
                 </div>
 
@@ -494,10 +683,56 @@ Callback richiesta:
                     <Badge variant="outline" className="text-[10px]">saved</Badge>
                   )}
                 </div>
+
+                <details className="rounded-md border border-border/40 p-2">
+                  <summary className="cursor-pointer text-xs font-medium flex items-center gap-1">
+                    <ListChecks className="h-3 w-3" /> Pronto per test n8n reale
+                    {readiness.canMark ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-300 text-[10px]">ok</Badge>
+                    ) : (
+                      <Badge className="bg-amber-500/15 text-amber-300 text-[10px]">controlli falliti</Badge>
+                    )}
+                  </summary>
+                  <ul className="mt-2 space-y-1 text-[11px]">
+                    {readiness.checks.map((c, idx) => (
+                      <li key={idx} className="flex items-center gap-1">
+                        {c.ok ? (
+                          <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                        ) : (
+                          <XCircle className={`h-3 w-3 ${c.critical ? "text-red-400" : "text-amber-400"}`} />
+                        )}
+                        <span className={c.ok ? "text-muted-foreground" : c.critical ? "text-red-300" : "text-amber-300"}>
+                          {c.label}
+                          {!c.critical && <span className="ml-1 text-[10px] text-muted-foreground">(non bloccante)</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {readiness.contract.status !== "valid" && readiness.contract.errors.length > 0 && (
+                    <ul className="mt-2 list-disc pl-4 text-[10px] text-amber-300">
+                      {readiness.contract.errors.slice(0, 5).map((e, idx) => <li key={idx}>{e}</li>)}
+                    </ul>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => markReadyMut.mutate(item)}
+                      disabled={!readiness.canMark || alreadyReady || markReadyMut.isPending}
+                    >
+                      <ShieldCheck className="mr-1 h-3 w-3" />
+                      {alreadyReady ? "Già pronto" : "Segna pronto per test n8n"}
+                    </Button>
+                    {!readiness.canMark && (
+                      <span className="text-[10px] text-amber-300">Risolvi i controlli critici per abilitare.</span>
+                    )}
+                  </div>
+                </details>
               </div>
             );
           })}
         </div>
+
+
 
         <Dialog open={!!payloadDialog} onOpenChange={(o) => !o && setPayloadDialog(null)}>
           <DialogContent className="max-w-2xl">
