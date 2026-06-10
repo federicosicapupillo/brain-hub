@@ -604,6 +604,20 @@ Callback richiesta:
             const ext = externalConnector(item);
             const editing = webhookEdit[item.id];
             const callbackState = rm?.source === "callback_inbox" ? "applicata" : ext?.last_sent_to_inbox_at ? "inviata alla inbox" : ext?.last_callback_template_at ? "template generato" : "nessuna";
+            const readiness = readinessFor(item);
+            const contractBadgeCls =
+              readiness.contract.status === "valid"
+                ? "bg-emerald-500/15 text-emerald-300"
+                : readiness.contract.status === "incomplete"
+                ? "bg-amber-500/15 text-amber-300"
+                : "bg-red-500/15 text-red-300";
+            const contractLabel =
+              readiness.contract.status === "valid"
+                ? "Contratto valido"
+                : readiness.contract.status === "incomplete"
+                ? "Contratto incompleto"
+                : "Contratto non pronto";
+            const alreadyReady = ext?.ready_for_real_test === true;
             return (
               <div key={item.id} className="rounded-md border border-border/60 p-3 space-y-2">
                 <div className="flex flex-wrap items-start justify-between gap-2">
