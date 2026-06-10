@@ -144,14 +144,44 @@ async function insertLog(
   if (error) throw error;
 }
 
-async function refreshItem(id: string): Promise<ItemLike> {
+async function refreshItem(id: string): Promise<ItemLike & { output_result: string | null }> {
   const { data, error } = await supabase
     .from("clipboard_items")
-    .select("id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata")
+    .select("id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,output_result")
     .eq("id", id)
     .single();
   if (error) throw error;
-  return data as ItemLike;
+  return data as ItemLike & { output_result: string | null };
+}
+
+/**
+ * Detect if an item already holds a "real" (non-simulated) result that a dry run would overwrite.
+ */
+export function hasRealResult(item: ItemLike & { output_result?: string | null }): {
+  hasReal: boolean;
+  reasons: string[];
+} {
+  const reasons: string[] = [];
+  const meta = (item.metadata as Record<string, unknown> | null) ?? {};
+  const rm = meta.result_meta as { source?: string; is_simulated?: boolean } | undefined;
+  const run = getAutomationRun(item);
+  const review = meta.post_execution_review as { review_status?: string } | undefined;
+  const output = (item.output_result ?? "").trim();
+  if (output && rm?.source && rm.source !== "dry_run" && rm.is_simulated !== true) {
+    reasons.push("output_result reale già presente");
+  } else if (output && !rm) {
+    reasons.push("output_result presente senza marcatura simulazione");
+  }
+  if (rm?.source && rm.source !== "dry_run" && rm.is_simulated !== true) {
+    reasons.push(`result_meta.source = "${rm.source}"`);
+  }
+  if (run.run_status === "completed" && rm?.source !== "dry_run" && rm?.is_simulated !== true) {
+    reasons.push("run_status = completed (reale)");
+  }
+  if (review?.review_status === "approved") {
+    reasons.push("post_execution_review = approved");
+  }
+  return { hasReal: reasons.length > 0, reasons };
 }
 
 /**
