@@ -136,7 +136,10 @@ export type LogEventType =
   | "automation_dry_run_completed"
   | "automation_dry_run_failed"
   | "automation_dry_run_blocked"
-  | "automation_dry_run_restored";
+  | "automation_dry_run_restored"
+  | "n8n_payload_prepared"
+  | "n8n_callback_template_generated"
+  | "n8n_callback_sent_to_inbox";
 
 const LOG_TITLES: Record<LogEventType, string> = {
   automation_approved: "Run approvata",
@@ -149,6 +152,9 @@ const LOG_TITLES: Record<LogEventType, string> = {
   automation_retried: "Run riprovata",
   automation_payload_copied: "Payload automazione copiato",
   automation_callback_received: "Callback ricevuta",
+  n8n_payload_prepared: "Payload n8n preparato",
+  n8n_callback_template_generated: "Template callback n8n generato",
+  n8n_callback_sent_to_inbox: "Callback n8n inviata alla inbox",
   automation_dry_run_started: "Dry run avviato",
   automation_dry_run_completed: "Dry run completato",
   automation_dry_run_failed: "Dry run fallito",

@@ -14,6 +14,7 @@ import { testN8nWebhook, sendVerifiedPayloadToN8n } from "@/lib/n8n.functions";
 import { AutomationRunPanel } from "@/components/AutomationRunPanel";
 import { CallbackInboxSection, type CallbackPrefill } from "@/components/CallbackInboxSection";
 import { DryRunOrchestrator } from "@/components/DryRunOrchestrator";
+import { N8nPilotConnector } from "@/components/N8nPilotConnector";
 import { useEffect } from "react";
 
 
@@ -306,7 +307,10 @@ function AutomationControlPage() {
 
       <DryRunOrchestrator />
 
+      <N8nPilotConnector />
+
       <CallbackInboxHost />
+
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

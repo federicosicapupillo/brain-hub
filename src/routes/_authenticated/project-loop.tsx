@@ -583,6 +583,9 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   automation_dry_run_failed: "Simulazione fallita",
   automation_dry_run_blocked: "Simulazione bloccata",
   automation_dry_run_restored: "Stato pre dry run ripristinato",
+  n8n_payload_prepared: "[n8n pilot] Payload n8n preparato",
+  n8n_callback_template_generated: "[n8n pilot] Template callback n8n generato",
+  n8n_callback_sent_to_inbox: "[n8n pilot] Callback n8n inviata alla inbox",
 };
 
 function buildTimelineEvents(
