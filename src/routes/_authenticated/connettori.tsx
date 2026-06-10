@@ -21,6 +21,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+
 
 import { supabase } from "@/integrations/supabase/client";
 import { listConnectors, type Connector } from "@/lib/workspace-api";
