@@ -547,9 +547,16 @@ export function LovableHandoffConnector() {
                 | { package_type?: string }
                 | undefined)?.package_type ?? "standard";
             const h = getHandoff(item);
+            const projectUrl = projectUrlForBrain(item.brain_id);
+            const effectiveUrl = (h.lovable_project_url || projectUrl).trim();
             const editing = urlEdits[item.id];
             const urlValue = editing ?? h.lovable_project_url ?? "";
-            const hasUrl = h.lovable_project_url.trim().length > 0;
+            const hasUrl = effectiveUrl.length > 0;
+            const urlSource = h.lovable_project_url.trim()
+              ? "override item"
+              : projectUrl
+                ? "progetto"
+                : "—";
             const rm = resultMeta(item);
             const alreadySavedLovable =
               h.handoff_status === "result_saved" || rm?.source === "lovable_manual";
@@ -582,11 +589,40 @@ export function LovableHandoffConnector() {
                   </div>
                 </div>
 
+                <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-[11px] space-y-0.5">
+                  <div>
+                    <span className="text-muted-foreground">Progetto Brain Hub:</span>{" "}
+                    <span className="font-medium">{brain?.name ?? "—"}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground">URL Lovable:</span>
+                    {effectiveUrl ? (
+                      <a
+                        href={effectiveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate underline text-blue-300"
+                      >
+                        {effectiveUrl}
+                      </a>
+                    ) : (
+                      <span className="italic text-muted-foreground">non impostato</span>
+                    )}
+                    {hasUrl ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-300 text-[10px]">
+                        URL configurato · fonte: {urlSource}
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-500/15 text-amber-300 text-[10px]">URL mancante</Badge>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <div className="text-[11px] text-muted-foreground shrink-0">URL progetto Lovable:</div>
+                  <div className="text-[11px] text-muted-foreground shrink-0">Override URL (opzionale):</div>
                   <Input
                     className="h-7 text-xs flex-1 min-w-[240px]"
-                    placeholder="https://lovable.dev/projects/..."
+                    placeholder={projectUrl || "https://lovable.dev/projects/..."}
                     value={urlValue}
                     onChange={(e) =>
                       setUrlEdits((s) => ({ ...s, [item.id]: e.target.value }))
@@ -644,7 +680,7 @@ export function LovableHandoffConnector() {
                 {!hasUrl && (
                   <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-300">
                     <AlertTriangle className="inline h-3 w-3 mr-1" />
-                    Salva l&apos;URL del progetto Lovable per abilitare l&apos;apertura in nuova tab.
+                    Nessun URL Lovable mappato per questo progetto. Verifica il nome del progetto o imposta un override URL.
                   </div>
                 )}
               </div>
