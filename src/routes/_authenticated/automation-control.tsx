@@ -580,6 +580,14 @@ function AutomationControlPage() {
 
       <N8nCallbackInfo />
 
+      <N8nCallbackTestPanel
+        items={items}
+        connectors={connectors}
+        onSimulate={(item, mode) => {
+          setSimulateItem({ item, mode });
+          setSimulateText(mode === "done" ? `Simulated n8n result for: ${item.title}` : `Simulated n8n failure for: ${item.title}`);
+        }}
+      />
 
       <Dialog open={!!sendItem} onOpenChange={(o) => { if (!o) setSendItem(null); }}>
         <DialogContent className="max-w-2xl">
