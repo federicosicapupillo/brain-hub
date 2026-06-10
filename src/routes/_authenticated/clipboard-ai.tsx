@@ -432,10 +432,27 @@ function ClipboardAIPage() {
     mutationFn: async (f: FormState) => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Non autenticato");
+
+      // Normalize project_id: if the selected option came from `brains`,
+      // resolve/create the matching project_links row so the FK is valid.
+      let normalizedProjectId: string | null = null;
+      let normalizedBrainId: string | null = f.brain_id ?? null;
+      if (f.project_id) {
+        const opt = projectOptions.find((p) => p.id === f.project_id);
+        try {
+          normalizedProjectId = await ensureProjectLinkForBrain(opt);
+        } catch {
+          throw new Error("Il progetto selezionato non è ancora collegato correttamente. Ho provato a creare il collegamento automatico, riprova il salvataggio.");
+        }
+        if (opt?.source === "brain" && !normalizedBrainId) {
+          normalizedBrainId = opt.brain_id ?? opt.id;
+        }
+      }
+
       const payload = {
         user_id: u.user.id,
-        brain_id: f.brain_id,
-        project_id: f.project_id,
+        brain_id: normalizedBrainId,
+        project_id: normalizedProjectId,
         project_tool_link_id: f.project_tool_link_id,
         title: f.title.trim() || f.content.slice(0, 60),
         content: f.content,
@@ -471,7 +488,12 @@ function ClipboardAIPage() {
       setForm(EMPTY_FORM);
       toast.success("Contenuto salvato");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      const msg = e.message?.includes("clipboard_items_project_id_fkey")
+        ? "Il progetto selezionato non è ancora collegato correttamente. Ho provato a creare il collegamento automatico, riprova il salvataggio."
+        : e.message;
+      toast.error(msg);
+    },
   });
 
   const patchMut = useMutation({
