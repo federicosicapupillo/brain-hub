@@ -7,6 +7,7 @@ import {
   type DryRunMeta,
   type ItemLike,
   type LogEventType,
+  type PreviousStateSnapshot,
 } from "./automation-run";
 
 export type DryRunScenario =
