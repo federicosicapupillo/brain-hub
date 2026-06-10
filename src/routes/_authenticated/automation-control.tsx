@@ -319,6 +319,9 @@ function AutomationControlPage() {
 
       <LovableHandoffConnector />
 
+      <LocalAgentBridge />
+
+
 
       <CallbackInboxHost />
 
