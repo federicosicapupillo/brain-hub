@@ -299,6 +299,8 @@ function AutomationControlPage() {
         <StatCard label="Task generati" value={tasksCount} icon={ListChecks} />
       </div>
 
+      <AutomationRunPanel />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
