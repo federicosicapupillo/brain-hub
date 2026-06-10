@@ -758,15 +758,13 @@ function ProjectLoopPage() {
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr || !userData.user) throw new Error("Utente non autenticato");
       const userId = userData.user.id;
-      const execInstr = `Inviare il prompt a Lovable, attendere la modifica, verificare build/console/navigazione, poi salvare il risultato in Clipboard AI.`;
-      const expected = `Implementazione del roadmap item "${roadmap.title}" senza regressioni, build pulita, nessun errore TS o console.`;
-      const success = `- Build pulita\n- Nessun errore TypeScript\n- Nessun errore console\n- Funzionalità "${roadmap.title}" attiva e usabile\n- Nessuna regressione su auth/RLS/route esistenti`;
+      const pkg = buildExecutionPackage(brain, roadmap);
 
       const insertPayload = {
         user_id: userId,
-        title: `Prompt Lovable — ${roadmap.title}`,
+        title: `Execution Package — ${roadmap.title}`,
         content: prompt,
-        content_type: "prompt",
+        content_type: "execution_package",
         target_tool: "Lovable",
         source_tool: "Project Loop",
         brain_id: brain.id,
@@ -774,12 +772,17 @@ function ProjectLoopPage() {
         approval_status: "pending",
         automation_status: "ready_for_automation",
         human_review_required: true,
-        execution_instructions: execInstr,
-        expected_output: expected,
-        success_criteria: success,
+        execution_instructions: pkg.executionInstructions,
+        expected_output: pkg.expectedOutput,
+        success_criteria: pkg.successCriteria,
         risk_level: "medium",
         requires_approval: true,
-        next_action: "Inviare a Lovable e salvare il risultato",
+        next_action: "Copiare il prompt in Lovable, eseguirlo, salvare il risultato",
+        metadata: {
+          execution_package: pkg,
+          roadmap_item_id: roadmap.id,
+          stage: "da_approvare",
+        },
       };
 
       const { data: inserted, error: insErr } = await supabase
