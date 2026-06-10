@@ -40,6 +40,9 @@ import {
   ChevronDown,
   ChevronRight,
   Send,
+  ClipboardCheck,
+  ShieldAlert,
+  XCircle,
 } from "lucide-react";
 
 type HealthStatus = "healthy" | "needs_attention" | "blocked" | "empty";
