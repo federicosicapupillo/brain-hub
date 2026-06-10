@@ -260,11 +260,48 @@ function suggestNextStep(output: string): string {
   return "Analizzare il risultato e definire il prossimo intervento";
 }
 
+type LoopState =
+  | "roadmap_missing"
+  | "prompt_missing"
+  | "prompt_ready"
+  | "waiting_result"
+  | "result_to_review"
+  | "next_prompt_needed";
+
+const LOOP_STATE_META: Record<LoopState, { label: string; cls: string }> = {
+  roadmap_missing: { label: "Roadmap mancante", cls: "bg-muted text-muted-foreground border-border" },
+  prompt_missing: { label: "Prompt da generare", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  prompt_ready: { label: "Prompt pronto", cls: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
+  waiting_result: { label: "Attendo risultato", cls: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30" },
+  result_to_review: { label: "Risultato da rielaborare", cls: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30" },
+  next_prompt_needed: { label: "Prossimo prompt", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+};
+
+function computeLoopState(args: {
+  lastRoadmap?: RoadmapItem;
+  lastPrompt?: ClipboardItem;
+}): LoopState {
+  const { lastRoadmap, lastPrompt } = args;
+  if (!lastRoadmap) return "roadmap_missing";
+  if (!lastPrompt) return "prompt_missing";
+  const hasOutput = !!(lastPrompt.output_result ?? "").trim();
+  if (!hasOutput) {
+    const sent = ["queued", "running", "completed", "sent", "copiato", "inviato_manualmente"].includes(
+      (lastPrompt.automation_status ?? "").toLowerCase(),
+    );
+    return sent ? "waiting_result" : "prompt_ready";
+  }
+  if (!(lastPrompt.next_step_generated ?? false)) return "result_to_review";
+  return "next_prompt_needed";
+}
+
 function ProjectLoopPage() {
   const queryClient = useQueryClient();
   const [genTarget, setGenTarget] = useState<{ brain: Brain; roadmap: RoadmapItem } | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState("");
   const [nextStepItem, setNextStepItem] = useState<ClipboardItem | null>(null);
+  const [saveResultItem, setSaveResultItem] = useState<ClipboardItem | null>(null);
+  const [saveResultText, setSaveResultText] = useState("");
   const [nextStepForm, setNextStepForm] = useState<{
     suggestion: string;
     actionType: "roadmap" | "task" | "prompt";
@@ -314,9 +351,12 @@ function ProjectLoopPage() {
   const openRoadmap = roadmap.filter(isOpenRoadmap).length;
 
   const lovableQueue = lovableItems
-    .filter((i) =>
-      ["ready_for_automation", "queued", "running", "failed"].includes(i.automation_status)
-    )
+    .filter((i) => {
+      const hasOutput = !!(i.output_result ?? "").trim();
+      if (hasOutput) return false;
+      const st = (i.automation_status ?? "").toLowerCase();
+      return ["ready_for_automation", "queued", "running", "failed", "sent", "copiato", "inviato_manualmente"].includes(st);
+    })
     .slice(0, 20);
 
   const resultsToProcess = items.filter(needsNextStep).slice(0, 15);
@@ -333,10 +373,12 @@ function ProjectLoopPage() {
       if (!brain) return null;
       const lastRoadmap = roadmap.find((r) => r.brain_id === bid && isOpenRoadmap(r));
       const brainItems = items.filter((i) => i.brain_id === bid);
-      const lastPrompt = brainItems[0];
+      const brainPrompts = brainItems.filter((i) => i.target_tool === "Lovable");
+      const lastPrompt = brainPrompts[0];
       const lastOutput = brainItems.find((i) => i.output_result && i.output_result.trim() !== "");
       const nextAction = brainItems.find((i) => i.next_action && i.next_action.trim() !== "")?.next_action;
-      return { brain, lastRoadmap, lastPrompt, lastOutput, nextAction };
+      const loopState = computeLoopState({ lastRoadmap, lastPrompt });
+      return { brain, lastRoadmap, lastPrompt, lastOutput, nextAction, loopState };
     })
     .filter(Boolean) as Array<{
       brain: Brain;
@@ -344,6 +386,7 @@ function ProjectLoopPage() {
       lastPrompt?: ClipboardItem;
       lastOutput?: ClipboardItem;
       nextAction?: string | null;
+      loopState: LoopState;
     }>;
 
   const projectLinkById = new Map(projectLinks.map((p) => [p.id, p]));
@@ -706,6 +749,86 @@ CRITERI DI SUCCESSO:
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const saveResultMut = useMutation({
+    mutationFn: async ({ item, result }: { item: ClipboardItem; result: string }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+      const trimmed = result.trim();
+      if (!trimmed) throw new Error("Inserisci il risultato Lovable");
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({
+          output_result: trimmed,
+          automation_status: "completed",
+          next_step_generated: false,
+          next_action: "Rielaborare il risultato e generare il prossimo prompt",
+        } as never)
+        .eq("id", item.id);
+      if (upErr) throw upErr;
+      const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "saved_lovable_result",
+        notes: "Risultato Lovable salvato dal Project Loop",
+        previous_status: item.automation_status,
+        new_status: "completed",
+        user_id: userId,
+        metadata: { brain_id: item.brain_id },
+      } as never);
+      if (logErr) throw logErr;
+    },
+    onSuccess: () => {
+      toast.success("Risultato Lovable salvato nel Project Loop");
+      setSaveResultItem(null);
+      setSaveResultText("");
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const markSentMut = useMutation({
+    mutationFn: async (item: ClipboardItem) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({ automation_status: "inviato_manualmente" } as never)
+        .eq("id", item.id);
+      if (upErr) throw upErr;
+      await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "marked_sent_manually",
+        previous_status: item.automation_status,
+        new_status: "inviato_manualmente",
+        notes: "Segnato come inviato manualmente",
+        user_id: userData.user?.id,
+        metadata: { brain_id: item.brain_id },
+      } as never);
+    },
+    onSuccess: () => {
+      toast.success("Prompt segnato come inviato");
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function openNextStep(i: ClipboardItem) {
+    setNextStepItem(i);
+    setNextStepForm({
+      suggestion: suggestNextStep(i.output_result),
+      actionType: "roadmap",
+      priority: "medium",
+      riskLevel: "medium",
+    });
+  }
+
+  function openSaveResult(i: ClipboardItem) {
+    setSaveResultItem(i);
+    setSaveResultText("");
+  }
+
+  function copyPrompt(content: string) {
+    copyText(content, "Prompt copiato. Ora puoi incollarlo in Lovable.");
+  }
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento…</div>;
   if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
@@ -880,57 +1003,115 @@ CRITERI DI SUCCESSO:
           {activeRows.length === 0 && (
             <div className="text-sm text-muted-foreground">Nessun progetto attivo.</div>
           )}
-          {activeRows.map(({ brain, lastRoadmap, lastPrompt, lastOutput, nextAction }) => (
-            <div key={brain.id} className="rounded-md border border-border/60 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: brain.color ?? "var(--neon-violet)" }}
-                  />
-                  <span className="font-medium">{brain.name}</span>
-                </div>
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/progetti/$brainId" params={{ brainId: brain.id }}>
-                    <ExternalLink className="mr-1 h-3 w-3" /> Apri progetto
-                  </Link>
-                </Button>
-              </div>
-              <div className="mt-2 grid gap-2 text-xs md:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <div className="text-muted-foreground">Roadmap aperto</div>
-                  <div className="truncate">{lastRoadmap?.title ?? "—"}</div>
-                  {lastRoadmap && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-1 h-7 text-[11px]"
-                      onClick={() => {
-                        setGenTarget({ brain, roadmap: lastRoadmap });
-                        setGeneratedPrompt(buildLovablePrompt(brain, lastRoadmap));
-                      }}
-                    >
-                      <Wand2 className="mr-1 h-3 w-3" /> Genera Prompt Lovable
+          {activeRows.map(({ brain, lastRoadmap, lastPrompt, lastOutput, nextAction, loopState }) => {
+            const stateMeta = LOOP_STATE_META[loopState];
+            const renderCta = () => {
+              if (loopState === "roadmap_missing") {
+                return (
+                  <Button asChild size="sm" variant="default" className="h-7 text-[11px]">
+                    <Link to="/roadmap"><ListChecks className="mr-1 h-3 w-3" /> Crea roadmap iniziale</Link>
+                  </Button>
+                );
+              }
+              if (loopState === "prompt_missing") {
+                return (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      if (!lastRoadmap) return;
+                      setGenTarget({ brain, roadmap: lastRoadmap });
+                      setGeneratedPrompt(buildLovablePrompt(brain, lastRoadmap));
+                    }}
+                  >
+                    <Wand2 className="mr-1 h-3 w-3" /> Genera Prompt Lovable
+                  </Button>
+                );
+              }
+              if (loopState === "prompt_ready") {
+                return (
+                  <>
+                    <Button asChild size="sm" variant="default" className="h-7 text-[11px]">
+                      <Link to="/clipboard-ai"><ExternalLink className="mr-1 h-3 w-3" /> Apri prompt</Link>
                     </Button>
-                  )}
+                    {lastPrompt && (
+                      <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => copyPrompt(lastPrompt.content)}>
+                        <Copy className="mr-1 h-3 w-3" /> Copia prompt
+                      </Button>
+                    )}
+                    {lastPrompt && (
+                      <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => openSaveResult(lastPrompt)}>
+                        <Sparkles className="mr-1 h-3 w-3" /> Salva risultato Lovable
+                      </Button>
+                    )}
+                  </>
+                );
+              }
+              if (loopState === "waiting_result") {
+                return lastPrompt ? (
+                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openSaveResult(lastPrompt)}>
+                    <Sparkles className="mr-1 h-3 w-3" /> Salva risultato Lovable
+                  </Button>
+                ) : null;
+              }
+              if (loopState === "result_to_review") {
+                return lastPrompt ? (
+                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openNextStep(lastPrompt)}>
+                    <Wand2 className="mr-1 h-3 w-3" /> Rielabora risultato
+                  </Button>
+                ) : null;
+              }
+              if (loopState === "next_prompt_needed") {
+                return lastPrompt ? (
+                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openNextStep(lastPrompt)}>
+                    <Wand2 className="mr-1 h-3 w-3" /> Genera prossimo prompt
+                  </Button>
+                ) : null;
+              }
+              return null;
+            };
+            return (
+              <div key={brain.id} className="rounded-md border border-border/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ background: brain.color ?? "var(--neon-violet)" }}
+                    />
+                    <span className="font-medium">{brain.name}</span>
+                    <Badge variant="outline" className={`text-[10px] ${stateMeta.cls}`}>{stateMeta.label}</Badge>
+                  </div>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link to="/progetti/$brainId" params={{ brainId: brain.id }}>
+                      <ExternalLink className="mr-1 h-3 w-3" /> Apri progetto
+                    </Link>
+                  </Button>
                 </div>
-                <div>
-                  <div className="text-muted-foreground">Ultimo prompt</div>
-                  <div className="truncate">{lastPrompt?.title ?? "—"}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Ultimo output</div>
-                  <div className="truncate">
-                    {lastOutput ? (lastOutput.output_result.slice(0, 60) + (lastOutput.output_result.length > 60 ? "…" : "")) : "—"}
+                <div className="mt-2 grid gap-2 text-xs md:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <div className="text-muted-foreground">Roadmap aperto</div>
+                    <div className="truncate">{lastRoadmap?.title ?? "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Ultimo prompt</div>
+                    <div className="truncate">{lastPrompt?.title ?? "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Ultimo output</div>
+                    <div className="truncate">
+                      {lastOutput ? (lastOutput.output_result.slice(0, 60) + (lastOutput.output_result.length > 60 ? "…" : "")) : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Prossimo step</div>
+                    <div className="truncate">{nextAction ?? "—"}</div>
                   </div>
                 </div>
-                <div>
-                  <div className="text-muted-foreground">Prossimo step</div>
-                  <div className="truncate">{nextAction ?? "—"}</div>
-                </div>
+                <div className="mt-2 flex flex-wrap gap-2">{renderCta()}</div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
 
@@ -976,8 +1157,22 @@ CRITERI DI SUCCESSO:
                   <div className="mt-1 text-xs text-muted-foreground">→ {i.next_action}</div>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => copyText(i.content, "Prompt copiato")}>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/clipboard-ai"><ExternalLink className="mr-1 h-3 w-3" /> Apri</Link>
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => copyPrompt(i.content)}>
                     <Copy className="mr-1 h-3 w-3" /> Copia prompt
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={markSentMut.isPending}
+                    onClick={() => markSentMut.mutate(i)}
+                  >
+                    <CheckCircle2 className="mr-1 h-3 w-3" /> Segna inviato
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => openSaveResult(i)}>
+                    <Sparkles className="mr-1 h-3 w-3" /> Salva risultato
                   </Button>
                   {i.source_url && (
                     <Button asChild size="sm" variant="ghost">
@@ -1256,6 +1451,64 @@ CRITERI DI SUCCESSO:
             >
               <Sparkles className="mr-1 h-3 w-3" />
               {nextStepMut.isPending ? "Salvataggio…" : "Salva prossimo step"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!saveResultItem}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSaveResultItem(null);
+            setSaveResultText("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" /> Salva risultato Lovable
+            </DialogTitle>
+          </DialogHeader>
+          {saveResultItem && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <div className="text-muted-foreground">Prompt</div>
+                  <div className="truncate font-medium">{saveResultItem.title || "(senza titolo)"}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Progetto / Brain</div>
+                  <div className="truncate font-medium">
+                    {saveResultItem.brain_id ? brainsById.get(saveResultItem.brain_id)?.name ?? "—" : "—"}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Risultato restituito da Lovable</div>
+                <Textarea
+                  value={saveResultText}
+                  onChange={(e) => setSaveResultText(e.target.value)}
+                  placeholder="Incolla qui il risultato di Lovable…"
+                  className="min-h-[220px] text-xs"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => { setSaveResultItem(null); setSaveResultText(""); }}>
+              Chiudi
+            </Button>
+            <Button
+              disabled={!saveResultItem || !saveResultText.trim() || saveResultMut.isPending}
+              onClick={() => {
+                if (!saveResultItem) return;
+                saveResultMut.mutate({ item: saveResultItem, result: saveResultText });
+              }}
+            >
+              <Sparkles className="mr-1 h-3 w-3" />
+              {saveResultMut.isPending ? "Salvataggio…" : "Salva risultato"}
             </Button>
           </DialogFooter>
         </DialogContent>
