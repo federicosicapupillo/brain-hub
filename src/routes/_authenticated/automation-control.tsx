@@ -322,6 +322,10 @@ function AutomationControlPage() {
 
       <LocalAgentBridge />
 
+      <LovableBrowserBridge />
+
+
+
 
 
       <CallbackInboxHost />
