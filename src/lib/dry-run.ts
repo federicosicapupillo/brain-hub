@@ -453,6 +453,7 @@ export async function runDryRunScenario(
     executed_at: startedAt,
     result: resultKind,
     notes: dryNotes,
+    previous_state_snapshot: snapshot,
   };
   const finalRun = { ...((finalMeta.automation_run as object) ?? {}), dry_run: dryMeta };
   await supabase
