@@ -1108,6 +1108,10 @@ CRITERI DI SUCCESSO:
             risk_level: riskLevel,
             requires_approval: true,
             next_action: "Inviare a Lovable e salvare il risultato",
+            metadata: {
+              parent_clipboard_item_id: item.id,
+              execution_package: { package_type: "next_prompt" },
+            },
           } as never)
           .select("id")
           .single();
