@@ -46,7 +46,7 @@ const AGENT_JS = `#!/usr/bin/env node
  * What it does:
  *   1. Reads a Brain Hub agent-job.json
  *   2. Validates required fields
- *   3. Opens Chromium (NON headless) with a persistent profile
+ *   3. Opens Google Chrome (NON headless) with a persistent profile
  *   4. Navigates to the Lovable project URL
  *   5. Tries to locate the chat input and pastes the prompt
  *   6. Waits for the human to press ENTER manually (default)
@@ -123,10 +123,23 @@ console.log("Send mode:            ", sendMode ? "AUTO SEND (--send)" : "MANUAL 
 console.log();
 
 (async () => {
-  const context = await chromium.launchPersistentContext(absProfileDir, {
-    headless: false,
-    viewport: { width: 1280, height: 900 },
-  });
+  let context;
+  try {
+    context = await chromium.launchPersistentContext(absProfileDir, {
+      channel: "chrome",
+      headless: false,
+      viewport: null,
+      args: ["--start-maximized"],
+    });
+  } catch (e) {
+    const msg = e?.message || String(e);
+    if (msg.toLowerCase().includes("chrome")) {
+      console.error("Google Chrome non trovato. Installa Chrome oppure modifica lo script per usare Chromium.");
+    } else {
+      console.error("Failed to launch browser:", msg);
+    }
+    process.exit(1);
+  }
 
   const page = context.pages()[0] ?? (await context.newPage());
 
