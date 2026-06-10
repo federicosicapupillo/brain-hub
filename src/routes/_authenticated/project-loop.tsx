@@ -506,6 +506,13 @@ function ProjectLoopPage() {
   const [saveResultItem, setSaveResultItem] = useState<ClipboardItem | null>(null);
   const [saveResultText, setSaveResultText] = useState("");
   const [expandedTimeline, setExpandedTimeline] = useState<Set<string>>(new Set());
+  const [saveResultMeta, setSaveResultMeta] = useState<{
+    buildOk: "yes" | "no";
+    consoleErrors: "yes" | "no" | "unverified";
+    changes: string;
+    files: string;
+    notes: string;
+  }>({ buildOk: "yes", consoleErrors: "unverified", changes: "", files: "", notes: "" });
   const [nextStepForm, setNextStepForm] = useState<{
     suggestion: string;
     actionType: "roadmap" | "task" | "prompt";
