@@ -305,6 +305,7 @@ function ProjectLoopPage() {
   const [nextStepItem, setNextStepItem] = useState<ClipboardItem | null>(null);
   const [saveResultItem, setSaveResultItem] = useState<ClipboardItem | null>(null);
   const [saveResultText, setSaveResultText] = useState("");
+  const [expandedTimeline, setExpandedTimeline] = useState<Set<string>>(new Set());
   const [nextStepForm, setNextStepForm] = useState<{
     suggestion: string;
     actionType: "roadmap" | "task" | "prompt";
