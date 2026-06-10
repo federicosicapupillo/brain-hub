@@ -544,7 +544,52 @@ function AutomationControlPage() {
         connectors={connectors}
         brains={brains}
         onPreview={(item, payload) => setPreviewItem({ item, payload })}
+        onSend={(item, connector) => setSendItem({ item, connector })}
       />
+
+      <Dialog open={!!sendItem} onOpenChange={(o) => { if (!o) setSendItem(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-4 w-4" /> Conferma invio a n8n
+            </DialogTitle>
+          </DialogHeader>
+          {sendItem && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-[140px_1fr] gap-2">
+                <div className="text-muted-foreground">Item</div>
+                <div className="font-medium">{sendItem.item.title || "(senza titolo)"}</div>
+                <div className="text-muted-foreground">Target tool</div>
+                <div>{sendItem.item.target_tool}</div>
+                <div className="text-muted-foreground">Connector</div>
+                <div>{sendItem.connector.name}</div>
+                <div className="text-muted-foreground">Webhook URL</div>
+                <div className="font-mono text-xs break-all">{maskWebhookUrl(sendItem.connector.webhook_url ?? "")}</div>
+                <div className="text-muted-foreground">Risk level</div>
+                <div>{sendItem.item.risk_level ?? "—"}</div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">automation_payload</div>
+                <pre className="max-h-[40vh] overflow-auto rounded-md bg-muted p-3 text-xs">
+{JSON.stringify(sendItem.item.automation_payload ?? {}, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
+            <Button variant="outline" onClick={() => setSendItem(null)} disabled={sendVerifiedPayloadMut.isPending}>
+              Annulla
+            </Button>
+            <Button
+              onClick={() => sendItem && sendVerifiedPayloadMut.mutate(sendItem)}
+              disabled={sendVerifiedPayloadMut.isPending}
+            >
+              <Send className="mr-1 h-3 w-3" />
+              {sendVerifiedPayloadMut.isPending ? "Invio…" : "Conferma invio a n8n"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!previewItem} onOpenChange={(o) => { if (!o) setPreviewItem(null); }}>
         <DialogContent className="max-w-3xl">
