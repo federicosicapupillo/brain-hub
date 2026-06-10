@@ -110,6 +110,8 @@ type ClipboardItem = {
   source_url: string | null;
   project_tool_link_id: string | null;
   next_step_generated: boolean;
+  copied_count: number | null;
+  metadata: Record<string, unknown> | null;
   updated_at: string;
 };
 type ExecLog = {
@@ -144,7 +146,7 @@ async function fetchAll() {
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,human_review_required,risk_level,output_result,next_action,source_url,project_tool_link_id,next_step_generated,updated_at"
+        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,human_review_required,risk_level,output_result,next_action,source_url,project_tool_link_id,next_step_generated,copied_count,metadata,updated_at"
       )
       .order("updated_at", { ascending: false })
       .limit(500),
@@ -210,47 +212,149 @@ async function copyText(text: string, label = "Testo copiato") {
   }
 }
 
-function buildLovablePrompt(brain: Brain, r: RoadmapItem) {
-  return `REGOLE DI SICUREZZA OBBLIGATORIE:
+type ExecutionPackage = {
+  title: string;
+  brainName: string;
+  projectName: string;
+  roadmapTitle: string;
+  roadmapPriority: string;
+  roadmapStatus: string;
+  objective: string;
+  contextSummary: string;
+  promptOnly: string;
+  executionInstructions: string;
+  doNotModify: string;
+  successCriteria: string;
+  expectedOutput: string;
+  postChecklist: string[];
+  riskLevel: "basso" | "medio" | "alto";
+};
+
+function buildExecutionPackage(brain: Brain, r: RoadmapItem): ExecutionPackage {
+  const objective = (r.description?.trim() || r.title).trim();
+  const promptOnly = `Implementa il roadmap item "${r.title}" del progetto "${brain.name}".
+
+OBIETTIVO:
+${objective}
+
+REGOLE DI PROTEZIONE OBBLIGATORIE:
 - Non modificare auth, login, signup, sessioni, RLS o policy Supabase esistenti.
 - Non toccare dati, tabelle o logiche non richieste.
 - Non rompere route, sidebar, link, layout globale o componenti condivisi.
 - Non rimuovere funzionalità già funzionanti.
 - Modifica solo i file strettamente necessari.
 - Mantieni compatibilità TypeScript.
-- Verifica build, console error e navigazione dopo le modifiche.
-
-CONTESTO PROGETTO:
-- Brain/Progetto: ${brain.name}
-- Roadmap item: ${r.title}
-- Priorità: ${r.priority ?? "—"}
-- Stato attuale: ${r.status}
-
-OBIETTIVO:
-${r.description?.trim() || r.title}
-
-COSA MODIFICARE:
-- Implementare il roadmap item sopra descritto rispettando l'architettura esistente.
-- Toccare solo i file strettamente necessari.
-
-COSA NON MODIFICARE:
-- Auth, login, signup, sessioni.
-- RLS, policy Supabase, tabelle non correlate.
-- Sidebar, layout globale, route esistenti non collegate.
-
-OUTPUT ATTESO:
-- Implementazione funzionante del roadmap item "${r.title}".
-- Nessuna regressione sulle funzionalità esistenti.
 
 CRITERI DI SUCCESSO:
 - Build pulita senza errori TypeScript.
 - Nessun errore in console.
 - Navigazione e UI esistenti intatte.
-- Funzionalità richiesta visibile e usabile.
+- Funzionalità "${r.title}" visibile e usabile.
 
-RICHIESTA FINALE:
-Procedi con build pulita e verifica i criteri sopra elencati.`;
+OUTPUT ATTESO:
+Implementazione funzionante del roadmap item senza regressioni.
+
+Procedi e verifica i criteri sopra elencati.`;
+
+  return {
+    title: `Execution Package — ${r.title}`,
+    brainName: brain.name,
+    projectName: brain.name,
+    roadmapTitle: r.title,
+    roadmapPriority: r.priority ?? "—",
+    roadmapStatus: r.status,
+    objective,
+    contextSummary: `Progetto "${brain.name}" — roadmap item aperto "${r.title}" (priorità ${r.priority ?? "—"}, stato ${r.status}).`,
+    promptOnly,
+    executionInstructions:
+      "1) Copia il prompt principale in Lovable. 2) Attendi la modifica. 3) Verifica build/console/navigazione. 4) Salva il risultato nel Project Loop.",
+    doNotModify:
+      "Auth, login, signup, sessioni. RLS, policy Supabase, tabelle non correlate. Sidebar, layout globale, route esistenti non collegate.",
+    successCriteria:
+      "Build pulita · Nessun errore TS · Nessun errore console · Funzionalità attiva · Nessuna regressione su auth/RLS.",
+    expectedOutput: `Implementazione del roadmap item "${r.title}" senza regressioni, build pulita.`,
+    postChecklist: [
+      "Build verificata senza errori TypeScript",
+      "Nessun errore in console dopo la modifica",
+      "Navigazione delle pagine coinvolte funziona",
+      "Nessuna regressione su auth / RLS",
+      "Risultato Lovable salvato nel Project Loop",
+    ],
+    riskLevel: "medio",
+  };
 }
+
+function renderFullPackage(pkg: ExecutionPackage): string {
+  return `# ${pkg.title}
+
+## Sintesi
+- Progetto: ${pkg.projectName}
+- Cervello: ${pkg.brainName}
+- Roadmap item: ${pkg.roadmapTitle}
+- Priorità: ${pkg.roadmapPriority}
+- Stato: ${pkg.roadmapStatus}
+- Risk level: ${pkg.riskLevel}
+
+## Obiettivo
+${pkg.objective}
+
+## Contesto
+${pkg.contextSummary}
+
+## Prompt Lovable
+${pkg.promptOnly}
+
+## Istruzioni di esecuzione
+${pkg.executionInstructions}
+
+## Cosa NON modificare
+${pkg.doNotModify}
+
+## Criteri di successo
+${pkg.successCriteria}
+
+## Output atteso
+${pkg.expectedOutput}
+
+## Checklist post-esecuzione
+${pkg.postChecklist.map((c) => `- [ ] ${c}`).join("\n")}
+`;
+}
+
+function buildLovablePrompt(brain: Brain, r: RoadmapItem): string {
+  return renderFullPackage(buildExecutionPackage(brain, r));
+}
+
+function runPromptChecklist(prompt: string): { label: string; ok: boolean }[] {
+  const t = prompt.toLowerCase();
+  return [
+    { label: "Contiene l'obiettivo", ok: /obiettivo/.test(t) },
+    { label: "Indica cosa NON modificare", ok: /non modificare|non toccare|do not modify/.test(t) },
+    { label: "Contiene criteri di successo", ok: /criteri di successo|success criteria/.test(t) },
+    { label: "Protegge auth / sessioni / RLS", ok: /(auth|sessioni|session|rls)/.test(t) },
+    { label: "Richiede build pulita", ok: /build pulita|build verificata|nessun errore typescript|no typescript error/.test(t) },
+  ];
+}
+
+function computePromptStage(i: ClipboardItem): string {
+  if ((i.output_result ?? "").trim() !== "") {
+    return i.next_step_generated ? "rielaborato" : "risultato_salvato";
+  }
+  const st = (i.automation_status ?? "").toLowerCase();
+  if (st === "inviato_manualmente" || st === "sent") return "inviato";
+  if (st === "copiato") return "copiato";
+  if (i.approval_status === "pending") return "da_approvare";
+  return "pronto";
+}
+
+const STAGE_META: Record<string, { label: string; cls: string }> = {
+  da_approvare: { label: "da approvare", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  pronto: { label: "pronto", cls: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
+  copiato: { label: "copiato", cls: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30" },
+  inviato: { label: "inviato", cls: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
+  risultato_salvato: { label: "risultato salvato", cls: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30" },
+  rielaborato: { label: "rielaborato", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+};
 
 function suggestNextStep(output: string): string {
   const t = (output ?? "").toLowerCase();
@@ -373,16 +477,26 @@ function buildTimelineEvents(
   // Logs: only "sent" / manual flags, dedupe vs item events
   for (const l of src.logs) {
     if (!itemIds.has(l.clipboard_item_id)) continue;
-    if (l.action !== "marked_sent_manually") continue;
     const item = brainItems.find((b) => b.id === l.clipboard_item_id);
-    events.push({
-      id: `log:${l.id}`,
-      type: "sent",
-      ts: l.created_at,
-      title: `Prompt segnato come inviato — ${item?.title ?? ""}`.trim(),
-      preview: l.notes ?? undefined,
-      item,
-    });
+    if (l.action === "marked_sent_manually") {
+      events.push({
+        id: `log:${l.id}`,
+        type: "sent",
+        ts: l.created_at,
+        title: `Prompt segnato come inviato — ${item?.title ?? ""}`.trim(),
+        preview: l.notes ?? undefined,
+        item,
+      });
+    } else if (l.action === "prompt_copied") {
+      events.push({
+        id: `log:${l.id}`,
+        type: "sent",
+        ts: l.created_at,
+        title: `Prompt copiato — ${item?.title ?? ""}`.trim(),
+        preview: l.notes ?? undefined,
+        item,
+      });
+    }
   }
   events.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
   // Dedupe by (type:itemId) keeping earliest occurrence
@@ -402,6 +516,13 @@ function ProjectLoopPage() {
   const [saveResultItem, setSaveResultItem] = useState<ClipboardItem | null>(null);
   const [saveResultText, setSaveResultText] = useState("");
   const [expandedTimeline, setExpandedTimeline] = useState<Set<string>>(new Set());
+  const [saveResultMeta, setSaveResultMeta] = useState<{
+    buildOk: "yes" | "no";
+    consoleErrors: "yes" | "no" | "unverified";
+    changes: string;
+    files: string;
+    notes: string;
+  }>({ buildOk: "yes", consoleErrors: "unverified", changes: "", files: "", notes: "" });
   const [nextStepForm, setNextStepForm] = useState<{
     suggestion: string;
     actionType: "roadmap" | "task" | "prompt";
@@ -656,15 +777,13 @@ function ProjectLoopPage() {
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr || !userData.user) throw new Error("Utente non autenticato");
       const userId = userData.user.id;
-      const execInstr = `Inviare il prompt a Lovable, attendere la modifica, verificare build/console/navigazione, poi salvare il risultato in Clipboard AI.`;
-      const expected = `Implementazione del roadmap item "${roadmap.title}" senza regressioni, build pulita, nessun errore TS o console.`;
-      const success = `- Build pulita\n- Nessun errore TypeScript\n- Nessun errore console\n- Funzionalità "${roadmap.title}" attiva e usabile\n- Nessuna regressione su auth/RLS/route esistenti`;
+      const pkg = buildExecutionPackage(brain, roadmap);
 
       const insertPayload = {
         user_id: userId,
-        title: `Prompt Lovable — ${roadmap.title}`,
+        title: `Execution Package — ${roadmap.title}`,
         content: prompt,
-        content_type: "prompt",
+        content_type: "execution_package",
         target_tool: "Lovable",
         source_tool: "Project Loop",
         brain_id: brain.id,
@@ -672,12 +791,17 @@ function ProjectLoopPage() {
         approval_status: "pending",
         automation_status: "ready_for_automation",
         human_review_required: true,
-        execution_instructions: execInstr,
-        expected_output: expected,
-        success_criteria: success,
+        execution_instructions: pkg.executionInstructions,
+        expected_output: pkg.expectedOutput,
+        success_criteria: pkg.successCriteria,
         risk_level: "medium",
         requires_approval: true,
-        next_action: "Inviare a Lovable e salvare il risultato",
+        next_action: "Copiare il prompt in Lovable, eseguirlo, salvare il risultato",
+        metadata: {
+          execution_package: pkg,
+          roadmap_item_id: roadmap.id,
+          stage: "da_approvare",
+        },
       };
 
       const { data: inserted, error: insErr } = await supabase
@@ -850,12 +974,40 @@ CRITERI DI SUCCESSO:
   });
 
   const saveResultMut = useMutation({
-    mutationFn: async ({ item, result }: { item: ClipboardItem; result: string }) => {
+    mutationFn: async ({
+      item,
+      result,
+      buildOk,
+      consoleErrors,
+      changes,
+      files,
+      notes,
+    }: {
+      item: ClipboardItem;
+      result: string;
+      buildOk: "yes" | "no";
+      consoleErrors: "yes" | "no" | "unverified";
+      changes: string;
+      files: string;
+      notes: string;
+    }) => {
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr || !userData.user) throw new Error("Utente non autenticato");
       const userId = userData.user.id;
       const trimmed = result.trim();
       if (!trimmed) throw new Error("Inserisci il risultato Lovable");
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
+      const resultMeta = {
+        build_ok: buildOk,
+        console_errors: consoleErrors,
+        changes_summary: changes.trim(),
+        files_modified: files
+          .split(/[,\n]/)
+          .map((f) => f.trim())
+          .filter(Boolean),
+        notes: notes.trim(),
+        saved_at: new Date().toISOString(),
+      };
       const { error: upErr } = await supabase
         .from("clipboard_items")
         .update({
@@ -863,17 +1015,18 @@ CRITERI DI SUCCESSO:
           automation_status: "completed",
           next_step_generated: false,
           next_action: "Rielaborare il risultato e generare il prossimo prompt",
+          metadata: { ...prevMeta, result_meta: resultMeta, stage: "risultato_salvato" },
         } as never)
         .eq("id", item.id);
       if (upErr) throw upErr;
       const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
         clipboard_item_id: item.id,
         action: "saved_lovable_result",
-        notes: "Risultato Lovable salvato dal Project Loop",
+        notes: notes.trim() || "Risultato Lovable salvato dal Project Loop",
         previous_status: item.automation_status,
         new_status: "completed",
         user_id: userId,
-        metadata: { brain_id: item.brain_id },
+        metadata: { brain_id: item.brain_id, result_meta: resultMeta },
       } as never);
       if (logErr) throw logErr;
     },
@@ -881,6 +1034,7 @@ CRITERI DI SUCCESSO:
       toast.success("Risultato Lovable salvato nel Project Loop");
       setSaveResultItem(null);
       setSaveResultText("");
+      setSaveResultMeta({ buildOk: "yes", consoleErrors: "unverified", changes: "", files: "", notes: "" });
       queryClient.invalidateQueries({ queryKey: ["project-loop"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -889,9 +1043,13 @@ CRITERI DI SUCCESSO:
   const markSentMut = useMutation({
     mutationFn: async (item: ClipboardItem) => {
       const { data: userData } = await supabase.auth.getUser();
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
       const { error: upErr } = await supabase
         .from("clipboard_items")
-        .update({ automation_status: "inviato_manualmente" } as never)
+        .update({
+          automation_status: "inviato_manualmente",
+          metadata: { ...prevMeta, stage: "inviato" },
+        } as never)
         .eq("id", item.id);
       if (upErr) throw upErr;
       await supabase.from("clipboard_execution_logs").insert({
@@ -909,6 +1067,33 @@ CRITERI DI SUCCESSO:
       queryClient.invalidateQueries({ queryKey: ["project-loop"] });
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const logCopyMut = useMutation({
+    mutationFn: async ({ item, kind }: { item: ClipboardItem; kind: "prompt_only" | "full_package" }) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
+      const newStatus = item.automation_status === "inviato_manualmente" ? item.automation_status : "copiato";
+      await supabase
+        .from("clipboard_items")
+        .update({
+          automation_status: newStatus,
+          copied_count: (item.copied_count ?? 0) + 1,
+          last_copied_at: new Date().toISOString(),
+          metadata: { ...prevMeta, stage: newStatus === "copiato" ? "copiato" : "inviato" },
+        } as never)
+        .eq("id", item.id);
+      await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "prompt_copied",
+        previous_status: item.automation_status,
+        new_status: newStatus,
+        notes: kind === "prompt_only" ? "Copiato solo prompt Lovable" : "Copiato pacchetto completo",
+        user_id: userData.user?.id,
+        metadata: { brain_id: item.brain_id, kind },
+      } as never);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-loop"] }),
   });
 
   function openNextStep(i: ClipboardItem) {
@@ -1334,6 +1519,25 @@ CRITERI DI SUCCESSO:
           {lovableQueue.map((i) => {
             const brain = i.brain_id ? brainsById.get(i.brain_id) : null;
             const ptl = i.project_tool_link_id ? projectLinkById.get(i.project_tool_link_id) : null;
+            const stage = computePromptStage(i);
+            const stageMeta = STAGE_META[stage];
+            const meta = (i.metadata as Record<string, unknown> | null) ?? {};
+            const roadmapId = typeof meta.roadmap_item_id === "string" ? meta.roadmap_item_id : null;
+            const originRoadmap = roadmapId ? roadmap.find((r) => r.id === roadmapId) : null;
+            const handleCopy = (kind: "prompt_only" | "full_package") => {
+              const pkg = (meta.execution_package as ExecutionPackage | undefined) ?? null;
+              const text = kind === "prompt_only" && pkg?.promptOnly ? pkg.promptOnly : i.content;
+              copyPrompt(text);
+              logCopyMut.mutate({ item: i, kind });
+            };
+            const handleMarkSent = () => {
+              const checks = runPromptChecklist(i.content);
+              const missing = checks.filter((c) => !c.ok);
+              if (missing.length > 0) {
+                toast.warning(`Attenzione: ${missing.map((m) => m.label).join(" · ")}`);
+              }
+              markSentMut.mutate(i);
+            };
             return (
               <div key={i.id} className="rounded-md border border-border/60 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1342,16 +1546,19 @@ CRITERI DI SUCCESSO:
                     <div className="truncate text-xs text-muted-foreground">
                       {brain?.name ?? "—"}
                       {ptl ? ` · ${ptl.tool_name}` : ""}
+                      {originRoadmap ? ` · roadmap: ${originRoadmap.title}` : ""}
+                      {" · agg. "}
+                      {new Date(i.updated_at).toLocaleString()}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
+                    <Badge variant="outline" className={`text-[10px] ${stageMeta.cls}`}>{stageMeta.label}</Badge>
                     {i.risk_level && (
                       <Badge variant="outline" className="text-[10px]">
                         risk: {i.risk_level}
                       </Badge>
                     )}
                     <Badge variant="secondary" className="text-[10px]">{i.approval_status}</Badge>
-                    <Badge variant="default" className="text-[10px]">{i.automation_status}</Badge>
                     {i.next_step_generated && (
                       <Badge variant="outline" className="text-[10px]">
                         Prossimo step già generato
@@ -1366,14 +1573,17 @@ CRITERI DI SUCCESSO:
                   <Button asChild size="sm" variant="outline">
                     <Link to="/clipboard-ai"><ExternalLink className="mr-1 h-3 w-3" /> Apri</Link>
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => copyPrompt(i.content)}>
-                    <Copy className="mr-1 h-3 w-3" /> Copia prompt
+                  <Button size="sm" variant="ghost" onClick={() => handleCopy("prompt_only")}>
+                    <Copy className="mr-1 h-3 w-3" /> Copia solo prompt Lovable
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleCopy("full_package")}>
+                    <Copy className="mr-1 h-3 w-3" /> Copia pacchetto completo
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     disabled={markSentMut.isPending}
-                    onClick={() => markSentMut.mutate(i)}
+                    onClick={handleMarkSent}
                   >
                     <CheckCircle2 className="mr-1 h-3 w-3" /> Segna inviato
                   </Button>
@@ -1697,7 +1907,62 @@ CRITERI DI SUCCESSO:
                   value={saveResultText}
                   onChange={(e) => setSaveResultText(e.target.value)}
                   placeholder="Incolla qui il risultato di Lovable…"
-                  className="min-h-[220px] text-xs"
+                  className="min-h-[160px] text-xs"
+                />
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Build riuscita?</div>
+                  <Select
+                    value={saveResultMeta.buildOk}
+                    onValueChange={(v) => setSaveResultMeta((m) => ({ ...m, buildOk: v as "yes" | "no" }))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="yes">Sì</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Errori console?</div>
+                  <Select
+                    value={saveResultMeta.consoleErrors}
+                    onValueChange={(v) => setSaveResultMeta((m) => ({ ...m, consoleErrors: v as "yes" | "no" | "unverified" }))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no">No</SelectItem>
+                      <SelectItem value="yes">Sì</SelectItem>
+                      <SelectItem value="unverified">Non verificato</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Cosa è stato modificato?</div>
+                <Textarea
+                  value={saveResultMeta.changes}
+                  onChange={(e) => setSaveResultMeta((m) => ({ ...m, changes: e.target.value }))}
+                  placeholder="Breve riepilogo delle modifiche…"
+                  className="min-h-[60px] text-xs"
+                />
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">File modificati (separati da virgola o nuova riga)</div>
+                <Textarea
+                  value={saveResultMeta.files}
+                  onChange={(e) => setSaveResultMeta((m) => ({ ...m, files: e.target.value }))}
+                  placeholder="src/.../foo.tsx, src/.../bar.ts"
+                  className="min-h-[50px] text-xs font-mono"
+                />
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Note o problemi rilevati</div>
+                <Textarea
+                  value={saveResultMeta.notes}
+                  onChange={(e) => setSaveResultMeta((m) => ({ ...m, notes: e.target.value }))}
+                  className="min-h-[50px] text-xs"
                 />
               </div>
             </div>
@@ -1710,7 +1975,11 @@ CRITERI DI SUCCESSO:
               disabled={!saveResultItem || !saveResultText.trim() || saveResultMut.isPending}
               onClick={() => {
                 if (!saveResultItem) return;
-                saveResultMut.mutate({ item: saveResultItem, result: saveResultText });
+                saveResultMut.mutate({
+                  item: saveResultItem,
+                  result: saveResultText,
+                  ...saveResultMeta,
+                });
               }}
             >
               <Sparkles className="mr-1 h-3 w-3" />
