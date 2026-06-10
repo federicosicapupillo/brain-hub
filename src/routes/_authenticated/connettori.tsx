@@ -229,8 +229,9 @@ const STATUS_META: Record<ConnStatus, { label: string; cls: string }> = {
 
 const CATEGORIES: Category[] = [
   "AI", "Sviluppo", "File", "Email", "Calendario", "Creatività",
-  "Note", "Database", "Ricerca", "App builder",
+  "Note", "Database", "Ricerca", "App builder", "Automazione",
 ];
+
 
 // -------- Data hooks ---------------------------------------------------------
 
