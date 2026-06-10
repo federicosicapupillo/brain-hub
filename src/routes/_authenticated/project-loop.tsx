@@ -1003,57 +1003,115 @@ CRITERI DI SUCCESSO:
           {activeRows.length === 0 && (
             <div className="text-sm text-muted-foreground">Nessun progetto attivo.</div>
           )}
-          {activeRows.map(({ brain, lastRoadmap, lastPrompt, lastOutput, nextAction }) => (
-            <div key={brain.id} className="rounded-md border border-border/60 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-2.5 w-2.5 rounded-full"
-                    style={{ background: brain.color ?? "var(--neon-violet)" }}
-                  />
-                  <span className="font-medium">{brain.name}</span>
-                </div>
-                <Button asChild variant="ghost" size="sm">
-                  <Link to="/progetti/$brainId" params={{ brainId: brain.id }}>
-                    <ExternalLink className="mr-1 h-3 w-3" /> Apri progetto
-                  </Link>
-                </Button>
-              </div>
-              <div className="mt-2 grid gap-2 text-xs md:grid-cols-2 lg:grid-cols-4">
-                <div>
-                  <div className="text-muted-foreground">Roadmap aperto</div>
-                  <div className="truncate">{lastRoadmap?.title ?? "—"}</div>
-                  {lastRoadmap && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-1 h-7 text-[11px]"
-                      onClick={() => {
-                        setGenTarget({ brain, roadmap: lastRoadmap });
-                        setGeneratedPrompt(buildLovablePrompt(brain, lastRoadmap));
-                      }}
-                    >
-                      <Wand2 className="mr-1 h-3 w-3" /> Genera Prompt Lovable
+          {activeRows.map(({ brain, lastRoadmap, lastPrompt, lastOutput, nextAction, loopState }) => {
+            const stateMeta = LOOP_STATE_META[loopState];
+            const renderCta = () => {
+              if (loopState === "roadmap_missing") {
+                return (
+                  <Button asChild size="sm" variant="default" className="h-7 text-[11px]">
+                    <Link to="/roadmap"><ListChecks className="mr-1 h-3 w-3" /> Crea roadmap iniziale</Link>
+                  </Button>
+                );
+              }
+              if (loopState === "prompt_missing") {
+                return (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    className="h-7 text-[11px]"
+                    onClick={() => {
+                      if (!lastRoadmap) return;
+                      setGenTarget({ brain, roadmap: lastRoadmap });
+                      setGeneratedPrompt(buildLovablePrompt(brain, lastRoadmap));
+                    }}
+                  >
+                    <Wand2 className="mr-1 h-3 w-3" /> Genera Prompt Lovable
+                  </Button>
+                );
+              }
+              if (loopState === "prompt_ready") {
+                return (
+                  <>
+                    <Button asChild size="sm" variant="default" className="h-7 text-[11px]">
+                      <Link to="/clipboard-ai"><ExternalLink className="mr-1 h-3 w-3" /> Apri prompt</Link>
                     </Button>
-                  )}
+                    {lastPrompt && (
+                      <Button size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => copyPrompt(lastPrompt.content)}>
+                        <Copy className="mr-1 h-3 w-3" /> Copia prompt
+                      </Button>
+                    )}
+                    {lastPrompt && (
+                      <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={() => openSaveResult(lastPrompt)}>
+                        <Sparkles className="mr-1 h-3 w-3" /> Salva risultato Lovable
+                      </Button>
+                    )}
+                  </>
+                );
+              }
+              if (loopState === "waiting_result") {
+                return lastPrompt ? (
+                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openSaveResult(lastPrompt)}>
+                    <Sparkles className="mr-1 h-3 w-3" /> Salva risultato Lovable
+                  </Button>
+                ) : null;
+              }
+              if (loopState === "result_to_review") {
+                return lastPrompt ? (
+                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openNextStep(lastPrompt)}>
+                    <Wand2 className="mr-1 h-3 w-3" /> Rielabora risultato
+                  </Button>
+                ) : null;
+              }
+              if (loopState === "next_prompt_needed") {
+                return lastPrompt ? (
+                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openNextStep(lastPrompt)}>
+                    <Wand2 className="mr-1 h-3 w-3" /> Genera prossimo prompt
+                  </Button>
+                ) : null;
+              }
+              return null;
+            };
+            return (
+              <div key={brain.id} className="rounded-md border border-border/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ background: brain.color ?? "var(--neon-violet)" }}
+                    />
+                    <span className="font-medium">{brain.name}</span>
+                    <Badge variant="outline" className={`text-[10px] ${stateMeta.cls}`}>{stateMeta.label}</Badge>
+                  </div>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link to="/progetti/$brainId" params={{ brainId: brain.id }}>
+                      <ExternalLink className="mr-1 h-3 w-3" /> Apri progetto
+                    </Link>
+                  </Button>
                 </div>
-                <div>
-                  <div className="text-muted-foreground">Ultimo prompt</div>
-                  <div className="truncate">{lastPrompt?.title ?? "—"}</div>
-                </div>
-                <div>
-                  <div className="text-muted-foreground">Ultimo output</div>
-                  <div className="truncate">
-                    {lastOutput ? (lastOutput.output_result.slice(0, 60) + (lastOutput.output_result.length > 60 ? "…" : "")) : "—"}
+                <div className="mt-2 grid gap-2 text-xs md:grid-cols-2 lg:grid-cols-4">
+                  <div>
+                    <div className="text-muted-foreground">Roadmap aperto</div>
+                    <div className="truncate">{lastRoadmap?.title ?? "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Ultimo prompt</div>
+                    <div className="truncate">{lastPrompt?.title ?? "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Ultimo output</div>
+                    <div className="truncate">
+                      {lastOutput ? (lastOutput.output_result.slice(0, 60) + (lastOutput.output_result.length > 60 ? "…" : "")) : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Prossimo step</div>
+                    <div className="truncate">{nextAction ?? "—"}</div>
                   </div>
                 </div>
-                <div>
-                  <div className="text-muted-foreground">Prossimo step</div>
-                  <div className="truncate">{nextAction ?? "—"}</div>
-                </div>
+                <div className="mt-2 flex flex-wrap gap-2">{renderCta()}</div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
 
