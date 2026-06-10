@@ -298,6 +298,102 @@ function computeLoopState(args: {
   return "next_prompt_needed";
 }
 
+type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt";
+
+type TimelineEvent = {
+  id: string;
+  type: TimelineEventType;
+  ts: string;
+  title: string;
+  preview?: string;
+  item?: ClipboardItem;
+};
+
+const TIMELINE_META: Record<TimelineEventType, { label: string; icon: typeof Workflow; cls: string }> = {
+  roadmap: { label: "roadmap", icon: ListChecks, cls: "bg-amber-500/15 text-amber-300" },
+  prompt: { label: "prompt", icon: Wand2, cls: "bg-sky-500/15 text-sky-300" },
+  sent: { label: "log", icon: Send, cls: "bg-indigo-500/15 text-indigo-300" },
+  output: { label: "output", icon: Sparkles, cls: "bg-fuchsia-500/15 text-fuchsia-300" },
+  next_prompt: { label: "next_prompt", icon: RefreshCw, cls: "bg-emerald-500/15 text-emerald-300" },
+};
+
+function buildTimelineEvents(
+  brainId: string,
+  src: { roadmap: RoadmapItem[]; items: ClipboardItem[]; tasks: Task[]; logs: ExecLog[] },
+): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+  const brainItems = src.items.filter((i) => i.brain_id === brainId);
+  const itemIds = new Set(brainItems.map((i) => i.id));
+  const promptIdsFromNextStep = new Set<string>();
+  for (const l of src.logs) {
+    if (l.action === "generated_next_step_from_result" && itemIds.has(l.clipboard_item_id)) {
+      // The "source" item generated a child. Track child id via metadata not available here;
+      // we instead mark prompts whose log shows action=generated_prompt_from_roadmap_item later.
+    }
+  }
+  // Roadmap items for this brain
+  for (const r of src.roadmap.filter((r) => r.brain_id === brainId)) {
+    events.push({
+      id: `roadmap:${r.id}`,
+      type: "roadmap",
+      ts: r.updated_at,
+      title: r.title,
+      preview: r.description ?? undefined,
+    });
+  }
+  // Prompts and outputs
+  for (const i of brainItems) {
+    // Identify prompts generated as next-step (look at logs on this item)
+    const itemLogs = src.logs.filter((l) => l.clipboard_item_id === i.id);
+    const isNextPrompt = itemLogs.some(
+      (l) => l.action === "generated_next_step_from_result" || l.action === "generated_next_prompt",
+    );
+    if (i.content && i.target_tool === "Lovable") {
+      events.push({
+        id: `prompt:${i.id}`,
+        type: isNextPrompt ? "next_prompt" : "prompt",
+        ts: i.updated_at,
+        title: i.title || "(prompt senza titolo)",
+        preview: (i.content || "").slice(0, 160),
+        item: i,
+      });
+      if (isNextPrompt) promptIdsFromNextStep.add(i.id);
+    }
+    if ((i.output_result ?? "").trim() !== "") {
+      events.push({
+        id: `output:${i.id}`,
+        type: "output",
+        ts: i.updated_at,
+        title: `Risultato — ${i.title || "(senza titolo)"}`,
+        preview: i.output_result.slice(0, 160),
+        item: i,
+      });
+    }
+  }
+  // Logs: only "sent" / manual flags, dedupe vs item events
+  for (const l of src.logs) {
+    if (!itemIds.has(l.clipboard_item_id)) continue;
+    if (l.action !== "marked_sent_manually") continue;
+    const item = brainItems.find((b) => b.id === l.clipboard_item_id);
+    events.push({
+      id: `log:${l.id}`,
+      type: "sent",
+      ts: l.created_at,
+      title: `Prompt segnato come inviato — ${item?.title ?? ""}`.trim(),
+      preview: l.notes ?? undefined,
+      item,
+    });
+  }
+  events.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+  // Dedupe by (type:itemId) keeping earliest occurrence
+  const seen = new Set<string>();
+  return events.filter((e) => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+}
+
 function ProjectLoopPage() {
   const queryClient = useQueryClient();
   const [genTarget, setGenTarget] = useState<{ brain: Brain; roadmap: RoadmapItem } | null>(null);
