@@ -304,6 +304,8 @@ function AutomationControlPage() {
 
       <AutomationRunPanel />
 
+      <DryRunOrchestrator />
+
       <CallbackInboxHost />
 
       <div className="grid gap-4 lg:grid-cols-2">
