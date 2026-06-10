@@ -146,7 +146,9 @@ function AutomationControlPage() {
 
   const testWebhookMut = useMutation({
     mutationFn: async (connector: Connector) => {
-      return await testWebhookFn({ data: { connector_id: connector.id } });
+      const r = await testWebhookFn({ data: { connector_id: connector.id } });
+      if (!r.ok) throw new Error(r.errorMsg ?? `HTTP ${r.statusCode ?? "?"}`);
+      return r;
     },
     onSuccess: (r) => {
       toast.success(`Webhook OK (${r.statusCode})`);
@@ -196,7 +198,9 @@ function AutomationControlPage() {
 
   const sendVerifiedPayloadMut = useMutation({
     mutationFn: async ({ item }: { item: ClipboardItem; connector: Connector }) => {
-      return await sendVerifiedFn({ data: { clipboard_item_id: item.id } });
+      const r = await sendVerifiedFn({ data: { clipboard_item_id: item.id } });
+      if (!r.ok) throw new Error(r.errorMsg ?? `HTTP ${r.statusCode ?? "?"}`);
+      return r;
     },
     onSuccess: (r) => {
       toast.success(`Payload inviato a n8n (${r.statusCode})`);
