@@ -146,7 +146,9 @@ function AutomationControlPage() {
 
   const testWebhookMut = useMutation({
     mutationFn: async (connector: Connector) => {
-      return await testWebhookFn({ data: { connector_id: connector.id } });
+      const r = await testWebhookFn({ data: { connector_id: connector.id } });
+      if (!r.ok) throw new Error(r.errorMsg ?? `HTTP ${r.statusCode ?? "?"}`);
+      return r;
     },
     onSuccess: (r) => {
       toast.success(`Webhook OK (${r.statusCode})`);
