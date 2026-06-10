@@ -308,6 +308,45 @@ function ClipboardAIPage() {
   });
 
   const items = itemsQ.data ?? [];
+
+  // Unified project options: project_links + brains (brain may be a project itself),
+  // deduped by id. If multiple records share the same name, keep one entry per name
+  // (prefer the one whose id matches a brain id, i.e. the "canonical" project).
+  const brainsDedup = useMemo(() => {
+    const seen = new Set<string>();
+    return (brainsQ.data ?? []).filter((b) => {
+      if (seen.has(b.id)) return false;
+      seen.add(b.id);
+      return true;
+    });
+  }, [brainsQ.data]);
+
+  const projectOptions = useMemo(() => {
+    const brainIds = new Set(brainsDedup.map((b) => b.id));
+    const raw: { id: string; title: string; brain_id: string | null }[] = [];
+    for (const p of projectsQ.data ?? []) {
+      raw.push({ id: p.id, title: p.title, brain_id: p.brain_id });
+    }
+    for (const b of brainsDedup) {
+      raw.push({ id: b.id, title: b.name, brain_id: b.id });
+    }
+    // dedupe by id
+    const byId = new Map<string, { id: string; title: string; brain_id: string | null }>();
+    for (const r of raw) if (!byId.has(r.id)) byId.set(r.id, r);
+    // dedupe by name: keep one per lowercased title, preferring an id that exists as a brain
+    const byName = new Map<string, { id: string; title: string; brain_id: string | null }>();
+    for (const r of byId.values()) {
+      const key = (r.title ?? "").trim().toLowerCase();
+      if (!key) continue;
+      const existing = byName.get(key);
+      if (!existing) { byName.set(key, r); continue; }
+      const existingIsBrain = brainIds.has(existing.id);
+      const candidateIsBrain = brainIds.has(r.id);
+      if (!existingIsBrain && candidateIsBrain) byName.set(key, r);
+    }
+    return Array.from(byName.values()).sort((a, b) => a.title.localeCompare(b.title));
+  }, [projectsQ.data, brainsDedup]);
+
   const allTags = useMemo(() => {
     const s = new Set<string>();
     items.forEach((i) => i.tags?.forEach((t) => s.add(t)));
