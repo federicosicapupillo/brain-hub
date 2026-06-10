@@ -666,6 +666,13 @@ Callback richiesta:
                 ? "Contratto incompleto"
                 : "Contratto non pronto";
             const alreadyReady = ext?.ready_for_real_test === true;
+            const isWebhookSource = rm?.source === "n8n_webhook";
+            const webhookCallbackLabel = isWebhookSource
+              ? (run.run_status === "failed" ? "Callback fallita" : "Callback ricevuta")
+              : "Nessuna callback ricevuta";
+            const webhookRef = isWebhookSource ? (rm?.external_result_reference as string | null) ?? null : null;
+            const webhookHash = isWebhookSource ? (rm?.callback_hash as string | null) ?? null : null;
+            const webhookReceivedAt = isWebhookSource ? (rm?.received_at as string | null) ?? null : null;
             return (
               <div key={item.id} className="rounded-md border border-border/60 p-3 space-y-2">
                 <div className="flex flex-wrap items-start justify-between gap-2">
