@@ -308,6 +308,45 @@ function ClipboardAIPage() {
   });
 
   const items = itemsQ.data ?? [];
+
+  // Unified project options: project_links + brains (brain may be a project itself),
+  // deduped by id. If multiple records share the same name, keep one entry per name
+  // (prefer the one whose id matches a brain id, i.e. the "canonical" project).
+  const brainsDedup = useMemo(() => {
+    const seen = new Set<string>();
+    return (brainsQ.data ?? []).filter((b) => {
+      if (seen.has(b.id)) return false;
+      seen.add(b.id);
+      return true;
+    });
+  }, [brainsQ.data]);
+
+  const projectOptions = useMemo(() => {
+    const brainIds = new Set(brainsDedup.map((b) => b.id));
+    const raw: { id: string; title: string; brain_id: string | null }[] = [];
+    for (const p of projectsQ.data ?? []) {
+      raw.push({ id: p.id, title: p.title, brain_id: p.brain_id });
+    }
+    for (const b of brainsDedup) {
+      raw.push({ id: b.id, title: b.name, brain_id: b.id });
+    }
+    // dedupe by id
+    const byId = new Map<string, { id: string; title: string; brain_id: string | null }>();
+    for (const r of raw) if (!byId.has(r.id)) byId.set(r.id, r);
+    // dedupe by name: keep one per lowercased title, preferring an id that exists as a brain
+    const byName = new Map<string, { id: string; title: string; brain_id: string | null }>();
+    for (const r of byId.values()) {
+      const key = (r.title ?? "").trim().toLowerCase();
+      if (!key) continue;
+      const existing = byName.get(key);
+      if (!existing) { byName.set(key, r); continue; }
+      const existingIsBrain = brainIds.has(existing.id);
+      const candidateIsBrain = brainIds.has(r.id);
+      if (!existingIsBrain && candidateIsBrain) byName.set(key, r);
+    }
+    return Array.from(byName.values()).sort((a, b) => a.title.localeCompare(b.title));
+  }, [projectsQ.data, brainsDedup]);
+
   const allTags = useMemo(() => {
     const s = new Set<string>();
     items.forEach((i) => i.tags?.forEach((t) => s.add(t)));
@@ -956,12 +995,23 @@ function ClipboardAIPage() {
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
-                        {(projectsQ.data ?? [])
-                          .filter((p) => !form.brain_id || p.brain_id === form.brain_id)
+                        {projectOptions
+                          .filter((p) => {
+                            if (!form.brain_id) return true;
+                            // mostra il progetto se realmente collegato al brain
+                            // (o se il progetto È il brain stesso)
+                            return p.brain_id === form.brain_id || p.id === form.brain_id;
+                          })
                           .map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    {import.meta.env.DEV && (
+                      <div className="mt-1 text-[10px] text-muted-foreground/70 font-mono">
+                        brains:{brainsDedup.length} · projects_raw:{(projectsQ.data ?? []).length} · projects_dedup:{projectOptions.length} · tool_links:{(toolLinksQ.data ?? []).length}
+                      </div>
+                    )}
                   </div>
+
                   <div className="col-span-2">
                     <Label>Strumento del progetto (project_tool_links)</Label>
                     <Select value={form.project_tool_link_id ?? "none"}
