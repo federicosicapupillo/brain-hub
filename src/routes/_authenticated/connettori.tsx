@@ -1,6 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+
 import {
   Github, Database, HardDrive, BookOpen, Sparkles, Bot, Search, Mail,
   Calendar, Film, Image as ImageIcon, Mic, UserCircle, Wand2, Info,
@@ -19,6 +21,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+
 
 import { supabase } from "@/integrations/supabase/client";
 import { listConnectors, type Connector } from "@/lib/workspace-api";
@@ -53,7 +59,8 @@ type ConnStatus =
 
 type Category =
   | "AI" | "Sviluppo" | "File" | "Email" | "Calendario" | "Creatività"
-  | "Note" | "Database" | "Ricerca" | "App builder";
+  | "Note" | "Database" | "Ricerca" | "App builder" | "Automazione";
+
 
 type CatalogItem = {
   key: string;                 // matches "tool" field used elsewhere
@@ -200,7 +207,16 @@ const CATALOG: CatalogItem[] = [
     privacy: "Solo contenuti che salvi manualmente.",
     nextAction: "Importa manualmente script e link ai video avatar.",
   },
+  {
+    key: "n8n", name: "n8n", category: "Automazione", initial: "da_collegare", icon: Plug,
+    short: "Workflow automation, webhook, orchestrazione prompt e callback verso Brain Hub.",
+    canImport: ["Webhook payload", "Risultati workflow", "Callback automazioni"],
+    canWrite: ["Trigger webhook n8n"],
+    privacy: "URL webhook salvato in automation_connectors (per utente). Nessuna chiamata da questa pagina.",
+    nextAction: "Configura un webhook n8n per abilitare invio payload verificato da /automation-control.",
+  },
 ];
+
 
 const STATUS_META: Record<ConnStatus, { label: string; cls: string }> = {
   manuale:         { label: "Manuale",         cls: "border-amber-500/40 bg-amber-500/10 text-amber-600" },
@@ -213,8 +229,9 @@ const STATUS_META: Record<ConnStatus, { label: string; cls: string }> = {
 
 const CATEGORIES: Category[] = [
   "AI", "Sviluppo", "File", "Email", "Calendario", "Creatività",
-  "Note", "Database", "Ricerca", "App builder",
+  "Note", "Database", "Ricerca", "App builder", "Automazione",
 ];
+
 
 // -------- Data hooks ---------------------------------------------------------
 
@@ -277,6 +294,27 @@ function ConnectorsPage() {
     queryFn: loadToolUsage,
   });
 
+  const qc = useQueryClient();
+  const { data: n8nConnector = null } = useQuery({
+    queryKey: ["automation-connector-n8n"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return null;
+      const { data, error } = await supabase
+        .from("automation_connectors")
+        .select("*")
+        .eq("user_id", uid)
+        .eq("type", "n8n_webhook")
+        .eq("target_tool", "Lovable")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const [n8nOpen, setN8nOpen] = useState(false);
+
+
   const byName = useMemo(() => {
     const m = new Map<string, Connector>();
     for (const c of connectorsRows) m.set(c.name.toLowerCase(), c);
@@ -292,6 +330,9 @@ function ConnectorsPage() {
         else if (row.is_enabled && row.last_sync_at) status = "sincronizzato";
         else if (row.is_enabled) status = "collegato";
       }
+      if (c.key === "n8n") {
+        status = n8nConnector && n8nConnector.is_active ? "collegato" : "da_collegare";
+      }
       const use = usage[c.key];
       return {
         ...c,
@@ -302,7 +343,8 @@ function ConnectorsPage() {
         lastImportAt: use?.lastAt ?? null,
       };
     });
-  }, [byName, usage]);
+  }, [byName, usage, n8nConnector]);
+
 
   const [q, setQ] = useState("");
   const [fStatus, setFStatus] = useState<string>("all");
@@ -413,9 +455,10 @@ function ConnectorsPage() {
               </CardContent>
 
               <div className="flex flex-wrap gap-1 border-t p-2">
-                <Button size="sm" variant="outline" onClick={() => setDetail(c)}>
+                <Button size="sm" variant="outline" onClick={() => c.key === "n8n" ? setN8nOpen(true) : setDetail(c)}>
                   <Settings2 className="h-3.5 w-3.5 mr-1" /> Configura
                 </Button>
+
                 <Button
                   size="sm"
                   variant="ghost"
@@ -444,6 +487,17 @@ function ConnectorsPage() {
         onClose={() => setDetail(null)}
         onImport={(key) => { setDetail(null); navigate({ to: "/importa", search: { tool: key } as never }); }}
       />
+
+      <N8nConfigDialog
+        open={n8nOpen}
+        onClose={() => setN8nOpen(false)}
+        existing={n8nConnector}
+        onSaved={() => {
+          qc.invalidateQueries({ queryKey: ["automation-connector-n8n"] });
+          qc.invalidateQueries({ queryKey: ["automation-control"] });
+        }}
+      />
+
     </div>
   );
 }
@@ -565,5 +619,135 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       </div>
       <div className="text-sm">{children}</div>
     </div>
+  );
+}
+
+// -------- n8n config dialog -------------------------------------------------
+
+type N8nConnectorRow = {
+  id: string;
+  name: string;
+  type: string;
+  target_tool: string;
+  webhook_url: string | null;
+  is_active: boolean;
+  config: unknown;
+};
+
+function N8nConfigDialog({
+  open, onClose, existing, onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  existing: N8nConnectorRow | null;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState("n8n");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setName(existing?.name ?? "n8n");
+    setWebhookUrl(existing?.webhook_url ?? "");
+    setIsActive(existing?.is_active ?? true);
+    const cfg = (existing?.config ?? {}) as { notes?: string };
+    setNotes(typeof cfg.notes === "string" ? cfg.notes : "");
+  }, [open, existing]);
+
+  const handleSave = async () => {
+    if (!name.trim()) { toast.error("Nome richiesto"); return; }
+    if (!webhookUrl.trim() || !/^https?:\/\//i.test(webhookUrl.trim())) {
+      toast.error("Webhook URL non valido (http/https)");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Non autenticato");
+
+      const payload = {
+        user_id: uid,
+        name: name.trim(),
+        type: "n8n_webhook",
+        target_tool: "Lovable",
+        webhook_url: webhookUrl.trim(),
+        is_active: isActive,
+        config: { notes: notes.trim() } as never,
+      };
+
+      if (existing?.id) {
+        const { error } = await supabase
+          .from("automation_connectors")
+          .update(payload)
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("automation_connectors")
+          .insert(payload);
+        if (error) throw error;
+      }
+      toast.success("Connettore n8n salvato");
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore salvataggio");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plug className="h-5 w-5 text-primary" /> Configura n8n
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-sm">
+          <div className="space-y-1.5">
+            <Label htmlFor="n8n-name">Nome connettore</Label>
+            <Input id="n8n-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="n8n" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="n8n-url">Webhook URL</Label>
+            <Input id="n8n-url" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://n8n.example.com/webhook/..." />
+            <p className="text-[11px] text-muted-foreground">Endpoint a cui /automation-control invierà i payload verificati.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Tipo</Label>
+              <Input value="n8n_webhook" disabled />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Target tool</Label>
+              <Input value="Lovable" disabled />
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-border/60 p-3">
+            <div>
+              <div className="text-sm font-medium">Attivo</div>
+              <div className="text-xs text-muted-foreground">Solo i connettori attivi sono usati da /automation-control.</div>
+            </div>
+            <Switch checked={isActive} onCheckedChange={setIsActive} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="n8n-notes">Note (opzionali)</Label>
+            <Textarea id="n8n-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Workflow associato, owner, ambiente..." />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>Annulla</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Salvataggio…" : existing ? "Aggiorna" : "Salva"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
