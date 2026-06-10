@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { Activity, Bot, Workflow, Gauge, AlertTriangle, CheckCircle2, Clock, Plug, ListChecks, ExternalLink, Send, FileJson, Copy } from "lucide-react";
 import { testN8nWebhook, sendVerifiedPayloadToN8n } from "@/lib/n8n.functions";
 import { AutomationRunPanel } from "@/components/AutomationRunPanel";
+import { CallbackInboxSection, type CallbackPrefill } from "@/components/CallbackInboxSection";
+import { useEffect } from "react";
 
 
 
