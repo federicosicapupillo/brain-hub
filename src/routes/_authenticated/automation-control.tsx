@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Activity, Bot, Workflow, Gauge, AlertTriangle, CheckCircle2, Clock, Plug, ListChecks, ExternalLink, Send, FileJson, Copy } from "lucide-react";
+import { testN8nWebhook, sendVerifiedPayloadToN8n } from "@/lib/n8n.functions";
 
 
 
@@ -139,52 +141,12 @@ function AutomationControlPage() {
   });
 
   const [testingId, setTestingId] = useState<string | null>(null);
+  const testWebhookFn = useServerFn(testN8nWebhook);
+  const sendVerifiedFn = useServerFn(sendVerifiedPayloadToN8n);
 
   const testWebhookMut = useMutation({
     mutationFn: async (connector: Connector) => {
-      if (!connector.webhook_url) throw new Error("Webhook URL non configurata");
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData.user) throw new Error("Non autenticato");
-      const payload = {
-        source: "brain_hub",
-        mode: "test",
-        message: "n8n webhook test",
-        timestamp: new Date().toISOString(),
-        connector_id: connector.id,
-        target_tool: connector.target_tool,
-      };
-      let statusCode: number | null = null;
-      let responseText = "";
-      let ok = false;
-      let errorMsg: string | null = null;
-      try {
-        const res = await fetch(connector.webhook_url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        statusCode = res.status;
-        responseText = (await res.text()).slice(0, 500);
-        ok = res.status === 200 || res.status === 201;
-        if (!ok) errorMsg = `HTTP ${res.status}`;
-      } catch (e) {
-        errorMsg = e instanceof Error ? e.message : "Errore di rete";
-      }
-      await supabase.from("clipboard_execution_logs").insert({
-        user_id: userData.user.id,
-        clipboard_item_id: null,
-        action: ok ? "n8n_webhook_test_success" : "n8n_webhook_test_failed",
-        notes: ok ? "Test webhook n8n riuscito" : errorMsg,
-        metadata: {
-          connector_id: connector.id,
-          connector_name: connector.name,
-          target_tool: connector.target_tool,
-          status_code: statusCode,
-          response_preview: responseText,
-        },
-      } as never);
-      if (!ok) throw new Error(errorMsg ?? "Test fallito");
-      return { statusCode, responseText };
+      return await testWebhookFn({ data: { connector_id: connector.id } });
     },
     onSuccess: (r) => {
       toast.success(`Webhook OK (${r.statusCode})`);
@@ -233,80 +195,8 @@ function AutomationControlPage() {
   });
 
   const sendVerifiedPayloadMut = useMutation({
-    mutationFn: async ({ item, connector }: { item: ClipboardItem; connector: Connector }) => {
-      if (!connector.webhook_url) throw new Error("Webhook URL non configurata");
-      if (!item.automation_payload || Object.keys(item.automation_payload).length === 0) {
-        throw new Error("automation_payload non verificato");
-      }
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData.user) throw new Error("Non autenticato");
-
-      let statusCode: number | null = null;
-      let responseText = "";
-      let ok = false;
-      let errorMsg: string | null = null;
-      try {
-        const res = await fetch(connector.webhook_url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(item.automation_payload),
-        });
-        statusCode = res.status;
-        responseText = (await res.text()).slice(0, 500);
-        ok = res.status === 200 || res.status === 201;
-        if (!ok) errorMsg = `HTTP ${res.status}`;
-      } catch (e) {
-        errorMsg = e instanceof Error ? e.message : "Errore di rete";
-      }
-
-      if (ok) {
-        const { error: upErr } = await supabase
-          .from("clipboard_items")
-          .update({
-            automation_status: "running",
-            automation_last_run_at: new Date().toISOString(),
-          } as never)
-          .eq("id", item.id);
-        if (upErr) throw upErr;
-        await supabase.from("clipboard_execution_logs").insert({
-          user_id: userData.user.id,
-          clipboard_item_id: item.id,
-          action: "n8n_verified_payload_sent",
-          previous_status: "queued",
-          new_status: "running",
-          notes: "Payload verificato inviato a n8n",
-          metadata: {
-            connector_id: connector.id,
-            status_code: statusCode,
-            response_preview: responseText,
-            payload_mode: "execution_preview",
-          },
-        } as never);
-        return { statusCode };
-      } else {
-        await supabase
-          .from("clipboard_items")
-          .update({
-            automation_status: "failed",
-            automation_attempts: (item.automation_attempts ?? 0) + 1,
-            automation_last_error: errorMsg,
-          } as never)
-          .eq("id", item.id);
-        await supabase.from("clipboard_execution_logs").insert({
-          user_id: userData.user.id,
-          clipboard_item_id: item.id,
-          action: "n8n_verified_payload_failed",
-          previous_status: "queued",
-          new_status: "failed",
-          notes: errorMsg,
-          metadata: {
-            connector_id: connector.id,
-            status_code: statusCode,
-            payload_mode: "execution_preview",
-          },
-        } as never);
-        throw new Error(errorMsg ?? "Invio fallito");
-      }
+    mutationFn: async ({ item }: { item: ClipboardItem; connector: Connector }) => {
+      return await sendVerifiedFn({ data: { clipboard_item_id: item.id } });
     },
     onSuccess: (r) => {
       toast.success(`Payload inviato a n8n (${r.statusCode})`);
