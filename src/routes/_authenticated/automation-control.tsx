@@ -5,8 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Activity, Bot, Workflow, Gauge, AlertTriangle, CheckCircle2, Clock, Plug, ListChecks, ExternalLink, Send } from "lucide-react";
+import { Activity, Bot, Workflow, Gauge, AlertTriangle, CheckCircle2, Clock, Plug, ListChecks, ExternalLink, Send, FileJson, Copy } from "lucide-react";
+
 
 
 export const Route = createFileRoute("/_authenticated/automation-control")({
@@ -19,7 +21,9 @@ export const Route = createFileRoute("/_authenticated/automation-control")({
 
 type ClipboardItem = {
   id: string;
+  brain_id: string | null;
   title: string;
+  content: string;
   target_tool: string;
   source_tool: string;
   status: string;
@@ -29,11 +33,21 @@ type ClipboardItem = {
   automation_connector_id: string | null;
   human_review_required: boolean;
   risk_level: string | null;
-  output_result: string;
+  output_result: string | null;
   updated_at: string;
+  created_at: string;
   automation_completed_at: string | null;
   project_tool_link_id: string | null;
+  execution_instructions: string | null;
+  expected_output: string | null;
+  success_criteria: string | null;
+  source_url: string | null;
+  next_action: string | null;
+  automation_payload: Record<string, unknown> | null;
 };
+
+type BrainLite = { id: string; name: string };
+
 
 type ExecLog = {
   id: string;
@@ -60,11 +74,11 @@ async function fetchAll() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const [itemsRes, logsRes, connectorsRes, tasksRes, roadmapRes] = await Promise.all([
+  const [itemsRes, logsRes, connectorsRes, tasksRes, roadmapRes, brainsRes] = await Promise.all([
     supabase
       .from("clipboard_items")
       .select(
-        "id,title,target_tool,source_tool,status,approval_status,automation_status,automation_attempts,automation_connector_id,human_review_required,risk_level,output_result,updated_at,automation_completed_at,project_tool_link_id"
+        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,automation_attempts,automation_connector_id,human_review_required,risk_level,output_result,updated_at,created_at,automation_completed_at,project_tool_link_id,execution_instructions,expected_output,success_criteria,source_url,next_action,automation_payload"
       )
       .order("updated_at", { ascending: false })
       .limit(500),
@@ -79,6 +93,7 @@ async function fetchAll() {
       .order("created_at", { ascending: false }),
     supabase.from("tasks").select("id", { count: "exact", head: true }),
     supabase.from("roadmap_items").select("id", { count: "exact", head: true }),
+    supabase.from("brains").select("id,name"),
   ]);
 
   if (itemsRes.error) throw itemsRes.error;
@@ -89,11 +104,13 @@ async function fetchAll() {
     items: (itemsRes.data ?? []) as ClipboardItem[],
     logs: (logsRes.data ?? []) as ExecLog[],
     connectors: (connectorsRes.data ?? []) as Connector[],
+    brains: (brainsRes.data ?? []) as BrainLite[],
     tasksCount: tasksRes.count ?? 0,
     roadmapCount: roadmapRes.count ?? 0,
     todayStart: todayStart.toISOString(),
   };
 }
+
 
 function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number | string; icon: typeof Activity; tone?: string }) {
   return (
@@ -178,12 +195,46 @@ function AutomationControlPage() {
     onSettled: () => setTestingId(null),
   });
 
+  const [previewItem, setPreviewItem] = useState<{ item: ClipboardItem; payload: Record<string, unknown> } | null>(null);
+
+  const verifyPayloadMut = useMutation({
+    mutationFn: async ({ item, payload }: { item: ClipboardItem; payload: Record<string, unknown> }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Non autenticato");
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({ automation_payload: payload } as never)
+        .eq("id", item.id);
+      if (upErr) throw upErr;
+      const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
+        user_id: userData.user.id,
+        clipboard_item_id: item.id,
+        action: "n8n_payload_preview_verified",
+        notes: "Payload n8n preview verificato manualmente",
+        metadata: {
+          connector_id: item.automation_connector_id,
+          target_tool: item.target_tool,
+          payload_mode: "execution_preview",
+        },
+      } as never);
+      if (logErr) throw logErr;
+    },
+    onSuccess: () => {
+      toast.success("Payload verificato e salvato");
+      setPreviewItem(null);
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
+    onError: (e: Error) => toast.error(`Errore: ${e.message}`),
+  });
+
+
+
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento…</div>;
   if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
   if (!data) return null;
 
 
-  const { items, logs, connectors, tasksCount, todayStart } = data;
+  const { items, logs, connectors, brains, tasksCount, todayStart } = data;
 
   const toApprove = items.filter((i) => i.human_review_required && i.approval_status !== "approved" && i.approval_status !== "blocked").length;
   const ready = items.filter((i) => i.automation_status === "ready_for_automation").length;
@@ -398,6 +449,150 @@ function AutomationControlPage() {
           </CardContent>
         </Card>
       </div>
+
+      <PayloadPreviewSection
+        items={items}
+        connectors={connectors}
+        brains={brains}
+        onPreview={(item, payload) => setPreviewItem({ item, payload })}
+      />
+
+      <Dialog open={!!previewItem} onOpenChange={(o) => { if (!o) setPreviewItem(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileJson className="h-4 w-4" /> n8n Payload Preview
+            </DialogTitle>
+          </DialogHeader>
+          {previewItem && (
+            <pre className="max-h-[60vh] overflow-auto rounded-md bg-muted p-3 text-xs">
+{JSON.stringify(previewItem.payload, null, 2)}
+            </pre>
+          )}
+          <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
+            <Button variant="outline" onClick={() => setPreviewItem(null)}>Chiudi</Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!previewItem) return;
+                  navigator.clipboard.writeText(JSON.stringify(previewItem.payload, null, 2));
+                  toast.success("JSON copiato");
+                }}
+              >
+                <Copy className="mr-1 h-3 w-3" /> Copia JSON
+              </Button>
+              <Button
+                onClick={() => previewItem && verifyPayloadMut.mutate(previewItem)}
+                disabled={verifyPayloadMut.isPending}
+              >
+                <CheckCircle2 className="mr-1 h-3 w-3" />
+                {verifyPayloadMut.isPending ? "Salvataggio…" : "Segna payload verificato"}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
+function buildN8nPayload(
+  item: ClipboardItem,
+  brain: BrainLite | undefined,
+): Record<string, unknown> {
+  return {
+    source: "brain_hub",
+    mode: "execution_preview",
+    item_id: item.id,
+    title: item.title,
+    target_tool: item.target_tool,
+    connector_id: item.automation_connector_id,
+    prompt: item.content ?? "",
+    execution_instructions: item.execution_instructions ?? "",
+    expected_output: item.expected_output ?? "",
+    success_criteria: item.success_criteria ?? "",
+    risk_level: item.risk_level ?? null,
+    source_url: item.source_url ?? null,
+    project_context: {
+      brain_id: item.brain_id,
+      brain_name: brain?.name ?? null,
+    },
+    metadata: {
+      created_at: item.created_at,
+      next_action: item.next_action ?? null,
+      automation_payload: item.automation_payload ?? {},
+    },
+  };
+}
+
+function PayloadPreviewSection({
+  items,
+  connectors,
+  brains,
+  onPreview,
+}: {
+  items: ClipboardItem[];
+  connectors: Connector[];
+  brains: BrainLite[];
+  onPreview: (item: ClipboardItem, payload: Record<string, unknown>) => void;
+}) {
+  const connectorMap = new Map(connectors.map((c) => [c.id, c]));
+  const brainMap = new Map(brains.map((b) => [b.id, b]));
+  const previewable = items.filter(
+    (i) =>
+      i.automation_status === "queued" &&
+      i.target_tool === "Lovable" &&
+      !i.human_review_required &&
+      (!i.approval_status || i.approval_status === "approved") &&
+      (!i.output_result || i.output_result.trim() === ""),
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <FileJson className="h-4 w-4" /> n8n Payload Preview
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {previewable.length === 0 && (
+          <div className="text-sm text-muted-foreground">
+            Nessun item pronto per la preview (queued, target Lovable, approvato, senza output).
+          </div>
+        )}
+        {previewable.map((i) => {
+          const c = i.automation_connector_id ? connectorMap.get(i.automation_connector_id) : null;
+          const brain = i.brain_id ? brainMap.get(i.brain_id) : undefined;
+          return (
+            <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</div>
+                <div className="flex flex-wrap items-center gap-1 mt-1">
+                  <Badge variant="outline" className="text-[10px]">{i.target_tool}</Badge>
+                  {i.risk_level && <Badge variant="outline" className="text-[10px]">risk: {i.risk_level}</Badge>}
+                  <Badge variant="secondary" className="text-[10px]">{i.automation_status}</Badge>
+                  <Badge variant="outline" className="text-[10px]">
+                    {c ? c.name : "no connector"}
+                  </Badge>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onPreview(i, buildN8nPayload(i, brain))}
+              >
+                <FileJson className="mr-1 h-3 w-3" /> Preview n8n payload
+              </Button>
+            </div>
+          );
+        })}
+        <p className="text-[11px] text-muted-foreground">
+          Solo anteprima: nessun webhook chiamato, nessun automation_status modificato.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+
