@@ -145,15 +145,6 @@ const LOG_TITLES: Record<LogEventType, string> = {
   automation_payload_copied: "Payload automazione copiato",
   automation_callback_received: "Callback ricevuta",
 };
-  automation_queued: "Run messa in coda",
-  automation_started: "Run in esecuzione",
-  automation_completed: "Run completata",
-  automation_failed: "Run fallita",
-  automation_cancelled: "Run cancellata",
-  automation_blocked: "Run bloccata",
-  automation_retried: "Run riprovata",
-  automation_payload_copied: "Payload automazione copiato",
-};
 
 /** Merge patch into metadata.automation_run, persist on clipboard_items, write log row. */
 export async function updateAutomationRun(
