@@ -645,6 +645,10 @@ Callback richiesta:
                     <Badge className="bg-blue-500/15 text-blue-300 text-[10px]">
                       run: {RUN_STATUS_LABELS[run.run_status]}
                     </Badge>
+                    <Badge className={`text-[10px] ${contractBadgeCls}`}>{contractLabel}</Badge>
+                    {alreadyReady && (
+                      <Badge className="bg-emerald-500/15 text-emerald-300 text-[10px]">pronto per test reale</Badge>
+                    )}
                   </div>
                 </div>
 
