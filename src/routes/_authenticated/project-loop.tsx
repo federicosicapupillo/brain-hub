@@ -689,6 +689,25 @@ function ProjectLoopPage() {
     riskLevel: string;
   }>({ suggestion: "", actionType: "roadmap", priority: "medium", riskLevel: "medium" });
 
+  const [reviewItem, setReviewItem] = useState<ClipboardItem | null>(null);
+  const [reviewForm, setReviewForm] = useState<{
+    buildStatus: "yes" | "no" | "unverified";
+    consoleStatus: "yes" | "no" | "unverified";
+    criteria: { label: string; matched: boolean }[];
+    protectedTouched: string[];
+    completion: CompletionLevel;
+    needsFix: boolean;
+    notes: string;
+  }>({
+    buildStatus: "yes",
+    consoleStatus: "unverified",
+    criteria: [],
+    protectedTouched: [],
+    completion: "completo",
+    needsFix: false,
+    notes: "",
+  });
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["project-loop"],
     queryFn: fetchAll,
