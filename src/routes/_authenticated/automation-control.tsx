@@ -309,6 +309,52 @@ function AutomationControlPage() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Send className="h-4 w-4" /> n8n Webhook Test
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {(() => {
+            const n8nConnectors = connectors.filter((c) => c.type === "n8n_webhook" && c.is_active);
+            if (n8nConnectors.length === 0) {
+              return <div className="text-sm text-muted-foreground">Nessun connector n8n_webhook attivo.</div>;
+            }
+            return n8nConnectors.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-2 rounded-md border border-border/60 p-2">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{c.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {c.webhook_url ?? <span className="text-amber-300">webhook_url non configurata</span>}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <Badge variant="outline" className="text-[10px]">{c.target_tool}</Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={!c.webhook_url || testingId === c.id}
+                    onClick={() => {
+                      setTestingId(c.id);
+                      testWebhookMut.mutate(c);
+                    }}
+                  >
+                    <Send className="mr-1 h-3 w-3" />
+                    {testingId === c.id ? "Invio…" : "Test webhook"}
+                  </Button>
+                </div>
+              </div>
+            ));
+          })()}
+          <p className="text-[11px] text-muted-foreground">
+            Invia un payload di test (mode=&quot;test&quot;) al webhook n8n. Nessun prompt reale, nessun item modificato. Esito registrato in clipboard_execution_logs.
+          </p>
+        </CardContent>
+      </Card>
+
+
+
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
