@@ -196,6 +196,7 @@ function AutomationControlPage() {
   });
 
   const [previewItem, setPreviewItem] = useState<{ item: ClipboardItem; payload: Record<string, unknown> } | null>(null);
+  const [sendItem, setSendItem] = useState<{ item: ClipboardItem; connector: Connector } | null>(null);
 
   const verifyPayloadMut = useMutation({
     mutationFn: async ({ item, payload }: { item: ClipboardItem; payload: Record<string, unknown> }) => {
@@ -225,6 +226,94 @@ function AutomationControlPage() {
       qc.invalidateQueries({ queryKey: ["automation-control"] });
     },
     onError: (e: Error) => toast.error(`Errore: ${e.message}`),
+  });
+
+  const sendVerifiedPayloadMut = useMutation({
+    mutationFn: async ({ item, connector }: { item: ClipboardItem; connector: Connector }) => {
+      if (!connector.webhook_url) throw new Error("Webhook URL non configurata");
+      if (!item.automation_payload || Object.keys(item.automation_payload).length === 0) {
+        throw new Error("automation_payload non verificato");
+      }
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Non autenticato");
+
+      let statusCode: number | null = null;
+      let responseText = "";
+      let ok = false;
+      let errorMsg: string | null = null;
+      try {
+        const res = await fetch(connector.webhook_url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.automation_payload),
+        });
+        statusCode = res.status;
+        responseText = (await res.text()).slice(0, 500);
+        ok = res.status === 200 || res.status === 201;
+        if (!ok) errorMsg = `HTTP ${res.status}`;
+      } catch (e) {
+        errorMsg = e instanceof Error ? e.message : "Errore di rete";
+      }
+
+      if (ok) {
+        const { error: upErr } = await supabase
+          .from("clipboard_items")
+          .update({
+            automation_status: "running",
+            automation_last_run_at: new Date().toISOString(),
+          } as never)
+          .eq("id", item.id);
+        if (upErr) throw upErr;
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: userData.user.id,
+          clipboard_item_id: item.id,
+          action: "n8n_verified_payload_sent",
+          previous_status: "queued",
+          new_status: "running",
+          notes: "Payload verificato inviato a n8n",
+          metadata: {
+            connector_id: connector.id,
+            status_code: statusCode,
+            response_preview: responseText,
+            payload_mode: "execution_preview",
+          },
+        } as never);
+        return { statusCode };
+      } else {
+        await supabase
+          .from("clipboard_items")
+          .update({
+            automation_status: "failed",
+            automation_attempts: (item.automation_attempts ?? 0) + 1,
+            automation_last_error: errorMsg,
+          } as never)
+          .eq("id", item.id);
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: userData.user.id,
+          clipboard_item_id: item.id,
+          action: "n8n_verified_payload_failed",
+          previous_status: "queued",
+          new_status: "failed",
+          notes: errorMsg,
+          metadata: {
+            connector_id: connector.id,
+            status_code: statusCode,
+            payload_mode: "execution_preview",
+          },
+        } as never);
+        throw new Error(errorMsg ?? "Invio fallito");
+      }
+    },
+    onSuccess: (r) => {
+      toast.success(`Payload inviato a n8n (${r.statusCode})`);
+      setSendItem(null);
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
+    onError: (e: Error) => {
+      toast.error(`Invio fallito: ${e.message}`);
+      setSendItem(null);
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
   });
 
 
