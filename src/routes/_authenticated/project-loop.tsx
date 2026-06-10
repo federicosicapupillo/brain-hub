@@ -210,47 +210,149 @@ async function copyText(text: string, label = "Testo copiato") {
   }
 }
 
-function buildLovablePrompt(brain: Brain, r: RoadmapItem) {
-  return `REGOLE DI SICUREZZA OBBLIGATORIE:
+type ExecutionPackage = {
+  title: string;
+  brainName: string;
+  projectName: string;
+  roadmapTitle: string;
+  roadmapPriority: string;
+  roadmapStatus: string;
+  objective: string;
+  contextSummary: string;
+  promptOnly: string;
+  executionInstructions: string;
+  doNotModify: string;
+  successCriteria: string;
+  expectedOutput: string;
+  postChecklist: string[];
+  riskLevel: "basso" | "medio" | "alto";
+};
+
+function buildExecutionPackage(brain: Brain, r: RoadmapItem): ExecutionPackage {
+  const objective = (r.description?.trim() || r.title).trim();
+  const promptOnly = `Implementa il roadmap item "${r.title}" del progetto "${brain.name}".
+
+OBIETTIVO:
+${objective}
+
+REGOLE DI PROTEZIONE OBBLIGATORIE:
 - Non modificare auth, login, signup, sessioni, RLS o policy Supabase esistenti.
 - Non toccare dati, tabelle o logiche non richieste.
 - Non rompere route, sidebar, link, layout globale o componenti condivisi.
 - Non rimuovere funzionalità già funzionanti.
 - Modifica solo i file strettamente necessari.
 - Mantieni compatibilità TypeScript.
-- Verifica build, console error e navigazione dopo le modifiche.
-
-CONTESTO PROGETTO:
-- Brain/Progetto: ${brain.name}
-- Roadmap item: ${r.title}
-- Priorità: ${r.priority ?? "—"}
-- Stato attuale: ${r.status}
-
-OBIETTIVO:
-${r.description?.trim() || r.title}
-
-COSA MODIFICARE:
-- Implementare il roadmap item sopra descritto rispettando l'architettura esistente.
-- Toccare solo i file strettamente necessari.
-
-COSA NON MODIFICARE:
-- Auth, login, signup, sessioni.
-- RLS, policy Supabase, tabelle non correlate.
-- Sidebar, layout globale, route esistenti non collegate.
-
-OUTPUT ATTESO:
-- Implementazione funzionante del roadmap item "${r.title}".
-- Nessuna regressione sulle funzionalità esistenti.
 
 CRITERI DI SUCCESSO:
 - Build pulita senza errori TypeScript.
 - Nessun errore in console.
 - Navigazione e UI esistenti intatte.
-- Funzionalità richiesta visibile e usabile.
+- Funzionalità "${r.title}" visibile e usabile.
 
-RICHIESTA FINALE:
-Procedi con build pulita e verifica i criteri sopra elencati.`;
+OUTPUT ATTESO:
+Implementazione funzionante del roadmap item senza regressioni.
+
+Procedi e verifica i criteri sopra elencati.`;
+
+  return {
+    title: `Execution Package — ${r.title}`,
+    brainName: brain.name,
+    projectName: brain.name,
+    roadmapTitle: r.title,
+    roadmapPriority: r.priority ?? "—",
+    roadmapStatus: r.status,
+    objective,
+    contextSummary: `Progetto "${brain.name}" — roadmap item aperto "${r.title}" (priorità ${r.priority ?? "—"}, stato ${r.status}).`,
+    promptOnly,
+    executionInstructions:
+      "1) Copia il prompt principale in Lovable. 2) Attendi la modifica. 3) Verifica build/console/navigazione. 4) Salva il risultato nel Project Loop.",
+    doNotModify:
+      "Auth, login, signup, sessioni. RLS, policy Supabase, tabelle non correlate. Sidebar, layout globale, route esistenti non collegate.",
+    successCriteria:
+      "Build pulita · Nessun errore TS · Nessun errore console · Funzionalità attiva · Nessuna regressione su auth/RLS.",
+    expectedOutput: `Implementazione del roadmap item "${r.title}" senza regressioni, build pulita.`,
+    postChecklist: [
+      "Build verificata senza errori TypeScript",
+      "Nessun errore in console dopo la modifica",
+      "Navigazione delle pagine coinvolte funziona",
+      "Nessuna regressione su auth / RLS",
+      "Risultato Lovable salvato nel Project Loop",
+    ],
+    riskLevel: "medio",
+  };
 }
+
+function renderFullPackage(pkg: ExecutionPackage): string {
+  return `# ${pkg.title}
+
+## Sintesi
+- Progetto: ${pkg.projectName}
+- Cervello: ${pkg.brainName}
+- Roadmap item: ${pkg.roadmapTitle}
+- Priorità: ${pkg.roadmapPriority}
+- Stato: ${pkg.roadmapStatus}
+- Risk level: ${pkg.riskLevel}
+
+## Obiettivo
+${pkg.objective}
+
+## Contesto
+${pkg.contextSummary}
+
+## Prompt Lovable
+${pkg.promptOnly}
+
+## Istruzioni di esecuzione
+${pkg.executionInstructions}
+
+## Cosa NON modificare
+${pkg.doNotModify}
+
+## Criteri di successo
+${pkg.successCriteria}
+
+## Output atteso
+${pkg.expectedOutput}
+
+## Checklist post-esecuzione
+${pkg.postChecklist.map((c) => `- [ ] ${c}`).join("\n")}
+`;
+}
+
+function buildLovablePrompt(brain: Brain, r: RoadmapItem): string {
+  return renderFullPackage(buildExecutionPackage(brain, r));
+}
+
+function runPromptChecklist(prompt: string): { label: string; ok: boolean }[] {
+  const t = prompt.toLowerCase();
+  return [
+    { label: "Contiene l'obiettivo", ok: /obiettivo/.test(t) },
+    { label: "Indica cosa NON modificare", ok: /non modificare|non toccare|do not modify/.test(t) },
+    { label: "Contiene criteri di successo", ok: /criteri di successo|success criteria/.test(t) },
+    { label: "Protegge auth / sessioni / RLS", ok: /(auth|sessioni|session|rls)/.test(t) },
+    { label: "Richiede build pulita", ok: /build pulita|build verificata|nessun errore typescript|no typescript error/.test(t) },
+  ];
+}
+
+function computePromptStage(i: ClipboardItem): string {
+  if ((i.output_result ?? "").trim() !== "") {
+    return i.next_step_generated ? "rielaborato" : "risultato_salvato";
+  }
+  const st = (i.automation_status ?? "").toLowerCase();
+  if (st === "inviato_manualmente" || st === "sent") return "inviato";
+  if (st === "copiato") return "copiato";
+  if (i.approval_status === "pending") return "da_approvare";
+  return "pronto";
+}
+
+const STAGE_META: Record<string, { label: string; cls: string }> = {
+  da_approvare: { label: "da approvare", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  pronto: { label: "pronto", cls: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
+  copiato: { label: "copiato", cls: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30" },
+  inviato: { label: "inviato", cls: "bg-violet-500/15 text-violet-300 border-violet-500/30" },
+  risultato_salvato: { label: "risultato salvato", cls: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30" },
+  rielaborato: { label: "rielaborato", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+};
 
 function suggestNextStep(output: string): string {
   const t = (output ?? "").toLowerCase();
