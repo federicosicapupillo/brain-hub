@@ -231,7 +231,15 @@ export type LogEventType =
   | "lovable_prompt_copied"
   | "lovable_project_opened"
   | "lovable_prompt_sent_manually"
-  | "lovable_result_saved";
+  | "lovable_result_saved"
+  | "local_agent_job_prepared"
+  | "local_agent_job_copied"
+  | "local_agent_job_downloaded"
+  | "local_agent_job_started_manually"
+  | "local_agent_job_cancelled"
+  | "local_agent_job_failed"
+  | "local_agent_callback_received";
+
 
 const LOG_TITLES: Record<LogEventType, string> = {
   automation_approved: "Run approvata",
