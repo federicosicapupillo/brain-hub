@@ -592,7 +592,15 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   lovable_project_opened: "[Lovable] Progetto aperto",
   lovable_prompt_sent_manually: "[Lovable] Prompt segnato come inviato",
   lovable_result_saved: "[Lovable] Risultato salvato",
+  local_agent_job_prepared: "[Agente locale] Job Playwright preparato",
+  local_agent_job_copied: "[Agente locale] Job JSON copiato",
+  local_agent_job_downloaded: "[Agente locale] Job JSON scaricato",
+  local_agent_job_started_manually: "[Agente locale] Job consegnato all'agente",
+  local_agent_job_cancelled: "[Agente locale] Job annullato",
+  local_agent_job_failed: "[Agente locale] Job fallito",
+  local_agent_callback_received: "[Agente locale] Callback ricevuta",
 };
+
 
 function buildTimelineEvents(
   brainId: string,
