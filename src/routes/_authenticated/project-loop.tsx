@@ -599,6 +599,8 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   local_agent_job_cancelled: "[Agente locale] Job annullato",
   local_agent_job_failed: "[Agente locale] Job fallito",
   local_agent_callback_received: "[Agente locale] Callback ricevuta",
+  local_agent_starter_kit_downloaded: "[Agente locale] Starter kit scaricato",
+  local_agent_starter_kit_copied: "[Agente locale] Starter kit copiato",
 };
 
 
