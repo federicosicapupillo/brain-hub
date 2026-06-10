@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Inbox, CheckCircle2, AlertTriangle, ShieldAlert } from "lucide-react";
 import {
+  computeCallbackHash,
   getAutomationRun,
   updateAutomationRun,
   type AutomationRun,
@@ -125,15 +126,26 @@ export function CallbackInboxSection({ prefill, onConsumePrefill }: { prefill: C
     if (!payload.run_id) {
       warnings.push("run_id assente nel JSON, uso la run corrente dell'item");
     }
-    const prevRef = (item.metadata as Record<string, unknown> | null)?.result_meta as
-      | { external_result_reference?: string | null }
+    const prevResultMeta = (item.metadata as Record<string, unknown> | null)?.result_meta as
+      | { external_result_reference?: string | null; callback_hash?: string | null }
       | undefined;
     if (
       payload.external_result_reference &&
-      prevRef?.external_result_reference &&
-      prevRef.external_result_reference === payload.external_result_reference
+      prevResultMeta?.external_result_reference &&
+      prevResultMeta.external_result_reference === payload.external_result_reference
     ) {
       warnings.push("Callback già applicata (external_result_reference identica). Servirà conferma per sovrascrivere.");
+    }
+    const incomingHash = computeCallbackHash({
+      execution_package_id: payload.execution_package_id,
+      run_id: payload.run_id ?? run.run_id,
+      status: payload.status,
+      build_status: payload.build_status ?? null,
+      summary: payload.summary ?? null,
+      raw_output: payload.raw_output ?? null,
+    });
+    if (prevResultMeta?.callback_hash && prevResultMeta.callback_hash === incomingHash) {
+      warnings.push(`Callback già applicata (callback_hash identico: ${incomingHash}). Servirà conferma per sovrascrivere.`);
     }
     if (["completed", "failed", "cancelled"].includes(run.run_status) && payload.external_result_reference) {
       warnings.push(`Run già in stato ${run.run_status}. Applicare sovrascriverà i dati.`);
@@ -146,9 +158,18 @@ export function CallbackInboxSection({ prefill, onConsumePrefill }: { prefill: C
       const { payload, item } = v;
       const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
       const prevResultMeta = (prevMeta.result_meta as Record<string, unknown> | undefined) ?? {};
+      const callbackHash = computeCallbackHash({
+        execution_package_id: payload.execution_package_id,
+        run_id: payload.run_id ?? getAutomationRun(item).run_id,
+        status: payload.status,
+        build_status: payload.build_status ?? null,
+        summary: payload.summary ?? null,
+        raw_output: payload.raw_output ?? null,
+      });
       const alreadyApplied =
-        !!payload.external_result_reference &&
-        prevResultMeta.external_result_reference === payload.external_result_reference;
+        (!!payload.external_result_reference &&
+          prevResultMeta.external_result_reference === payload.external_result_reference) ||
+        prevResultMeta.callback_hash === callbackHash;
       if (alreadyApplied && !forceOverwrite) {
         throw new Error("Callback già applicata a questa run");
       }
@@ -161,6 +182,7 @@ export function CallbackInboxSection({ prefill, onConsumePrefill }: { prefill: C
         summary: payload.summary ?? "",
         notes: payload.notes ?? "",
         external_result_reference: payload.external_result_reference ?? null,
+        callback_hash: callbackHash,
         source: "callback_inbox",
         received_at: now,
       };

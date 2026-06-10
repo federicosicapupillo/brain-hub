@@ -131,7 +131,11 @@ export type LogEventType =
   | "automation_blocked"
   | "automation_retried"
   | "automation_payload_copied"
-  | "automation_callback_received";
+  | "automation_callback_received"
+  | "automation_dry_run_started"
+  | "automation_dry_run_completed"
+  | "automation_dry_run_failed"
+  | "automation_dry_run_blocked";
 
 const LOG_TITLES: Record<LogEventType, string> = {
   automation_approved: "Run approvata",
@@ -144,7 +148,44 @@ const LOG_TITLES: Record<LogEventType, string> = {
   automation_retried: "Run riprovata",
   automation_payload_copied: "Payload automazione copiato",
   automation_callback_received: "Callback ricevuta",
+  automation_dry_run_started: "Dry run avviato",
+  automation_dry_run_completed: "Dry run completato",
+  automation_dry_run_failed: "Dry run fallito",
+  automation_dry_run_blocked: "Dry run bloccato",
 };
+
+export type DryRunMeta = {
+  enabled: boolean;
+  scenario: string;
+  executed_at: string;
+  result: "success" | "warning" | "failed" | "blocked";
+  notes: string;
+};
+
+/** Stable FNV-1a hash for callback dedupe. */
+export function computeCallbackHash(parts: {
+  execution_package_id: string;
+  run_id?: string | null;
+  status?: string | null;
+  build_status?: string | null;
+  summary?: string | null;
+  raw_output?: string | null;
+}): string {
+  const s = [
+    parts.execution_package_id,
+    parts.run_id ?? "",
+    parts.status ?? "",
+    parts.build_status ?? "",
+    (parts.summary ?? "").trim(),
+    (parts.raw_output ?? "").trim(),
+  ].join("|");
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
 
 /** Merge patch into metadata.automation_run, persist on clipboard_items, write log row. */
 export async function updateAutomationRun(

@@ -13,6 +13,7 @@ import { Activity, Bot, Workflow, Gauge, AlertTriangle, CheckCircle2, Clock, Plu
 import { testN8nWebhook, sendVerifiedPayloadToN8n } from "@/lib/n8n.functions";
 import { AutomationRunPanel } from "@/components/AutomationRunPanel";
 import { CallbackInboxSection, type CallbackPrefill } from "@/components/CallbackInboxSection";
+import { DryRunOrchestrator } from "@/components/DryRunOrchestrator";
 import { useEffect } from "react";
 
 
@@ -302,6 +303,8 @@ function AutomationControlPage() {
       </div>
 
       <AutomationRunPanel />
+
+      <DryRunOrchestrator />
 
       <CallbackInboxHost />
 
