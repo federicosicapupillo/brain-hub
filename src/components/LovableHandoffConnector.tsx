@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -78,9 +78,21 @@ type ClipItem = ItemLike & {
 };
 
 type Brain = { id: string; name: string };
+type LovableLinkRow = { id: string; brain_id: string; url: string | null };
+
+export const CANONICAL_LOVABLE_URLS: Record<string, string> = {
+  "sica industrial radar": "https://lovable.dev/projects/eee33a88-bfe7-4e07-a872-6ea47a89e641",
+  "furia immobiliare": "https://lovable.dev/projects/c4e1d01b-1e1d-4552-90f5-6a8dbe4cbb6d",
+  "brain hub": "https://lovable.dev/projects/1680bc9b-5bc8-47f2-9477-f4fa60593f9c",
+};
+
+function canonicalUrlForBrainName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  return CANONICAL_LOVABLE_URLS[name.trim().toLowerCase()] ?? null;
+}
 
 async function fetchData() {
-  const [itemsRes, brainsRes] = await Promise.all([
+  const [itemsRes, brainsRes, linksRes] = await Promise.all([
     supabase
       .from("clipboard_items")
       .select(
@@ -90,12 +102,19 @@ async function fetchData() {
       .order("updated_at", { ascending: false })
       .limit(300),
     supabase.from("brains").select("id,name"),
+    supabase
+      .from("project_links")
+      .select("id,brain_id,url")
+      .eq("link_type", "external")
+      .eq("tool", "lovable"),
   ]);
   if (itemsRes.error) throw itemsRes.error;
   if (brainsRes.error) throw brainsRes.error;
+  if (linksRes.error) throw linksRes.error;
   return {
     items: (itemsRes.data ?? []) as ClipItem[],
     brains: (brainsRes.data ?? []) as Brain[],
+    lovableLinks: (linksRes.data ?? []) as LovableLinkRow[],
   };
 }
 
@@ -173,11 +192,66 @@ export function LovableHandoffConnector() {
   const items = data?.items ?? [];
   const brains = data?.brains ?? [];
   const brainMap = useMemo(() => new Map(brains.map((b) => [b.id, b])), [brains]);
+  const lovableLinkByBrain = useMemo(() => {
+    const m = new Map<string, LovableLinkRow>();
+    for (const l of data?.lovableLinks ?? []) {
+      if (l.brain_id) m.set(l.brain_id, l);
+    }
+    return m;
+  }, [data?.lovableLinks]);
+
+  /** project-level Lovable URL: stored row first, else canonical mapping by brain name */
+  const projectUrlForBrain = (brainId: string | null | undefined): string => {
+    if (!brainId) return "";
+    const stored = lovableLinkByBrain.get(brainId)?.url?.trim();
+    if (stored) return stored;
+    const b = brainMap.get(brainId);
+    return canonicalUrlForBrainName(b?.name) ?? "";
+  };
+
+  /** Sync canonical URLs into project_links once per dataset load. */
+  const syncedRef = useRef<string>("");
+  useEffect(() => {
+    if (!data) return;
+    const sig = `${brains.length}:${data.lovableLinks.length}`;
+    if (syncedRef.current === sig) return;
+    syncedRef.current = sig;
+    void (async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+      for (const b of brains) {
+        const canonical = canonicalUrlForBrainName(b.name);
+        if (!canonical) continue;
+        const existing = lovableLinkByBrain.get(b.id);
+        if (existing) {
+          if ((existing.url ?? "").trim() !== canonical) {
+            await supabase
+              .from("project_links")
+              .update({ url: canonical, updated_at: new Date().toISOString() } as never)
+              .eq("id", existing.id);
+          }
+        } else {
+          await supabase.from("project_links").insert({
+            user_id: userData.user.id,
+            brain_id: b.id,
+            link_type: "external",
+            tool: "lovable",
+            title: `Lovable · ${b.name}`,
+            url: canonical,
+            relation_type: "lovable_project",
+            notes: "URL Lovable progetto (auto-mappato)",
+          } as never);
+        }
+      }
+      qc.invalidateQueries({ queryKey: ["lovable-handoff"] });
+    })();
+  }, [data, brains, lovableLinkByBrain, qc]);
 
   const eligible = useMemo(
     () => items.map((i) => ({ item: i, info: isEligible(i) })).filter((x) => x.info.ok),
     [items],
   );
+
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["lovable-handoff"] });
@@ -272,12 +346,14 @@ export function LovableHandoffConnector() {
 
   async function openLovableOnly(item: ClipItem) {
     const h = getHandoff(item);
-    if (!h.lovable_project_url) {
-      toast.error("Salva prima l'URL del progetto Lovable");
+    const url = (h.lovable_project_url || projectUrlForBrain(item.brain_id)).trim();
+    if (!url) {
+      toast.error("Nessun URL Lovable configurato per questo progetto");
       return;
     }
-    window.open(h.lovable_project_url, "_blank", "noopener,noreferrer");
+    window.open(url, "_blank", "noopener,noreferrer");
     await persistHandoff(item, {
+      lovable_project_url: url,
       handoff_status: h.handoff_status === "copied" ? "copied" : "opened",
       lovable_opened_at: new Date().toISOString(),
     });
@@ -287,8 +363,9 @@ export function LovableHandoffConnector() {
 
   async function openAndCopy(item: ClipItem) {
     const h = getHandoff(item);
-    if (!h.lovable_project_url) {
-      toast.error("Salva prima l'URL del progetto Lovable");
+    const url = (h.lovable_project_url || projectUrlForBrain(item.brain_id)).trim();
+    if (!url) {
+      toast.error("Nessun URL Lovable configurato per questo progetto");
       return;
     }
     const prompt = buildLovablePrompt(item);
@@ -306,9 +383,10 @@ export function LovableHandoffConnector() {
       toast.error("Impossibile copiare negli appunti");
       return;
     }
-    window.open(h.lovable_project_url, "_blank", "noopener,noreferrer");
+    window.open(url, "_blank", "noopener,noreferrer");
     const now = new Date().toISOString();
     await persistHandoff(item, {
+      lovable_project_url: url,
       handoff_status: "copied",
       prompt_copied_at: now,
       lovable_opened_at: now,
@@ -318,6 +396,7 @@ export function LovableHandoffConnector() {
     invalidate();
     setInstructionsDlg({ item });
   }
+
 
   const sentManuallyMut = useMutation({
     mutationFn: async (item: ClipItem) => {
@@ -468,9 +547,16 @@ export function LovableHandoffConnector() {
                 | { package_type?: string }
                 | undefined)?.package_type ?? "standard";
             const h = getHandoff(item);
+            const projectUrl = projectUrlForBrain(item.brain_id);
+            const effectiveUrl = (h.lovable_project_url || projectUrl).trim();
             const editing = urlEdits[item.id];
             const urlValue = editing ?? h.lovable_project_url ?? "";
-            const hasUrl = h.lovable_project_url.trim().length > 0;
+            const hasUrl = effectiveUrl.length > 0;
+            const urlSource = h.lovable_project_url.trim()
+              ? "override item"
+              : projectUrl
+                ? "progetto"
+                : "—";
             const rm = resultMeta(item);
             const alreadySavedLovable =
               h.handoff_status === "result_saved" || rm?.source === "lovable_manual";
@@ -503,11 +589,40 @@ export function LovableHandoffConnector() {
                   </div>
                 </div>
 
+                <div className="rounded-md border border-border/60 bg-muted/20 p-2 text-[11px] space-y-0.5">
+                  <div>
+                    <span className="text-muted-foreground">Progetto Brain Hub:</span>{" "}
+                    <span className="font-medium">{brain?.name ?? "—"}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground">URL Lovable:</span>
+                    {effectiveUrl ? (
+                      <a
+                        href={effectiveUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="truncate underline text-blue-300"
+                      >
+                        {effectiveUrl}
+                      </a>
+                    ) : (
+                      <span className="italic text-muted-foreground">non impostato</span>
+                    )}
+                    {hasUrl ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-300 text-[10px]">
+                        URL configurato · fonte: {urlSource}
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-500/15 text-amber-300 text-[10px]">URL mancante</Badge>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <div className="text-[11px] text-muted-foreground shrink-0">URL progetto Lovable:</div>
+                  <div className="text-[11px] text-muted-foreground shrink-0">Override URL (opzionale):</div>
                   <Input
                     className="h-7 text-xs flex-1 min-w-[240px]"
-                    placeholder="https://lovable.dev/projects/..."
+                    placeholder={projectUrl || "https://lovable.dev/projects/..."}
                     value={urlValue}
                     onChange={(e) =>
                       setUrlEdits((s) => ({ ...s, [item.id]: e.target.value }))
@@ -565,7 +680,7 @@ export function LovableHandoffConnector() {
                 {!hasUrl && (
                   <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-300">
                     <AlertTriangle className="inline h-3 w-3 mr-1" />
-                    Salva l&apos;URL del progetto Lovable per abilitare l&apos;apertura in nuova tab.
+                    Nessun URL Lovable mappato per questo progetto. Verifica il nome del progetto o imposta un override URL.
                   </div>
                 )}
               </div>
