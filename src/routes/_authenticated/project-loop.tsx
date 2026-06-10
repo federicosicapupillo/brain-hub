@@ -676,11 +676,12 @@ function buildTimelineEvents(
         item,
       });
     } else if (AUTOMATION_LOG_LABELS[l.action]) {
+      const isDry = l.action.startsWith("automation_dry_run_");
       events.push({
         id: `log:${l.id}`,
-        type: "automation",
+        type: isDry ? "dry_run" : "automation",
         ts: l.created_at,
-        title: `${AUTOMATION_LOG_LABELS[l.action]} — ${item?.title ?? ""}`.trim(),
+        title: `${isDry ? "[Dry Run] " : ""}${AUTOMATION_LOG_LABELS[l.action]} — ${item?.title ?? ""}`.trim(),
         preview:
           l.notes ??
           (l.previous_status || l.new_status ? `${l.previous_status ?? "—"} → ${l.new_status ?? "—"}` : undefined),
