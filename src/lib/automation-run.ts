@@ -242,7 +242,9 @@ export type LogEventType =
   | "local_agent_starter_kit_downloaded"
   | "local_agent_starter_kit_copied"
   | "lovable_browser_bridge_prompt_copied"
-  | "lovable_browser_bridge_extension_downloaded";
+  | "lovable_browser_bridge_extension_downloaded"
+  | "lovable_browser_bridge_prompt_inserted"
+  | "lovable_browser_bridge_prompt_sent_confirmed";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
