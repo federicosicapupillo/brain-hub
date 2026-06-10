@@ -875,4 +875,26 @@ function N8nCallbackInfo() {
   );
 }
 
+function CallbackInboxHost() {
+  const [prefill, setPrefill] = useState<CallbackPrefill | null>(null);
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<CallbackPrefill>).detail;
+      setPrefill(detail);
+      // Scroll into view
+      setTimeout(() => {
+        document.getElementById("callback-inbox-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+    };
+    window.addEventListener("automation:simulate-callback", handler as EventListener);
+    return () => window.removeEventListener("automation:simulate-callback", handler as EventListener);
+  }, []);
+  return (
+    <div id="callback-inbox-anchor">
+      <CallbackInboxSection prefill={prefill} onConsumePrefill={() => setPrefill(null)} />
+    </div>
+  );
+}
+
+
 
