@@ -345,6 +345,8 @@ export async function runDryRunScenario(
     external_result_reference: `dry_run:${scenario}:${run.run_id}`,
     callback_hash: callbackHash,
     source: "dry_run",
+    is_simulated: true,
+    dry_run_scenario: scenario,
     received_at: now,
     protected_areas_touched: sim.protected_areas_touched ?? false,
     result_summary: sim.result_summary ?? null,
