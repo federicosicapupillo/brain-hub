@@ -282,10 +282,18 @@ export function DryRunOrchestrator() {
           {eligible.map((i) => {
             const run = getAutomationRun(i);
             const dry = dryRunMeta(i);
+            const isSimulated = ((i.metadata as Record<string, unknown> | null)?.result_meta as { is_simulated?: boolean } | undefined)?.is_simulated === true;
+            const canRestore = !!dry?.previous_state_snapshot;
+            const real = hasRealResult(i);
             return (
               <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-2">
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</span>
+                    {isSimulated && (
+                      <Badge className="bg-amber-500/20 text-amber-300 text-[10px] uppercase tracking-wide">DRY RUN / SIMULAZIONE</Badge>
+                    )}
+                  </div>
                   <div className="mt-1 flex flex-wrap items-center gap-1">
                     <Badge variant="secondary" className="text-[10px]">run: {RUN_STATUS_LABELS[run.run_status]}</Badge>
                     {i.risk_level && (
@@ -293,14 +301,24 @@ export function DryRunOrchestrator() {
                     )}
                     {dry && (
                       <Badge variant="outline" className="text-[10px]">
-                        ultimo dry run: {DRY_RUN_SCENARIO_LABELS[dry.scenario as DryRunScenario] ?? dry.scenario} ({dry.result})
+                        ultimo: {DRY_RUN_SCENARIO_LABELS[dry.scenario as DryRunScenario] ?? dry.scenario} ({dry.result})
                       </Badge>
+                    )}
+                    {real.hasReal && !isSimulated && (
+                      <Badge className="bg-red-500/15 text-red-300 text-[10px]">risultato reale presente</Badge>
                     )}
                   </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => { setConfirmDup(false); setTarget(i); }}>
-                  <PlayCircle className="mr-1 h-3 w-3" /> Esegui dry run
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {canRestore && (
+                    <Button size="sm" variant="ghost" onClick={() => restoreMut.mutate(i)} disabled={restoreMut.isPending}>
+                      <Undo2 className="mr-1 h-3 w-3" /> Ripristina stato precedente
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => { setConfirmDup(false); setTarget(i); }}>
+                    <PlayCircle className="mr-1 h-3 w-3" /> Esegui dry run
+                  </Button>
+                </div>
               </div>
             );
           })}
