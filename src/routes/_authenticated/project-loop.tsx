@@ -40,6 +40,9 @@ import {
   ChevronDown,
   ChevronRight,
   Send,
+  ClipboardCheck,
+  ShieldAlert,
+  XCircle,
 } from "lucide-react";
 
 type HealthStatus = "healthy" | "needs_attention" | "blocked" | "empty";
@@ -402,7 +405,147 @@ function computeLoopState(args: {
   return "next_prompt_needed";
 }
 
-type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt";
+// ============ Post Execution Review ============
+type ReviewStatus = "pending_review" | "approved" | "needs_fix" | "partial" | "failed";
+type CompletionLevel = "completo" | "parziale" | "fallito" | "non_verificato";
+type RecommendedNextAction =
+  | "genera_fix_prompt"
+  | "genera_prossimo_prompt"
+  | "richiedi_verifica_manuale"
+  | "chiudi_step"
+  | "blocca_loop";
+
+type PostExecutionReview = {
+  review_status: ReviewStatus;
+  completion_level: CompletionLevel;
+  build_status: "yes" | "no" | "unverified";
+  console_status: "yes" | "no" | "unverified";
+  matched_success_criteria: string[];
+  missing_success_criteria: string[];
+  protected_areas_touched: string[];
+  detected_risks: string[];
+  recommended_next_action: RecommendedNextAction;
+  review_notes: string;
+  reviewed_at: string;
+};
+
+const REVIEW_META: Record<ReviewStatus, { label: string; cls: string }> = {
+  pending_review: { label: "Da verificare", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  approved: { label: "Approvato", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+  needs_fix: { label: "Da correggere", cls: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
+  partial: { label: "Parziale", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  failed: { label: "Fallito", cls: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
+};
+
+const PROTECTED_AREAS = [
+  "login/signup",
+  "sessioni/auth",
+  "RLS/policy Supabase",
+  "sidebar globale",
+  "layout globale",
+  "altre route",
+] as const;
+
+function getReview(item: ClipboardItem | null | undefined): PostExecutionReview | null {
+  if (!item) return null;
+  const m = (item.metadata as Record<string, unknown> | null) ?? {};
+  const r = m.post_execution_review as PostExecutionReview | undefined;
+  return r ?? null;
+}
+
+function reviewStatusOf(item: ClipboardItem | null | undefined): ReviewStatus | null {
+  if (!item) return null;
+  const hasOutput = !!(item.output_result ?? "").trim();
+  if (!hasOutput) return null;
+  return getReview(item)?.review_status ?? "pending_review";
+}
+
+function getSuccessCriteriaList(item: ClipboardItem | null | undefined): string[] {
+  if (!item) return [];
+  const m = (item.metadata as Record<string, unknown> | null) ?? {};
+  const pkg = m.execution_package as { successCriteria?: string; postChecklist?: string[] } | undefined;
+  if (pkg?.postChecklist && pkg.postChecklist.length > 0) return pkg.postChecklist;
+  if (pkg?.successCriteria) {
+    return pkg.successCriteria
+      .split(/[·\n;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [
+    "Build pulita senza errori TypeScript",
+    "Nessun errore in console",
+    "Funzionalità visibile e usabile",
+    "Nessuna regressione su auth/RLS",
+  ];
+}
+
+function deriveReview(input: {
+  buildStatus: "yes" | "no" | "unverified";
+  consoleStatus: "yes" | "no" | "unverified";
+  matched: string[];
+  missing: string[];
+  protectedTouched: string[];
+  completion: CompletionLevel;
+  needsFix: boolean;
+  notes: string;
+}): PostExecutionReview {
+  const { buildStatus, consoleStatus, matched, missing, protectedTouched, completion, needsFix, notes } = input;
+
+  let status: ReviewStatus;
+  let action: RecommendedNextAction;
+
+  if (buildStatus === "no" || consoleStatus === "yes" || completion === "fallito") {
+    status = buildStatus === "no" ? "failed" : "needs_fix";
+    action = "genera_fix_prompt";
+  } else if (protectedTouched.length > 0) {
+    status = "needs_fix";
+    action = "genera_fix_prompt";
+  } else if (needsFix || missing.length > 0 || completion === "parziale") {
+    status = "partial";
+    action = "genera_fix_prompt";
+  } else if (buildStatus === "unverified" || consoleStatus === "unverified" || completion === "non_verificato") {
+    status = "pending_review";
+    action = "richiedi_verifica_manuale";
+  } else {
+    status = "approved";
+    action = "genera_prossimo_prompt";
+  }
+
+  const detected: string[] = [];
+  if (buildStatus === "no") detected.push("Build fallita");
+  if (consoleStatus === "yes") detected.push("Errori in console");
+  if (protectedTouched.length > 0) detected.push(`Aree protette toccate: ${protectedTouched.join(", ")}`);
+  if (missing.length > 0) detected.push(`Criteri mancanti: ${missing.length}`);
+
+  return {
+    review_status: status,
+    completion_level: completion,
+    build_status: buildStatus,
+    console_status: consoleStatus,
+    matched_success_criteria: matched,
+    missing_success_criteria: missing,
+    protected_areas_touched: protectedTouched,
+    detected_risks: detected,
+    recommended_next_action: action,
+    review_notes: notes.trim(),
+    reviewed_at: new Date().toISOString(),
+  };
+}
+
+function findChildPackageByType(
+  items: ClipboardItem[],
+  parentId: string,
+  packageType: "fix_prompt" | "next_prompt",
+): ClipboardItem | undefined {
+  return items.find((i) => {
+    const m = (i.metadata as Record<string, unknown> | null) ?? {};
+    if (m.parent_clipboard_item_id !== parentId) return false;
+    const pkg = m.execution_package as { package_type?: string } | undefined;
+    return pkg?.package_type === packageType;
+  });
+}
+
+type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt" | "review";
 
 type TimelineEvent = {
   id: string;
@@ -419,6 +562,7 @@ const TIMELINE_META: Record<TimelineEventType, { label: string; icon: typeof Wor
   sent: { label: "log", icon: Send, cls: "bg-indigo-500/15 text-indigo-300" },
   output: { label: "output", icon: Sparkles, cls: "bg-fuchsia-500/15 text-fuchsia-300" },
   next_prompt: { label: "next_prompt", icon: RefreshCw, cls: "bg-emerald-500/15 text-emerald-300" },
+  review: { label: "review", icon: ClipboardCheck, cls: "bg-teal-500/15 text-teal-300" },
 };
 
 function buildTimelineEvents(
@@ -472,6 +616,21 @@ function buildTimelineEvents(
         preview: i.output_result.slice(0, 160),
         item: i,
       });
+      const rev = getReview(i);
+      if (rev) {
+        const meta = REVIEW_META[rev.review_status];
+        events.push({
+          id: `review:${i.id}`,
+          type: "review",
+          ts: rev.reviewed_at || i.updated_at,
+          title: `Review risultato — ${meta.label} · ${rev.completion_level}`,
+          preview:
+            `Next: ${rev.recommended_next_action}` +
+            (rev.review_notes ? ` · ${rev.review_notes.slice(0, 120)}` : "") +
+            (rev.detected_risks.length > 0 ? ` · ${rev.detected_risks.join(" · ").slice(0, 120)}` : ""),
+          item: i,
+        });
+      }
     }
   }
   // Logs: only "sent" / manual flags, dedupe vs item events
@@ -529,6 +688,25 @@ function ProjectLoopPage() {
     priority: string;
     riskLevel: string;
   }>({ suggestion: "", actionType: "roadmap", priority: "medium", riskLevel: "medium" });
+
+  const [reviewItem, setReviewItem] = useState<ClipboardItem | null>(null);
+  const [reviewForm, setReviewForm] = useState<{
+    buildStatus: "yes" | "no" | "unverified";
+    consoleStatus: "yes" | "no" | "unverified";
+    criteria: { label: string; matched: boolean }[];
+    protectedTouched: string[];
+    completion: CompletionLevel;
+    needsFix: boolean;
+    notes: string;
+  }>({
+    buildStatus: "yes",
+    consoleStatus: "unverified",
+    criteria: [],
+    protectedTouched: [],
+    completion: "completo",
+    needsFix: false,
+    notes: "",
+  });
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["project-loop"],
@@ -930,6 +1108,10 @@ CRITERI DI SUCCESSO:
             risk_level: riskLevel,
             requires_approval: true,
             next_action: "Inviare a Lovable e salvare il risultato",
+            metadata: {
+              parent_clipboard_item_id: item.id,
+              execution_package: { package_type: "next_prompt" },
+            },
           } as never)
           .select("id")
           .single();
@@ -1029,11 +1211,24 @@ CRITERI DI SUCCESSO:
         metadata: { brain_id: item.brain_id, result_meta: resultMeta },
       } as never);
       if (logErr) throw logErr;
+      return { item, resultMeta, trimmed };
     },
-    onSuccess: () => {
-      toast.success("Risultato Lovable salvato nel Project Loop");
+    onSuccess: ({ item, resultMeta, trimmed }) => {
+      toast.success("Risultato salvato. Completa la review.");
       setSaveResultItem(null);
       setSaveResultText("");
+      // open review modal prefilled
+      const refreshed: ClipboardItem = {
+        ...item,
+        output_result: trimmed,
+        automation_status: "completed",
+        metadata: { ...((item.metadata as Record<string, unknown> | null) ?? {}), result_meta: resultMeta, stage: "risultato_salvato" },
+      };
+      openReview(refreshed, {
+        buildStatus: saveResultMeta.buildOk,
+        consoleStatus: saveResultMeta.consoleErrors,
+        notes: saveResultMeta.notes,
+      });
       setSaveResultMeta({ buildOk: "yes", consoleErrors: "unverified", changes: "", files: "", notes: "" });
       queryClient.invalidateQueries({ queryKey: ["project-loop"] });
     },
@@ -1096,6 +1291,207 @@ CRITERI DI SUCCESSO:
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-loop"] }),
   });
 
+  const saveReviewMut = useMutation({
+    mutationFn: async ({ item, review }: { item: ClipboardItem; review: PostExecutionReview }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({
+          metadata: { ...prevMeta, post_execution_review: review },
+          next_action:
+            review.recommended_next_action === "genera_fix_prompt"
+              ? "Generare un fix prompt e re-inviarlo a Lovable"
+              : review.recommended_next_action === "genera_prossimo_prompt"
+                ? "Generare il prossimo prompt operativo"
+                : "Verifica manuale del risultato",
+        } as never)
+        .eq("id", item.id);
+      if (upErr) throw upErr;
+      await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "post_execution_review",
+        notes: `${review.review_status} · ${review.completion_level} · next: ${review.recommended_next_action}`,
+        user_id: userId,
+        metadata: { brain_id: item.brain_id, review },
+      } as never);
+    },
+    onSuccess: () => {
+      toast.success("Review salvata");
+      setReviewItem(null);
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const generateFixPromptMut = useMutation({
+    mutationFn: async ({ item }: { item: ClipboardItem }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+
+      // dedupe: do not create a second fix prompt for the same parent
+      const existing = findChildPackageByType(items, item.id, "fix_prompt");
+      if (existing) {
+        throw new Error("Fix prompt già generato per questo risultato");
+      }
+
+      const review = getReview(item);
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
+      const prevPkg = prevMeta.execution_package as
+        | { successCriteria?: string; postChecklist?: string[]; promptOnly?: string }
+        | undefined;
+      const brain = item.brain_id ? brainsById.get(item.brain_id) : null;
+      const brainName = brain?.name ?? "(senza brain)";
+      const baseCriteria = prevPkg?.postChecklist?.length
+        ? prevPkg.postChecklist
+        : (prevPkg?.successCriteria ?? "")
+            .split(/[·\n;]+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+      const missingTxt = review?.missing_success_criteria.length
+        ? review.missing_success_criteria.map((c) => `- ${c}`).join("\n")
+        : "- (nessuno specificato)";
+      const protectedTouchedTxt = review?.protected_areas_touched.length
+        ? review.protected_areas_touched.map((p) => `- ${p}`).join("\n")
+        : "- (nessuna area protetta toccata segnalata)";
+      const detectedTxt = review?.detected_risks.length
+        ? review.detected_risks.map((r) => `- ${r}`).join("\n")
+        : "- (nessun rischio rilevato esplicito)";
+
+      const fixTitle = `Fix Prompt — ${brainName} — ${item.title || "(senza titolo)"}`.slice(0, 200);
+      const fixPromptOnly = `REGOLE DI PROTEZIONE OBBLIGATORIE:
+- Non modificare auth, login, signup, sessioni, RLS o policy Supabase esistenti.
+- Non toccare dati, tabelle o logiche non richieste.
+- Non rompere route, sidebar, link, layout globale o componenti condivisi.
+- Modifica solo i file strettamente necessari.
+- Mantieni compatibilità TypeScript.
+
+CONTESTO:
+- Progetto: ${brainName}
+- Prompt originale: ${item.title}
+- Esito review precedente: ${review?.review_status ?? "non specificato"} (${review?.completion_level ?? "—"})
+
+RISULTATO LOVABLE PRECEDENTE:
+${(item.output_result ?? "").slice(0, 2000)}
+
+ERRORI E MANCANZE RILEVATE:
+${detectedTxt}
+
+CRITERI DI SUCCESSO NON RISPETTATI:
+${missingTxt}
+
+AREE PROTETTE TOCCATE PER ERRORE:
+${protectedTouchedTxt}
+
+NOTE REVIEW:
+${review?.review_notes || "—"}
+
+COSA CORREGGERE:
+- Risolvere le mancanze sopra elencate senza introdurre nuove regressioni.
+- Ripristinare eventuali aree protette toccate per errore.
+
+COSA NON MODIFICARE:
+- Auth, login, signup, sessioni, RLS, policy Supabase.
+- Sidebar globale, layout globale, route esistenti non collegate.
+- Funzionalità già funzionanti non legate al fix.
+
+CRITERI DI SUCCESSO AGGIORNATI:
+${baseCriteria.length ? baseCriteria.map((c) => `- ${c}`).join("\n") : "- Build pulita\n- Nessun errore in console\n- Funzionalità target completa"}
+- Build pulita verificata
+- Nessun errore in console
+- Nessuna regressione
+
+Procedi e verifica i criteri sopra elencati.`;
+
+      const fixPkg = {
+        title: fixTitle,
+        brainName,
+        projectName: brainName,
+        roadmapTitle: item.title,
+        roadmapPriority: "—",
+        roadmapStatus: "fix",
+        objective: `Correggere il risultato precedente di "${item.title}"`,
+        contextSummary: `Fix per "${item.title}" — review ${review?.review_status ?? "—"}`,
+        promptOnly: fixPromptOnly,
+        executionInstructions:
+          "1) Copia il prompt in Lovable. 2) Verifica build/console. 3) Salva il risultato. 4) Esegui review.",
+        doNotModify: "Auth, login, signup, sessioni, RLS, policy Supabase, sidebar, layout globale.",
+        successCriteria:
+          "Fix risolto · Build pulita · No errori console · Nessuna regressione · Aree protette intatte",
+        expectedOutput: "Correzione completa del difetto segnalato, build pulita.",
+        postChecklist: [
+          "Mancanze precedenti risolte",
+          "Build pulita verificata",
+          "Nessun errore in console",
+          "Aree protette intatte",
+          "Risultato salvato e revisionato",
+        ],
+        riskLevel: "medio" as const,
+        package_type: "fix_prompt" as const,
+      };
+
+      const { data: inserted, error: insErr } = await supabase
+        .from("clipboard_items")
+        .insert({
+          user_id: userId,
+          brain_id: item.brain_id,
+          project_tool_link_id: item.project_tool_link_id,
+          title: fixTitle,
+          content: fixPromptOnly,
+          content_type: "execution_package",
+          target_tool: "Lovable",
+          source_tool: "Project Loop",
+          status: "active",
+          approval_status: "pending",
+          automation_status: "ready_for_automation",
+          human_review_required: true,
+          execution_instructions: fixPkg.executionInstructions,
+          expected_output: fixPkg.expectedOutput,
+          success_criteria: fixPkg.successCriteria,
+          risk_level: "medium",
+          requires_approval: true,
+          next_action: "Inviare il fix a Lovable e salvare il risultato",
+          metadata: {
+            execution_package: fixPkg,
+            parent_clipboard_item_id: item.id,
+            stage: "da_approvare",
+          },
+        } as never)
+        .select("id")
+        .single();
+      if (insErr) throw insErr;
+
+      await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "generated_fix_prompt",
+        notes: `Fix prompt creato (${inserted.id})`,
+        user_id: userId,
+        metadata: {
+          brain_id: item.brain_id,
+          parent_clipboard_item_id: item.id,
+          new_clipboard_item_id: inserted.id,
+        },
+      } as never);
+
+      // mark parent as having generated a follow-up
+      await supabase
+        .from("clipboard_items")
+        .update({ next_step_generated: true } as never)
+        .eq("id", item.id);
+
+      return inserted.id;
+    },
+    onSuccess: () => {
+      toast.success("Fix prompt creato in Clipboard AI");
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   function openNextStep(i: ClipboardItem) {
     setNextStepItem(i);
     setNextStepForm({
@@ -1109,6 +1505,41 @@ CRITERI DI SUCCESSO:
   function openSaveResult(i: ClipboardItem) {
     setSaveResultItem(i);
     setSaveResultText("");
+  }
+
+  function openReview(
+    i: ClipboardItem,
+    prefill?: { buildStatus?: "yes" | "no" | "unverified"; consoleStatus?: "yes" | "no" | "unverified"; notes?: string },
+  ) {
+    const existing = getReview(i);
+    const criteriaLabels = getSuccessCriteriaList(i);
+    const matchedSet = new Set(existing?.matched_success_criteria ?? []);
+    setReviewItem(i);
+    setReviewForm({
+      buildStatus: prefill?.buildStatus ?? existing?.build_status ?? "unverified",
+      consoleStatus: prefill?.consoleStatus ?? existing?.console_status ?? "unverified",
+      criteria: criteriaLabels.map((label) => ({ label, matched: matchedSet.has(label) })),
+      protectedTouched: existing?.protected_areas_touched ?? [],
+      completion: existing?.completion_level ?? "completo",
+      needsFix: existing?.review_status === "needs_fix" || existing?.review_status === "partial",
+      notes: prefill?.notes ?? existing?.review_notes ?? "",
+    });
+  }
+
+  function triggerNextPrompt(i: ClipboardItem) {
+    const rev = getReview(i);
+    const existing = findChildPackageByType(items, i.id, "next_prompt");
+    if (existing) {
+      toast.warning("Prompt già generato per questo risultato");
+      return;
+    }
+    if (!rev || rev.review_status !== "approved") {
+      const ok = window.confirm(
+        "La review non è approvata. Vuoi procedere comunque con il prossimo prompt?",
+      );
+      if (!ok) return;
+    }
+    openNextStep(i);
   }
 
   function copyPrompt(content: string) {
@@ -1340,19 +1771,66 @@ CRITERI DI SUCCESSO:
                   </Button>
                 ) : null;
               }
-              if (loopState === "result_to_review") {
-                return lastPrompt ? (
-                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openNextStep(lastPrompt)}>
-                    <Wand2 className="mr-1 h-3 w-3" /> Rielabora risultato
-                  </Button>
-                ) : null;
-              }
-              if (loopState === "next_prompt_needed") {
-                return lastPrompt ? (
-                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openNextStep(lastPrompt)}>
-                    <Wand2 className="mr-1 h-3 w-3" /> Genera prossimo prompt
-                  </Button>
-                ) : null;
+              if (loopState === "result_to_review" || loopState === "next_prompt_needed") {
+                if (!lastPrompt) return null;
+                const rev = getReview(lastPrompt);
+                const status = rev?.review_status ?? "pending_review";
+                if (status === "pending_review") {
+                  return (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="h-7 text-[11px]"
+                      onClick={() => openReview(lastPrompt)}
+                    >
+                      <ClipboardCheck className="mr-1 h-3 w-3" /> Verifica risultato
+                    </Button>
+                  );
+                }
+                if (status === "needs_fix" || status === "failed" || status === "partial") {
+                  return (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-7 text-[11px]"
+                        disabled={generateFixPromptMut.isPending}
+                        onClick={() => generateFixPromptMut.mutate({ item: lastPrompt })}
+                      >
+                        <ShieldAlert className="mr-1 h-3 w-3" /> Genera fix prompt
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-[11px]"
+                        onClick={() => openReview(lastPrompt)}
+                      >
+                        <ClipboardCheck className="mr-1 h-3 w-3" /> Rivedi review
+                      </Button>
+                    </>
+                  );
+                }
+                // approved
+                return (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="h-7 text-[11px]"
+                      onClick={() => triggerNextPrompt(lastPrompt)}
+                    >
+                      <Wand2 className="mr-1 h-3 w-3" /> Genera prossimo prompt
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-[11px]"
+                      onClick={() => openReview(lastPrompt)}
+                    >
+                      <ClipboardCheck className="mr-1 h-3 w-3" /> Rivedi review
+                    </Button>
+                  </>
+                );
               }
               return null;
             };
@@ -1601,6 +2079,86 @@ CRITERI DI SUCCESSO:
               </div>
             );
           })}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ClipboardCheck className="h-4 w-4" /> Da verificare (Post Execution Review)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {(() => {
+            const toReview = items.filter((i) => {
+              if ((i.output_result ?? "").trim() === "") return false;
+              const s = reviewStatusOf(i);
+              return s !== null && s !== "approved";
+            });
+            if (toReview.length === 0) {
+              return <div className="text-sm text-muted-foreground">Nessun risultato in attesa di review.</div>;
+            }
+            return toReview.slice(0, 20).map((i) => {
+              const brain = i.brain_id ? brainsById.get(i.brain_id) : null;
+              const rev = getReview(i);
+              const status = rev?.review_status ?? "pending_review";
+              const meta = REVIEW_META[status];
+              const hasFix = !!findChildPackageByType(items, i.id, "fix_prompt");
+              return (
+                <div key={i.id} className="rounded-md border border-border/60 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {brain?.name ?? "—"} · agg. {new Date(i.updated_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge variant="outline" className={`text-[10px] ${meta.cls}`}>{meta.label}</Badge>
+                      {rev && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {rev.completion_level}
+                        </Badge>
+                      )}
+                      {hasFix && (
+                        <Badge variant="outline" className="text-[10px]">
+                          fix creato
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {rev && rev.detected_risks.length > 0 && (
+                    <div className="mt-1 text-xs text-rose-300">
+                      <AlertTriangle className="mr-1 inline h-3 w-3" />
+                      {rev.detected_risks.slice(0, 2).join(" · ")}
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openReview(i)}>
+                      <ClipboardCheck className="mr-1 h-3 w-3" /> Apri review
+                    </Button>
+                    {(status === "needs_fix" || status === "failed" || status === "partial") && !hasFix && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={generateFixPromptMut.isPending}
+                        onClick={() => generateFixPromptMut.mutate({ item: i })}
+                      >
+                        <ShieldAlert className="mr-1 h-3 w-3" /> Genera fix prompt
+                      </Button>
+                    )}
+                    {hasFix && (
+                      <Button asChild size="sm" variant="ghost">
+                        <Link to="/clipboard-ai">
+                          <ExternalLink className="mr-1 h-3 w-3" /> Apri fix in Clipboard AI
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </CardContent>
       </Card>
 
@@ -1985,6 +2543,257 @@ CRITERI DI SUCCESSO:
               <Sparkles className="mr-1 h-3 w-3" />
               {saveResultMut.isPending ? "Salvataggio…" : "Salva risultato"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!reviewItem}
+        onOpenChange={(o) => {
+          if (!o) setReviewItem(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4" /> Review risultato Lovable
+            </DialogTitle>
+          </DialogHeader>
+          {reviewItem && (() => {
+            const derived = deriveReview({
+              buildStatus: reviewForm.buildStatus,
+              consoleStatus: reviewForm.consoleStatus,
+              matched: reviewForm.criteria.filter((c) => c.matched).map((c) => c.label),
+              missing: reviewForm.criteria.filter((c) => !c.matched).map((c) => c.label),
+              protectedTouched: reviewForm.protectedTouched,
+              completion: reviewForm.completion,
+              needsFix: reviewForm.needsFix,
+              notes: reviewForm.notes,
+            });
+            const meta = REVIEW_META[derived.review_status];
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="text-muted-foreground">Prompt</div>
+                    <div className="truncate font-medium">{reviewItem.title || "(senza titolo)"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Progetto</div>
+                    <div className="truncate font-medium">
+                      {reviewItem.brain_id ? brainsById.get(reviewItem.brain_id)?.name ?? "—" : "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Build riuscita?</div>
+                    <Select
+                      value={reviewForm.buildStatus}
+                      onValueChange={(v) =>
+                        setReviewForm((f) => ({ ...f, buildStatus: v as "yes" | "no" | "unverified" }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Sì</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                        <SelectItem value="unverified">Non verificato</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Errori console?</div>
+                    <Select
+                      value={reviewForm.consoleStatus}
+                      onValueChange={(v) =>
+                        setReviewForm((f) => ({ ...f, consoleStatus: v as "yes" | "no" | "unverified" }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">No</SelectItem>
+                        <SelectItem value="yes">Sì</SelectItem>
+                        <SelectItem value="unverified">Non verificato</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">
+                    Criteri di successo rispettati
+                  </div>
+                  {reviewForm.criteria.length === 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      Nessun criterio specifico definito nell'Execution Package.
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    {reviewForm.criteria.map((c, idx) => (
+                      <label key={idx} className="flex items-start gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={c.matched}
+                          onChange={(e) =>
+                            setReviewForm((f) => {
+                              const next = [...f.criteria];
+                              next[idx] = { ...next[idx], matched: e.target.checked };
+                              return { ...f, criteria: next };
+                            })
+                          }
+                          className="mt-0.5"
+                        />
+                        <span>{c.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">
+                    Lovable ha toccato aree protette?
+                  </div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {PROTECTED_AREAS.map((area) => {
+                      const checked = reviewForm.protectedTouched.includes(area);
+                      return (
+                        <label key={area} className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              setReviewForm((f) => ({
+                                ...f,
+                                protectedTouched: e.target.checked
+                                  ? [...f.protectedTouched, area]
+                                  : f.protectedTouched.filter((a) => a !== area),
+                              }))
+                            }
+                          />
+                          <span>{area}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Completamento</div>
+                    <Select
+                      value={reviewForm.completion}
+                      onValueChange={(v) =>
+                        setReviewForm((f) => ({ ...f, completion: v as CompletionLevel }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="completo">Completo</SelectItem>
+                        <SelectItem value="parziale">Parziale</SelectItem>
+                        <SelectItem value="fallito">Fallito</SelectItem>
+                        <SelectItem value="non_verificato">Non verificato</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={reviewForm.needsFix}
+                        onChange={(e) => setReviewForm((f) => ({ ...f, needsFix: e.target.checked }))}
+                      />
+                      <span>Serve un fix</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Note review</div>
+                  <Textarea
+                    value={reviewForm.notes}
+                    onChange={(e) => setReviewForm((f) => ({ ...f, notes: e.target.value }))}
+                    className="min-h-[60px] text-xs"
+                  />
+                </div>
+
+                <div className="rounded-md border border-border/60 p-2 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground">Esito calcolato:</span>
+                    <Badge variant="outline" className={`text-[10px] ${meta.cls}`}>{meta.label}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{derived.completion_level}</Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      next: {derived.recommended_next_action}
+                    </Badge>
+                  </div>
+                  {derived.detected_risks.length > 0 && (
+                    <div className="mt-1 text-rose-300">
+                      <AlertTriangle className="mr-1 inline h-3 w-3" />
+                      {derived.detected_risks.join(" · ")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setReviewItem(null)}>
+              Chiudi
+            </Button>
+            {reviewItem && (() => {
+              const derived = deriveReview({
+                buildStatus: reviewForm.buildStatus,
+                consoleStatus: reviewForm.consoleStatus,
+                matched: reviewForm.criteria.filter((c) => c.matched).map((c) => c.label),
+                missing: reviewForm.criteria.filter((c) => !c.matched).map((c) => c.label),
+                protectedTouched: reviewForm.protectedTouched,
+                completion: reviewForm.completion,
+                needsFix: reviewForm.needsFix,
+                notes: reviewForm.notes,
+              });
+              const isFix = derived.recommended_next_action === "genera_fix_prompt";
+              return (
+                <>
+                  <Button
+                    variant="outline"
+                    disabled={saveReviewMut.isPending}
+                    onClick={() => saveReviewMut.mutate({ item: reviewItem, review: derived })}
+                  >
+                    <ClipboardCheck className="mr-1 h-3 w-3" />
+                    {saveReviewMut.isPending ? "Salvataggio…" : "Salva review"}
+                  </Button>
+                  {isFix ? (
+                    <Button
+                      disabled={generateFixPromptMut.isPending}
+                      onClick={async () => {
+                        await saveReviewMut.mutateAsync({ item: reviewItem, review: derived });
+                        generateFixPromptMut.mutate({ item: reviewItem });
+                      }}
+                    >
+                      <ShieldAlert className="mr-1 h-3 w-3" /> Salva e genera fix prompt
+                    </Button>
+                  ) : derived.review_status === "approved" ? (
+                    <Button
+                      disabled={saveReviewMut.isPending}
+                      onClick={async () => {
+                        await saveReviewMut.mutateAsync({ item: reviewItem, review: derived });
+                        triggerNextPrompt(reviewItem);
+                      }}
+                    >
+                      <Wand2 className="mr-1 h-3 w-3" /> Salva e genera prossimo prompt
+                    </Button>
+                  ) : (
+                    <Button
+                      disabled={saveReviewMut.isPending}
+                      onClick={() => saveReviewMut.mutate({ item: reviewItem, review: derived })}
+                    >
+                      <XCircle className="mr-1 h-3 w-3" /> Chiudi step in pending
+                    </Button>
+                  )}
+                </>
+              );
+            })()}
           </DialogFooter>
         </DialogContent>
       </Dialog>
