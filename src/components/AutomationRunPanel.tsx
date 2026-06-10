@@ -32,6 +32,9 @@ type ClipItem = ItemLike & {
   target_tool: string | null;
   automation_status: string | null;
   risk_level: string | null;
+  execution_instructions: string | null;
+  expected_output: string | null;
+  success_criteria: string | null;
   updated_at: string;
 };
 
@@ -81,11 +84,10 @@ async function fetchData() {
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,updated_at",
+        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,execution_instructions,expected_output,success_criteria,updated_at",
       )
-      .eq("content_type", "execution_package")
       .order("updated_at", { ascending: false })
-      .limit(300),
+      .limit(500),
     supabase.from("brains").select("id,name"),
   ]);
   if (itemsRes.error) throw itemsRes.error;
@@ -213,14 +215,41 @@ export function AutomationRunPanel() {
 
   const diagnostics = useMemo(() => {
     const totalLoaded = items.length;
+    const nativeCT = normalized.filter((n) => n.norm.detectionSource === "content_type").length;
+    const viaMetadata = normalized.filter((n) => n.norm.detectionSource === "metadata").length;
+    const viaFields = normalized.filter((n) => n.norm.detectionSource === "instructions_fields").length;
     const executionPackages = normalized.filter((n) => n.norm.isExecutionPackage).length;
+    const legacyCount = normalized.filter((n) => n.norm.isLegacyPackage).length;
     const pendingApproval = normalized.filter((n) => n.norm.isPendingApproval).length;
     const visibleInFilter = filtered.length;
     const excluded = normalized
       .filter((n) => n.norm.exclusionReason)
       .map((n) => ({ id: n.item.id, title: n.item.title, reason: n.norm.exclusionReason }));
-    return { totalLoaded, executionPackages, pendingApproval, visibleInFilter, excluded };
+    return { totalLoaded, nativeCT, viaMetadata, viaFields, executionPackages, legacyCount, pendingApproval, visibleInFilter, excluded };
   }, [normalized, items.length, filtered.length]);
+
+  const legacyItems = useMemo(
+    () => normalized.filter((n) => n.norm.isLegacyPackage).map((n) => n.item),
+    [normalized],
+  );
+
+  const normalizeLegacyMut = useMutation({
+    mutationFn: async () => {
+      const ids = legacyItems.map((i) => i.id);
+      if (ids.length === 0) return { updated: 0 };
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({ content_type: "execution_package" } as never)
+        .in("id", ids);
+      if (upErr) throw upErr;
+      return { updated: ids.length };
+    },
+    onSuccess: (r) => {
+      toast.success(`Normalizzati ${r.updated} Execution Package legacy`);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento Run Ledger…</div>;
   if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
@@ -458,8 +487,20 @@ export function AutomationRunPanel() {
 
         {import.meta.env.DEV && (
           <div className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-200/90 space-y-1">
-            <div className="font-mono uppercase tracking-wide text-amber-300">[dev] Run Ledger diagnostics</div>
-            <div>clipboard_items caricati: <b>{diagnostics.totalLoaded}</b> · execution_package: <b>{diagnostics.executionPackages}</b> · da_approvare normalizzati: <b>{diagnostics.pendingApproval}</b> · visibili nel filtro "{FILTER_LABELS[filter]}": <b>{diagnostics.visibleInFilter}</b></div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-mono uppercase tracking-wide text-amber-300">[dev] Run Ledger diagnostics</div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-[10px]"
+                disabled={diagnostics.legacyCount === 0 || normalizeLegacyMut.isPending}
+                onClick={() => normalizeLegacyMut.mutate()}
+              >
+                Normalizza Execution Package legacy ({diagnostics.legacyCount})
+              </Button>
+            </div>
+            <div>raw caricati: <b>{diagnostics.totalLoaded}</b> · execution_package totali: <b>{diagnostics.executionPackages}</b> · nativi (content_type): <b>{diagnostics.nativeCT}</b> · via metadata.execution_package: <b>{diagnostics.viaMetadata}</b> · via instructions/expected/success: <b>{diagnostics.viaFields}</b></div>
+            <div>legacy: <b>{diagnostics.legacyCount}</b> · da_approvare normalizzati: <b>{diagnostics.pendingApproval}</b> · visibili nel filtro "{FILTER_LABELS[filter]}": <b>{diagnostics.visibleInFilter}</b></div>
             {diagnostics.excluded.length > 0 && (
               <details>
                 <summary className="cursor-pointer">Esclusi ({diagnostics.excluded.length})</summary>
@@ -507,6 +548,11 @@ export function AutomationRunPanel() {
                       }
                       return null;
                     })()}
+                    {i.content_type !== "execution_package" && (
+                      <Badge variant="outline" className="border-amber-500/40 text-amber-300 text-[10px]">
+                        legacy package{import.meta.env.DEV && i.content_type ? ` (${i.content_type})` : ""}
+                      </Badge>
+                    )}
                     {i.risk_level && (
                       <Badge variant="outline" className="text-[10px]">risk: {i.risk_level}</Badge>
                     )}
