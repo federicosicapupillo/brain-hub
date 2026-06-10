@@ -548,6 +548,11 @@ export function AutomationRunPanel() {
                       }
                       return null;
                     })()}
+                    {i.content_type !== "execution_package" && (
+                      <Badge variant="outline" className="border-amber-500/40 text-amber-300 text-[10px]">
+                        legacy package{import.meta.env.DEV && i.content_type ? ` (${i.content_type})` : ""}
+                      </Badge>
+                    )}
                     {i.risk_level && (
                       <Badge variant="outline" className="text-[10px]">risk: {i.risk_level}</Badge>
                     )}
