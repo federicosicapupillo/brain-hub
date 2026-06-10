@@ -38,6 +38,7 @@ type ClipboardItem = {
   updated_at: string;
   created_at: string;
   automation_completed_at: string | null;
+  automation_last_run_at: string | null;
   project_tool_link_id: string | null;
   execution_instructions: string | null;
   expected_output: string | null;
