@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FlaskConical, PlayCircle, AlertTriangle, CheckCircle2, ShieldAlert, Activity } from "lucide-react";
+import { FlaskConical, PlayCircle, AlertTriangle, CheckCircle2, ShieldAlert, Activity, Undo2 } from "lucide-react";
 import {
   getAutomationRun,
   RUN_STATUS_LABELS,
@@ -17,6 +17,8 @@ import {
   DRY_RUN_SCENARIO_LABELS,
   isDryRunEligible,
   runDryRunScenario,
+  restoreDryRunSnapshot,
+  hasRealResult,
   type DryRunResult,
   type DryRunScenario,
 } from "@/lib/dry-run";
