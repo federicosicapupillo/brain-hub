@@ -487,6 +487,17 @@ function ConnectorsPage() {
         onClose={() => setDetail(null)}
         onImport={(key) => { setDetail(null); navigate({ to: "/importa", search: { tool: key } as never }); }}
       />
+
+      <N8nConfigDialog
+        open={n8nOpen}
+        onClose={() => setN8nOpen(false)}
+        existing={n8nConnector}
+        onSaved={() => {
+          qc.invalidateQueries({ queryKey: ["automation-connector-n8n"] });
+          qc.invalidateQueries({ queryKey: ["automation-control"] });
+        }}
+      />
+
     </div>
   );
 }
