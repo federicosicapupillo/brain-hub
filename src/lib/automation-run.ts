@@ -238,7 +238,9 @@ export type LogEventType =
   | "local_agent_job_started_manually"
   | "local_agent_job_cancelled"
   | "local_agent_job_failed"
-  | "local_agent_callback_received";
+  | "local_agent_callback_received"
+  | "local_agent_starter_kit_downloaded"
+  | "local_agent_starter_kit_copied";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
