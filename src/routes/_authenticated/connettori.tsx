@@ -455,9 +455,10 @@ function ConnectorsPage() {
               </CardContent>
 
               <div className="flex flex-wrap gap-1 border-t p-2">
-                <Button size="sm" variant="outline" onClick={() => setDetail(c)}>
+                <Button size="sm" variant="outline" onClick={() => c.key === "n8n" ? setN8nOpen(true) : setDetail(c)}>
                   <Settings2 className="h-3.5 w-3.5 mr-1" /> Configura
                 </Button>
+
                 <Button
                   size="sm"
                   variant="ghost"
