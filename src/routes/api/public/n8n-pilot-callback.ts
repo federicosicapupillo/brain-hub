@@ -59,16 +59,26 @@ export const Route = createFileRoute("/api/public/n8n-pilot-callback")({
     handlers: {
       OPTIONS: async () => new Response(null, { status: 204, headers: CORS_HEADERS }),
 
+      GET: async () => {
+        // Safe diagnostic: returns only whether the secret is configured.
+        // NEVER returns the secret value. NEVER logs it.
+        const v = process.env.BRAINHUB_N8N_CALLBACK_SECRET;
+        const configured = typeof v === "string" && v.trim().length > 0;
+        return json({ configured });
+      },
+
       POST: async ({ request }) => {
         // 1. Shared-secret auth (MANDATORY)
         const expected = process.env.BRAINHUB_N8N_CALLBACK_SECRET;
-        if (!expected) {
+        if (!expected || expected.trim().length === 0) {
+          console.error("[n8n-pilot-callback] BRAINHUB_N8N_CALLBACK_SECRET non configurato lato server");
           return json({ error: "callback_secret_not_configured" }, 503);
         }
-        const provided = request.headers.get("x-brainhub-callback-secret") ?? "";
-        if (provided !== expected) {
+        const provided = request.headers.get("x-brainhub-callback-secret");
+        if (!provided || provided !== expected) {
           return json({ error: "unauthorized" }, 401);
         }
+
 
         // 2. Parse JSON
         let raw: unknown;
