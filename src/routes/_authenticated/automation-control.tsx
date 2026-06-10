@@ -620,11 +620,13 @@ function PayloadPreviewSection({
   connectors,
   brains,
   onPreview,
+  onSend,
 }: {
   items: ClipboardItem[];
   connectors: Connector[];
   brains: BrainLite[];
   onPreview: (item: ClipboardItem, payload: Record<string, unknown>) => void;
+  onSend: (item: ClipboardItem, connector: Connector) => void;
 }) {
   const connectorMap = new Map(connectors.map((c) => [c.id, c]));
   const brainMap = new Map(brains.map((b) => [b.id, b]));
@@ -653,6 +655,15 @@ function PayloadPreviewSection({
         {previewable.map((i) => {
           const c = i.automation_connector_id ? connectorMap.get(i.automation_connector_id) : null;
           const brain = i.brain_id ? brainMap.get(i.brain_id) : undefined;
+          const payloadVerified =
+            !!i.automation_payload && Object.keys(i.automation_payload).length > 0;
+          const canSend =
+            payloadVerified &&
+            i.approval_status === "approved" &&
+            !!c &&
+            c.type === "n8n_webhook" &&
+            c.is_active &&
+            !!c.webhook_url;
           return (
             <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-2">
               <div className="min-w-0 flex-1">
@@ -664,24 +675,49 @@ function PayloadPreviewSection({
                   <Badge variant="outline" className="text-[10px]">
                     {c ? c.name : "no connector"}
                   </Badge>
+                  {payloadVerified && (
+                    <Badge variant="default" className="text-[10px]">payload verificato</Badge>
+                  )}
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onPreview(i, buildN8nPayload(i, brain))}
-              >
-                <FileJson className="mr-1 h-3 w-3" /> Preview n8n payload
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onPreview(i, buildN8nPayload(i, brain))}
+                >
+                  <FileJson className="mr-1 h-3 w-3" /> Preview n8n payload
+                </Button>
+                {canSend && c && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => onSend(i, c)}
+                  >
+                    <Send className="mr-1 h-3 w-3" /> Invia payload verificato a n8n
+                  </Button>
+                )}
+              </div>
             </div>
           );
         })}
         <p className="text-[11px] text-muted-foreground">
-          Solo anteprima: nessun webhook chiamato, nessun automation_status modificato.
+          Preview: nessun webhook chiamato. Invio: usa l&apos;automation_payload già verificato.
         </p>
       </CardContent>
     </Card>
   );
+}
+
+function maskWebhookUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname;
+    const visible = path.length > 12 ? path.slice(0, 6) + "***" + path.slice(-4) : "***";
+    return `${u.origin}${visible}`;
+  } catch {
+    return url.length > 16 ? url.slice(0, 10) + "***" + url.slice(-4) : "***";
+  }
 }
 
 
