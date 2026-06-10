@@ -252,11 +252,11 @@ function ProjectLoopPage() {
     refetchInterval: 20000,
   });
 
-  if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento…</div>;
-  if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
-  if (!data) return null;
-
-  const { brains, roadmap, items, logs, projectLinks } = data;
+  const brains = data?.brains ?? [];
+  const roadmap = data?.roadmap ?? [];
+  const items = data?.items ?? [];
+  const logs = data?.logs ?? [];
+  const projectLinks = data?.projectLinks ?? [];
 
   // Active brains = with any open roadmap / task / clipboard item
   const activeBrainIds = new Set<string>();
@@ -274,9 +274,9 @@ function ProjectLoopPage() {
     ["queued", "running"].includes(i.automation_status)
   ).length;
   const needsNextStep = (i: ClipboardItem) =>
-    !!i.output_result &&
-    i.output_result.trim() !== "" &&
-    !i.next_step_generated &&
+    !!(i.output_result ?? "") &&
+    (i.output_result ?? "").trim() !== "" &&
+    !(i.next_step_generated ?? false) &&
     i.status !== "archived" &&
     (!i.target_tool || i.target_tool === "Lovable");
 
