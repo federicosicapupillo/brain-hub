@@ -84,11 +84,10 @@ async function fetchData() {
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,updated_at",
+        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,execution_instructions,expected_output,success_criteria,updated_at",
       )
-      .eq("content_type", "execution_package")
       .order("updated_at", { ascending: false })
-      .limit(300),
+      .limit(500),
     supabase.from("brains").select("id,name"),
   ]);
   if (itemsRes.error) throw itemsRes.error;
