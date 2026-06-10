@@ -1207,11 +1207,24 @@ CRITERI DI SUCCESSO:
         metadata: { brain_id: item.brain_id, result_meta: resultMeta },
       } as never);
       if (logErr) throw logErr;
+      return { item, resultMeta, trimmed };
     },
-    onSuccess: () => {
-      toast.success("Risultato Lovable salvato nel Project Loop");
+    onSuccess: ({ item, resultMeta, trimmed }) => {
+      toast.success("Risultato salvato. Completa la review.");
       setSaveResultItem(null);
       setSaveResultText("");
+      // open review modal prefilled
+      const refreshed: ClipboardItem = {
+        ...item,
+        output_result: trimmed,
+        automation_status: "completed",
+        metadata: { ...((item.metadata as Record<string, unknown> | null) ?? {}), result_meta: resultMeta, stage: "risultato_salvato" },
+      };
+      openReview(refreshed, {
+        buildStatus: saveResultMeta.buildOk,
+        consoleStatus: saveResultMeta.consoleErrors,
+        notes: saveResultMeta.notes,
+      });
       setSaveResultMeta({ buildOk: "yes", consoleErrors: "unverified", changes: "", files: "", notes: "" });
       queryClient.invalidateQueries({ queryKey: ["project-loop"] });
     },
