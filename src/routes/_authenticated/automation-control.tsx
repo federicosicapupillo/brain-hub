@@ -198,6 +198,8 @@ function AutomationControlPage() {
 
   const [previewItem, setPreviewItem] = useState<{ item: ClipboardItem; payload: Record<string, unknown> } | null>(null);
   const [sendItem, setSendItem] = useState<{ item: ClipboardItem; connector: Connector } | null>(null);
+  const [simulateItem, setSimulateItem] = useState<{ item: ClipboardItem; mode: "done" | "failed" } | null>(null);
+  const [simulateText, setSimulateText] = useState("");
 
   const verifyPayloadMut = useMutation({
     mutationFn: async ({ item, payload }: { item: ClipboardItem; payload: Record<string, unknown> }) => {
