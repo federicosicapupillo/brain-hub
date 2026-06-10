@@ -601,6 +601,8 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   local_agent_callback_received: "[Agente locale] Callback ricevuta",
   local_agent_starter_kit_downloaded: "[Agente locale] Starter kit scaricato",
   local_agent_starter_kit_copied: "[Agente locale] Starter kit copiato",
+  lovable_browser_bridge_prompt_copied: "[Browser Bridge] Prompt copiato",
+  lovable_browser_bridge_extension_downloaded: "[Browser Bridge] Estensione scaricata",
 };
 
 
