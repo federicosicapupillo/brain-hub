@@ -207,7 +207,16 @@ const CATALOG: CatalogItem[] = [
     privacy: "Solo contenuti che salvi manualmente.",
     nextAction: "Importa manualmente script e link ai video avatar.",
   },
+  {
+    key: "n8n", name: "n8n", category: "Automazione", initial: "da_collegare", icon: Plug,
+    short: "Workflow automation, webhook, orchestrazione prompt e callback verso Brain Hub.",
+    canImport: ["Webhook payload", "Risultati workflow", "Callback automazioni"],
+    canWrite: ["Trigger webhook n8n"],
+    privacy: "URL webhook salvato in automation_connectors (per utente). Nessuna chiamata da questa pagina.",
+    nextAction: "Configura un webhook n8n per abilitare invio payload verificato da /automation-control.",
+  },
 ];
+
 
 const STATUS_META: Record<ConnStatus, { label: string; cls: string }> = {
   manuale:         { label: "Manuale",         cls: "border-amber-500/40 bg-amber-500/10 text-amber-600" },
