@@ -235,10 +235,32 @@ export function N8nPilotConnector() {
       source: "brain_hub",
       connector: "n8n_pilot",
       callback_mode: "manual_or_webhook_future",
-      callback_schema_version: 1,
+      callback_schema_version: N8N_CALLBACK_SCHEMA_VERSION,
       dry_run: false,
       created_at: new Date().toISOString(),
     };
+  }
+
+  function buildCallbackTemplateObj(item: ClipItem): Record<string, unknown> {
+    const run = getAutomationRun(item);
+    const stamp = Date.now().toString(36);
+    return {
+      execution_package_id: item.id,
+      run_id: run.run_id,
+      status: "completed",
+      build_status: "not_verified",
+      console_errors: false,
+      modified_files: [] as string[],
+      summary: "Risultato generato da n8n pilot",
+      notes: "",
+      external_result_reference: `n8n_pilot_${stamp}`,
+      raw_output: "",
+      callback_schema_version: N8N_CALLBACK_SCHEMA_VERSION,
+    };
+  }
+
+  function buildCallbackTemplate(item: ClipItem): string {
+    return JSON.stringify(buildCallbackTemplateObj(item), null, 2);
   }
 
   function buildCallbackTemplate(item: ClipItem): string {
