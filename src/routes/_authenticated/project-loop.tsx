@@ -405,7 +405,147 @@ function computeLoopState(args: {
   return "next_prompt_needed";
 }
 
-type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt";
+// ============ Post Execution Review ============
+type ReviewStatus = "pending_review" | "approved" | "needs_fix" | "partial" | "failed";
+type CompletionLevel = "completo" | "parziale" | "fallito" | "non_verificato";
+type RecommendedNextAction =
+  | "genera_fix_prompt"
+  | "genera_prossimo_prompt"
+  | "richiedi_verifica_manuale"
+  | "chiudi_step"
+  | "blocca_loop";
+
+type PostExecutionReview = {
+  review_status: ReviewStatus;
+  completion_level: CompletionLevel;
+  build_status: "yes" | "no" | "unverified";
+  console_status: "yes" | "no" | "unverified";
+  matched_success_criteria: string[];
+  missing_success_criteria: string[];
+  protected_areas_touched: string[];
+  detected_risks: string[];
+  recommended_next_action: RecommendedNextAction;
+  review_notes: string;
+  reviewed_at: string;
+};
+
+const REVIEW_META: Record<ReviewStatus, { label: string; cls: string }> = {
+  pending_review: { label: "Da verificare", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  approved: { label: "Approvato", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+  needs_fix: { label: "Da correggere", cls: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
+  partial: { label: "Parziale", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  failed: { label: "Fallito", cls: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
+};
+
+const PROTECTED_AREAS = [
+  "login/signup",
+  "sessioni/auth",
+  "RLS/policy Supabase",
+  "sidebar globale",
+  "layout globale",
+  "altre route",
+] as const;
+
+function getReview(item: ClipboardItem | null | undefined): PostExecutionReview | null {
+  if (!item) return null;
+  const m = (item.metadata as Record<string, unknown> | null) ?? {};
+  const r = m.post_execution_review as PostExecutionReview | undefined;
+  return r ?? null;
+}
+
+function reviewStatusOf(item: ClipboardItem | null | undefined): ReviewStatus | null {
+  if (!item) return null;
+  const hasOutput = !!(item.output_result ?? "").trim();
+  if (!hasOutput) return null;
+  return getReview(item)?.review_status ?? "pending_review";
+}
+
+function getSuccessCriteriaList(item: ClipboardItem | null | undefined): string[] {
+  if (!item) return [];
+  const m = (item.metadata as Record<string, unknown> | null) ?? {};
+  const pkg = m.execution_package as { successCriteria?: string; postChecklist?: string[] } | undefined;
+  if (pkg?.postChecklist && pkg.postChecklist.length > 0) return pkg.postChecklist;
+  if (pkg?.successCriteria) {
+    return pkg.successCriteria
+      .split(/[·\n;]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [
+    "Build pulita senza errori TypeScript",
+    "Nessun errore in console",
+    "Funzionalità visibile e usabile",
+    "Nessuna regressione su auth/RLS",
+  ];
+}
+
+function deriveReview(input: {
+  buildStatus: "yes" | "no" | "unverified";
+  consoleStatus: "yes" | "no" | "unverified";
+  matched: string[];
+  missing: string[];
+  protectedTouched: string[];
+  completion: CompletionLevel;
+  needsFix: boolean;
+  notes: string;
+}): PostExecutionReview {
+  const { buildStatus, consoleStatus, matched, missing, protectedTouched, completion, needsFix, notes } = input;
+
+  let status: ReviewStatus;
+  let action: RecommendedNextAction;
+
+  if (buildStatus === "no" || consoleStatus === "yes" || completion === "fallito") {
+    status = buildStatus === "no" ? "failed" : "needs_fix";
+    action = "genera_fix_prompt";
+  } else if (protectedTouched.length > 0) {
+    status = "needs_fix";
+    action = "genera_fix_prompt";
+  } else if (needsFix || missing.length > 0 || completion === "parziale") {
+    status = "partial";
+    action = "genera_fix_prompt";
+  } else if (buildStatus === "unverified" || consoleStatus === "unverified" || completion === "non_verificato") {
+    status = "pending_review";
+    action = "richiedi_verifica_manuale";
+  } else {
+    status = "approved";
+    action = "genera_prossimo_prompt";
+  }
+
+  const detected: string[] = [];
+  if (buildStatus === "no") detected.push("Build fallita");
+  if (consoleStatus === "yes") detected.push("Errori in console");
+  if (protectedTouched.length > 0) detected.push(`Aree protette toccate: ${protectedTouched.join(", ")}`);
+  if (missing.length > 0) detected.push(`Criteri mancanti: ${missing.length}`);
+
+  return {
+    review_status: status,
+    completion_level: completion,
+    build_status: buildStatus,
+    console_status: consoleStatus,
+    matched_success_criteria: matched,
+    missing_success_criteria: missing,
+    protected_areas_touched: protectedTouched,
+    detected_risks: detected,
+    recommended_next_action: action,
+    review_notes: notes.trim(),
+    reviewed_at: new Date().toISOString(),
+  };
+}
+
+function findChildPackageByType(
+  items: ClipboardItem[],
+  parentId: string,
+  packageType: "fix_prompt" | "next_prompt",
+): ClipboardItem | undefined {
+  return items.find((i) => {
+    const m = (i.metadata as Record<string, unknown> | null) ?? {};
+    if (m.parent_clipboard_item_id !== parentId) return false;
+    const pkg = m.execution_package as { package_type?: string } | undefined;
+    return pkg?.package_type === packageType;
+  });
+}
+
+type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt" | "review";
 
 type TimelineEvent = {
   id: string;
@@ -422,6 +562,7 @@ const TIMELINE_META: Record<TimelineEventType, { label: string; icon: typeof Wor
   sent: { label: "log", icon: Send, cls: "bg-indigo-500/15 text-indigo-300" },
   output: { label: "output", icon: Sparkles, cls: "bg-fuchsia-500/15 text-fuchsia-300" },
   next_prompt: { label: "next_prompt", icon: RefreshCw, cls: "bg-emerald-500/15 text-emerald-300" },
+  review: { label: "review", icon: ClipboardCheck, cls: "bg-teal-500/15 text-teal-300" },
 };
 
 function buildTimelineEvents(
