@@ -593,11 +593,55 @@ Callback richiesta:
 
 
 
+        <details className="rounded-md border border-blue-500/40 bg-blue-500/5 p-3">
+          <summary className="cursor-pointer text-sm font-medium flex items-center gap-2">
+            <Inbox className="h-3 w-3 text-blue-400" /> Endpoint callback n8n (ricezione reale)
+          </summary>
+          <div className="mt-2 space-y-2 text-xs">
+            <div className="grid gap-1 text-muted-foreground">
+              <div><span className="font-medium text-foreground">Path:</span> <code>/api/public/n8n-pilot-callback</code></div>
+              <div><span className="font-medium text-foreground">Metodo:</span> POST</div>
+              <div><span className="font-medium text-foreground">Header richiesto:</span> <code>x-brainhub-callback-secret: &lt;valore server-side&gt;</code></div>
+              <div><span className="font-medium text-foreground">Content-Type:</span> application/json</div>
+            </div>
+            <div>
+              <div className="font-medium">Schema JSON richiesto:</div>
+              <pre className="mt-1 overflow-auto rounded bg-muted/40 p-2 text-[10px]">{`{
+  "execution_package_id": "<uuid>",
+  "run_id": "<run id>",
+  "callback_schema_version": 1,
+  "status": "completed | failed",
+  "build_status": "ok | failed | not_verified",
+  "console_errors": false,
+  "modified_files": [],
+  "summary": "...",
+  "notes": "...",
+  "external_result_reference": "...",
+  "raw_output": "..."
+}`}</pre>
+            </div>
+            <div>
+              <div className="font-medium">Istruzioni n8n:</div>
+              <ul className="list-disc pl-4 text-muted-foreground space-y-1">
+                <li>Configura l&apos;HTTP node verso il path indicato (path pubblico Brain Hub).</li>
+                <li>Aggiungi header <code>x-brainhub-callback-secret</code> con il valore configurato server-side (Project Secrets <code>BRAINHUB_N8N_CALLBACK_SECRET</code>).</li>
+                <li>Invia il JSON sopra; rispetta <code>callback_schema_version = 1</code>.</li>
+                <li>Esegui il test solo su un Execution Package marcato &quot;pronto per test reale&quot;.</li>
+              </ul>
+            </div>
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-amber-300">
+              <AlertTriangle className="inline h-3 w-3 mr-1" />
+              Non inserire mai il secret nel frontend. Vive solo come variabile ambiente server-side.
+            </div>
+          </div>
+        </details>
+
         {eligible.length === 0 && (
           <div className="rounded-md border border-border/60 p-4 text-sm text-muted-foreground">
             Nessun Execution Package eleggibile (richiede run_status approved o queued, senza dry run attivo).
           </div>
         )}
+
 
         <div className="space-y-2">
           {eligible.map(({ item, info }) => {
@@ -622,6 +666,13 @@ Callback richiesta:
                 ? "Contratto incompleto"
                 : "Contratto non pronto";
             const alreadyReady = ext?.ready_for_real_test === true;
+            const isWebhookSource = rm?.source === "n8n_webhook";
+            const webhookCallbackLabel = isWebhookSource
+              ? (run.run_status === "failed" ? "Callback fallita" : "Callback ricevuta")
+              : "Nessuna callback ricevuta";
+            const webhookRef = isWebhookSource ? (rm?.external_result_reference as string | null) ?? null : null;
+            const webhookHash = isWebhookSource ? (rm?.callback_hash as string | null) ?? null : null;
+            const webhookReceivedAt = isWebhookSource ? (rm?.received_at as string | null) ?? null : null;
             return (
               <div key={item.id} className="rounded-md border border-border/60 p-3 space-y-2">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -632,6 +683,21 @@ Callback richiesta:
                     </div>
                     <div className="text-[10px] text-muted-foreground">
                       ultimo payload: {ext?.last_payload_at ? new Date(ext.last_payload_at).toLocaleString() : "—"} · callback: {callbackState}
+                    </div>
+                    <div className="text-[10px] mt-0.5">
+                      <span className="text-muted-foreground">callback reale n8n:</span>{" "}
+                      <span className={isWebhookSource ? (run.run_status === "failed" ? "text-red-300" : "text-emerald-300") : "text-muted-foreground"}>
+                        {webhookCallbackLabel}
+                      </span>
+                      {webhookReceivedAt && (
+                        <span className="text-muted-foreground"> · {new Date(webhookReceivedAt).toLocaleString()}</span>
+                      )}
+                      {webhookRef && (
+                        <span className="text-muted-foreground"> · ref: <code>{webhookRef}</code></span>
+                      )}
+                      {webhookHash && (
+                        <span className="text-muted-foreground"> · hash: <code>{webhookHash}</code></span>
+                      )}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">

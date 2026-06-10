@@ -587,6 +587,7 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   n8n_callback_template_generated: "[n8n pilot] Template callback n8n generato",
   n8n_callback_sent_to_inbox: "[n8n pilot] Callback n8n inviata alla inbox",
   n8n_ready_for_real_test: "[n8n pilot] Pronto per test reale controllato",
+  n8n_callback_received: "[n8n webhook] Callback reale ricevuta",
 };
 
 function buildTimelineEvents(

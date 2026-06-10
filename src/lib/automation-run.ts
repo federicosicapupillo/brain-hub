@@ -140,7 +140,8 @@ export type LogEventType =
   | "n8n_payload_prepared"
   | "n8n_callback_template_generated"
   | "n8n_callback_sent_to_inbox"
-  | "n8n_ready_for_real_test";
+  | "n8n_ready_for_real_test"
+  | "n8n_callback_received";
 
 const LOG_TITLES: Record<LogEventType, string> = {
   automation_approved: "Run approvata",
@@ -157,6 +158,7 @@ const LOG_TITLES: Record<LogEventType, string> = {
   n8n_callback_template_generated: "Template callback n8n generato",
   n8n_callback_sent_to_inbox: "Callback n8n inviata alla inbox",
   n8n_ready_for_real_test: "Pronto per test n8n reale controllato",
+  n8n_callback_received: "Callback n8n webhook reale ricevuta",
   automation_dry_run_started: "Dry run avviato",
   automation_dry_run_completed: "Dry run completato",
   automation_dry_run_failed: "Dry run fallito",
