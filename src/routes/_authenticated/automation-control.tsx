@@ -196,6 +196,7 @@ function AutomationControlPage() {
   });
 
   const [previewItem, setPreviewItem] = useState<{ item: ClipboardItem; payload: Record<string, unknown> } | null>(null);
+  const [sendItem, setSendItem] = useState<{ item: ClipboardItem; connector: Connector } | null>(null);
 
   const verifyPayloadMut = useMutation({
     mutationFn: async ({ item, payload }: { item: ClipboardItem; payload: Record<string, unknown> }) => {
@@ -225,6 +226,94 @@ function AutomationControlPage() {
       qc.invalidateQueries({ queryKey: ["automation-control"] });
     },
     onError: (e: Error) => toast.error(`Errore: ${e.message}`),
+  });
+
+  const sendVerifiedPayloadMut = useMutation({
+    mutationFn: async ({ item, connector }: { item: ClipboardItem; connector: Connector }) => {
+      if (!connector.webhook_url) throw new Error("Webhook URL non configurata");
+      if (!item.automation_payload || Object.keys(item.automation_payload).length === 0) {
+        throw new Error("automation_payload non verificato");
+      }
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Non autenticato");
+
+      let statusCode: number | null = null;
+      let responseText = "";
+      let ok = false;
+      let errorMsg: string | null = null;
+      try {
+        const res = await fetch(connector.webhook_url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(item.automation_payload),
+        });
+        statusCode = res.status;
+        responseText = (await res.text()).slice(0, 500);
+        ok = res.status === 200 || res.status === 201;
+        if (!ok) errorMsg = `HTTP ${res.status}`;
+      } catch (e) {
+        errorMsg = e instanceof Error ? e.message : "Errore di rete";
+      }
+
+      if (ok) {
+        const { error: upErr } = await supabase
+          .from("clipboard_items")
+          .update({
+            automation_status: "running",
+            automation_last_run_at: new Date().toISOString(),
+          } as never)
+          .eq("id", item.id);
+        if (upErr) throw upErr;
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: userData.user.id,
+          clipboard_item_id: item.id,
+          action: "n8n_verified_payload_sent",
+          previous_status: "queued",
+          new_status: "running",
+          notes: "Payload verificato inviato a n8n",
+          metadata: {
+            connector_id: connector.id,
+            status_code: statusCode,
+            response_preview: responseText,
+            payload_mode: "execution_preview",
+          },
+        } as never);
+        return { statusCode };
+      } else {
+        await supabase
+          .from("clipboard_items")
+          .update({
+            automation_status: "failed",
+            automation_attempts: (item.automation_attempts ?? 0) + 1,
+            automation_last_error: errorMsg,
+          } as never)
+          .eq("id", item.id);
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: userData.user.id,
+          clipboard_item_id: item.id,
+          action: "n8n_verified_payload_failed",
+          previous_status: "queued",
+          new_status: "failed",
+          notes: errorMsg,
+          metadata: {
+            connector_id: connector.id,
+            status_code: statusCode,
+            payload_mode: "execution_preview",
+          },
+        } as never);
+        throw new Error(errorMsg ?? "Invio fallito");
+      }
+    },
+    onSuccess: (r) => {
+      toast.success(`Payload inviato a n8n (${r.statusCode})`);
+      setSendItem(null);
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
+    onError: (e: Error) => {
+      toast.error(`Invio fallito: ${e.message}`);
+      setSendItem(null);
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
   });
 
 
@@ -455,7 +544,52 @@ function AutomationControlPage() {
         connectors={connectors}
         brains={brains}
         onPreview={(item, payload) => setPreviewItem({ item, payload })}
+        onSend={(item, connector) => setSendItem({ item, connector })}
       />
+
+      <Dialog open={!!sendItem} onOpenChange={(o) => { if (!o) setSendItem(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-4 w-4" /> Conferma invio a n8n
+            </DialogTitle>
+          </DialogHeader>
+          {sendItem && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-[140px_1fr] gap-2">
+                <div className="text-muted-foreground">Item</div>
+                <div className="font-medium">{sendItem.item.title || "(senza titolo)"}</div>
+                <div className="text-muted-foreground">Target tool</div>
+                <div>{sendItem.item.target_tool}</div>
+                <div className="text-muted-foreground">Connector</div>
+                <div>{sendItem.connector.name}</div>
+                <div className="text-muted-foreground">Webhook URL</div>
+                <div className="font-mono text-xs break-all">{maskWebhookUrl(sendItem.connector.webhook_url ?? "")}</div>
+                <div className="text-muted-foreground">Risk level</div>
+                <div>{sendItem.item.risk_level ?? "—"}</div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">automation_payload</div>
+                <pre className="max-h-[40vh] overflow-auto rounded-md bg-muted p-3 text-xs">
+{JSON.stringify(sendItem.item.automation_payload ?? {}, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
+            <Button variant="outline" onClick={() => setSendItem(null)} disabled={sendVerifiedPayloadMut.isPending}>
+              Annulla
+            </Button>
+            <Button
+              onClick={() => sendItem && sendVerifiedPayloadMut.mutate(sendItem)}
+              disabled={sendVerifiedPayloadMut.isPending}
+            >
+              <Send className="mr-1 h-3 w-3" />
+              {sendVerifiedPayloadMut.isPending ? "Invio…" : "Conferma invio a n8n"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!previewItem} onOpenChange={(o) => { if (!o) setPreviewItem(null); }}>
         <DialogContent className="max-w-3xl">
@@ -531,11 +665,13 @@ function PayloadPreviewSection({
   connectors,
   brains,
   onPreview,
+  onSend,
 }: {
   items: ClipboardItem[];
   connectors: Connector[];
   brains: BrainLite[];
   onPreview: (item: ClipboardItem, payload: Record<string, unknown>) => void;
+  onSend: (item: ClipboardItem, connector: Connector) => void;
 }) {
   const connectorMap = new Map(connectors.map((c) => [c.id, c]));
   const brainMap = new Map(brains.map((b) => [b.id, b]));
@@ -564,6 +700,15 @@ function PayloadPreviewSection({
         {previewable.map((i) => {
           const c = i.automation_connector_id ? connectorMap.get(i.automation_connector_id) : null;
           const brain = i.brain_id ? brainMap.get(i.brain_id) : undefined;
+          const payloadVerified =
+            !!i.automation_payload && Object.keys(i.automation_payload).length > 0;
+          const canSend =
+            payloadVerified &&
+            i.approval_status === "approved" &&
+            !!c &&
+            c.type === "n8n_webhook" &&
+            c.is_active &&
+            !!c.webhook_url;
           return (
             <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-2">
               <div className="min-w-0 flex-1">
@@ -575,24 +720,49 @@ function PayloadPreviewSection({
                   <Badge variant="outline" className="text-[10px]">
                     {c ? c.name : "no connector"}
                   </Badge>
+                  {payloadVerified && (
+                    <Badge variant="default" className="text-[10px]">payload verificato</Badge>
+                  )}
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => onPreview(i, buildN8nPayload(i, brain))}
-              >
-                <FileJson className="mr-1 h-3 w-3" /> Preview n8n payload
-              </Button>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onPreview(i, buildN8nPayload(i, brain))}
+                >
+                  <FileJson className="mr-1 h-3 w-3" /> Preview n8n payload
+                </Button>
+                {canSend && c && (
+                  <Button
+                    size="sm"
+                    variant="default"
+                    onClick={() => onSend(i, c)}
+                  >
+                    <Send className="mr-1 h-3 w-3" /> Invia payload verificato a n8n
+                  </Button>
+                )}
+              </div>
             </div>
           );
         })}
         <p className="text-[11px] text-muted-foreground">
-          Solo anteprima: nessun webhook chiamato, nessun automation_status modificato.
+          Preview: nessun webhook chiamato. Invio: usa l&apos;automation_payload già verificato.
         </p>
       </CardContent>
     </Card>
   );
+}
+
+function maskWebhookUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const path = u.pathname;
+    const visible = path.length > 12 ? path.slice(0, 6) + "***" + path.slice(-4) : "***";
+    return `${u.origin}${visible}`;
+  } catch {
+    return url.length > 16 ? url.slice(0, 10) + "***" + url.slice(-4) : "***";
+  }
 }
 
 
