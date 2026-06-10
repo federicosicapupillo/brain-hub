@@ -545,7 +545,7 @@ function findChildPackageByType(
   });
 }
 
-type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt" | "review";
+type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt" | "review" | "automation";
 
 type TimelineEvent = {
   id: string;
@@ -563,6 +563,19 @@ const TIMELINE_META: Record<TimelineEventType, { label: string; icon: typeof Wor
   output: { label: "output", icon: Sparkles, cls: "bg-fuchsia-500/15 text-fuchsia-300" },
   next_prompt: { label: "next_prompt", icon: RefreshCw, cls: "bg-emerald-500/15 text-emerald-300" },
   review: { label: "review", icon: ClipboardCheck, cls: "bg-teal-500/15 text-teal-300" },
+  automation: { label: "automation", icon: Workflow, cls: "bg-blue-500/15 text-blue-300" },
+};
+
+const AUTOMATION_LOG_LABELS: Record<string, string> = {
+  automation_approved: "Run approvata",
+  automation_queued: "Run messa in coda",
+  automation_started: "Run in esecuzione",
+  automation_completed: "Run completata",
+  automation_failed: "Run fallita",
+  automation_cancelled: "Run cancellata",
+  automation_blocked: "Run bloccata",
+  automation_retried: "Run riprovata",
+  automation_payload_copied: "Payload automazione copiato",
 };
 
 function buildTimelineEvents(
