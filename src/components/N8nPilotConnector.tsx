@@ -684,6 +684,21 @@ Callback richiesta:
                     <div className="text-[10px] text-muted-foreground">
                       ultimo payload: {ext?.last_payload_at ? new Date(ext.last_payload_at).toLocaleString() : "—"} · callback: {callbackState}
                     </div>
+                    <div className="text-[10px] mt-0.5">
+                      <span className="text-muted-foreground">callback reale n8n:</span>{" "}
+                      <span className={isWebhookSource ? (run.run_status === "failed" ? "text-red-300" : "text-emerald-300") : "text-muted-foreground"}>
+                        {webhookCallbackLabel}
+                      </span>
+                      {webhookReceivedAt && (
+                        <span className="text-muted-foreground"> · {new Date(webhookReceivedAt).toLocaleString()}</span>
+                      )}
+                      {webhookRef && (
+                        <span className="text-muted-foreground"> · ref: <code>{webhookRef}</code></span>
+                      )}
+                      {webhookHash && (
+                        <span className="text-muted-foreground"> · hash: <code>{webhookHash}</code></span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
                     {info.hasRealResult && (
