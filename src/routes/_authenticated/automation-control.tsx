@@ -198,7 +198,7 @@ function AutomationControlPage() {
   if (!data) return null;
 
 
-  const { items, logs, connectors, tasksCount, todayStart } = data;
+  const { items, logs, connectors, brains, tasksCount, todayStart } = data;
 
   const toApprove = items.filter((i) => i.human_review_required && i.approval_status !== "approved" && i.approval_status !== "blocked").length;
   const ready = items.filter((i) => i.automation_status === "ready_for_automation").length;
