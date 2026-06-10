@@ -547,6 +547,9 @@ function AutomationControlPage() {
         onSend={(item, connector) => setSendItem({ item, connector })}
       />
 
+      <N8nCallbackInfo />
+
+
       <Dialog open={!!sendItem} onOpenChange={(o) => { if (!o) setSendItem(null); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
