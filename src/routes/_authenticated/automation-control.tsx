@@ -17,6 +17,7 @@ import { DryRunOrchestrator } from "@/components/DryRunOrchestrator";
 import { N8nPilotConnector } from "@/components/N8nPilotConnector";
 import { LovableHandoffConnector } from "@/components/LovableHandoffConnector";
 import { LocalAgentBridge } from "@/components/LocalAgentBridge";
+import { LovableBrowserBridge } from "@/components/LovableBrowserBridge";
 
 import { normalizeAutomationItem } from "@/lib/automation-normalize";
 import { useEffect } from "react";
