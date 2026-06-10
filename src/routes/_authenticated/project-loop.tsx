@@ -37,6 +37,9 @@ import {
   Sparkles,
   Wand2,
   HeartPulse,
+  ChevronDown,
+  ChevronRight,
+  Send,
 } from "lucide-react";
 
 type HealthStatus = "healthy" | "needs_attention" | "blocked" | "empty";
@@ -295,6 +298,102 @@ function computeLoopState(args: {
   return "next_prompt_needed";
 }
 
+type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt";
+
+type TimelineEvent = {
+  id: string;
+  type: TimelineEventType;
+  ts: string;
+  title: string;
+  preview?: string;
+  item?: ClipboardItem;
+};
+
+const TIMELINE_META: Record<TimelineEventType, { label: string; icon: typeof Workflow; cls: string }> = {
+  roadmap: { label: "roadmap", icon: ListChecks, cls: "bg-amber-500/15 text-amber-300" },
+  prompt: { label: "prompt", icon: Wand2, cls: "bg-sky-500/15 text-sky-300" },
+  sent: { label: "log", icon: Send, cls: "bg-indigo-500/15 text-indigo-300" },
+  output: { label: "output", icon: Sparkles, cls: "bg-fuchsia-500/15 text-fuchsia-300" },
+  next_prompt: { label: "next_prompt", icon: RefreshCw, cls: "bg-emerald-500/15 text-emerald-300" },
+};
+
+function buildTimelineEvents(
+  brainId: string,
+  src: { roadmap: RoadmapItem[]; items: ClipboardItem[]; tasks: Task[]; logs: ExecLog[] },
+): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+  const brainItems = src.items.filter((i) => i.brain_id === brainId);
+  const itemIds = new Set(brainItems.map((i) => i.id));
+  const promptIdsFromNextStep = new Set<string>();
+  for (const l of src.logs) {
+    if (l.action === "generated_next_step_from_result" && itemIds.has(l.clipboard_item_id)) {
+      // The "source" item generated a child. Track child id via metadata not available here;
+      // we instead mark prompts whose log shows action=generated_prompt_from_roadmap_item later.
+    }
+  }
+  // Roadmap items for this brain
+  for (const r of src.roadmap.filter((r) => r.brain_id === brainId)) {
+    events.push({
+      id: `roadmap:${r.id}`,
+      type: "roadmap",
+      ts: r.updated_at,
+      title: r.title,
+      preview: r.description ?? undefined,
+    });
+  }
+  // Prompts and outputs
+  for (const i of brainItems) {
+    // Identify prompts generated as next-step (look at logs on this item)
+    const itemLogs = src.logs.filter((l) => l.clipboard_item_id === i.id);
+    const isNextPrompt = itemLogs.some(
+      (l) => l.action === "generated_next_step_from_result" || l.action === "generated_next_prompt",
+    );
+    if (i.content && i.target_tool === "Lovable") {
+      events.push({
+        id: `prompt:${i.id}`,
+        type: isNextPrompt ? "next_prompt" : "prompt",
+        ts: i.updated_at,
+        title: i.title || "(prompt senza titolo)",
+        preview: (i.content || "").slice(0, 160),
+        item: i,
+      });
+      if (isNextPrompt) promptIdsFromNextStep.add(i.id);
+    }
+    if ((i.output_result ?? "").trim() !== "") {
+      events.push({
+        id: `output:${i.id}`,
+        type: "output",
+        ts: i.updated_at,
+        title: `Risultato — ${i.title || "(senza titolo)"}`,
+        preview: i.output_result.slice(0, 160),
+        item: i,
+      });
+    }
+  }
+  // Logs: only "sent" / manual flags, dedupe vs item events
+  for (const l of src.logs) {
+    if (!itemIds.has(l.clipboard_item_id)) continue;
+    if (l.action !== "marked_sent_manually") continue;
+    const item = brainItems.find((b) => b.id === l.clipboard_item_id);
+    events.push({
+      id: `log:${l.id}`,
+      type: "sent",
+      ts: l.created_at,
+      title: `Prompt segnato come inviato — ${item?.title ?? ""}`.trim(),
+      preview: l.notes ?? undefined,
+      item,
+    });
+  }
+  events.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+  // Dedupe by (type:itemId) keeping earliest occurrence
+  const seen = new Set<string>();
+  return events.filter((e) => {
+    if (seen.has(e.id)) return false;
+    seen.add(e.id);
+    return true;
+  });
+}
+
 function ProjectLoopPage() {
   const queryClient = useQueryClient();
   const [genTarget, setGenTarget] = useState<{ brain: Brain; roadmap: RoadmapItem } | null>(null);
@@ -302,6 +401,7 @@ function ProjectLoopPage() {
   const [nextStepItem, setNextStepItem] = useState<ClipboardItem | null>(null);
   const [saveResultItem, setSaveResultItem] = useState<ClipboardItem | null>(null);
   const [saveResultText, setSaveResultText] = useState("");
+  const [expandedTimeline, setExpandedTimeline] = useState<Set<string>>(new Set());
   const [nextStepForm, setNextStepForm] = useState<{
     suggestion: string;
     actionType: "roadmap" | "task" | "prompt";
@@ -1109,6 +1209,112 @@ CRITERI DI SUCCESSO:
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">{renderCta()}</div>
+                {(() => {
+                  const isOpen = expandedTimeline.has(brain.id);
+                  const events = buildTimelineEvents(brain.id, { roadmap, items, tasks, logs });
+                  return (
+                    <div className="mt-3 border-t border-border/40 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedTimeline((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(brain.id)) next.delete(brain.id);
+                            else next.add(brain.id);
+                            return next;
+                          });
+                        }}
+                        className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                        Timeline operativa ({events.length})
+                      </button>
+                      {isOpen && (
+                        <div className="mt-2 space-y-1.5">
+                          {events.length === 0 && (
+                            <div className="text-xs text-muted-foreground">
+                              Nessuna attività registrata per questo progetto.
+                            </div>
+                          )}
+                          {events.map((ev) => {
+                            const Icon = TIMELINE_META[ev.type].icon;
+                            const meta = TIMELINE_META[ev.type];
+                            return (
+                              <div
+                                key={ev.id}
+                                className="flex items-start gap-2 rounded-md border border-border/40 p-2 text-xs"
+                              >
+                                <div className={`grid h-6 w-6 shrink-0 place-items-center rounded ${meta.cls}`}>
+                                  <Icon className="h-3 w-3" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="font-medium truncate">{ev.title}</span>
+                                    <Badge variant="outline" className="text-[9px]">{meta.label}</Badge>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {new Date(ev.ts).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {ev.preview && (
+                                    <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                                      {ev.preview}
+                                    </div>
+                                  )}
+                                  {(ev.item || ev.type === "roadmap") && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                      {ev.type === "roadmap" && (
+                                        <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[10px]">
+                                          <Link to="/roadmap"><ExternalLink className="mr-1 h-3 w-3" /> Apri</Link>
+                                        </Button>
+                                      )}
+                                      {ev.item && (ev.type === "prompt" || ev.type === "next_prompt") && (
+                                        <>
+                                          <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[10px]">
+                                            <Link to="/clipboard-ai"><ExternalLink className="mr-1 h-3 w-3" /> Apri</Link>
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-6 px-2 text-[10px]"
+                                            onClick={() => copyPrompt(ev.item!.content)}
+                                          >
+                                            <Copy className="mr-1 h-3 w-3" /> Copia
+                                          </Button>
+                                        </>
+                                      )}
+                                      {ev.item && ev.type === "output" && (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-6 px-2 text-[10px]"
+                                            onClick={() => copyText(ev.item!.output_result, "Output copiato")}
+                                          >
+                                            <Copy className="mr-1 h-3 w-3" /> Copia
+                                          </Button>
+                                          {!(ev.item.next_step_generated ?? false) && (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-6 px-2 text-[10px]"
+                                              onClick={() => openNextStep(ev.item!)}
+                                            >
+                                              <Wand2 className="mr-1 h-3 w-3" /> Rielabora
+                                            </Button>
+                                          )}
+                                        </>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
