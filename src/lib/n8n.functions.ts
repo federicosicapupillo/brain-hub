@@ -156,6 +156,6 @@ export const sendVerifiedPayloadToN8n = createServerFn({ method: "POST" })
           payload_mode: "execution_preview",
         },
       } as never);
-      throw new Error(errorMsg ?? "Invio fallito");
+      return { ok: false, statusCode, errorMsg };
     }
   });
