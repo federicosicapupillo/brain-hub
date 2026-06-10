@@ -191,7 +191,7 @@ export function hasRealResult(item: ItemLike & { output_result?: string | null }
 export async function runDryRunScenario(
   itemArg: ItemLike,
   scenario: DryRunScenario,
-  opts: { allowRecentDup?: boolean } = {},
+  opts: { allowRecentDup?: boolean; allowOverwriteReal?: boolean } = {},
 ): Promise<DryRunResult> {
   if (itemArg.content_type !== "execution_package") {
     throw new Error("Solo gli Execution Package supportano il dry run");
@@ -215,6 +215,14 @@ export async function runDryRunScenario(
     };
   }
 
+  // Strong confirmation: existing real / approved result
+  const realCheck = hasRealResult(item);
+  if (realCheck.hasReal && !opts.allowOverwriteReal) {
+    throw new Error(
+      `OVERWRITE_REAL: Questo item ha già un risultato reale o approvato (${realCheck.reasons.join(", ")}). Il dry run potrebbe sovrascrivere dati reali. Confermi?`,
+    );
+  }
+
   // Idempotency on recent dry run
   const meta = (item.metadata as Record<string, unknown> | null) ?? {};
   const prevDry = (meta.dry_run_last as DryRunMeta | undefined) ?? (run as unknown as { dry_run?: DryRunMeta }).dry_run;
@@ -224,6 +232,16 @@ export async function runDryRunScenario(
       throw new Error(`Dry run recente (${DRY_RUN_SCENARIO_LABELS[prevDry.scenario as DryRunScenario] ?? prevDry.scenario}) eseguito ${Math.round(ageMs / 1000)}s fa. Conferma per rieseguirlo.`);
     }
   }
+
+  // Capture snapshot BEFORE any mutation
+  const snapshot: PreviousStateSnapshot = {
+    run_status: run.run_status,
+    output_result: item.output_result ?? null,
+    result_meta: (meta.result_meta as Record<string, unknown> | null) ?? null,
+    post_execution_review: (meta.post_execution_review as Record<string, unknown> | null) ?? null,
+    captured_at: new Date().toISOString(),
+  };
+
 
   const startedAt = new Date().toISOString();
   await insertLog(item, "automation_dry_run_started", `Dry run ${DRY_RUN_SCENARIO_LABELS[scenario]} avviato`, {
