@@ -240,7 +240,9 @@ export type LogEventType =
   | "local_agent_job_failed"
   | "local_agent_callback_received"
   | "local_agent_starter_kit_downloaded"
-  | "local_agent_starter_kit_copied";
+  | "local_agent_starter_kit_copied"
+  | "lovable_browser_bridge_prompt_copied"
+  | "lovable_browser_bridge_extension_downloaded";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
