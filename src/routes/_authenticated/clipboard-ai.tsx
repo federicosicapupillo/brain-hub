@@ -995,12 +995,23 @@ function ClipboardAIPage() {
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
-                        {(projectsQ.data ?? [])
-                          .filter((p) => !form.brain_id || p.brain_id === form.brain_id)
+                        {projectOptions
+                          .filter((p) => {
+                            if (!form.brain_id) return true;
+                            // mostra il progetto se realmente collegato al brain
+                            // (o se il progetto È il brain stesso)
+                            return p.brain_id === form.brain_id || p.id === form.brain_id;
+                          })
                           .map((p) => <SelectItem key={p.id} value={p.id}>{p.title}</SelectItem>)}
                       </SelectContent>
                     </Select>
+                    {import.meta.env.DEV && (
+                      <div className="mt-1 text-[10px] text-muted-foreground/70 font-mono">
+                        brains:{brainsDedup.length} · projects_raw:{(projectsQ.data ?? []).length} · projects_dedup:{projectOptions.length} · tool_links:{(toolLinksQ.data ?? []).length}
+                      </div>
+                    )}
                   </div>
+
                   <div className="col-span-2">
                     <Label>Strumento del progetto (project_tool_links)</Label>
                     <Select value={form.project_tool_link_id ?? "none"}
