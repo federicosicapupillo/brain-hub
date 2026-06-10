@@ -488,3 +488,61 @@ export function isDryRunEligible(item: ItemLike): boolean {
   const run = getAutomationRun(item);
   return ["draft", "approved", "queued", "failed", "cancelled", "blocked", "completed"].includes(run.run_status);
 }
+
+export function getDryRunMeta(item: ItemLike): DryRunMeta | null {
+  const m = (item.metadata as Record<string, unknown> | null) ?? {};
+  const direct = m.dry_run_last as DryRunMeta | undefined;
+  if (direct?.enabled) return direct;
+  const r = m.automation_run as { dry_run?: DryRunMeta } | undefined;
+  return r?.dry_run ?? null;
+}
+
+export function hasRestorableSnapshot(item: ItemLike): boolean {
+  const d = getDryRunMeta(item);
+  return !!d?.previous_state_snapshot;
+}
+
+/** Restore an item to its pre-dry-run snapshot. */
+export async function restoreDryRunSnapshot(itemArg: ItemLike): Promise<void> {
+  const item = await refreshItem(itemArg.id);
+  const dry = getDryRunMeta(item);
+  const snap = dry?.previous_state_snapshot;
+  if (!snap) throw new Error("Nessuno snapshot da ripristinare");
+
+  const meta = (item.metadata as Record<string, unknown> | null) ?? {};
+  const currentRun = getAutomationRun(item);
+  const restoredRun: AutomationRun = {
+    ...currentRun,
+    run_status: snap.run_status,
+    updated_at: new Date().toISOString(),
+  };
+  // Strip dry_run flag from automation_run while keeping ledger fields
+  const restoredAutomationRun = { ...restoredRun, dry_run: null };
+
+  const newMeta: Record<string, unknown> = {
+    ...meta,
+    automation_run: restoredAutomationRun,
+    result_meta: snap.result_meta ?? null,
+    post_execution_review: snap.post_execution_review ?? null,
+    dry_run_last: null,
+  };
+
+  const { error } = await supabase
+    .from("clipboard_items")
+    .update({ output_result: snap.output_result, metadata: newMeta } as never)
+    .eq("id", item.id);
+  if (error) throw error;
+
+  await insertLog(
+    item,
+    "automation_dry_run_restored",
+    `Stato pre dry run ripristinato (scenario: ${dry?.scenario ?? "?"})`,
+    {
+      dry_run: true,
+      restored_run_status: snap.run_status,
+      previous_dry_run_scenario: dry?.scenario,
+      captured_at: snap.captured_at,
+    },
+    { previous: currentRun.run_status, new: snap.run_status },
+  );
+}
