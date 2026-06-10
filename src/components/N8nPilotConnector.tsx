@@ -683,10 +683,56 @@ Callback richiesta:
                     <Badge variant="outline" className="text-[10px]">saved</Badge>
                   )}
                 </div>
+
+                <details className="rounded-md border border-border/40 p-2">
+                  <summary className="cursor-pointer text-xs font-medium flex items-center gap-1">
+                    <ListChecks className="h-3 w-3" /> Pronto per test n8n reale
+                    {readiness.canMark ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-300 text-[10px]">ok</Badge>
+                    ) : (
+                      <Badge className="bg-amber-500/15 text-amber-300 text-[10px]">controlli falliti</Badge>
+                    )}
+                  </summary>
+                  <ul className="mt-2 space-y-1 text-[11px]">
+                    {readiness.checks.map((c, idx) => (
+                      <li key={idx} className="flex items-center gap-1">
+                        {c.ok ? (
+                          <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                        ) : (
+                          <XCircle className={`h-3 w-3 ${c.critical ? "text-red-400" : "text-amber-400"}`} />
+                        )}
+                        <span className={c.ok ? "text-muted-foreground" : c.critical ? "text-red-300" : "text-amber-300"}>
+                          {c.label}
+                          {!c.critical && <span className="ml-1 text-[10px] text-muted-foreground">(non bloccante)</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {readiness.contract.status !== "valid" && readiness.contract.errors.length > 0 && (
+                    <ul className="mt-2 list-disc pl-4 text-[10px] text-amber-300">
+                      {readiness.contract.errors.slice(0, 5).map((e, idx) => <li key={idx}>{e}</li>)}
+                    </ul>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => markReadyMut.mutate(item)}
+                      disabled={!readiness.canMark || alreadyReady || markReadyMut.isPending}
+                    >
+                      <ShieldCheck className="mr-1 h-3 w-3" />
+                      {alreadyReady ? "Già pronto" : "Segna pronto per test n8n"}
+                    </Button>
+                    {!readiness.canMark && (
+                      <span className="text-[10px] text-amber-300">Risolvi i controlli critici per abilitare.</span>
+                    )}
+                  </div>
+                </details>
               </div>
             );
           })}
         </div>
+
+
 
         <Dialog open={!!payloadDialog} onOpenChange={(o) => !o && setPayloadDialog(null)}>
           <DialogContent className="max-w-2xl">
