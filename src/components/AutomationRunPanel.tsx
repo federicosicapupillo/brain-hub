@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bot, Copy, Play, CheckCircle2, AlertTriangle, XCircle, Shield, RefreshCw, FileJson, Workflow } from "lucide-react";
+import { Bot, Copy, Play, CheckCircle2, AlertTriangle, XCircle, Shield, RefreshCw, FileJson, Workflow, Inbox } from "lucide-react";
 import {
   buildAutomationPayload,
   defaultAutomationRun,
@@ -537,6 +537,30 @@ export function AutomationRunPanel() {
                   </Button>
                   <Button size="sm" variant="ghost" onClick={() => setPayloadTarget(i)}>
                     <FileJson className="mr-1 h-3 w-3" /> Vedi payload
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      window.dispatchEvent(
+                        new CustomEvent("automation:simulate-callback", {
+                          detail: {
+                            execution_package_id: i.id,
+                            run_id: run.run_id,
+                            status: "completed",
+                            build_status: "not_verified",
+                            console_errors: false,
+                            modified_files: [],
+                            summary: "",
+                            notes: "",
+                            external_result_reference: "",
+                            raw_output: "",
+                          },
+                        }),
+                      );
+                    }}
+                  >
+                    <Inbox className="mr-1 h-3 w-3" /> Simula callback
                   </Button>
                 </div>
 

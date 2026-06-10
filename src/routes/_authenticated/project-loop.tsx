@@ -576,6 +576,7 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   automation_blocked: "Run bloccata",
   automation_retried: "Run riprovata",
   automation_payload_copied: "Payload automazione copiato",
+  automation_callback_received: "Callback ricevuta",
 };
 
 function buildTimelineEvents(

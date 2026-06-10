@@ -130,7 +130,8 @@ export type LogEventType =
   | "automation_cancelled"
   | "automation_blocked"
   | "automation_retried"
-  | "automation_payload_copied";
+  | "automation_payload_copied"
+  | "automation_callback_received";
 
 const LOG_TITLES: Record<LogEventType, string> = {
   automation_approved: "Run approvata",
@@ -142,6 +143,7 @@ const LOG_TITLES: Record<LogEventType, string> = {
   automation_blocked: "Run bloccata",
   automation_retried: "Run riprovata",
   automation_payload_copied: "Payload automazione copiato",
+  automation_callback_received: "Callback ricevuta",
 };
 
 /** Merge patch into metadata.automation_run, persist on clipboard_items, write log row. */
