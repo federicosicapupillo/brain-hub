@@ -302,6 +302,7 @@ export async function runDryRunScenario(
       executed_at: startedAt,
       result: "failed",
       notes: `Callback rifiutata: ${sim.invalid.reason}`,
+      previous_state_snapshot: snapshot,
     };
     await supabase
       .from("clipboard_items")
