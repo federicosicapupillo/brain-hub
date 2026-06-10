@@ -24,6 +24,7 @@ import {
   updateAutomationRun,
   RUN_STATUS_LABELS,
 } from "@/lib/automation-run";
+import { normalizeAutomationItem } from "@/lib/automation-normalize";
 
 type ClipItem = ItemLike & {
   content: string | null;
@@ -63,14 +64,6 @@ const FILTER_LABELS: Record<Filter, string> = {
   next_prompt: "Next prompt",
 };
 
-const VALID_AUTOMATION_STATUSES = [
-  "da_approvare",
-  "pronto",
-  "copiato",
-  "inviato",
-  "risultato_salvato",
-  "rielaborato",
-];
 
 const RUN_BADGE: Record<RunStatus, string> = {
   draft: "bg-slate-500/15 text-slate-200",
@@ -182,34 +175,52 @@ export function AutomationRunPanel() {
   const brains = data?.brains ?? [];
   const brainMap = useMemo(() => new Map(brains.map((b) => [b.id, b])), [brains]);
 
+  const normalized = useMemo(
+    () => items.map((i) => ({ item: i, norm: normalizeAutomationItem(i) })),
+    [items],
+  );
+
   const filtered = useMemo(() => {
-    return items.filter((i) => {
-      if (!VALID_AUTOMATION_STATUSES.includes(i.automation_status ?? "")) return false;
-      const run = getAutomationRun(i);
-      switch (filter) {
-        case "tutti":
-          return true;
-        case "da_approvare":
-          return run.run_status === "draft" || i.automation_status === "da_approvare";
-        case "approvati":
-          return run.run_status === "approved";
-        case "in_coda":
-          return run.run_status === "queued";
-        case "in_esecuzione":
-          return run.run_status === "running";
-        case "completati":
-          return run.run_status === "completed";
-        case "falliti":
-          return run.run_status === "failed";
-        case "alto_rischio":
-          return i.risk_level === "alto";
-        case "fix_prompt":
-          return pkgType(i) === "fix_prompt";
-        case "next_prompt":
-          return pkgType(i) === "next_prompt";
-      }
-    });
-  }, [items, filter]);
+    return normalized
+      .filter(({ norm }) => norm.isEligibleForRunLedger)
+      .filter(({ item, norm }) => {
+        const run = getAutomationRun(item);
+        switch (filter) {
+          case "tutti":
+            return true;
+          case "da_approvare":
+            return norm.isPendingApproval;
+          case "approvati":
+            return run.run_status === "approved";
+          case "in_coda":
+            return run.run_status === "queued";
+          case "in_esecuzione":
+            return run.run_status === "running";
+          case "completati":
+            return run.run_status === "completed";
+          case "falliti":
+            return run.run_status === "failed";
+          case "alto_rischio":
+            return item.risk_level === "alto";
+          case "fix_prompt":
+            return pkgType(item) === "fix_prompt";
+          case "next_prompt":
+            return pkgType(item) === "next_prompt";
+        }
+      })
+      .map(({ item }) => item);
+  }, [normalized, filter]);
+
+  const diagnostics = useMemo(() => {
+    const totalLoaded = items.length;
+    const executionPackages = normalized.filter((n) => n.norm.isExecutionPackage).length;
+    const pendingApproval = normalized.filter((n) => n.norm.isPendingApproval).length;
+    const visibleInFilter = filtered.length;
+    const excluded = normalized
+      .filter((n) => n.norm.exclusionReason)
+      .map((n) => ({ id: n.item.id, title: n.item.title, reason: n.norm.exclusionReason }));
+    return { totalLoaded, executionPackages, pendingApproval, visibleInFilter, excluded };
+  }, [normalized, items.length, filtered.length]);
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento Run Ledger…</div>;
   if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
@@ -444,6 +455,23 @@ export function AutomationRunPanel() {
             </Button>
           ))}
         </div>
+
+        {import.meta.env.DEV && (
+          <div className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-200/90 space-y-1">
+            <div className="font-mono uppercase tracking-wide text-amber-300">[dev] Run Ledger diagnostics</div>
+            <div>clipboard_items caricati: <b>{diagnostics.totalLoaded}</b> · execution_package: <b>{diagnostics.executionPackages}</b> · da_approvare normalizzati: <b>{diagnostics.pendingApproval}</b> · visibili nel filtro "{FILTER_LABELS[filter]}": <b>{diagnostics.visibleInFilter}</b></div>
+            {diagnostics.excluded.length > 0 && (
+              <details>
+                <summary className="cursor-pointer">Esclusi ({diagnostics.excluded.length})</summary>
+                <ul className="mt-1 space-y-0.5 pl-3">
+                  {diagnostics.excluded.slice(0, 20).map((e) => (
+                    <li key={e.id} className="truncate">· {(e.title || e.id).slice(0, 60)} — {e.reason}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
 
         {filtered.length === 0 && (
           <div className="rounded-md border border-border/60 p-4 text-sm text-muted-foreground">

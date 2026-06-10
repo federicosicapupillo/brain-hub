@@ -15,6 +15,7 @@ import { AutomationRunPanel } from "@/components/AutomationRunPanel";
 import { CallbackInboxSection, type CallbackPrefill } from "@/components/CallbackInboxSection";
 import { DryRunOrchestrator } from "@/components/DryRunOrchestrator";
 import { N8nPilotConnector } from "@/components/N8nPilotConnector";
+import { normalizeAutomationItem } from "@/lib/automation-normalize";
 import { useEffect } from "react";
 
 
@@ -32,6 +33,7 @@ type ClipboardItem = {
   brain_id: string | null;
   title: string;
   content: string;
+  content_type: string | null;
   target_tool: string;
   source_tool: string;
   status: string;
@@ -53,6 +55,7 @@ type ClipboardItem = {
   source_url: string | null;
   next_action: string | null;
   automation_payload: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
 };
 
 type BrainLite = { id: string; name: string };
@@ -87,7 +90,7 @@ async function fetchAll() {
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,automation_attempts,automation_connector_id,human_review_required,risk_level,output_result,updated_at,created_at,automation_completed_at,automation_last_run_at,project_tool_link_id,execution_instructions,expected_output,success_criteria,source_url,next_action,automation_payload"
+        "id,brain_id,title,content,content_type,target_tool,source_tool,status,approval_status,automation_status,automation_attempts,automation_connector_id,human_review_required,risk_level,output_result,updated_at,created_at,automation_completed_at,automation_last_run_at,project_tool_link_id,execution_instructions,expected_output,success_criteria,source_url,next_action,automation_payload,metadata"
       )
       .order("updated_at", { ascending: false })
       .limit(500),
@@ -256,7 +259,9 @@ function AutomationControlPage() {
 
   const { items, logs, connectors, brains, tasksCount, todayStart } = data;
 
-  const toApprove = items.filter((i) => i.human_review_required && i.approval_status !== "approved" && i.approval_status !== "blocked").length;
+  const toApprove = items
+    .map((i) => normalizeAutomationItem(i as unknown as Parameters<typeof normalizeAutomationItem>[0]))
+    .filter((n) => n.isPendingApproval).length;
   const ready = items.filter((i) => i.automation_status === "ready_for_automation").length;
   const queued = items.filter((i) => i.automation_status === "queued").length;
   const running = items.filter((i) => i.automation_status === "running").length;
