@@ -1287,6 +1287,207 @@ CRITERI DI SUCCESSO:
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-loop"] }),
   });
 
+  const saveReviewMut = useMutation({
+    mutationFn: async ({ item, review }: { item: ClipboardItem; review: PostExecutionReview }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({
+          metadata: { ...prevMeta, post_execution_review: review },
+          next_action:
+            review.recommended_next_action === "genera_fix_prompt"
+              ? "Generare un fix prompt e re-inviarlo a Lovable"
+              : review.recommended_next_action === "genera_prossimo_prompt"
+                ? "Generare il prossimo prompt operativo"
+                : "Verifica manuale del risultato",
+        } as never)
+        .eq("id", item.id);
+      if (upErr) throw upErr;
+      await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "post_execution_review",
+        notes: `${review.review_status} · ${review.completion_level} · next: ${review.recommended_next_action}`,
+        user_id: userId,
+        metadata: { brain_id: item.brain_id, review },
+      } as never);
+    },
+    onSuccess: () => {
+      toast.success("Review salvata");
+      setReviewItem(null);
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const generateFixPromptMut = useMutation({
+    mutationFn: async ({ item }: { item: ClipboardItem }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+
+      // dedupe: do not create a second fix prompt for the same parent
+      const existing = findChildPackageByType(items, item.id, "fix_prompt");
+      if (existing) {
+        throw new Error("Fix prompt già generato per questo risultato");
+      }
+
+      const review = getReview(item);
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
+      const prevPkg = prevMeta.execution_package as
+        | { successCriteria?: string; postChecklist?: string[]; promptOnly?: string }
+        | undefined;
+      const brain = item.brain_id ? brainsById.get(item.brain_id) : null;
+      const brainName = brain?.name ?? "(senza brain)";
+      const baseCriteria = prevPkg?.postChecklist?.length
+        ? prevPkg.postChecklist
+        : (prevPkg?.successCriteria ?? "")
+            .split(/[·\n;]+/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+
+      const missingTxt = review?.missing_success_criteria.length
+        ? review.missing_success_criteria.map((c) => `- ${c}`).join("\n")
+        : "- (nessuno specificato)";
+      const protectedTouchedTxt = review?.protected_areas_touched.length
+        ? review.protected_areas_touched.map((p) => `- ${p}`).join("\n")
+        : "- (nessuna area protetta toccata segnalata)";
+      const detectedTxt = review?.detected_risks.length
+        ? review.detected_risks.map((r) => `- ${r}`).join("\n")
+        : "- (nessun rischio rilevato esplicito)";
+
+      const fixTitle = `Fix Prompt — ${brainName} — ${item.title || "(senza titolo)"}`.slice(0, 200);
+      const fixPromptOnly = `REGOLE DI PROTEZIONE OBBLIGATORIE:
+- Non modificare auth, login, signup, sessioni, RLS o policy Supabase esistenti.
+- Non toccare dati, tabelle o logiche non richieste.
+- Non rompere route, sidebar, link, layout globale o componenti condivisi.
+- Modifica solo i file strettamente necessari.
+- Mantieni compatibilità TypeScript.
+
+CONTESTO:
+- Progetto: ${brainName}
+- Prompt originale: ${item.title}
+- Esito review precedente: ${review?.review_status ?? "non specificato"} (${review?.completion_level ?? "—"})
+
+RISULTATO LOVABLE PRECEDENTE:
+${(item.output_result ?? "").slice(0, 2000)}
+
+ERRORI E MANCANZE RILEVATE:
+${detectedTxt}
+
+CRITERI DI SUCCESSO NON RISPETTATI:
+${missingTxt}
+
+AREE PROTETTE TOCCATE PER ERRORE:
+${protectedTouchedTxt}
+
+NOTE REVIEW:
+${review?.review_notes || "—"}
+
+COSA CORREGGERE:
+- Risolvere le mancanze sopra elencate senza introdurre nuove regressioni.
+- Ripristinare eventuali aree protette toccate per errore.
+
+COSA NON MODIFICARE:
+- Auth, login, signup, sessioni, RLS, policy Supabase.
+- Sidebar globale, layout globale, route esistenti non collegate.
+- Funzionalità già funzionanti non legate al fix.
+
+CRITERI DI SUCCESSO AGGIORNATI:
+${baseCriteria.length ? baseCriteria.map((c) => `- ${c}`).join("\n") : "- Build pulita\n- Nessun errore in console\n- Funzionalità target completa"}
+- Build pulita verificata
+- Nessun errore in console
+- Nessuna regressione
+
+Procedi e verifica i criteri sopra elencati.`;
+
+      const fixPkg = {
+        title: fixTitle,
+        brainName,
+        projectName: brainName,
+        roadmapTitle: item.title,
+        roadmapPriority: "—",
+        roadmapStatus: "fix",
+        objective: `Correggere il risultato precedente di "${item.title}"`,
+        contextSummary: `Fix per "${item.title}" — review ${review?.review_status ?? "—"}`,
+        promptOnly: fixPromptOnly,
+        executionInstructions:
+          "1) Copia il prompt in Lovable. 2) Verifica build/console. 3) Salva il risultato. 4) Esegui review.",
+        doNotModify: "Auth, login, signup, sessioni, RLS, policy Supabase, sidebar, layout globale.",
+        successCriteria:
+          "Fix risolto · Build pulita · No errori console · Nessuna regressione · Aree protette intatte",
+        expectedOutput: "Correzione completa del difetto segnalato, build pulita.",
+        postChecklist: [
+          "Mancanze precedenti risolte",
+          "Build pulita verificata",
+          "Nessun errore in console",
+          "Aree protette intatte",
+          "Risultato salvato e revisionato",
+        ],
+        riskLevel: "medio" as const,
+        package_type: "fix_prompt" as const,
+      };
+
+      const { data: inserted, error: insErr } = await supabase
+        .from("clipboard_items")
+        .insert({
+          user_id: userId,
+          brain_id: item.brain_id,
+          project_tool_link_id: item.project_tool_link_id,
+          title: fixTitle,
+          content: fixPromptOnly,
+          content_type: "execution_package",
+          target_tool: "Lovable",
+          source_tool: "Project Loop",
+          status: "active",
+          approval_status: "pending",
+          automation_status: "ready_for_automation",
+          human_review_required: true,
+          execution_instructions: fixPkg.executionInstructions,
+          expected_output: fixPkg.expectedOutput,
+          success_criteria: fixPkg.successCriteria,
+          risk_level: "medium",
+          requires_approval: true,
+          next_action: "Inviare il fix a Lovable e salvare il risultato",
+          metadata: {
+            execution_package: fixPkg,
+            parent_clipboard_item_id: item.id,
+            stage: "da_approvare",
+          },
+        } as never)
+        .select("id")
+        .single();
+      if (insErr) throw insErr;
+
+      await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "generated_fix_prompt",
+        notes: `Fix prompt creato (${inserted.id})`,
+        user_id: userId,
+        metadata: {
+          brain_id: item.brain_id,
+          parent_clipboard_item_id: item.id,
+          new_clipboard_item_id: inserted.id,
+        },
+      } as never);
+
+      // mark parent as having generated a follow-up
+      await supabase
+        .from("clipboard_items")
+        .update({ next_step_generated: true } as never)
+        .eq("id", item.id);
+
+      return inserted.id;
+    },
+    onSuccess: () => {
+      toast.success("Fix prompt creato in Clipboard AI");
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   function openNextStep(i: ClipboardItem) {
     setNextStepItem(i);
     setNextStepForm({
@@ -1300,6 +1501,41 @@ CRITERI DI SUCCESSO:
   function openSaveResult(i: ClipboardItem) {
     setSaveResultItem(i);
     setSaveResultText("");
+  }
+
+  function openReview(
+    i: ClipboardItem,
+    prefill?: { buildStatus?: "yes" | "no" | "unverified"; consoleStatus?: "yes" | "no" | "unverified"; notes?: string },
+  ) {
+    const existing = getReview(i);
+    const criteriaLabels = getSuccessCriteriaList(i);
+    const matchedSet = new Set(existing?.matched_success_criteria ?? []);
+    setReviewItem(i);
+    setReviewForm({
+      buildStatus: prefill?.buildStatus ?? existing?.build_status ?? "unverified",
+      consoleStatus: prefill?.consoleStatus ?? existing?.console_status ?? "unverified",
+      criteria: criteriaLabels.map((label) => ({ label, matched: matchedSet.has(label) })),
+      protectedTouched: existing?.protected_areas_touched ?? [],
+      completion: existing?.completion_level ?? "completo",
+      needsFix: existing?.review_status === "needs_fix" || existing?.review_status === "partial",
+      notes: prefill?.notes ?? existing?.review_notes ?? "",
+    });
+  }
+
+  function triggerNextPrompt(i: ClipboardItem) {
+    const rev = getReview(i);
+    const existing = findChildPackageByType(items, i.id, "next_prompt");
+    if (existing) {
+      toast.warning("Prompt già generato per questo risultato");
+      return;
+    }
+    if (!rev || rev.review_status !== "approved") {
+      const ok = window.confirm(
+        "La review non è approvata. Vuoi procedere comunque con il prossimo prompt?",
+      );
+      if (!ok) return;
+    }
+    openNextStep(i);
   }
 
   function copyPrompt(content: string) {
