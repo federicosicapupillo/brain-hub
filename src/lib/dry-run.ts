@@ -7,6 +7,7 @@ import {
   type DryRunMeta,
   type ItemLike,
   type LogEventType,
+  type PreviousStateSnapshot,
 } from "./automation-run";
 
 export type DryRunScenario =
@@ -143,14 +144,44 @@ async function insertLog(
   if (error) throw error;
 }
 
-async function refreshItem(id: string): Promise<ItemLike> {
+async function refreshItem(id: string): Promise<ItemLike & { output_result: string | null }> {
   const { data, error } = await supabase
     .from("clipboard_items")
-    .select("id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata")
+    .select("id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,output_result")
     .eq("id", id)
     .single();
   if (error) throw error;
-  return data as ItemLike;
+  return data as ItemLike & { output_result: string | null };
+}
+
+/**
+ * Detect if an item already holds a "real" (non-simulated) result that a dry run would overwrite.
+ */
+export function hasRealResult(item: ItemLike & { output_result?: string | null }): {
+  hasReal: boolean;
+  reasons: string[];
+} {
+  const reasons: string[] = [];
+  const meta = (item.metadata as Record<string, unknown> | null) ?? {};
+  const rm = meta.result_meta as { source?: string; is_simulated?: boolean } | undefined;
+  const run = getAutomationRun(item);
+  const review = meta.post_execution_review as { review_status?: string } | undefined;
+  const output = (item.output_result ?? "").trim();
+  if (output && rm?.source && rm.source !== "dry_run" && rm.is_simulated !== true) {
+    reasons.push("output_result reale già presente");
+  } else if (output && !rm) {
+    reasons.push("output_result presente senza marcatura simulazione");
+  }
+  if (rm?.source && rm.source !== "dry_run" && rm.is_simulated !== true) {
+    reasons.push(`result_meta.source = "${rm.source}"`);
+  }
+  if (run.run_status === "completed" && rm?.source !== "dry_run" && rm?.is_simulated !== true) {
+    reasons.push("run_status = completed (reale)");
+  }
+  if (review?.review_status === "approved") {
+    reasons.push("post_execution_review = approved");
+  }
+  return { hasReal: reasons.length > 0, reasons };
 }
 
 /**
@@ -160,7 +191,7 @@ async function refreshItem(id: string): Promise<ItemLike> {
 export async function runDryRunScenario(
   itemArg: ItemLike,
   scenario: DryRunScenario,
-  opts: { allowRecentDup?: boolean } = {},
+  opts: { allowRecentDup?: boolean; allowOverwriteReal?: boolean } = {},
 ): Promise<DryRunResult> {
   if (itemArg.content_type !== "execution_package") {
     throw new Error("Solo gli Execution Package supportano il dry run");
@@ -184,6 +215,14 @@ export async function runDryRunScenario(
     };
   }
 
+  // Strong confirmation: existing real / approved result
+  const realCheck = hasRealResult(item);
+  if (realCheck.hasReal && !opts.allowOverwriteReal) {
+    throw new Error(
+      `OVERWRITE_REAL: Questo item ha già un risultato reale o approvato (${realCheck.reasons.join(", ")}). Il dry run potrebbe sovrascrivere dati reali. Confermi?`,
+    );
+  }
+
   // Idempotency on recent dry run
   const meta = (item.metadata as Record<string, unknown> | null) ?? {};
   const prevDry = (meta.dry_run_last as DryRunMeta | undefined) ?? (run as unknown as { dry_run?: DryRunMeta }).dry_run;
@@ -193,6 +232,16 @@ export async function runDryRunScenario(
       throw new Error(`Dry run recente (${DRY_RUN_SCENARIO_LABELS[prevDry.scenario as DryRunScenario] ?? prevDry.scenario}) eseguito ${Math.round(ageMs / 1000)}s fa. Conferma per rieseguirlo.`);
     }
   }
+
+  // Capture snapshot BEFORE any mutation
+  const snapshot: PreviousStateSnapshot = {
+    run_status: run.run_status,
+    output_result: item.output_result ?? null,
+    result_meta: (meta.result_meta as Record<string, unknown> | null) ?? null,
+    post_execution_review: (meta.post_execution_review as Record<string, unknown> | null) ?? null,
+    captured_at: new Date().toISOString(),
+  };
+
 
   const startedAt = new Date().toISOString();
   await insertLog(item, "automation_dry_run_started", `Dry run ${DRY_RUN_SCENARIO_LABELS[scenario]} avviato`, {
@@ -253,6 +302,7 @@ export async function runDryRunScenario(
       executed_at: startedAt,
       result: "failed",
       notes: `Callback rifiutata: ${sim.invalid.reason}`,
+      previous_state_snapshot: snapshot,
     };
     await supabase
       .from("clipboard_items")
@@ -296,6 +346,8 @@ export async function runDryRunScenario(
     external_result_reference: `dry_run:${scenario}:${run.run_id}`,
     callback_hash: callbackHash,
     source: "dry_run",
+    is_simulated: true,
+    dry_run_scenario: scenario,
     received_at: now,
     protected_areas_touched: sim.protected_areas_touched ?? false,
     result_summary: sim.result_summary ?? null,
@@ -401,6 +453,7 @@ export async function runDryRunScenario(
     executed_at: startedAt,
     result: resultKind,
     notes: dryNotes,
+    previous_state_snapshot: snapshot,
   };
   const finalRun = { ...((finalMeta.automation_run as object) ?? {}), dry_run: dryMeta };
   await supabase
@@ -434,4 +487,62 @@ export function isDryRunEligible(item: ItemLike): boolean {
   if (item.content_type !== "execution_package") return false;
   const run = getAutomationRun(item);
   return ["draft", "approved", "queued", "failed", "cancelled", "blocked", "completed"].includes(run.run_status);
+}
+
+export function getDryRunMeta(item: ItemLike): DryRunMeta | null {
+  const m = (item.metadata as Record<string, unknown> | null) ?? {};
+  const direct = m.dry_run_last as DryRunMeta | undefined;
+  if (direct?.enabled) return direct;
+  const r = m.automation_run as { dry_run?: DryRunMeta } | undefined;
+  return r?.dry_run ?? null;
+}
+
+export function hasRestorableSnapshot(item: ItemLike): boolean {
+  const d = getDryRunMeta(item);
+  return !!d?.previous_state_snapshot;
+}
+
+/** Restore an item to its pre-dry-run snapshot. */
+export async function restoreDryRunSnapshot(itemArg: ItemLike): Promise<void> {
+  const item = await refreshItem(itemArg.id);
+  const dry = getDryRunMeta(item);
+  const snap = dry?.previous_state_snapshot;
+  if (!snap) throw new Error("Nessuno snapshot da ripristinare");
+
+  const meta = (item.metadata as Record<string, unknown> | null) ?? {};
+  const currentRun = getAutomationRun(item);
+  const restoredRun: AutomationRun = {
+    ...currentRun,
+    run_status: snap.run_status,
+    updated_at: new Date().toISOString(),
+  };
+  // Strip dry_run flag from automation_run while keeping ledger fields
+  const restoredAutomationRun = { ...restoredRun, dry_run: null };
+
+  const newMeta: Record<string, unknown> = {
+    ...meta,
+    automation_run: restoredAutomationRun,
+    result_meta: snap.result_meta ?? null,
+    post_execution_review: snap.post_execution_review ?? null,
+    dry_run_last: null,
+  };
+
+  const { error } = await supabase
+    .from("clipboard_items")
+    .update({ output_result: snap.output_result, metadata: newMeta } as never)
+    .eq("id", item.id);
+  if (error) throw error;
+
+  await insertLog(
+    item,
+    "automation_dry_run_restored",
+    `Stato pre dry run ripristinato (scenario: ${dry?.scenario ?? "?"})`,
+    {
+      dry_run: true,
+      restored_run_status: snap.run_status,
+      previous_dry_run_scenario: dry?.scenario,
+      captured_at: snap.captured_at,
+    },
+    { previous: currentRun.run_status, new: snap.run_status },
+  );
 }

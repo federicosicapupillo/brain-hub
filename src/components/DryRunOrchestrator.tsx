@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FlaskConical, PlayCircle, AlertTriangle, CheckCircle2, ShieldAlert, Activity } from "lucide-react";
+import { FlaskConical, PlayCircle, AlertTriangle, CheckCircle2, ShieldAlert, Activity, Undo2 } from "lucide-react";
 import {
   getAutomationRun,
   RUN_STATUS_LABELS,
@@ -17,6 +17,8 @@ import {
   DRY_RUN_SCENARIO_LABELS,
   isDryRunEligible,
   runDryRunScenario,
+  restoreDryRunSnapshot,
+  hasRealResult,
   type DryRunResult,
   type DryRunScenario,
 } from "@/lib/dry-run";
@@ -27,6 +29,7 @@ type ClipItem = ItemLike & {
   target_tool: string | null;
   automation_status: string | null;
   risk_level: string | null;
+  output_result: string | null;
   updated_at: string;
 };
 
@@ -62,7 +65,7 @@ async function fetchDryRunData() {
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,updated_at",
+        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,output_result,updated_at",
       )
       .eq("content_type", "execution_package")
       .order("updated_at", { ascending: false })
@@ -75,9 +78,10 @@ async function fetchDryRunData() {
         "automation_dry_run_completed",
         "automation_dry_run_failed",
         "automation_dry_run_blocked",
+        "automation_dry_run_restored",
       ] as never)
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(80),
   ]);
   if (itemsRes.error) throw itemsRes.error;
   if (logsRes.error) throw logsRes.error;
@@ -117,6 +121,7 @@ export function DryRunOrchestrator() {
     const completed: ExecLog[] = [];
     const failed: ExecLog[] = [];
     const blocked: ExecLog[] = [];
+    const restored: ExecLog[] = [];
     const errors: string[] = [];
     for (const l of logs) {
       if (l.action === "automation_dry_run_started" && l.clipboard_item_id) startedIds.add(l.clipboard_item_id);
@@ -126,21 +131,45 @@ export function DryRunOrchestrator() {
         if (errors.length < 5 && l.notes) errors.push(l.notes);
       }
       if (l.action === "automation_dry_run_blocked") blocked.push(l);
+      if (l.action === "automation_dry_run_restored") restored.push(l);
     }
+    const itemsWithDry = items.filter((i) => dryRunMeta(i));
+    const itemsWithActiveSim = items.filter((i) => {
+      const rm = (i.metadata as Record<string, unknown> | null)?.result_meta as { is_simulated?: boolean } | undefined;
+      return rm?.is_simulated === true;
+    });
+    const restorable = itemsWithDry.filter((i) => !!dryRunMeta(i)?.previous_state_snapshot);
     const untested = items.filter((i) => !dryRunMeta(i));
+    const lastDry = itemsWithDry
+      .map((i) => dryRunMeta(i)!)
+      .sort((a, b) => new Date(b.executed_at).getTime() - new Date(a.executed_at).getTime())[0];
     return {
       executed: startedIds.size,
       completed: completed.length,
       failed: failed.length,
       blocked: blocked.length,
+      restoredCount: restored.length,
+      simulatedActive: itemsWithActiveSim.length,
+      restorable: restorable.length,
+      lastScenario: lastDry?.scenario ?? null,
       lastErrors: errors,
       untestedCount: untested.length,
     };
   }, [data]);
 
   const runMut = useMutation({
-    mutationFn: async ({ item, scenario, allowDup }: { item: ClipItem; scenario: DryRunScenario; allowDup: boolean }) => {
-      return runDryRunScenario(item, scenario, { allowRecentDup: allowDup });
+    mutationFn: async ({
+      item,
+      scenario,
+      allowDup,
+      allowOverwriteReal,
+    }: {
+      item: ClipItem;
+      scenario: DryRunScenario;
+      allowDup: boolean;
+      allowOverwriteReal: boolean;
+    }) => {
+      return runDryRunScenario(item, scenario, { allowRecentDup: allowDup, allowOverwriteReal });
     },
     onSuccess: (r: DryRunResult) => {
       const label = DRY_RUN_SCENARIO_LABELS[r.scenario];
@@ -157,6 +186,16 @@ export function DryRunOrchestrator() {
       qc.invalidateQueries({ queryKey: ["project-loop"] });
     },
     onError: (e: Error, vars) => {
+      if (e.message.startsWith("OVERWRITE_REAL:") && !vars.allowOverwriteReal) {
+        const msg = e.message.replace(/^OVERWRITE_REAL:\s*/, "");
+        const ok = window.confirm(`${msg}\n\nProcedere con il dry run?`);
+        if (ok) {
+          runMut.mutate({ ...vars, allowOverwriteReal: true });
+          return;
+        }
+        toast.message("Dry run annullato");
+        return;
+      }
       if (/Dry run recente/.test(e.message) && !vars.allowDup) {
         const ok = window.confirm(`${e.message}\n\nVuoi rieseguirlo lo stesso?`);
         if (ok) {
@@ -169,6 +208,27 @@ export function DryRunOrchestrator() {
     },
   });
 
+  const restoreMut = useMutation({
+    mutationFn: async (item: ClipItem) => {
+      const ok = window.confirm(
+        `Ripristinare lo stato dell'item PRIMA del dry run?\n\nVerranno ripristinati: run_status, output_result, result_meta, post_execution_review.`,
+      );
+      if (!ok) throw new Error("Annullato");
+      await restoreDryRunSnapshot(item);
+    },
+    onSuccess: () => {
+      toast.success("Stato pre dry run ripristinato");
+      qc.invalidateQueries({ queryKey: ["dry-run-orchestrator"] });
+      qc.invalidateQueries({ queryKey: ["automation-run-panel"] });
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+      qc.invalidateQueries({ queryKey: ["callback-inbox-items"] });
+      qc.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => {
+      if (e.message !== "Annullato") toast.error(e.message);
+    },
+  });
+
   return (
     <>
       <Card>
@@ -178,13 +238,23 @@ export function DryRunOrchestrator() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
             <StatTile label="Dry run eseguiti" value={stats.executed} />
             <StatTile label="Completati" value={stats.completed} tone="text-emerald-300" />
             <StatTile label="Falliti" value={stats.failed} tone="text-red-300" />
             <StatTile label="Bloccati" value={stats.blocked} tone="text-fuchsia-300" />
-            <StatTile label="Non testati" value={stats.untestedCount} tone="text-amber-300" />
+            <StatTile label="Simulazioni attive" value={stats.simulatedActive} tone="text-amber-300" />
+            <StatTile label="Ripristinabili" value={stats.restorable} tone="text-sky-300" />
+            <StatTile label="Non testati" value={stats.untestedCount} tone="text-zinc-300" />
           </div>
+          {stats.lastScenario && (
+            <div className="mt-3 text-[11px] text-muted-foreground">
+              Ultimo scenario:{" "}
+              <span className="font-medium text-foreground">
+                {DRY_RUN_SCENARIO_LABELS[stats.lastScenario as DryRunScenario] ?? stats.lastScenario}
+              </span>
+            </div>
+          )}
           {stats.lastErrors.length > 0 && (
             <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/5 p-2 text-[11px] text-red-300">
               <div className="mb-1 font-medium">Ultimi errori dry run</div>
@@ -212,10 +282,18 @@ export function DryRunOrchestrator() {
           {eligible.map((i) => {
             const run = getAutomationRun(i);
             const dry = dryRunMeta(i);
+            const isSimulated = ((i.metadata as Record<string, unknown> | null)?.result_meta as { is_simulated?: boolean } | undefined)?.is_simulated === true;
+            const canRestore = !!dry?.previous_state_snapshot;
+            const real = hasRealResult(i);
             return (
               <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-2">
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</span>
+                    {isSimulated && (
+                      <Badge className="bg-amber-500/20 text-amber-300 text-[10px] uppercase tracking-wide">DRY RUN / SIMULAZIONE</Badge>
+                    )}
+                  </div>
                   <div className="mt-1 flex flex-wrap items-center gap-1">
                     <Badge variant="secondary" className="text-[10px]">run: {RUN_STATUS_LABELS[run.run_status]}</Badge>
                     {i.risk_level && (
@@ -223,14 +301,24 @@ export function DryRunOrchestrator() {
                     )}
                     {dry && (
                       <Badge variant="outline" className="text-[10px]">
-                        ultimo dry run: {DRY_RUN_SCENARIO_LABELS[dry.scenario as DryRunScenario] ?? dry.scenario} ({dry.result})
+                        ultimo: {DRY_RUN_SCENARIO_LABELS[dry.scenario as DryRunScenario] ?? dry.scenario} ({dry.result})
                       </Badge>
+                    )}
+                    {real.hasReal && !isSimulated && (
+                      <Badge className="bg-red-500/15 text-red-300 text-[10px]">risultato reale presente</Badge>
                     )}
                   </div>
                 </div>
-                <Button size="sm" variant="outline" onClick={() => { setConfirmDup(false); setTarget(i); }}>
-                  <PlayCircle className="mr-1 h-3 w-3" /> Esegui dry run
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {canRestore && (
+                    <Button size="sm" variant="ghost" onClick={() => restoreMut.mutate(i)} disabled={restoreMut.isPending}>
+                      <Undo2 className="mr-1 h-3 w-3" /> Ripristina stato precedente
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => { setConfirmDup(false); setTarget(i); }}>
+                    <PlayCircle className="mr-1 h-3 w-3" /> Esegui dry run
+                  </Button>
+                </div>
               </div>
             );
           })}
@@ -258,7 +346,7 @@ export function DryRunOrchestrator() {
                     key={s}
                     type="button"
                     disabled={runMut.isPending}
-                    onClick={() => runMut.mutate({ item: target, scenario: s, allowDup: confirmDup })}
+                    onClick={() => runMut.mutate({ item: target, scenario: s, allowDup: confirmDup, allowOverwriteReal: false })}
                     className="rounded-md border border-border/60 p-2 text-left hover:bg-muted/40 disabled:opacity-60"
                   >
                     <div className="flex items-center gap-2 text-sm font-medium">

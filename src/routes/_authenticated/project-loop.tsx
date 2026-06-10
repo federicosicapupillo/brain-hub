@@ -545,7 +545,7 @@ function findChildPackageByType(
   });
 }
 
-type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt" | "review" | "automation";
+type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt" | "review" | "automation" | "dry_run";
 
 type TimelineEvent = {
   id: string;
@@ -564,6 +564,7 @@ const TIMELINE_META: Record<TimelineEventType, { label: string; icon: typeof Wor
   next_prompt: { label: "next_prompt", icon: RefreshCw, cls: "bg-emerald-500/15 text-emerald-300" },
   review: { label: "review", icon: ClipboardCheck, cls: "bg-teal-500/15 text-teal-300" },
   automation: { label: "automation", icon: Workflow, cls: "bg-blue-500/15 text-blue-300" },
+  dry_run: { label: "dry run", icon: Workflow, cls: "bg-amber-500/15 text-amber-300 border border-amber-500/40" },
 };
 
 const AUTOMATION_LOG_LABELS: Record<string, string> = {
@@ -577,10 +578,11 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   automation_retried: "Run riprovata",
   automation_payload_copied: "Payload automazione copiato",
   automation_callback_received: "Callback ricevuta",
-  automation_dry_run_started: "Dry run avviato",
-  automation_dry_run_completed: "Dry run completato",
-  automation_dry_run_failed: "Dry run fallito",
-  automation_dry_run_blocked: "Dry run bloccato",
+  automation_dry_run_started: "Simulazione avviata",
+  automation_dry_run_completed: "Simulazione eseguita",
+  automation_dry_run_failed: "Simulazione fallita",
+  automation_dry_run_blocked: "Simulazione bloccata",
+  automation_dry_run_restored: "Stato pre dry run ripristinato",
 };
 
 function buildTimelineEvents(
@@ -674,11 +676,12 @@ function buildTimelineEvents(
         item,
       });
     } else if (AUTOMATION_LOG_LABELS[l.action]) {
+      const isDry = l.action.startsWith("automation_dry_run_");
       events.push({
         id: `log:${l.id}`,
-        type: "automation",
+        type: isDry ? "dry_run" : "automation",
         ts: l.created_at,
-        title: `${AUTOMATION_LOG_LABELS[l.action]} — ${item?.title ?? ""}`.trim(),
+        title: `${isDry ? "[Dry Run] " : ""}${AUTOMATION_LOG_LABELS[l.action]} — ${item?.title ?? ""}`.trim(),
         preview:
           l.notes ??
           (l.previous_status || l.new_status ? `${l.previous_status ?? "—"} → ${l.new_status ?? "—"}` : undefined),

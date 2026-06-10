@@ -135,7 +135,8 @@ export type LogEventType =
   | "automation_dry_run_started"
   | "automation_dry_run_completed"
   | "automation_dry_run_failed"
-  | "automation_dry_run_blocked";
+  | "automation_dry_run_blocked"
+  | "automation_dry_run_restored";
 
 const LOG_TITLES: Record<LogEventType, string> = {
   automation_approved: "Run approvata",
@@ -152,6 +153,15 @@ const LOG_TITLES: Record<LogEventType, string> = {
   automation_dry_run_completed: "Dry run completato",
   automation_dry_run_failed: "Dry run fallito",
   automation_dry_run_blocked: "Dry run bloccato",
+  automation_dry_run_restored: "Stato pre dry run ripristinato",
+};
+
+export type PreviousStateSnapshot = {
+  run_status: RunStatus;
+  output_result: string | null;
+  result_meta: Record<string, unknown> | null;
+  post_execution_review: Record<string, unknown> | null;
+  captured_at: string;
 };
 
 export type DryRunMeta = {
@@ -160,6 +170,7 @@ export type DryRunMeta = {
   executed_at: string;
   result: "success" | "warning" | "failed" | "blocked";
   notes: string;
+  previous_state_snapshot?: PreviousStateSnapshot | null;
 };
 
 /** Stable FNV-1a hash for callback dedupe. */
