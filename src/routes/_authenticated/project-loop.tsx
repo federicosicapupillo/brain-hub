@@ -146,7 +146,7 @@ async function fetchAll() {
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,human_review_required,risk_level,output_result,next_action,source_url,project_tool_link_id,next_step_generated,updated_at"
+        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,human_review_required,risk_level,output_result,next_action,source_url,project_tool_link_id,next_step_generated,copied_count,metadata,updated_at"
       )
       .order("updated_at", { ascending: false })
       .limit(500),
