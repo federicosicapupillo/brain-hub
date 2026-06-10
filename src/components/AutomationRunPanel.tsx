@@ -470,6 +470,15 @@ export function AutomationRunPanel() {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
+                    {(() => {
+                      const m = (i.metadata as Record<string, unknown> | null) ?? {};
+                      const rm = m.result_meta as { is_simulated?: boolean } | undefined;
+                      const dry = (m.dry_run_last as { enabled?: boolean } | undefined) ?? (m.automation_run as { dry_run?: { enabled?: boolean } } | undefined)?.dry_run;
+                      if (rm?.is_simulated || dry?.enabled) {
+                        return <Badge className="bg-amber-500/20 text-amber-300 text-[10px] uppercase">DRY RUN / SIMULAZIONE</Badge>;
+                      }
+                      return null;
+                    })()}
                     {i.risk_level && (
                       <Badge variant="outline" className="text-[10px]">risk: {i.risk_level}</Badge>
                     )}
