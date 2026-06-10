@@ -668,6 +668,17 @@ function buildTimelineEvents(
         preview: l.notes ?? undefined,
         item,
       });
+    } else if (AUTOMATION_LOG_LABELS[l.action]) {
+      events.push({
+        id: `log:${l.id}`,
+        type: "automation",
+        ts: l.created_at,
+        title: `${AUTOMATION_LOG_LABELS[l.action]} — ${item?.title ?? ""}`.trim(),
+        preview:
+          l.notes ??
+          (l.previous_status || l.new_status ? `${l.previous_status ?? "—"} → ${l.new_status ?? "—"}` : undefined),
+        item,
+      });
     }
   }
   events.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
