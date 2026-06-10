@@ -863,6 +863,31 @@ Callback richiesta:
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-2 rounded-md border border-border/40 p-2">
+                    <div className="text-[11px] font-medium mb-1">Problemi contratto (per campo)</div>
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[10px]">
+                      {[
+                        ["project_id", !!readiness.payload.project_id],
+                        ["project_name", typeof readiness.payload.project_name === "string" && (readiness.payload.project_name as string).trim().length > 0],
+                        ["success_criteria", typeof readiness.payload.success_criteria === "string" && (readiness.payload.success_criteria as string).trim().length > 0],
+                        ["expected_output", typeof readiness.payload.expected_output === "string" && (readiness.payload.expected_output as string).trim().length > 0],
+                        ["protected_areas", typeof readiness.payload.protected_areas === "string" && (readiness.payload.protected_areas as string).trim().length > 0],
+                        ["callback_schema_version", readiness.payload.callback_schema_version === N8N_CALLBACK_SCHEMA_VERSION],
+                        ["callback_required", readiness.payload.callback_required === true],
+                      ].map(([label, ok]) => (
+                        <div key={String(label)} className="flex items-center gap-1">
+                          {ok ? (
+                            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                          ) : (
+                            <XCircle className="h-3 w-3 text-red-400" />
+                          )}
+                          <span className={ok ? "text-muted-foreground" : "text-red-300"}>
+                            {String(label)}: {ok ? "ok" : "ko"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   {readiness.contract.status !== "valid" && readiness.contract.errors.length > 0 && (
                     <ul className="mt-2 list-disc pl-4 text-[10px] text-amber-300">
                       {readiness.contract.errors.slice(0, 5).map((e, idx) => <li key={idx}>{e}</li>)}
