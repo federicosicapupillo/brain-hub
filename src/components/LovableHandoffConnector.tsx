@@ -78,9 +78,21 @@ type ClipItem = ItemLike & {
 };
 
 type Brain = { id: string; name: string };
+type LovableLinkRow = { id: string; brain_id: string; url: string | null };
+
+export const CANONICAL_LOVABLE_URLS: Record<string, string> = {
+  "sica industrial radar": "https://lovable.dev/projects/eee33a88-bfe7-4e07-a872-6ea47a89e641",
+  "furia immobiliare": "https://lovable.dev/projects/c4e1d01b-1e1d-4552-90f5-6a8dbe4cbb6d",
+  "brain hub": "https://lovable.dev/projects/1680bc9b-5bc8-47f2-9477-f4fa60593f9c",
+};
+
+function canonicalUrlForBrainName(name: string | null | undefined): string | null {
+  if (!name) return null;
+  return CANONICAL_LOVABLE_URLS[name.trim().toLowerCase()] ?? null;
+}
 
 async function fetchData() {
-  const [itemsRes, brainsRes] = await Promise.all([
+  const [itemsRes, brainsRes, linksRes] = await Promise.all([
     supabase
       .from("clipboard_items")
       .select(
@@ -90,12 +102,19 @@ async function fetchData() {
       .order("updated_at", { ascending: false })
       .limit(300),
     supabase.from("brains").select("id,name"),
+    supabase
+      .from("project_links")
+      .select("id,brain_id,url")
+      .eq("link_type", "external")
+      .eq("tool", "lovable"),
   ]);
   if (itemsRes.error) throw itemsRes.error;
   if (brainsRes.error) throw brainsRes.error;
+  if (linksRes.error) throw linksRes.error;
   return {
     items: (itemsRes.data ?? []) as ClipItem[],
     brains: (brainsRes.data ?? []) as Brain[],
+    lovableLinks: (linksRes.data ?? []) as LovableLinkRow[],
   };
 }
 
