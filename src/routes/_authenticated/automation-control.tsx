@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Activity, Bot, Workflow, Gauge, AlertTriangle, CheckCircle2, Clock, Plug, ListChecks, ExternalLink, Send, FileJson, Copy } from "lucide-react";
 
@@ -37,6 +38,7 @@ type ClipboardItem = {
   updated_at: string;
   created_at: string;
   automation_completed_at: string | null;
+  automation_last_run_at: string | null;
   project_tool_link_id: string | null;
   execution_instructions: string | null;
   expected_output: string | null;
@@ -78,7 +80,7 @@ async function fetchAll() {
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,automation_attempts,automation_connector_id,human_review_required,risk_level,output_result,updated_at,created_at,automation_completed_at,project_tool_link_id,execution_instructions,expected_output,success_criteria,source_url,next_action,automation_payload"
+        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,automation_attempts,automation_connector_id,human_review_required,risk_level,output_result,updated_at,created_at,automation_completed_at,automation_last_run_at,project_tool_link_id,execution_instructions,expected_output,success_criteria,source_url,next_action,automation_payload"
       )
       .order("updated_at", { ascending: false })
       .limit(500),
@@ -197,6 +199,8 @@ function AutomationControlPage() {
 
   const [previewItem, setPreviewItem] = useState<{ item: ClipboardItem; payload: Record<string, unknown> } | null>(null);
   const [sendItem, setSendItem] = useState<{ item: ClipboardItem; connector: Connector } | null>(null);
+  const [simulateItem, setSimulateItem] = useState<{ item: ClipboardItem; mode: "done" | "failed" } | null>(null);
+  const [simulateText, setSimulateText] = useState("");
 
   const verifyPayloadMut = useMutation({
     mutationFn: async ({ item, payload }: { item: ClipboardItem; payload: Record<string, unknown> }) => {
@@ -314,6 +318,34 @@ function AutomationControlPage() {
       setSendItem(null);
       qc.invalidateQueries({ queryKey: ["automation-control"] });
     },
+  });
+
+  const simulateCallbackMut = useMutation({
+    mutationFn: async ({ item, mode, text }: { item: ClipboardItem; mode: "done" | "failed"; text: string }) => {
+      const body: Record<string, unknown> = {
+        source: "n8n",
+        item_id: item.id,
+        status: mode,
+        metadata: { mode: "ui_simulation", simulated: true },
+      };
+      if (mode === "done") body.output_result = text;
+      else body.error_message = text;
+      const res = await fetch("/api/public/n8n-callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const resText = await res.text();
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${resText}`);
+      return { mode };
+    },
+    onSuccess: () => {
+      toast.success("Simulazione callback completata");
+      setSimulateItem(null);
+      setSimulateText("");
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
+    onError: (e: Error) => toast.error(`Simulazione fallita: ${e.message}`),
   });
 
 
@@ -549,6 +581,14 @@ function AutomationControlPage() {
 
       <N8nCallbackInfo />
 
+      <N8nCallbackTestPanel
+        items={items}
+        connectors={connectors}
+        onSimulate={(item, mode) => {
+          setSimulateItem({ item, mode });
+          setSimulateText(mode === "done" ? `Simulated n8n result for: ${item.title}` : `Simulated n8n failure for: ${item.title}`);
+        }}
+      />
 
       <Dialog open={!!sendItem} onOpenChange={(o) => { if (!o) setSendItem(null); }}>
         <DialogContent className="max-w-2xl">
@@ -627,6 +667,47 @@ function AutomationControlPage() {
                 {verifyPayloadMut.isPending ? "Salvataggio…" : "Segna payload verificato"}
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!simulateItem} onOpenChange={(o) => { if (!o) { setSimulateItem(null); setSimulateText(""); } }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {simulateItem?.mode === "done" ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+              Simula callback {simulateItem?.mode === "done" ? "DONE" : "FAILED"}
+            </DialogTitle>
+          </DialogHeader>
+          {simulateItem && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="text-muted-foreground mb-1">Item</div>
+                <div className="font-medium">{simulateItem.item.title || "(senza titolo)"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground mb-1">{simulateItem.mode === "done" ? "output_result" : "error_message"}</div>
+                <Textarea
+                  value={simulateText}
+                  onChange={(e) => setSimulateText(e.target.value)}
+                  rows={5}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
+            <Button variant="outline" onClick={() => { setSimulateItem(null); setSimulateText(""); }} disabled={simulateCallbackMut.isPending}>
+              Annulla
+            </Button>
+            <Button
+              onClick={() => {
+                if (!simulateItem) return;
+                simulateCallbackMut.mutate({ item: simulateItem.item, mode: simulateItem.mode, text: simulateText });
+              }}
+              disabled={simulateCallbackMut.isPending}
+            >
+              {simulateCallbackMut.isPending ? "Simulazione…" : "Conferma simulazione"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -751,6 +832,69 @@ function PayloadPreviewSection({
         })}
         <p className="text-[11px] text-muted-foreground">
           Preview: nessun webhook chiamato. Invio: usa l&apos;automation_payload già verificato.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function N8nCallbackTestPanel({
+  items,
+  connectors,
+  onSimulate,
+}: {
+  items: ClipboardItem[];
+  connectors: Connector[];
+  onSimulate: (item: ClipboardItem, mode: "done" | "failed") => void;
+}) {
+  const connectorMap = new Map(connectors.map((c) => [c.id, c]));
+  const runningItems = items.filter(
+    (i) => i.automation_status === "running" && i.target_tool === "Lovable"
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Activity className="h-4 w-4" /> n8n Callback Test Panel
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {runningItems.length === 0 && (
+          <div className="text-sm text-muted-foreground">
+            Nessun item in stato <code>running</code> con target <code>Lovable</code>.
+          </div>
+        )}
+        {runningItems.map((i) => {
+          const c = i.automation_connector_id ? connectorMap.get(i.automation_connector_id) : null;
+          return (
+            <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</div>
+                <div className="flex flex-wrap items-center gap-1 mt-1">
+                  <Badge variant="outline" className="text-[10px]">{i.target_tool}</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{i.automation_status}</Badge>
+                  {i.automation_last_run_at && (
+                    <Badge variant="outline" className="text-[10px]">
+                      run {new Date(i.automation_last_run_at).toLocaleString()}
+                    </Badge>
+                  )}
+                  {c && <Badge variant="outline" className="text-[10px]">{c.name}</Badge>}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => onSimulate(i, "done")}>
+                  <CheckCircle2 className="mr-1 h-3 w-3" /> Simula DONE
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onSimulate(i, "failed")}>
+                  <AlertTriangle className="mr-1 h-3 w-3" /> Simula FAILED
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+        <p className="text-[11px] text-muted-foreground">
+          Simula manualmente il ritorno di n8n senza configurare un workflow reale. Aggiorna lo stato dell&apos;item come se fosse tornato da n8n.
         </p>
       </CardContent>
     </Card>
