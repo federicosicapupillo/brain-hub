@@ -15,6 +15,7 @@ import { AutomationRunPanel } from "@/components/AutomationRunPanel";
 import { CallbackInboxSection, type CallbackPrefill } from "@/components/CallbackInboxSection";
 import { DryRunOrchestrator } from "@/components/DryRunOrchestrator";
 import { N8nPilotConnector } from "@/components/N8nPilotConnector";
+import { normalizeAutomationItem } from "@/lib/automation-normalize";
 import { useEffect } from "react";
 
 
