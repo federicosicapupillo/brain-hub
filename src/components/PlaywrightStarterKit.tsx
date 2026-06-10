@@ -323,7 +323,6 @@ const TERMINAL_INSTRUCTIONS = `mkdir brainhub-lovable-agent
 cd brainhub-lovable-agent
 npm init -y
 npm install playwright
-npx playwright install chromium
 node brainhub-lovable-agent.js --job ./agent-job.json
 `;
 
