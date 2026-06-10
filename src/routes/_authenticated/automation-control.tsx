@@ -837,6 +837,69 @@ function PayloadPreviewSection({
   );
 }
 
+function N8nCallbackTestPanel({
+  items,
+  connectors,
+  onSimulate,
+}: {
+  items: ClipboardItem[];
+  connectors: Connector[];
+  onSimulate: (item: ClipboardItem, mode: "done" | "failed") => void;
+}) {
+  const connectorMap = new Map(connectors.map((c) => [c.id, c]));
+  const runningItems = items.filter(
+    (i) => i.automation_status === "running" && i.target_tool === "Lovable"
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Activity className="h-4 w-4" /> n8n Callback Test Panel
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {runningItems.length === 0 && (
+          <div className="text-sm text-muted-foreground">
+            Nessun item in stato <code>running</code> con target <code>Lovable</code>.
+          </div>
+        )}
+        {runningItems.map((i) => {
+          const c = i.automation_connector_id ? connectorMap.get(i.automation_connector_id) : null;
+          return (
+            <div key={i.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/60 p-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</div>
+                <div className="flex flex-wrap items-center gap-1 mt-1">
+                  <Badge variant="outline" className="text-[10px]">{i.target_tool}</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{i.automation_status}</Badge>
+                  {i.automation_last_run_at && (
+                    <Badge variant="outline" className="text-[10px]">
+                      run {new Date(i.automation_last_run_at).toLocaleString()}
+                    </Badge>
+                  )}
+                  {c && <Badge variant="outline" className="text-[10px]">{c.name}</Badge>}
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => onSimulate(i, "done")}>
+                  <CheckCircle2 className="mr-1 h-3 w-3" /> Simula DONE
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => onSimulate(i, "failed")}>
+                  <AlertTriangle className="mr-1 h-3 w-3" /> Simula FAILED
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+        <p className="text-[11px] text-muted-foreground">
+          Simula manualmente il ritorno di n8n senza configurare un workflow reale. Aggiorna lo stato dell&apos;item come se fosse tornato da n8n.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function maskWebhookUrl(url: string): string {
   try {
     const u = new URL(url);
