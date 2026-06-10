@@ -33,6 +33,7 @@ type ClipboardItem = {
   brain_id: string | null;
   title: string;
   content: string;
+  content_type: string | null;
   target_tool: string;
   source_tool: string;
   status: string;
@@ -54,6 +55,7 @@ type ClipboardItem = {
   source_url: string | null;
   next_action: string | null;
   automation_payload: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
 };
 
 type BrainLite = { id: string; name: string };
