@@ -346,7 +346,7 @@ export function DryRunOrchestrator() {
                     key={s}
                     type="button"
                     disabled={runMut.isPending}
-                    onClick={() => runMut.mutate({ item: target, scenario: s, allowDup: confirmDup })}
+                    onClick={() => runMut.mutate({ item: target, scenario: s, allowDup: confirmDup, allowOverwriteReal: false })}
                     className="rounded-md border border-border/60 p-2 text-left hover:bg-muted/40 disabled:opacity-60"
                   >
                     <div className="flex items-center gap-2 text-sm font-medium">
