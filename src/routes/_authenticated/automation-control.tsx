@@ -315,6 +315,9 @@ function AutomationControlPage() {
 
       <N8nPilotConnector />
 
+      <LovableHandoffConnector />
+
+
       <CallbackInboxHost />
 
 
