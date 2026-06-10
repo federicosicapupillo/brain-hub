@@ -280,6 +280,7 @@ function ProjectLoopPage() {
 
   const brains = data?.brains ?? [];
   const roadmap = data?.roadmap ?? [];
+  const tasks = data?.tasks ?? [];
   const items = data?.items ?? [];
   const logs = data?.logs ?? [];
   const projectLinks = data?.projectLinks ?? [];
