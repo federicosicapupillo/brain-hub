@@ -65,7 +65,7 @@ async function fetchDryRunData() {
     supabase
       .from("clipboard_items")
       .select(
-        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,updated_at",
+        "id,brain_id,title,content,content_type,target_tool,automation_status,risk_level,metadata,output_result,updated_at",
       )
       .eq("content_type", "execution_package")
       .order("updated_at", { ascending: false })
