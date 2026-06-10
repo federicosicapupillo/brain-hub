@@ -1771,19 +1771,66 @@ Procedi e verifica i criteri sopra elencati.`;
                   </Button>
                 ) : null;
               }
-              if (loopState === "result_to_review") {
-                return lastPrompt ? (
-                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openNextStep(lastPrompt)}>
-                    <Wand2 className="mr-1 h-3 w-3" /> Rielabora risultato
-                  </Button>
-                ) : null;
-              }
-              if (loopState === "next_prompt_needed") {
-                return lastPrompt ? (
-                  <Button size="sm" variant="default" className="h-7 text-[11px]" onClick={() => openNextStep(lastPrompt)}>
-                    <Wand2 className="mr-1 h-3 w-3" /> Genera prossimo prompt
-                  </Button>
-                ) : null;
+              if (loopState === "result_to_review" || loopState === "next_prompt_needed") {
+                if (!lastPrompt) return null;
+                const rev = getReview(lastPrompt);
+                const status = rev?.review_status ?? "pending_review";
+                if (status === "pending_review") {
+                  return (
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="h-7 text-[11px]"
+                      onClick={() => openReview(lastPrompt)}
+                    >
+                      <ClipboardCheck className="mr-1 h-3 w-3" /> Verifica risultato
+                    </Button>
+                  );
+                }
+                if (status === "needs_fix" || status === "failed" || status === "partial") {
+                  return (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-7 text-[11px]"
+                        disabled={generateFixPromptMut.isPending}
+                        onClick={() => generateFixPromptMut.mutate({ item: lastPrompt })}
+                      >
+                        <ShieldAlert className="mr-1 h-3 w-3" /> Genera fix prompt
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 text-[11px]"
+                        onClick={() => openReview(lastPrompt)}
+                      >
+                        <ClipboardCheck className="mr-1 h-3 w-3" /> Rivedi review
+                      </Button>
+                    </>
+                  );
+                }
+                // approved
+                return (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="default"
+                      className="h-7 text-[11px]"
+                      onClick={() => triggerNextPrompt(lastPrompt)}
+                    >
+                      <Wand2 className="mr-1 h-3 w-3" /> Genera prossimo prompt
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 text-[11px]"
+                      onClick={() => openReview(lastPrompt)}
+                    >
+                      <ClipboardCheck className="mr-1 h-3 w-3" /> Rivedi review
+                    </Button>
+                  </>
+                );
               }
               return null;
             };
