@@ -260,11 +260,48 @@ function suggestNextStep(output: string): string {
   return "Analizzare il risultato e definire il prossimo intervento";
 }
 
+type LoopState =
+  | "roadmap_missing"
+  | "prompt_missing"
+  | "prompt_ready"
+  | "waiting_result"
+  | "result_to_review"
+  | "next_prompt_needed";
+
+const LOOP_STATE_META: Record<LoopState, { label: string; cls: string }> = {
+  roadmap_missing: { label: "Roadmap mancante", cls: "bg-muted text-muted-foreground border-border" },
+  prompt_missing: { label: "Prompt da generare", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+  prompt_ready: { label: "Prompt pronto", cls: "bg-sky-500/15 text-sky-300 border-sky-500/30" },
+  waiting_result: { label: "Attendo risultato", cls: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30" },
+  result_to_review: { label: "Risultato da rielaborare", cls: "bg-fuchsia-500/15 text-fuchsia-300 border-fuchsia-500/30" },
+  next_prompt_needed: { label: "Prossimo prompt", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+};
+
+function computeLoopState(args: {
+  lastRoadmap?: RoadmapItem;
+  lastPrompt?: ClipboardItem;
+}): LoopState {
+  const { lastRoadmap, lastPrompt } = args;
+  if (!lastRoadmap) return "roadmap_missing";
+  if (!lastPrompt) return "prompt_missing";
+  const hasOutput = !!(lastPrompt.output_result ?? "").trim();
+  if (!hasOutput) {
+    const sent = ["queued", "running", "completed", "sent", "copiato", "inviato_manualmente"].includes(
+      (lastPrompt.automation_status ?? "").toLowerCase(),
+    );
+    return sent ? "waiting_result" : "prompt_ready";
+  }
+  if (!(lastPrompt.next_step_generated ?? false)) return "result_to_review";
+  return "next_prompt_needed";
+}
+
 function ProjectLoopPage() {
   const queryClient = useQueryClient();
   const [genTarget, setGenTarget] = useState<{ brain: Brain; roadmap: RoadmapItem } | null>(null);
   const [generatedPrompt, setGeneratedPrompt] = useState("");
   const [nextStepItem, setNextStepItem] = useState<ClipboardItem | null>(null);
+  const [saveResultItem, setSaveResultItem] = useState<ClipboardItem | null>(null);
+  const [saveResultText, setSaveResultText] = useState("");
   const [nextStepForm, setNextStepForm] = useState<{
     suggestion: string;
     actionType: "roadmap" | "task" | "prompt";
