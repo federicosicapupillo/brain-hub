@@ -330,6 +330,9 @@ function ConnectorsPage() {
         else if (row.is_enabled && row.last_sync_at) status = "sincronizzato";
         else if (row.is_enabled) status = "collegato";
       }
+      if (c.key === "n8n") {
+        status = n8nConnector && n8nConnector.is_active ? "collegato" : "da_collegare";
+      }
       const use = usage[c.key];
       return {
         ...c,
@@ -340,7 +343,8 @@ function ConnectorsPage() {
         lastImportAt: use?.lastAt ?? null,
       };
     });
-  }, [byName, usage]);
+  }, [byName, usage, n8nConnector]);
+
 
   const [q, setQ] = useState("");
   const [fStatus, setFStatus] = useState<string>("all");
