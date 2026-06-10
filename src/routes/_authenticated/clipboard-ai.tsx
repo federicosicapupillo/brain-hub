@@ -321,31 +321,66 @@ function ClipboardAIPage() {
     });
   }, [brainsQ.data]);
 
-  const projectOptions = useMemo(() => {
-    const brainIds = new Set(brainsDedup.map((b) => b.id));
-    const raw: { id: string; title: string; brain_id: string | null }[] = [];
+  type ProjectOption = { id: string; title: string; brain_id: string | null; source: "project_link" | "brain" };
+  const projectOptions = useMemo<ProjectOption[]>(() => {
+    const raw: ProjectOption[] = [];
     for (const p of projectsQ.data ?? []) {
-      raw.push({ id: p.id, title: p.title, brain_id: p.brain_id });
+      raw.push({ id: p.id, title: p.title, brain_id: p.brain_id, source: "project_link" });
     }
     for (const b of brainsDedup) {
-      raw.push({ id: b.id, title: b.name, brain_id: b.id });
+      raw.push({ id: b.id, title: b.name, brain_id: b.id, source: "brain" });
     }
-    // dedupe by id
-    const byId = new Map<string, { id: string; title: string; brain_id: string | null }>();
-    for (const r of raw) if (!byId.has(r.id)) byId.set(r.id, r);
-    // dedupe by name: keep one per lowercased title, preferring an id that exists as a brain
-    const byName = new Map<string, { id: string; title: string; brain_id: string | null }>();
+    // dedupe by id, preferring project_link source
+    const byId = new Map<string, ProjectOption>();
+    for (const r of raw) {
+      const ex = byId.get(r.id);
+      if (!ex || (ex.source === "brain" && r.source === "project_link")) byId.set(r.id, r);
+    }
+    // dedupe by name, preferring project_link source
+    const byName = new Map<string, ProjectOption>();
     for (const r of byId.values()) {
       const key = (r.title ?? "").trim().toLowerCase();
       if (!key) continue;
       const existing = byName.get(key);
       if (!existing) { byName.set(key, r); continue; }
-      const existingIsBrain = brainIds.has(existing.id);
-      const candidateIsBrain = brainIds.has(r.id);
-      if (!existingIsBrain && candidateIsBrain) byName.set(key, r);
+      if (existing.source === "brain" && r.source === "project_link") byName.set(key, r);
     }
     return Array.from(byName.values()).sort((a, b) => a.title.localeCompare(b.title));
   }, [projectsQ.data, brainsDedup]);
+
+  // Resolve a project select option to a valid project_links.id.
+  // If the option came from `brains`, find or create the matching project_links row.
+  async function ensureProjectLinkForBrain(opt: ProjectOption | undefined): Promise<string | null> {
+    if (!opt) return null;
+    if (opt.source === "project_link") return opt.id;
+    const brainId = opt.brain_id ?? opt.id;
+    const { data: existing, error: selErr } = await supabase
+      .from("project_links")
+      .select("id")
+      .eq("brain_id", brainId)
+      .eq("link_type", "project")
+      .limit(1);
+    if (selErr) throw selErr;
+    if (existing && existing.length > 0) return existing[0].id;
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) throw new Error("Non autenticato");
+    const { data: created, error: insErr } = await supabase
+      .from("project_links")
+      .insert({
+        user_id: u.user.id,
+        brain_id: brainId,
+        link_type: "project",
+        title: opt.title,
+        target_brain_id: brainId,
+        target_table: "brains",
+        target_id: brainId,
+        relation_type: "auto",
+      })
+      .select("id")
+      .single();
+    if (insErr) throw insErr;
+    return created.id;
+  }
 
   const allTags = useMemo(() => {
     const s = new Set<string>();
@@ -397,10 +432,27 @@ function ClipboardAIPage() {
     mutationFn: async (f: FormState) => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Non autenticato");
+
+      // Normalize project_id: if the selected option came from `brains`,
+      // resolve/create the matching project_links row so the FK is valid.
+      let normalizedProjectId: string | null = null;
+      let normalizedBrainId: string | null = f.brain_id ?? null;
+      if (f.project_id) {
+        const opt = projectOptions.find((p) => p.id === f.project_id);
+        try {
+          normalizedProjectId = await ensureProjectLinkForBrain(opt);
+        } catch {
+          throw new Error("Il progetto selezionato non è ancora collegato correttamente. Ho provato a creare il collegamento automatico, riprova il salvataggio.");
+        }
+        if (opt?.source === "brain" && !normalizedBrainId) {
+          normalizedBrainId = opt.brain_id ?? opt.id;
+        }
+      }
+
       const payload = {
         user_id: u.user.id,
-        brain_id: f.brain_id,
-        project_id: f.project_id,
+        brain_id: normalizedBrainId,
+        project_id: normalizedProjectId,
         project_tool_link_id: f.project_tool_link_id,
         title: f.title.trim() || f.content.slice(0, 60),
         content: f.content,
@@ -436,7 +488,12 @@ function ClipboardAIPage() {
       setForm(EMPTY_FORM);
       toast.success("Contenuto salvato");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      const msg = e.message?.includes("clipboard_items_project_id_fkey")
+        ? "Il progetto selezionato non è ancora collegato correttamente. Ho provato a creare il collegamento automatico, riprova il salvataggio."
+        : e.message;
+      toast.error(msg);
+    },
   });
 
   const patchMut = useMutation({
