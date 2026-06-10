@@ -19,7 +19,9 @@ export const Route = createFileRoute("/_authenticated/automation-control")({
 
 type ClipboardItem = {
   id: string;
+  brain_id: string | null;
   title: string;
+  content: string;
   target_tool: string;
   source_tool: string;
   status: string;
@@ -29,11 +31,21 @@ type ClipboardItem = {
   automation_connector_id: string | null;
   human_review_required: boolean;
   risk_level: string | null;
-  output_result: string;
+  output_result: string | null;
   updated_at: string;
+  created_at: string;
   automation_completed_at: string | null;
   project_tool_link_id: string | null;
+  execution_instructions: string | null;
+  expected_output: string | null;
+  success_criteria: string | null;
+  source_url: string | null;
+  next_action: string | null;
+  automation_payload: Record<string, unknown> | null;
 };
+
+type BrainLite = { id: string; name: string };
+
 
 type ExecLog = {
   id: string;
@@ -60,11 +72,11 @@ async function fetchAll() {
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
-  const [itemsRes, logsRes, connectorsRes, tasksRes, roadmapRes] = await Promise.all([
+  const [itemsRes, logsRes, connectorsRes, tasksRes, roadmapRes, brainsRes] = await Promise.all([
     supabase
       .from("clipboard_items")
       .select(
-        "id,title,target_tool,source_tool,status,approval_status,automation_status,automation_attempts,automation_connector_id,human_review_required,risk_level,output_result,updated_at,automation_completed_at,project_tool_link_id"
+        "id,brain_id,title,content,target_tool,source_tool,status,approval_status,automation_status,automation_attempts,automation_connector_id,human_review_required,risk_level,output_result,updated_at,created_at,automation_completed_at,project_tool_link_id,execution_instructions,expected_output,success_criteria,source_url,next_action,automation_payload"
       )
       .order("updated_at", { ascending: false })
       .limit(500),
@@ -79,6 +91,7 @@ async function fetchAll() {
       .order("created_at", { ascending: false }),
     supabase.from("tasks").select("id", { count: "exact", head: true }),
     supabase.from("roadmap_items").select("id", { count: "exact", head: true }),
+    supabase.from("brains").select("id,name"),
   ]);
 
   if (itemsRes.error) throw itemsRes.error;
@@ -88,6 +101,7 @@ async function fetchAll() {
   return {
     items: (itemsRes.data ?? []) as ClipboardItem[],
     logs: (logsRes.data ?? []) as ExecLog[],
+
     connectors: (connectorsRes.data ?? []) as Connector[],
     tasksCount: tasksRes.count ?? 0,
     roadmapCount: roadmapRes.count ?? 0,
