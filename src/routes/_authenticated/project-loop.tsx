@@ -364,7 +364,7 @@ function ProjectLoopPage() {
     .map((brain) => {
       const bid = brain.id;
       const bRoadmap = roadmap.filter((r) => r.brain_id === bid);
-      const bTasks = data?.tasks.filter((t) => t.brain_id === bid) ?? [];
+      const bTasks = tasks.filter((t) => t.brain_id === bid);
       const bItems = items.filter((i) => i.brain_id === bid);
       const bLogs = logsByBrain.get(bid) ?? [];
 
