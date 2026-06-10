@@ -955,12 +955,40 @@ CRITERI DI SUCCESSO:
   });
 
   const saveResultMut = useMutation({
-    mutationFn: async ({ item, result }: { item: ClipboardItem; result: string }) => {
+    mutationFn: async ({
+      item,
+      result,
+      buildOk,
+      consoleErrors,
+      changes,
+      files,
+      notes,
+    }: {
+      item: ClipboardItem;
+      result: string;
+      buildOk: "yes" | "no";
+      consoleErrors: "yes" | "no" | "unverified";
+      changes: string;
+      files: string;
+      notes: string;
+    }) => {
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr || !userData.user) throw new Error("Utente non autenticato");
       const userId = userData.user.id;
       const trimmed = result.trim();
       if (!trimmed) throw new Error("Inserisci il risultato Lovable");
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
+      const resultMeta = {
+        build_ok: buildOk,
+        console_errors: consoleErrors,
+        changes_summary: changes.trim(),
+        files_modified: files
+          .split(/[,\n]/)
+          .map((f) => f.trim())
+          .filter(Boolean),
+        notes: notes.trim(),
+        saved_at: new Date().toISOString(),
+      };
       const { error: upErr } = await supabase
         .from("clipboard_items")
         .update({
@@ -968,17 +996,18 @@ CRITERI DI SUCCESSO:
           automation_status: "completed",
           next_step_generated: false,
           next_action: "Rielaborare il risultato e generare il prossimo prompt",
+          metadata: { ...prevMeta, result_meta: resultMeta, stage: "risultato_salvato" },
         } as never)
         .eq("id", item.id);
       if (upErr) throw upErr;
       const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
         clipboard_item_id: item.id,
         action: "saved_lovable_result",
-        notes: "Risultato Lovable salvato dal Project Loop",
+        notes: notes.trim() || "Risultato Lovable salvato dal Project Loop",
         previous_status: item.automation_status,
         new_status: "completed",
         user_id: userId,
-        metadata: { brain_id: item.brain_id },
+        metadata: { brain_id: item.brain_id, result_meta: resultMeta },
       } as never);
       if (logErr) throw logErr;
     },
@@ -986,6 +1015,7 @@ CRITERI DI SUCCESSO:
       toast.success("Risultato Lovable salvato nel Project Loop");
       setSaveResultItem(null);
       setSaveResultText("");
+      setSaveResultMeta({ buildOk: "yes", consoleErrors: "unverified", changes: "", files: "", notes: "" });
       queryClient.invalidateQueries({ queryKey: ["project-loop"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -994,9 +1024,13 @@ CRITERI DI SUCCESSO:
   const markSentMut = useMutation({
     mutationFn: async (item: ClipboardItem) => {
       const { data: userData } = await supabase.auth.getUser();
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
       const { error: upErr } = await supabase
         .from("clipboard_items")
-        .update({ automation_status: "inviato_manualmente" } as never)
+        .update({
+          automation_status: "inviato_manualmente",
+          metadata: { ...prevMeta, stage: "inviato" },
+        } as never)
         .eq("id", item.id);
       if (upErr) throw upErr;
       await supabase.from("clipboard_execution_logs").insert({
@@ -1014,6 +1048,33 @@ CRITERI DI SUCCESSO:
       queryClient.invalidateQueries({ queryKey: ["project-loop"] });
     },
     onError: (e: Error) => toast.error(e.message),
+  });
+
+  const logCopyMut = useMutation({
+    mutationFn: async ({ item, kind }: { item: ClipboardItem; kind: "prompt_only" | "full_package" }) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const prevMeta = (item.metadata as Record<string, unknown> | null) ?? {};
+      const newStatus = item.automation_status === "inviato_manualmente" ? item.automation_status : "copiato";
+      await supabase
+        .from("clipboard_items")
+        .update({
+          automation_status: newStatus,
+          copied_count: (item.copied_count ?? 0) + 1,
+          last_copied_at: new Date().toISOString(),
+          metadata: { ...prevMeta, stage: newStatus === "copiato" ? "copiato" : "inviato" },
+        } as never)
+        .eq("id", item.id);
+      await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "prompt_copied",
+        previous_status: item.automation_status,
+        new_status: newStatus,
+        notes: kind === "prompt_only" ? "Copiato solo prompt Lovable" : "Copiato pacchetto completo",
+        user_id: userData.user?.id,
+        metadata: { brain_id: item.brain_id, kind },
+      } as never);
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["project-loop"] }),
   });
 
   function openNextStep(i: ClipboardItem) {
