@@ -1455,6 +1455,64 @@ CRITERI DI SUCCESSO:
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={!!saveResultItem}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSaveResultItem(null);
+            setSaveResultText("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" /> Salva risultato Lovable
+            </DialogTitle>
+          </DialogHeader>
+          {saveResultItem && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <div className="text-muted-foreground">Prompt</div>
+                  <div className="truncate font-medium">{saveResultItem.title || "(senza titolo)"}</div>
+                </div>
+                <div>
+                  <div className="text-muted-foreground">Progetto / Brain</div>
+                  <div className="truncate font-medium">
+                    {saveResultItem.brain_id ? brainsById.get(saveResultItem.brain_id)?.name ?? "—" : "—"}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Risultato restituito da Lovable</div>
+                <Textarea
+                  value={saveResultText}
+                  onChange={(e) => setSaveResultText(e.target.value)}
+                  placeholder="Incolla qui il risultato di Lovable…"
+                  className="min-h-[220px] text-xs"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => { setSaveResultItem(null); setSaveResultText(""); }}>
+              Chiudi
+            </Button>
+            <Button
+              disabled={!saveResultItem || !saveResultText.trim() || saveResultMut.isPending}
+              onClick={() => {
+                if (!saveResultItem) return;
+                saveResultMut.mutate({ item: saveResultItem, result: saveResultText });
+              }}
+            >
+              <Sparkles className="mr-1 h-3 w-3" />
+              {saveResultMut.isPending ? "Salvataggio…" : "Salva risultato"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
