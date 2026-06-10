@@ -545,7 +545,7 @@ function findChildPackageByType(
   });
 }
 
-type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt" | "review" | "automation";
+type TimelineEventType = "roadmap" | "prompt" | "sent" | "output" | "next_prompt" | "review" | "automation" | "dry_run";
 
 type TimelineEvent = {
   id: string;
