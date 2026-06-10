@@ -346,12 +346,14 @@ export function LovableHandoffConnector() {
 
   async function openLovableOnly(item: ClipItem) {
     const h = getHandoff(item);
-    if (!h.lovable_project_url) {
-      toast.error("Salva prima l'URL del progetto Lovable");
+    const url = (h.lovable_project_url || projectUrlForBrain(item.brain_id)).trim();
+    if (!url) {
+      toast.error("Nessun URL Lovable configurato per questo progetto");
       return;
     }
-    window.open(h.lovable_project_url, "_blank", "noopener,noreferrer");
+    window.open(url, "_blank", "noopener,noreferrer");
     await persistHandoff(item, {
+      lovable_project_url: url,
       handoff_status: h.handoff_status === "copied" ? "copied" : "opened",
       lovable_opened_at: new Date().toISOString(),
     });
@@ -361,8 +363,9 @@ export function LovableHandoffConnector() {
 
   async function openAndCopy(item: ClipItem) {
     const h = getHandoff(item);
-    if (!h.lovable_project_url) {
-      toast.error("Salva prima l'URL del progetto Lovable");
+    const url = (h.lovable_project_url || projectUrlForBrain(item.brain_id)).trim();
+    if (!url) {
+      toast.error("Nessun URL Lovable configurato per questo progetto");
       return;
     }
     const prompt = buildLovablePrompt(item);
@@ -380,9 +383,10 @@ export function LovableHandoffConnector() {
       toast.error("Impossibile copiare negli appunti");
       return;
     }
-    window.open(h.lovable_project_url, "_blank", "noopener,noreferrer");
+    window.open(url, "_blank", "noopener,noreferrer");
     const now = new Date().toISOString();
     await persistHandoff(item, {
+      lovable_project_url: url,
       handoff_status: "copied",
       prompt_copied_at: now,
       lovable_opened_at: now,
@@ -392,6 +396,7 @@ export function LovableHandoffConnector() {
     invalidate();
     setInstructionsDlg({ item });
   }
+
 
   const sentManuallyMut = useMutation({
     mutationFn: async (item: ClipItem) => {
