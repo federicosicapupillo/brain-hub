@@ -130,10 +130,21 @@ export type LogEventType =
   | "automation_cancelled"
   | "automation_blocked"
   | "automation_retried"
-  | "automation_payload_copied";
+  | "automation_payload_copied"
+  | "automation_callback_received";
 
 const LOG_TITLES: Record<LogEventType, string> = {
   automation_approved: "Run approvata",
+  automation_queued: "Run messa in coda",
+  automation_started: "Run in esecuzione",
+  automation_completed: "Run completata",
+  automation_failed: "Run fallita",
+  automation_cancelled: "Run cancellata",
+  automation_blocked: "Run bloccata",
+  automation_retried: "Run riprovata",
+  automation_payload_copied: "Payload automazione copiato",
+  automation_callback_received: "Callback ricevuta",
+};
   automation_queued: "Run messa in coda",
   automation_started: "Run in esecuzione",
   automation_completed: "Run completata",
