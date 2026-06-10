@@ -34,6 +34,7 @@ import {
   type ItemLike,
   type LogEventType,
 } from "@/lib/automation-run";
+import { ensureProjectLinkForBrain } from "@/lib/project-links-api";
 
 export const N8N_CALLBACK_SCHEMA_VERSION = 1;
 
