@@ -1157,8 +1157,22 @@ CRITERI DI SUCCESSO:
                   <div className="mt-1 text-xs text-muted-foreground">→ {i.next_action}</div>
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => copyText(i.content, "Prompt copiato")}>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to="/clipboard-ai"><ExternalLink className="mr-1 h-3 w-3" /> Apri</Link>
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => copyPrompt(i.content)}>
                     <Copy className="mr-1 h-3 w-3" /> Copia prompt
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={markSentMut.isPending}
+                    onClick={() => markSentMut.mutate(i)}
+                  >
+                    <CheckCircle2 className="mr-1 h-3 w-3" /> Segna inviato
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => openSaveResult(i)}>
+                    <Sparkles className="mr-1 h-3 w-3" /> Salva risultato
                   </Button>
                   {i.source_url && (
                     <Button asChild size="sm" variant="ghost">
