@@ -279,6 +279,8 @@ const LOG_TITLES: Record<LogEventType, string> = {
   local_agent_callback_received: "Callback agente locale ricevuta",
   local_agent_starter_kit_downloaded: "Starter kit agente locale scaricato",
   local_agent_starter_kit_copied: "Starter kit agente locale copiato",
+  lovable_browser_bridge_prompt_copied: "Prompt copiato per Browser Bridge",
+  lovable_browser_bridge_extension_downloaded: "Estensione Browser Bridge scaricata",
 };
 
 
