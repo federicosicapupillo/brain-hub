@@ -238,13 +238,23 @@ export function DryRunOrchestrator() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
             <StatTile label="Dry run eseguiti" value={stats.executed} />
             <StatTile label="Completati" value={stats.completed} tone="text-emerald-300" />
             <StatTile label="Falliti" value={stats.failed} tone="text-red-300" />
             <StatTile label="Bloccati" value={stats.blocked} tone="text-fuchsia-300" />
-            <StatTile label="Non testati" value={stats.untestedCount} tone="text-amber-300" />
+            <StatTile label="Simulazioni attive" value={stats.simulatedActive} tone="text-amber-300" />
+            <StatTile label="Ripristinabili" value={stats.restorable} tone="text-sky-300" />
+            <StatTile label="Non testati" value={stats.untestedCount} tone="text-zinc-300" />
           </div>
+          {stats.lastScenario && (
+            <div className="mt-3 text-[11px] text-muted-foreground">
+              Ultimo scenario:{" "}
+              <span className="font-medium text-foreground">
+                {DRY_RUN_SCENARIO_LABELS[stats.lastScenario as DryRunScenario] ?? stats.lastScenario}
+              </span>
+            </div>
+          )}
           {stats.lastErrors.length > 0 && (
             <div className="mt-3 rounded-md border border-red-500/30 bg-red-500/5 p-2 text-[11px] text-red-300">
               <div className="mb-1 font-medium">Ultimi errori dry run</div>
