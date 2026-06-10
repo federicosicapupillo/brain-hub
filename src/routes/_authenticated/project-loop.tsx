@@ -637,14 +637,78 @@ CRITERI DI SUCCESSO:
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-7">
         <StatCard label="Progetti attivi" value={activeBrainIds.size} icon={Rocket} />
+        <StatCard label="Progetti da attenzionare" value={needsAttentionCount} icon={HeartPulse} />
         <StatCard label="Roadmap aperti" value={openRoadmap} icon={ListChecks} />
         <StatCard label="Pronti per Lovable" value={readyForLovable} icon={Workflow} />
         <StatCard label="Prompt in coda" value={queuedLovable} icon={Clock} />
         <StatCard label="Da rielaborare" value={toReprocess} icon={AlertTriangle} />
         <StatCard label="Risultati salvati" value={recentSavedOutputs} icon={CheckCircle2} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <HeartPulse className="h-4 w-4" /> Project Health
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {healthRows.length === 0 && (
+            <div className="text-sm text-muted-foreground">Nessun progetto disponibile.</div>
+          )}
+          {healthRows.map((h) => {
+            const meta = HEALTH_META[h.status];
+            return (
+              <div key={h.brain.id} className="rounded-md border border-border/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full shrink-0"
+                      style={{ background: h.brain.color ?? "var(--neon-violet)" }}
+                    />
+                    <span className="font-medium truncate">{h.brain.name}</span>
+                    <Badge variant="outline" className={`text-[10px] ${meta.cls}`}>{meta.label}</Badge>
+                  </div>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link to="/progetti/$brainId" params={{ brainId: h.brain.id }}>
+                      <ExternalLink className="mr-1 h-3 w-3" /> Apri progetto
+                    </Link>
+                  </Button>
+                </div>
+                <div className="mt-2 grid gap-2 text-xs md:grid-cols-3 lg:grid-cols-6">
+                  <div>
+                    <div className="text-muted-foreground">Ultimo log</div>
+                    <div className="truncate">
+                      {h.lastLog ? new Date(h.lastLog.created_at).toLocaleString() : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Roadmap aperti</div>
+                    <div>{h.openRoadmapCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Task aperti</div>
+                    <div>{h.openTasksCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Prompt pronti</div>
+                    <div>{h.readyPrompts}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Item falliti</div>
+                    <div className={h.failedItems > 0 ? "text-rose-300 font-medium" : ""}>{h.failedItems}</div>
+                  </div>
+                  <div className="md:col-span-3 lg:col-span-1">
+                    <div className="text-muted-foreground">Suggerimento</div>
+                    <div className="truncate" title={meta.suggestion}>{meta.suggestion}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
