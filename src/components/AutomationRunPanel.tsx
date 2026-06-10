@@ -487,8 +487,20 @@ export function AutomationRunPanel() {
 
         {import.meta.env.DEV && (
           <div className="rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-2 text-[11px] text-amber-200/90 space-y-1">
-            <div className="font-mono uppercase tracking-wide text-amber-300">[dev] Run Ledger diagnostics</div>
-            <div>clipboard_items caricati: <b>{diagnostics.totalLoaded}</b> · execution_package: <b>{diagnostics.executionPackages}</b> · da_approvare normalizzati: <b>{diagnostics.pendingApproval}</b> · visibili nel filtro "{FILTER_LABELS[filter]}": <b>{diagnostics.visibleInFilter}</b></div>
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-mono uppercase tracking-wide text-amber-300">[dev] Run Ledger diagnostics</div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-[10px]"
+                disabled={diagnostics.legacyCount === 0 || normalizeLegacyMut.isPending}
+                onClick={() => normalizeLegacyMut.mutate()}
+              >
+                Normalizza Execution Package legacy ({diagnostics.legacyCount})
+              </Button>
+            </div>
+            <div>raw caricati: <b>{diagnostics.totalLoaded}</b> · execution_package totali: <b>{diagnostics.executionPackages}</b> · nativi (content_type): <b>{diagnostics.nativeCT}</b> · via metadata.execution_package: <b>{diagnostics.viaMetadata}</b> · via instructions/expected/success: <b>{diagnostics.viaFields}</b></div>
+            <div>legacy: <b>{diagnostics.legacyCount}</b> · da_approvare normalizzati: <b>{diagnostics.pendingApproval}</b> · visibili nel filtro "{FILTER_LABELS[filter]}": <b>{diagnostics.visibleInFilter}</b></div>
             {diagnostics.excluded.length > 0 && (
               <details>
                 <summary className="cursor-pointer">Esclusi ({diagnostics.excluded.length})</summary>
