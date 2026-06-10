@@ -621,3 +621,133 @@ function Section({ title, children }: { title: string; children: React.ReactNode
     </div>
   );
 }
+
+// -------- n8n config dialog -------------------------------------------------
+
+type N8nConnectorRow = {
+  id: string;
+  name: string;
+  type: string;
+  target_tool: string;
+  webhook_url: string | null;
+  is_active: boolean;
+  config: unknown;
+};
+
+function N8nConfigDialog({
+  open, onClose, existing, onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  existing: N8nConnectorRow | null;
+  onSaved: () => void;
+}) {
+  const [name, setName] = useState("n8n");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [isActive, setIsActive] = useState(true);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setName(existing?.name ?? "n8n");
+    setWebhookUrl(existing?.webhook_url ?? "");
+    setIsActive(existing?.is_active ?? true);
+    const cfg = (existing?.config ?? {}) as { notes?: string };
+    setNotes(typeof cfg.notes === "string" ? cfg.notes : "");
+  }, [open, existing]);
+
+  const handleSave = async () => {
+    if (!name.trim()) { toast.error("Nome richiesto"); return; }
+    if (!webhookUrl.trim() || !/^https?:\/\//i.test(webhookUrl.trim())) {
+      toast.error("Webhook URL non valido (http/https)");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) throw new Error("Non autenticato");
+
+      const payload = {
+        user_id: uid,
+        name: name.trim(),
+        type: "n8n_webhook",
+        target_tool: "Lovable",
+        webhook_url: webhookUrl.trim(),
+        is_active: isActive,
+        config: { notes: notes.trim() } as never,
+      };
+
+      if (existing?.id) {
+        const { error } = await supabase
+          .from("automation_connectors")
+          .update(payload)
+          .eq("id", existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("automation_connectors")
+          .insert(payload);
+        if (error) throw error;
+      }
+      toast.success("Connettore n8n salvato");
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore salvataggio");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plug className="h-5 w-5 text-primary" /> Configura n8n
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 text-sm">
+          <div className="space-y-1.5">
+            <Label htmlFor="n8n-name">Nome connettore</Label>
+            <Input id="n8n-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="n8n" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="n8n-url">Webhook URL</Label>
+            <Input id="n8n-url" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://n8n.example.com/webhook/..." />
+            <p className="text-[11px] text-muted-foreground">Endpoint a cui /automation-control invierà i payload verificati.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Tipo</Label>
+              <Input value="n8n_webhook" disabled />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Target tool</Label>
+              <Input value="Lovable" disabled />
+            </div>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-border/60 p-3">
+            <div>
+              <div className="text-sm font-medium">Attivo</div>
+              <div className="text-xs text-muted-foreground">Solo i connettori attivi sono usati da /automation-control.</div>
+            </div>
+            <Switch checked={isActive} onCheckedChange={setIsActive} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="n8n-notes">Note (opzionali)</Label>
+            <Textarea id="n8n-notes" rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Workflow associato, owner, ambiente..." />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>Annulla</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? "Salvataggio…" : existing ? "Aggiorna" : "Salva"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
