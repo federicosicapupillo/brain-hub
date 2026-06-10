@@ -749,6 +749,86 @@ CRITERI DI SUCCESSO:
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const saveResultMut = useMutation({
+    mutationFn: async ({ item, result }: { item: ClipboardItem; result: string }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Utente non autenticato");
+      const userId = userData.user.id;
+      const trimmed = result.trim();
+      if (!trimmed) throw new Error("Inserisci il risultato Lovable");
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({
+          output_result: trimmed,
+          automation_status: "completed",
+          next_step_generated: false,
+          next_action: "Rielaborare il risultato e generare il prossimo prompt",
+        } as never)
+        .eq("id", item.id);
+      if (upErr) throw upErr;
+      const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "saved_lovable_result",
+        notes: "Risultato Lovable salvato dal Project Loop",
+        previous_status: item.automation_status,
+        new_status: "completed",
+        user_id: userId,
+        metadata: { brain_id: item.brain_id },
+      } as never);
+      if (logErr) throw logErr;
+    },
+    onSuccess: () => {
+      toast.success("Risultato Lovable salvato nel Project Loop");
+      setSaveResultItem(null);
+      setSaveResultText("");
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const markSentMut = useMutation({
+    mutationFn: async (item: ClipboardItem) => {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({ automation_status: "inviato_manualmente" } as never)
+        .eq("id", item.id);
+      if (upErr) throw upErr;
+      await supabase.from("clipboard_execution_logs").insert({
+        clipboard_item_id: item.id,
+        action: "marked_sent_manually",
+        previous_status: item.automation_status,
+        new_status: "inviato_manualmente",
+        notes: "Segnato come inviato manualmente",
+        user_id: userData.user?.id,
+        metadata: { brain_id: item.brain_id },
+      } as never);
+    },
+    onSuccess: () => {
+      toast.success("Prompt segnato come inviato");
+      queryClient.invalidateQueries({ queryKey: ["project-loop"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  function openNextStep(i: ClipboardItem) {
+    setNextStepItem(i);
+    setNextStepForm({
+      suggestion: suggestNextStep(i.output_result),
+      actionType: "roadmap",
+      priority: "medium",
+      riskLevel: "medium",
+    });
+  }
+
+  function openSaveResult(i: ClipboardItem) {
+    setSaveResultItem(i);
+    setSaveResultText("");
+  }
+
+  function copyPrompt(content: string) {
+    copyText(content, "Prompt copiato. Ora puoi incollarlo in Lovable.");
+  }
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento…</div>;
   if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
