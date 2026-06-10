@@ -477,16 +477,26 @@ function buildTimelineEvents(
   // Logs: only "sent" / manual flags, dedupe vs item events
   for (const l of src.logs) {
     if (!itemIds.has(l.clipboard_item_id)) continue;
-    if (l.action !== "marked_sent_manually") continue;
     const item = brainItems.find((b) => b.id === l.clipboard_item_id);
-    events.push({
-      id: `log:${l.id}`,
-      type: "sent",
-      ts: l.created_at,
-      title: `Prompt segnato come inviato — ${item?.title ?? ""}`.trim(),
-      preview: l.notes ?? undefined,
-      item,
-    });
+    if (l.action === "marked_sent_manually") {
+      events.push({
+        id: `log:${l.id}`,
+        type: "sent",
+        ts: l.created_at,
+        title: `Prompt segnato come inviato — ${item?.title ?? ""}`.trim(),
+        preview: l.notes ?? undefined,
+        item,
+      });
+    } else if (l.action === "prompt_copied") {
+      events.push({
+        id: `log:${l.id}`,
+        type: "sent",
+        ts: l.created_at,
+        title: `Prompt copiato — ${item?.title ?? ""}`.trim(),
+        preview: l.notes ?? undefined,
+        item,
+      });
+    }
   }
   events.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
   // Dedupe by (type:itemId) keeping earliest occurrence
