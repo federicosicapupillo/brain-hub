@@ -193,6 +193,40 @@ function AutomationControlPage() {
     onSettled: () => setTestingId(null),
   });
 
+  const [previewItem, setPreviewItem] = useState<{ item: ClipboardItem; payload: Record<string, unknown> } | null>(null);
+
+  const verifyPayloadMut = useMutation({
+    mutationFn: async ({ item, payload }: { item: ClipboardItem; payload: Record<string, unknown> }) => {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) throw new Error("Non autenticato");
+      const { error: upErr } = await supabase
+        .from("clipboard_items")
+        .update({ automation_payload: payload } as never)
+        .eq("id", item.id);
+      if (upErr) throw upErr;
+      const { error: logErr } = await supabase.from("clipboard_execution_logs").insert({
+        user_id: userData.user.id,
+        clipboard_item_id: item.id,
+        action: "n8n_payload_preview_verified",
+        notes: "Payload n8n preview verificato manualmente",
+        metadata: {
+          connector_id: item.automation_connector_id,
+          target_tool: item.target_tool,
+          payload_mode: "execution_preview",
+        },
+      } as never);
+      if (logErr) throw logErr;
+    },
+    onSuccess: () => {
+      toast.success("Payload verificato e salvato");
+      setPreviewItem(null);
+      qc.invalidateQueries({ queryKey: ["automation-control"] });
+    },
+    onError: (e: Error) => toast.error(`Errore: ${e.message}`),
+  });
+
+
+
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento…</div>;
   if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
   if (!data) return null;
