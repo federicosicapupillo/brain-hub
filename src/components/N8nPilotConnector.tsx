@@ -235,13 +235,54 @@ export function N8nPilotConnector() {
 
   const items = data?.items ?? [];
   const brains = data?.brains ?? [];
+  const links = data?.links ?? [];
   const brainMap = useMemo(() => new Map(brains.map((b) => [b.id, b])), [brains]);
+  // First project_link per brain (stable: pick lowest id alphabetically for determinism)
+  const linkByBrain = useMemo(() => {
+    const m = new Map<string, ProjectLinkLite>();
+    for (const l of links) {
+      const prev = m.get(l.brain_id);
+      if (!prev || l.id < prev.id) m.set(l.brain_id, l);
+    }
+    return m;
+  }, [links]);
 
   const eligible = useMemo(() => {
     return items
       .map((i) => ({ item: i, info: isEligible(i) }))
       .filter((x) => x.info.ok);
   }, [items]);
+
+  // Auto-ensure a project_link exists for every eligible brain (idempotent).
+  // Runs once per data load; on success refetches so payload becomes contract-valid.
+  const ensureMut = useMutation({
+    mutationFn: async (targets: Array<{ brainId: string; brainName: string | null }>) => {
+      for (const t of targets) {
+        await ensureProjectLinkForBrain(t.brainId, t.brainName);
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["n8n-pilot-connector"] }),
+  });
+  const pendingEnsureKey = useMemo(() => {
+    const brainIds = Array.from(
+      new Set(
+        eligible
+          .map(({ item }) => item.brain_id)
+          .filter((b): b is string => !!b && !linkByBrain.has(b)),
+      ),
+    );
+    return brainIds.join(",");
+  }, [eligible, linkByBrain]);
+  // Trigger ensure exactly once per unique missing-brain set
+  const [ensuredKey, setEnsuredKey] = useState<string>("");
+  if (pendingEnsureKey && pendingEnsureKey !== ensuredKey && !ensureMut.isPending) {
+    setEnsuredKey(pendingEnsureKey);
+    const targets = pendingEnsureKey.split(",").map((brainId) => ({
+      brainId,
+      brainName: brainMap.get(brainId)?.name ?? null,
+    }));
+    ensureMut.mutate(targets);
+  }
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["n8n-pilot-connector"] });
@@ -252,10 +293,11 @@ export function N8nPilotConnector() {
 
   function buildN8nPayload(item: ClipItem): Record<string, unknown> {
     const brain = item.brain_id ? brainMap.get(item.brain_id) : null;
+    const link = item.brain_id ? linkByBrain.get(item.brain_id) : null;
     const base = buildAutomationPayload(item, {
       brain_name: brain?.name ?? null,
-      project_id: null,
-      project_name: null,
+      project_id: item.project_id ?? link?.id ?? null,
+      project_name: link?.title ?? brain?.name ?? null,
     });
     return {
       ...base,
@@ -267,6 +309,7 @@ export function N8nPilotConnector() {
       created_at: new Date().toISOString(),
     };
   }
+
 
   function buildCallbackTemplateObj(item: ClipItem): Record<string, unknown> {
     const run = getAutomationRun(item);
