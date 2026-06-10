@@ -669,6 +669,47 @@ function AutomationControlPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!simulateItem} onOpenChange={(o) => { if (!o) { setSimulateItem(null); setSimulateText(""); } }}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {simulateItem?.mode === "done" ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+              Simula callback {simulateItem?.mode === "done" ? "DONE" : "FAILED"}
+            </DialogTitle>
+          </DialogHeader>
+          {simulateItem && (
+            <div className="space-y-3 text-sm">
+              <div>
+                <div className="text-muted-foreground mb-1">Item</div>
+                <div className="font-medium">{simulateItem.item.title || "(senza titolo)"}</div>
+              </div>
+              <div>
+                <div className="text-muted-foreground mb-1">{simulateItem.mode === "done" ? "output_result" : "error_message"}</div>
+                <Textarea
+                  value={simulateText}
+                  onChange={(e) => setSimulateText(e.target.value)}
+                  rows={5}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex flex-wrap gap-2 sm:justify-between">
+            <Button variant="outline" onClick={() => { setSimulateItem(null); setSimulateText(""); }} disabled={simulateCallbackMut.isPending}>
+              Annulla
+            </Button>
+            <Button
+              onClick={() => {
+                if (!simulateItem) return;
+                simulateCallbackMut.mutate({ item: simulateItem.item, mode: simulateItem.mode, text: simulateText });
+              }}
+              disabled={simulateCallbackMut.isPending}
+            >
+              {simulateCallbackMut.isPending ? "Simulazione…" : "Conferma simulazione"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
