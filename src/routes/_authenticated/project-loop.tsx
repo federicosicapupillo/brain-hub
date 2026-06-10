@@ -577,10 +577,11 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   automation_retried: "Run riprovata",
   automation_payload_copied: "Payload automazione copiato",
   automation_callback_received: "Callback ricevuta",
-  automation_dry_run_started: "Dry run avviato",
-  automation_dry_run_completed: "Dry run completato",
-  automation_dry_run_failed: "Dry run fallito",
-  automation_dry_run_blocked: "Dry run bloccato",
+  automation_dry_run_started: "Simulazione avviata",
+  automation_dry_run_completed: "Simulazione eseguita",
+  automation_dry_run_failed: "Simulazione fallita",
+  automation_dry_run_blocked: "Simulazione bloccata",
+  automation_dry_run_restored: "Stato pre dry run ripristinato",
 };
 
 function buildTimelineEvents(
