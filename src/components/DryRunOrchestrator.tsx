@@ -29,6 +29,7 @@ type ClipItem = ItemLike & {
   target_tool: string | null;
   automation_status: string | null;
   risk_level: string | null;
+  output_result: string | null;
   updated_at: string;
 };
 
