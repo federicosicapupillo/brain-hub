@@ -101,13 +101,14 @@ async function fetchAll() {
   return {
     items: (itemsRes.data ?? []) as ClipboardItem[],
     logs: (logsRes.data ?? []) as ExecLog[],
-
     connectors: (connectorsRes.data ?? []) as Connector[],
+    brains: (brainsRes.data ?? []) as BrainLite[],
     tasksCount: tasksRes.count ?? 0,
     roadmapCount: roadmapRes.count ?? 0,
     todayStart: todayStart.toISOString(),
   };
 }
+
 
 function StatCard({ label, value, icon: Icon, tone }: { label: string; value: number | string; icon: typeof Activity; tone?: string }) {
   return (
