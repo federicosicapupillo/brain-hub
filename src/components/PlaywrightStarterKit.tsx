@@ -26,7 +26,7 @@ const PACKAGE_JSON = `{
 const ENV_EXAMPLE = `# Optional configuration for the local agent.
 # Nothing here is required. NEVER put Lovable passwords or tokens.
 
-# Path to the persistent Chromium profile (default: ./browser-profile)
+# Path to the persistent browser profile (default: ./browser-profile)
 AGENT_PROFILE_DIR=./browser-profile
 
 # Milliseconds to wait for Lovable UI before giving up (default: 45000)
