@@ -266,7 +266,15 @@ const LOG_TITLES: Record<LogEventType, string> = {
   automation_dry_run_failed: "Dry run fallito",
   automation_dry_run_blocked: "Dry run bloccato",
   automation_dry_run_restored: "Stato pre dry run ripristinato",
+  local_agent_job_prepared: "Job Playwright preparato",
+  local_agent_job_copied: "Job JSON copiato",
+  local_agent_job_downloaded: "Job JSON scaricato",
+  local_agent_job_started_manually: "Job consegnato all'agente locale",
+  local_agent_job_cancelled: "Job agente locale annullato",
+  local_agent_job_failed: "Job agente locale fallito",
+  local_agent_callback_received: "Callback agente locale ricevuta",
 };
+
 
 export type PreviousStateSnapshot = {
   run_status: RunStatus;
