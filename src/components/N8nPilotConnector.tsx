@@ -549,6 +549,46 @@ Callback richiesta:
           </Button>
         </details>
 
+        <details className="rounded-md border border-border/60 p-3" open>
+          <summary className="cursor-pointer text-sm font-medium flex items-center gap-2">
+            <ShieldCheck className="h-3 w-3 text-emerald-400" /> Webhook Contract (schema v{N8N_CALLBACK_SCHEMA_VERSION})
+          </summary>
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="rounded-md border border-border/40 p-2 text-xs space-y-1">
+              <div className="font-medium">Payload in uscita</div>
+              <div className="text-muted-foreground">Obbligatori:</div>
+              <div className="font-mono text-[10px]">{N8N_PAYLOAD_SCHEMA.required.join(", ")}</div>
+              <div className="text-muted-foreground mt-1">Opzionali:</div>
+              <div className="font-mono text-[10px]">{N8N_PAYLOAD_SCHEMA.optional.join(", ")}</div>
+            </div>
+            <div className="rounded-md border border-border/40 p-2 text-xs space-y-1">
+              <div className="font-medium">Callback attesa</div>
+              <div className="text-muted-foreground">Obbligatori:</div>
+              <div className="font-mono text-[10px]">{N8N_CALLBACK_SCHEMA.required.join(", ")}</div>
+              <div className="text-muted-foreground mt-1">Opzionali:</div>
+              <div className="font-mono text-[10px]">{N8N_CALLBACK_SCHEMA.optional.join(", ")}</div>
+              <div className="text-muted-foreground mt-1">status: {N8N_CALLBACK_SCHEMA.status_allowed.join(" | ")}</div>
+              <div className="text-muted-foreground">build_status: {N8N_CALLBACK_SCHEMA.build_status_allowed.join(" | ")}</div>
+            </div>
+          </div>
+        </details>
+
+        <details className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
+          <summary className="cursor-pointer text-sm font-medium flex items-center gap-2">
+            <AlertTriangle className="h-3 w-3 text-amber-400" /> Istruzioni sicurezza n8n
+          </summary>
+          <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-1">
+            <li>Non salvare token nel frontend.</li>
+            <li>Non esporre secret in chiaro.</li>
+            <li>Il primo test deve essere fatto su un solo Execution Package.</li>
+            <li>Il risultato deve rientrare come callback JSON compatibile.</li>
+            <li>Se la callback non valida il contratto, non applicarla.</li>
+            <li>Se il risultato modifica aree protette, passare da Post Execution Review e Fix Prompt.</li>
+          </ul>
+        </details>
+
+
+
         {eligible.length === 0 && (
           <div className="rounded-md border border-border/60 p-4 text-sm text-muted-foreground">
             Nessun Execution Package eleggibile (richiede run_status approved o queued, senza dry run attivo).
