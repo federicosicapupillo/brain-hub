@@ -547,6 +547,9 @@ function AutomationControlPage() {
         onSend={(item, connector) => setSendItem({ item, connector })}
       />
 
+      <N8nCallbackInfo />
+
+
       <Dialog open={!!sendItem} onOpenChange={(o) => { if (!o) setSendItem(null); }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -763,6 +766,68 @@ function maskWebhookUrl(url: string): string {
   } catch {
     return url.length > 16 ? url.slice(0, 10) + "***" + url.slice(-4) : "***";
   }
+}
+
+function N8nCallbackInfo() {
+  const callbackUrl =
+    typeof window !== "undefined" ? `${window.location.origin}/api/public/n8n-callback` : "/api/public/n8n-callback";
+  const examplePayload = {
+    source: "n8n",
+    item_id: "<UUID dell'item clipboard>",
+    status: "done",
+    output_result: "Testo del risultato prodotto dall'automazione",
+    error_message: "",
+    metadata: { workflow_id: "wf_123", run_id: "run_456" },
+  };
+  const exampleJson = JSON.stringify(examplePayload, null, 2);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Workflow className="h-4 w-4" /> n8n Callback Info
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">Callback URL</div>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 truncate rounded-md bg-muted px-2 py-1 text-xs">{callbackUrl}</code>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                navigator.clipboard.writeText(callbackUrl);
+                toast.success("URL copiato");
+              }}
+            >
+              <Copy className="mr-1 h-3 w-3" /> Copia
+            </Button>
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground mb-1">Esempio payload (POST application/json)</div>
+          <pre className="max-h-[40vh] overflow-auto rounded-md bg-muted p-3 text-xs">{exampleJson}</pre>
+          <Button
+            size="sm"
+            variant="outline"
+            className="mt-2"
+            onClick={() => {
+              navigator.clipboard.writeText(exampleJson);
+              toast.success("JSON copiato");
+            }}
+          >
+            <Copy className="mr-1 h-3 w-3" /> Copia JSON
+          </Button>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Da configurare in n8n come ultimo step del workflow. Campi richiesti: <code>item_id</code>,{" "}
+          <code>status</code> (<code>done</code> o <code>failed</code>). Se <code>status=done</code> serve{" "}
+          <code>output_result</code>; se <code>status=failed</code> serve <code>error_message</code>. Se è impostato il
+          secret <code>N8N_CALLBACK_SECRET</code>, includere l&apos;header <code>X-N8N-Secret</code>.
+        </p>
+      </CardContent>
+    </Card>
+  );
 }
 
 
