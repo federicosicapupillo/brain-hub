@@ -294,6 +294,27 @@ function ConnectorsPage() {
     queryFn: loadToolUsage,
   });
 
+  const qc = useQueryClient();
+  const { data: n8nConnector = null } = useQuery({
+    queryKey: ["automation-connector-n8n"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) return null;
+      const { data, error } = await supabase
+        .from("automation_connectors")
+        .select("*")
+        .eq("user_id", uid)
+        .eq("type", "n8n_webhook")
+        .eq("target_tool", "Lovable")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const [n8nOpen, setN8nOpen] = useState(false);
+
+
   const byName = useMemo(() => {
     const m = new Map<string, Connector>();
     for (const c of connectorsRows) m.set(c.name.toLowerCase(), c);
