@@ -78,9 +78,10 @@ async function fetchDryRunData() {
         "automation_dry_run_completed",
         "automation_dry_run_failed",
         "automation_dry_run_blocked",
+        "automation_dry_run_restored",
       ] as never)
       .order("created_at", { ascending: false })
-      .limit(50),
+      .limit(80),
   ]);
   if (itemsRes.error) throw itemsRes.error;
   if (logsRes.error) throw logsRes.error;
