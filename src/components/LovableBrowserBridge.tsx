@@ -33,9 +33,9 @@ type Brain = { id: string; name: string };
 const MANIFEST_JSON = `{
   "manifest_version": 3,
   "name": "Brain Hub · Lovable Browser Bridge",
-  "version": "0.1.0",
-  "description": "Inserisce un prompt preparato in Brain Hub nella chat Lovable del Chrome gia' loggato dall'utente. Nessun login automatico, nessuna credenziale.",
-  "permissions": ["activeTab", "scripting", "storage"],
+  "version": "0.2.0",
+  "description": "Inserisce un prompt preparato in Brain Hub nella chat Lovable del Chrome gia' loggato. Invio automatico solo dopo conferma esplicita. Nessun login automatico, nessuna credenziale.",
+  "permissions": ["activeTab", "scripting", "storage", "clipboardWrite"],
   "host_permissions": ["https://lovable.dev/*"],
   "action": { "default_popup": "popup.html", "default_title": "Brain Hub Bridge" },
   "content_scripts": [
@@ -48,9 +48,10 @@ const MANIFEST_JSON = `{
 }
 `;
 
-const CONTENT_JS = `// content.js
+const CONTENT_JS = `// content.js  v0.2.0
 // Attivo SOLO su https://lovable.dev/*. Nessuna chiamata esterna.
-// Niente login automatico. Niente password. Niente token.
+// Niente login automatico. Niente password. Niente token. Niente lettura cookie.
+// Niente chiamate API private Lovable.
 
 const SELECTORS = [
   'textarea[placeholder*="Ask" i]',
@@ -58,21 +59,51 @@ const SELECTORS = [
   'textarea[placeholder*="prompt" i]',
   'textarea[placeholder*="chat" i]',
   'div[contenteditable="true"][role="textbox"]',
+  'div[contenteditable="true"][aria-label*="message" i]',
+  'div[contenteditable="true"][aria-label*="chat" i]',
+  'div[contenteditable="true"][aria-label*="prompt" i]',
   'div[contenteditable="true"]',
-  'textarea'
+  'textarea',
+  'input[type="text"][placeholder*="Ask" i]',
+  'input[type="text"][placeholder*="Message" i]'
 ];
+
+function isVisible(el) {
+  if (!el) return false;
+  if (el.offsetParent !== null) return true;
+  const r = el.getClientRects();
+  return r && r.length > 0;
+}
 
 function findChatInput() {
   for (const sel of SELECTORS) {
-    const el = document.querySelector(sel);
-    if (el && (el.offsetParent !== null || el.getClientRects().length > 0)) return el;
+    const list = document.querySelectorAll(sel);
+    for (const el of list) {
+      if (isVisible(el)) return el;
+    }
+  }
+  return null;
+}
+
+function findSubmitButton() {
+  const candidates = document.querySelectorAll(
+    'button[type="submit"], button[aria-label*="send" i], button[title*="send" i], button[aria-label*="invia" i], button[title*="invia" i]'
+  );
+  for (const b of candidates) {
+    if (!b.disabled && isVisible(b)) return b;
   }
   return null;
 }
 
 async function insertPrompt(prompt) {
   const el = findChatInput();
-  if (!el) return { ok: false, reason: "Chat Lovable non trovata. Apri la chat del progetto." };
+  if (!el) {
+    return {
+      ok: false,
+      reason:
+        "Input chat non trovato. Clicca nel campo chat Lovable e riprova."
+    };
+  }
 
   el.focus();
   if (el.tagName === "TEXTAREA" || el.tagName === "INPUT") {
@@ -83,7 +114,6 @@ async function insertPrompt(prompt) {
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
   } else {
-    // contenteditable
     el.innerText = "";
     document.execCommand("insertText", false, prompt);
   }
@@ -92,23 +122,45 @@ async function insertPrompt(prompt) {
 
 async function submitPrompt() {
   const el = findChatInput();
-  if (!el) return { ok: false, reason: "Chat Lovable non trovata." };
-  // Try Enter
+  if (!el) {
+    return {
+      ok: false,
+      reason:
+        "Input chat non trovato. Clicca nel campo chat Lovable e riprova."
+    };
+  }
   el.focus();
+
+  // Try Enter first
   const ev = new KeyboardEvent("keydown", {
     key: "Enter", code: "Enter", which: 13, keyCode: 13, bubbles: true
   });
   el.dispatchEvent(ev);
+
   // Fallback: submit button
-  const btn = document.querySelector('button[type="submit"], button[aria-label*="send" i], button[title*="send" i]');
+  const btn = findSubmitButton();
   if (btn) btn.click();
   return { ok: true };
+}
+
+function getPageInfo() {
+  return {
+    url: location.href,
+    host: location.host,
+    isLovable: location.host.endsWith("lovable.dev"),
+    isProject: /\\/projects\\//.test(location.pathname),
+    hasInput: !!findChatInput()
+  };
 }
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     if (!location.host.endsWith("lovable.dev")) {
       sendResponse({ ok: false, reason: "Estensione attiva solo su lovable.dev" });
+      return;
+    }
+    if (msg?.type === "BH_PAGE_INFO") {
+      sendResponse({ ok: true, info: getPageInfo() });
       return;
     }
     if (msg?.type === "BH_INSERT_PROMPT") {
@@ -133,88 +185,204 @@ const POPUP_HTML = `<!doctype html>
   <meta charset="utf-8" />
   <title>Brain Hub Bridge</title>
   <style>
-    body { font-family: system-ui, sans-serif; width: 360px; padding: 12px; }
+    body { font-family: system-ui, sans-serif; width: 380px; padding: 12px; }
     h1 { font-size: 14px; margin: 0 0 8px; }
     textarea { width: 100%; min-height: 140px; font-family: ui-monospace, monospace; font-size: 12px; }
-    button { margin-top: 8px; padding: 6px 10px; cursor: pointer; }
+    button { margin-top: 6px; padding: 6px 10px; cursor: pointer; }
+    .row { display: flex; gap: 6px; flex-wrap: wrap; }
     .warn { font-size: 11px; color: #b45309; background: #fffbeb; padding: 6px; border-radius: 4px; margin-top: 8px; }
+    .info { font-size: 11px; color: #1e3a8a; background: #eff6ff; padding: 6px; border-radius: 4px; margin-top: 8px; }
     .ok { font-size: 11px; color: #047857; margin-top: 6px; }
     .err { font-size: 11px; color: #b91c1c; margin-top: 6px; }
+    .preview { font-family: ui-monospace, monospace; font-size: 10px; background: #f3f4f6; padding: 6px; border-radius: 4px; margin-top: 6px; max-height: 90px; overflow: auto; white-space: pre-wrap; }
     label { font-size: 12px; display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    .url { font-family: ui-monospace, monospace; font-size: 10px; word-break: break-all; }
+    .muted { color: #6b7280; font-size: 11px; }
+    hr { border: none; border-top: 1px solid #e5e7eb; margin: 10px 0; }
   </style>
 </head>
 <body>
-  <h1>Brain Hub · Lovable Browser Bridge</h1>
+  <h1>Brain Hub · Lovable Browser Bridge <span class="muted">v0.2</span></h1>
+
+  <div id="tabinfo" class="info">Tab attivo: <span id="taburl" class="url">…</span></div>
+
   <textarea id="prompt" placeholder="Incolla qui il prompt copiato da Brain Hub"></textarea>
-  <label><input type="checkbox" id="autosend" /> Invia automaticamente dopo inserimento</label>
-  <div class="warn">Usa invio automatico solo dopo aver verificato il progetto Lovable aperto.</div>
-  <button id="insert">Inserisci prompt in Lovable</button>
+
+  <div class="muted">Anteprima primi 300 caratteri:</div>
+  <div id="preview" class="preview"></div>
+
+  <hr />
+
+  <div class="row">
+    <button id="insert">Inserisci prompt</button>
+    <button id="insertSend">Inserisci e invia con conferma</button>
+  </div>
+
+  <label><input type="checkbox" id="autosend" /> Invia automaticamente dopo inserimento (opt-in)</label>
+  <div class="warn">
+    L'invio automatico richiede sempre conferma esplicita. Controlla che il progetto
+    Lovable aperto sia quello corretto. Dopo conferma il prompt verra' inviato.
+  </div>
+
   <div id="status"></div>
+
   <script src="popup.js"></script>
 </body>
 </html>
 `;
 
-const POPUP_JS = `// popup.js
+const POPUP_JS = `// popup.js v0.2.0
 const $ = (id) => document.getElementById(id);
+
+function setStatus(kind, text) {
+  const s = $("status");
+  s.className = kind || "";
+  s.textContent = text || "";
+}
+
+async function getActiveLovableTab() {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  return tab || null;
+}
+
+async function getPageInfo(tabId) {
+  try {
+    return await chrome.tabs.sendMessage(tabId, { type: "BH_PAGE_INFO" });
+  } catch (e) {
+    return { ok: false, reason: "Content script non caricato. Ricarica la pagina lovable.dev." };
+  }
+}
+
+function refreshPreview() {
+  const p = $("prompt").value || "";
+  $("preview").textContent = p.slice(0, 300) + (p.length > 300 ? "…" : "");
+}
+
+async function refreshTab() {
+  const tab = await getActiveLovableTab();
+  $("taburl").textContent = tab?.url || "(nessun tab)";
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   const saved = await chrome.storage.local.get(["bh_last_prompt"]);
   if (saved?.bh_last_prompt) $("prompt").value = saved.bh_last_prompt;
+  refreshPreview();
+  refreshTab();
+  $("prompt").addEventListener("input", refreshPreview);
 
+  // "Inserisci prompt" — solo insert, niente invio
   $("insert").addEventListener("click", async () => {
+    setStatus("", "");
     const prompt = $("prompt").value.trim();
-    const status = $("status");
-    status.className = "";
-    status.textContent = "";
+    if (!prompt) { setStatus("err", "Prompt vuoto."); return; }
 
-    if (!prompt) { status.className = "err"; status.textContent = "Prompt vuoto."; return; }
-
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tab = await getActiveLovableTab();
     if (!tab?.url || !tab.url.startsWith("https://lovable.dev/")) {
-      status.className = "err";
-      status.textContent = "Apri prima la chat Lovable nel tab attivo.";
+      setStatus("err", "Apri prima la chat Lovable nel tab attivo.");
       return;
     }
 
     await chrome.storage.local.set({ bh_last_prompt: prompt });
+    const r = await chrome.tabs.sendMessage(tab.id, { type: "BH_INSERT_PROMPT", prompt });
+    if (!r?.ok) { setStatus("err", "Errore: " + (r?.reason ?? "sconosciuto")); return; }
 
-    const insertRes = await chrome.tabs.sendMessage(tab.id, { type: "BH_INSERT_PROMPT", prompt });
-    if (!insertRes?.ok) {
-      status.className = "err";
-      status.textContent = "Errore: " + (insertRes?.reason ?? "sconosciuto");
+    setStatus("ok", "Prompt inserito. Controlla Lovable e invia a mano.");
+
+    // checkbox opt-in: comportamento legacy con conferma
+    if ($("autosend").checked) {
+      const ok = confirm(
+        "Confermi di voler inviare questo prompt al progetto Lovable aperto?\\n\\n" + (tab.url || "")
+      );
+      if (!ok) return;
+      const send = await chrome.tabs.sendMessage(tab.id, { type: "BH_SUBMIT" });
+      if (!send?.ok) { setStatus("err", "Inserito, ma invio fallito: " + (send?.reason ?? "?")); return; }
+      await emitReceipt(tab.url, prompt);
+      setStatus("ok", "Prompt inviato a Lovable. Torna in Brain Hub e segna inviato manualmente.");
+    }
+  });
+
+  // "Inserisci e invia con conferma" — flusso completo con doppia protezione
+  $("insertSend").addEventListener("click", async () => {
+    setStatus("", "");
+    const prompt = $("prompt").value.trim();
+    if (!prompt) { setStatus("err", "Prompt vuoto."); return; }
+
+    const tab = await getActiveLovableTab();
+    if (!tab?.url || !tab.url.startsWith("https://lovable.dev/")) {
+      setStatus("err", "Tab attivo non e' su lovable.dev. Blocco.");
       return;
     }
 
-    if ($("autosend").checked) {
-      const confirmSend = confirm(
-        "Confermi invio automatico del prompt nel progetto Lovable attualmente aperto?\\n\\nVerifica che sia il progetto giusto."
-      );
-      if (confirmSend) {
-        const sendRes = await chrome.tabs.sendMessage(tab.id, { type: "BH_SUBMIT" });
-        if (!sendRes?.ok) {
-          status.className = "err";
-          status.textContent = "Inserito, ma invio fallito: " + (sendRes?.reason ?? "?");
-          return;
-        }
-        status.className = "ok";
-        status.textContent = "Prompt inserito e inviato.";
-        return;
-      }
+    const info = await getPageInfo(tab.id);
+    if (!info?.ok || !info?.info?.isLovable) {
+      setStatus("err", info?.reason || "Pagina non valida.");
+      return;
+    }
+    if (!info.info.hasInput) {
+      setStatus("err", "Input chat non trovato. Clicca nel campo chat Lovable e riprova.");
+      return;
     }
 
-    status.className = "ok";
-    status.textContent = "Prompt inserito. Controlla Lovable e invia a mano.";
+    if (!info.info.isProject) {
+      const proceed = confirm(
+        "ATTENZIONE: l'URL attivo non sembra un progetto Lovable (/projects/...).\\n\\n" +
+        "URL: " + tab.url + "\\n\\n" +
+        "Procedere comunque?"
+      );
+      if (!proceed) { setStatus("err", "Operazione annullata."); return; }
+    }
+
+    await chrome.storage.local.set({ bh_last_prompt: prompt });
+
+    // Insert first
+    const ins = await chrome.tabs.sendMessage(tab.id, { type: "BH_INSERT_PROMPT", prompt });
+    if (!ins?.ok) { setStatus("err", "Errore inserimento: " + (ins?.reason ?? "?")); return; }
+
+    // Strong confirm
+    const preview = prompt.slice(0, 300) + (prompt.length > 300 ? "…" : "");
+    const ok = confirm(
+      "Confermi di voler inviare questo prompt al progetto Lovable aperto?\\n\\n" +
+      "URL: " + tab.url + "\\n\\n" +
+      "Anteprima prompt:\\n" + preview
+    );
+    if (!ok) {
+      setStatus("ok", "Prompt inserito ma NON inviato. Conferma annullata.");
+      return;
+    }
+
+    const send = await chrome.tabs.sendMessage(tab.id, { type: "BH_SUBMIT" });
+    if (!send?.ok) { setStatus("err", "Invio fallito: " + (send?.reason ?? "?")); return; }
+
+    await emitReceipt(tab.url, prompt);
+    setStatus("ok", "Prompt inviato a Lovable. Torna in Brain Hub e segna inviato manualmente.");
   });
 });
+
+async function emitReceipt(url, prompt) {
+  const receipt = {
+    source: "lovable_browser_bridge",
+    status: "sent",
+    sent_at: new Date().toISOString(),
+    lovable_url: url || "",
+    prompt_preview: (prompt || "").slice(0, 300)
+  };
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(receipt, null, 2));
+  } catch (_) {
+    // best effort
+  }
+}
 `;
 
-const README_MD = `# Brain Hub · Lovable Browser Bridge (estensione Chrome)
+const README_MD = `# Brain Hub · Lovable Browser Bridge (estensione Chrome) v0.2
 
 Estensione locale che inserisce un prompt preparato in Brain Hub nella chat
-Lovable, usando il **tuo Chrome normale gia' loggato**. Niente login automatici,
-niente password, niente token, niente chiamate esterne. Attiva solo su
-\`https://lovable.dev/*\`.
+Lovable, usando il **tuo Chrome normale gia' loggato**. La v0.2 aggiunge la
+modalita' "Inserisci e invia con conferma" con doppia protezione.
+
+Niente login automatici, niente password, niente token, niente lettura cookie,
+niente chiamate API private Lovable, niente chiamate di rete esterne. Attiva
+solo su \`https://lovable.dev/*\`.
 
 ## Quando usarla
 
@@ -236,30 +404,54 @@ provider di login bloccano il browser automatizzato.
 1. Apri Lovable nel **tuo Chrome normale**, vai nel **progetto giusto**, fai login se serve.
 2. In Brain Hub, sull'Execution Package, clicca "Copia prompt per Browser Bridge".
 3. Clicca l'icona dell'estensione nella barra di Chrome.
-4. Incolla il prompt nella textarea del popup.
-5. Clicca "Inserisci prompt in Lovable".
-6. Controlla la chat Lovable e invia tu il prompt.
+4. Incolla il prompt nella textarea del popup. Vedrai l'URL attivo del tab e l'anteprima dei primi 300 caratteri.
+5. Scegli una delle due azioni:
+   - **Inserisci prompt** — inserisce e basta, invio manuale da te.
+   - **Inserisci e invia con conferma** — inserisce, mostra conferma forte con URL e anteprima, e invia solo se confermi.
 
-### Invio automatico (opzionale)
+### Protezioni attive
 
-Il popup ha una checkbox "Invia automaticamente dopo inserimento".
-Usala SOLO dopo aver verificato a mano almeno una volta il flusso.
-Chiede sempre conferma prima di premere invio.
+- Se il tab attivo non e' \`lovable.dev\`, blocca.
+- Se non trova l'input chat, mostra errore: "Input chat non trovato. Clicca nel campo chat Lovable e riprova."
+- Se il prompt e' vuoto, blocca.
+- Se l'URL non contiene \`/projects/\`, mostra warning forte e richiede conferma extra.
+- Conferma esplicita prima di ogni invio.
+
+### Receipt
+
+Dopo invio riuscito, l'estensione copia negli appunti un piccolo receipt JSON:
+
+\`\`\`json
+{
+  "source": "lovable_browser_bridge",
+  "status": "sent",
+  "sent_at": "2026-06-10T12:00:00.000Z",
+  "lovable_url": "https://lovable.dev/projects/...",
+  "prompt_preview": "…"
+}
+\`\`\`
+
+Puoi incollarlo in Brain Hub come traccia manuale.
 
 ## Sicurezza
 
 - Nessuna credenziale Lovable viene salvata.
 - Nessun token viene salvato.
+- Nessun cookie viene letto.
 - Nessuna chiamata di rete esterna.
-- L'estensione e' attiva esclusivamente su \`https://lovable.dev/*\`.
+- Nessuna chiamata ad API private Lovable.
+- \`host_permissions\` limitato a \`https://lovable.dev/*\`.
 - Il login a Lovable e' sempre manuale, fatto da te nel tuo Chrome.
-- L'invio automatico e' disattivato di default e richiede conferma.
+- L'invio automatico e' opt-in e richiede sempre conferma esplicita.
 
 ## Cosa NON fa
 
 - Non automatizza il login Google/GitHub/email.
-- Non legge ne' salva password.
+- Non legge ne' salva password o cookie.
 - Non comunica con server esterni.
+- Non cattura automaticamente la risposta di Lovable.
+- Non invia callback automatiche a Brain Hub.
+- Non fa scraping aggressivo.
 - Non agisce su siti diversi da lovable.dev.
 `;
 
@@ -337,7 +529,7 @@ export function LovableBrowserBridge() {
     queryFn: fetchData,
     refetchInterval: 30000,
   });
-  const [openFile, setOpenFile] = useState<string | null>("content.js");
+  const [openFile, setOpenFile] = useState<string | null>("popup.js");
 
   const items = data?.items ?? [];
   const brains = data?.brains ?? [];
@@ -362,6 +554,27 @@ export function LovableBrowserBridge() {
     }
     toast.success("Prompt copiato. Incollalo nel popup dell'estensione.");
     await logEvent(item.id, "lovable_browser_bridge_prompt_copied", `Prompt copiato per Browser Bridge: ${item.title}`);
+    // Pre-traccia: l'estensione non puo' notificare automaticamente.
+    // Logghiamo "prompt_inserted" come intent operativo dell'utente quando
+    // copia il prompt per il flusso Browser Bridge — futura integrazione receipt.
+    await logEvent(
+      item.id,
+      "lovable_browser_bridge_prompt_inserted",
+      `Intent: inserimento prompt via Browser Bridge per ${item.title} (conferma e invio rimangono manuali nell'estensione).`,
+    );
+  }
+
+  async function markBridgeSent(item: ClipItem) {
+    const ok = window.confirm(
+      "Confermi che hai inviato manualmente il prompt a Lovable tramite Browser Bridge?",
+    );
+    if (!ok) return;
+    await logEvent(
+      item.id,
+      "lovable_browser_bridge_prompt_sent_confirmed",
+      `Invio confermato manualmente via Browser Bridge: ${item.title}`,
+    );
+    toast.success("Invio Browser Bridge registrato nel ledger");
   }
 
   async function copyFile(file: KitFile) {
@@ -383,8 +596,8 @@ export function LovableBrowserBridge() {
       EXT_FILES.map((f) => ({ path: `lovable-browser-bridge/${f.name}`, data: f.content })),
     );
     downloadBlob(blob, "lovable-browser-bridge.zip");
-    toast.success("Estensione Browser Bridge scaricata");
-    void logEvent(null, "lovable_browser_bridge_extension_downloaded", "Estensione ZIP scaricata");
+    toast.success("Estensione Browser Bridge v0.2 scaricata");
+    void logEvent(null, "lovable_browser_bridge_extension_downloaded", "Estensione ZIP v0.2 scaricata");
   }
 
   return (
@@ -393,27 +606,29 @@ export function LovableBrowserBridge() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Puzzle className="h-4 w-4 text-orange-400" /> Lovable Browser Bridge
+            <Badge variant="outline" className="ml-1 text-[10px]">v0.2</Badge>
           </CardTitle>
           <div className="flex flex-wrap gap-2">
             <Badge variant="outline" className="bg-orange-500/10 text-orange-300 border-orange-500/30 gap-1">
               <Chrome className="h-3 w-3" /> Chrome normale gia' loggato
             </Badge>
             <Badge variant="outline" className="bg-emerald-500/10 text-emerald-300 border-emerald-500/30 gap-1">
-              <ShieldCheck className="h-3 w-3" /> Nessuna credenziale salvata
+              <ShieldCheck className="h-3 w-3" /> Invio solo con conferma
             </Badge>
           </div>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          Usa questa modalita' quando Playwright/Chrome automatizzato non riesce ad accedere a Lovable.
-          Funziona nel Chrome normale gia' loggato: l'estensione locale incolla il prompt nella chat
-          Lovable aperta. Nessun login automatico, nessuna password, nessun token, nessuna chiamata esterna.
+          Modalita' "Inserisci e invia con conferma": l'estensione verifica il tab
+          Lovable, inserisce il prompt nella chat, mostra URL + anteprima e invia
+          SOLO dopo conferma esplicita. Nessun login automatico, nessuna password,
+          nessun token, nessun cookie letto, nessuna chiamata esterna.
         </p>
       </CardHeader>
 
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={downloadExtensionZip}>
-            <Download className="mr-1 h-3 w-3" /> Scarica estensione Browser Bridge
+            <Download className="mr-1 h-3 w-3" /> Scarica estensione Browser Bridge v0.2
           </Button>
         </div>
 
@@ -421,9 +636,21 @@ export function LovableBrowserBridge() {
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
           <div className="text-xs leading-relaxed text-amber-200">
             L'estensione e' attiva solo su <code className="rounded bg-amber-500/20 px-1">https://lovable.dev/*</code>.
-            L'invio automatico e' disattivato di default e richiede conferma. Verifica sempre che il
-            progetto Lovable aperto nel Chrome sia quello corretto prima di inserire o inviare il prompt.
+            Controlla che il progetto Lovable aperto nel Chrome sia quello corretto
+            prima di inserire o inviare il prompt. Dopo conferma, il prompt verra' inviato.
           </div>
+        </div>
+
+        <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
+          <div className="mb-1 font-medium text-foreground">Flusso operativo (aggiornato)</div>
+          <ol className="list-decimal space-y-0.5 pl-4">
+            <li>Apri il progetto Lovable corretto nel tuo Chrome normale.</li>
+            <li>In Brain Hub clicca "Copia prompt per Browser Bridge" sull'item.</li>
+            <li>Apri l'estensione dalla barra di Chrome.</li>
+            <li>Per un test sicuro usa "Inserisci prompt" (nessun invio).</li>
+            <li>Solo dopo verifica, usa "Inserisci e invia con conferma".</li>
+            <li>Quando hai inviato, torna qui e clicca "Segna inviato (Browser Bridge)".</li>
+          </ol>
         </div>
 
         <div className="space-y-2">
@@ -461,26 +688,17 @@ export function LovableBrowserBridge() {
                   <Button size="sm" variant="outline" onClick={() => copyPromptForBridge(it)}>
                     <Copy className="mr-1 h-3 w-3" /> Copia prompt per Browser Bridge
                   </Button>
+                  <Button size="sm" variant="outline" onClick={() => markBridgeSent(it)}>
+                    Segna inviato (Browser Bridge)
+                  </Button>
                 </div>
               </div>
             );
           })}
         </div>
 
-        <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs leading-relaxed text-muted-foreground">
-          <div className="mb-1 font-medium text-foreground">Installazione rapida</div>
-          <ol className="list-decimal space-y-0.5 pl-4">
-            <li>Scarica e scompatta lo ZIP dell'estensione.</li>
-            <li>Apri Chrome e vai su <code className="rounded bg-muted px-1">chrome://extensions</code>.</li>
-            <li>Attiva "Modalita' sviluppatore".</li>
-            <li>Clicca "Carica estensione non pacchettizzata" e seleziona la cartella.</li>
-            <li>Apri Lovable nel progetto corretto, poi clicca l'icona estensione.</li>
-            <li>Incolla il prompt copiato da Brain Hub e clicca "Inserisci prompt".</li>
-          </ol>
-        </div>
-
         <div className="space-y-2">
-          <div className="text-xs font-medium text-muted-foreground">File estensione</div>
+          <div className="text-xs font-medium text-muted-foreground">File estensione (v0.2)</div>
           {EXT_FILES.map((f) => {
             const open = openFile === f.name;
             return (
@@ -513,9 +731,11 @@ export function LovableBrowserBridge() {
         </div>
 
         <div className="text-[11px] leading-relaxed text-muted-foreground">
-          Sicurezza: nessuna credenziale o token viene salvato dall'estensione; nessuna chiamata esterna;
+          Sicurezza: nessuna credenziale, token o cookie viene salvato o letto;
+          nessuna chiamata esterna; nessuna chiamata ad API private Lovable;
           host_permissions limitato a <code className="rounded bg-muted px-1">https://lovable.dev/*</code>;
-          invio automatico opt-in con conferma; il login a Lovable resta sempre manuale nel tuo Chrome.
+          invio automatico opt-in con conferma esplicita; il login a Lovable resta
+          sempre manuale nel tuo Chrome.
         </div>
       </CardContent>
     </Card>
