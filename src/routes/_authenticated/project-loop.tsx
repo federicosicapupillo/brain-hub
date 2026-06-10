@@ -1872,7 +1872,62 @@ CRITERI DI SUCCESSO:
                   value={saveResultText}
                   onChange={(e) => setSaveResultText(e.target.value)}
                   placeholder="Incolla qui il risultato di Lovable…"
-                  className="min-h-[220px] text-xs"
+                  className="min-h-[160px] text-xs"
+                />
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Build riuscita?</div>
+                  <Select
+                    value={saveResultMeta.buildOk}
+                    onValueChange={(v) => setSaveResultMeta((m) => ({ ...m, buildOk: v as "yes" | "no" }))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="yes">Sì</SelectItem>
+                      <SelectItem value="no">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Errori console?</div>
+                  <Select
+                    value={saveResultMeta.consoleErrors}
+                    onValueChange={(v) => setSaveResultMeta((m) => ({ ...m, consoleErrors: v as "yes" | "no" | "unverified" }))}
+                  >
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="no">No</SelectItem>
+                      <SelectItem value="yes">Sì</SelectItem>
+                      <SelectItem value="unverified">Non verificato</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Cosa è stato modificato?</div>
+                <Textarea
+                  value={saveResultMeta.changes}
+                  onChange={(e) => setSaveResultMeta((m) => ({ ...m, changes: e.target.value }))}
+                  placeholder="Breve riepilogo delle modifiche…"
+                  className="min-h-[60px] text-xs"
+                />
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">File modificati (separati da virgola o nuova riga)</div>
+                <Textarea
+                  value={saveResultMeta.files}
+                  onChange={(e) => setSaveResultMeta((m) => ({ ...m, files: e.target.value }))}
+                  placeholder="src/.../foo.tsx, src/.../bar.ts"
+                  className="min-h-[50px] text-xs font-mono"
+                />
+              </div>
+              <div>
+                <div className="mb-1 text-xs text-muted-foreground">Note o problemi rilevati</div>
+                <Textarea
+                  value={saveResultMeta.notes}
+                  onChange={(e) => setSaveResultMeta((m) => ({ ...m, notes: e.target.value }))}
+                  className="min-h-[50px] text-xs"
                 />
               </div>
             </div>
@@ -1885,7 +1940,11 @@ CRITERI DI SUCCESSO:
               disabled={!saveResultItem || !saveResultText.trim() || saveResultMut.isPending}
               onClick={() => {
                 if (!saveResultItem) return;
-                saveResultMut.mutate({ item: saveResultItem, result: saveResultText });
+                saveResultMut.mutate({
+                  item: saveResultItem,
+                  result: saveResultText,
+                  ...saveResultMeta,
+                });
               }}
             >
               <Sparkles className="mr-1 h-3 w-3" />
