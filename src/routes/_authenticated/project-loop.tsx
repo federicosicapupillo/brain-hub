@@ -520,6 +520,9 @@ CRITERI DI SUCCESSO:
   });
 
 
+  if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento…</div>;
+  if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
+  if (!data) return null;
 
   return (
     <div className="space-y-6 p-6">
