@@ -36,7 +36,33 @@ import {
   Gauge,
   Sparkles,
   Wand2,
+  HeartPulse,
 } from "lucide-react";
+
+type HealthStatus = "healthy" | "needs_attention" | "blocked" | "empty";
+
+const HEALTH_META: Record<HealthStatus, { label: string; cls: string; suggestion: string }> = {
+  healthy: {
+    label: "Healthy",
+    cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    suggestion: "Continua il ciclo operativo",
+  },
+  needs_attention: {
+    label: "Needs attention",
+    cls: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    suggestion: "Genera un prompt dal prossimo roadmap item",
+  },
+  blocked: {
+    label: "Blocked",
+    cls: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+    suggestion: "Risolvi item falliti o bloccati",
+  },
+  empty: {
+    label: "Empty",
+    cls: "bg-muted text-muted-foreground border-border",
+    suggestion: "Crea roadmap iniziale del progetto",
+  },
+};
 
 export const Route = createFileRoute("/_authenticated/project-loop")({
   head: () => ({ meta: [{ title: "Project Loop — AI Brain" }] }),
