@@ -259,3 +259,33 @@ export async function upsertProjectProjectLink(input: {
   });
 }
 
+/**
+ * Ensure a project_links row exists for the given brain so we always have a
+ * stable, valid project_id to ship to external automations (e.g. n8n).
+ * Returns the existing row when present, otherwise creates a minimal one.
+ */
+export async function ensureProjectLinkForBrain(
+  brainId: string,
+  brainName?: string | null,
+): Promise<ProjectLink> {
+  const { data: existing, error: selErr } = await supabase
+    .from("project_links")
+    .select("*")
+    .eq("brain_id", brainId)
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (selErr) throw selErr;
+  if (existing && existing.length > 0) return existing[0] as ProjectLink;
+
+  return createProjectLink({
+    brain_id: brainId,
+    link_type: "project",
+    title: brainName?.trim() || "Progetto",
+    relation_type: "self",
+    notes: "Auto-creato per identificare il progetto nei payload n8n",
+    target_brain_id: brainId,
+    target_table: "brains",
+    target_id: brainId,
+  });
+}
+
