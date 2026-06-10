@@ -593,11 +593,55 @@ Callback richiesta:
 
 
 
+        <details className="rounded-md border border-blue-500/40 bg-blue-500/5 p-3">
+          <summary className="cursor-pointer text-sm font-medium flex items-center gap-2">
+            <Inbox className="h-3 w-3 text-blue-400" /> Endpoint callback n8n (ricezione reale)
+          </summary>
+          <div className="mt-2 space-y-2 text-xs">
+            <div className="grid gap-1 text-muted-foreground">
+              <div><span className="font-medium text-foreground">Path:</span> <code>/api/public/n8n-pilot-callback</code></div>
+              <div><span className="font-medium text-foreground">Metodo:</span> POST</div>
+              <div><span className="font-medium text-foreground">Header richiesto:</span> <code>x-brainhub-callback-secret: &lt;valore server-side&gt;</code></div>
+              <div><span className="font-medium text-foreground">Content-Type:</span> application/json</div>
+            </div>
+            <div>
+              <div className="font-medium">Schema JSON richiesto:</div>
+              <pre className="mt-1 overflow-auto rounded bg-muted/40 p-2 text-[10px]">{`{
+  "execution_package_id": "<uuid>",
+  "run_id": "<run id>",
+  "callback_schema_version": 1,
+  "status": "completed | failed",
+  "build_status": "ok | failed | not_verified",
+  "console_errors": false,
+  "modified_files": [],
+  "summary": "...",
+  "notes": "...",
+  "external_result_reference": "...",
+  "raw_output": "..."
+}`}</pre>
+            </div>
+            <div>
+              <div className="font-medium">Istruzioni n8n:</div>
+              <ul className="list-disc pl-4 text-muted-foreground space-y-1">
+                <li>Configura l&apos;HTTP node verso il path indicato (path pubblico Brain Hub).</li>
+                <li>Aggiungi header <code>x-brainhub-callback-secret</code> con il valore configurato server-side (Project Secrets <code>BRAINHUB_N8N_CALLBACK_SECRET</code>).</li>
+                <li>Invia il JSON sopra; rispetta <code>callback_schema_version = 1</code>.</li>
+                <li>Esegui il test solo su un Execution Package marcato &quot;pronto per test reale&quot;.</li>
+              </ul>
+            </div>
+            <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-amber-300">
+              <AlertTriangle className="inline h-3 w-3 mr-1" />
+              Non inserire mai il secret nel frontend. Vive solo come variabile ambiente server-side.
+            </div>
+          </div>
+        </details>
+
         {eligible.length === 0 && (
           <div className="rounded-md border border-border/60 p-4 text-sm text-muted-foreground">
             Nessun Execution Package eleggibile (richiede run_status approved o queued, senza dry run attivo).
           </div>
         )}
+
 
         <div className="space-y-2">
           {eligible.map(({ item, info }) => {
