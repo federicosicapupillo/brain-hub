@@ -2085,6 +2085,86 @@ Procedi e verifica i criteri sopra elencati.`;
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
+            <ClipboardCheck className="h-4 w-4" /> Da verificare (Post Execution Review)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {(() => {
+            const toReview = items.filter((i) => {
+              if ((i.output_result ?? "").trim() === "") return false;
+              const s = reviewStatusOf(i);
+              return s !== null && s !== "approved";
+            });
+            if (toReview.length === 0) {
+              return <div className="text-sm text-muted-foreground">Nessun risultato in attesa di review.</div>;
+            }
+            return toReview.slice(0, 20).map((i) => {
+              const brain = i.brain_id ? brainsById.get(i.brain_id) : null;
+              const rev = getReview(i);
+              const status = rev?.review_status ?? "pending_review";
+              const meta = REVIEW_META[status];
+              const hasFix = !!findChildPackageByType(items, i.id, "fix_prompt");
+              return (
+                <div key={i.id} className="rounded-md border border-border/60 p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{i.title || "(senza titolo)"}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {brain?.name ?? "—"} · agg. {new Date(i.updated_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1">
+                      <Badge variant="outline" className={`text-[10px] ${meta.cls}`}>{meta.label}</Badge>
+                      {rev && (
+                        <Badge variant="outline" className="text-[10px]">
+                          {rev.completion_level}
+                        </Badge>
+                      )}
+                      {hasFix && (
+                        <Badge variant="outline" className="text-[10px]">
+                          fix creato
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {rev && rev.detected_risks.length > 0 && (
+                    <div className="mt-1 text-xs text-rose-300">
+                      <AlertTriangle className="mr-1 inline h-3 w-3" />
+                      {rev.detected_risks.slice(0, 2).join(" · ")}
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openReview(i)}>
+                      <ClipboardCheck className="mr-1 h-3 w-3" /> Apri review
+                    </Button>
+                    {(status === "needs_fix" || status === "failed" || status === "partial") && !hasFix && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={generateFixPromptMut.isPending}
+                        onClick={() => generateFixPromptMut.mutate({ item: i })}
+                      >
+                        <ShieldAlert className="mr-1 h-3 w-3" /> Genera fix prompt
+                      </Button>
+                    )}
+                    {hasFix && (
+                      <Button asChild size="sm" variant="ghost">
+                        <Link to="/clipboard-ai">
+                          <ExternalLink className="mr-1 h-3 w-3" /> Apri fix in Clipboard AI
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              );
+            });
+          })()}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
             <AlertTriangle className="h-4 w-4" /> Results To Process
           </CardTitle>
         </CardHeader>
