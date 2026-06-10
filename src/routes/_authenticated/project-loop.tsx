@@ -347,6 +347,68 @@ function ProjectLoopPage() {
 
   const projectLinkById = new Map(projectLinks.map((p) => [p.id, p]));
 
+  // ============ Project Health ============
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const itemIdToBrain = new Map(items.map((i) => [i.id, i.brain_id]));
+  const logsByBrain = new Map<string, ExecLog[]>();
+  for (const l of logs) {
+    const bid = itemIdToBrain.get(l.clipboard_item_id);
+    if (!bid) continue;
+    const arr = logsByBrain.get(bid) ?? [];
+    arr.push(l);
+    logsByBrain.set(bid, arr);
+  }
+
+  const healthRows = brains
+    .map((brain) => {
+      const bid = brain.id;
+      const bRoadmap = roadmap.filter((r) => r.brain_id === bid);
+      const bTasks = data?.tasks.filter((t) => t.brain_id === bid) ?? [];
+      const bItems = items.filter((i) => i.brain_id === bid);
+      const bLogs = logsByBrain.get(bid) ?? [];
+
+      const openRoadmapCount = bRoadmap.filter(isOpenRoadmap).length;
+      const openTasksCount = bTasks.filter(
+        (t) => !["done", "completed", "completato", "archived"].includes((t.status ?? "").toLowerCase()),
+      ).length;
+      const readyPrompts = bItems.filter(
+        (i) => i.target_tool === "Lovable" && i.automation_status === "ready_for_automation" && i.status !== "archived",
+      ).length;
+      const failedItems = bItems.filter(
+        (i) => i.automation_status === "failed" || i.approval_status === "blocked",
+      ).length;
+      const lastLog = bLogs[0];
+      const lastLogTs = lastLog ? new Date(lastLog.created_at).getTime() : 0;
+      const hasRecentLog = lastLogTs >= sevenDaysAgo;
+
+      const isEmpty = bRoadmap.length === 0 && bTasks.length === 0 && bItems.length === 0;
+
+      let status: HealthStatus;
+      if (isEmpty) status = "empty";
+      else if (failedItems > 0) status = "blocked";
+      else if (!hasRecentLog || (openRoadmapCount > 0 && readyPrompts === 0)) status = "needs_attention";
+      else status = "healthy";
+
+      return {
+        brain,
+        status,
+        lastLog,
+        openRoadmapCount,
+        openTasksCount,
+        readyPrompts,
+        failedItems,
+      };
+    })
+    .sort((a, b) => {
+      const order: HealthStatus[] = ["blocked", "needs_attention", "empty", "healthy"];
+      return order.indexOf(a.status) - order.indexOf(b.status);
+    });
+
+  const needsAttentionCount = healthRows.filter(
+    (h) => h.status === "blocked" || h.status === "needs_attention",
+  ).length;
+
+
   const savePromptMut = useMutation({
     mutationFn: async ({ brain, roadmap, prompt }: { brain: Brain; roadmap: RoadmapItem; prompt: string }) => {
       const { data: userData, error: userErr } = await supabase.auth.getUser();
