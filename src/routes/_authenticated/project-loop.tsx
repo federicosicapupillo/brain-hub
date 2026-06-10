@@ -409,6 +409,104 @@ function ProjectLoopPage() {
     (h) => h.status === "blocked" || h.status === "needs_attention",
   ).length;
 
+  // ============ Project Loop Audit ============
+  type AuditState = "ok" | "warning" | "alert";
+  type AuditCheck = { key: string; label: string; state: AuditState; detail?: string; suggestion?: string };
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+  const nowTs = Date.now();
+  const auditRows = brains
+    .map((brain) => {
+      const bid = brain.id;
+      const bRoadmap = roadmap.filter((r) => r.brain_id === bid);
+      const bItems = items.filter((i) => i.brain_id === bid);
+      const bLogs = logsByBrain.get(bid) ?? [];
+      const lovableItems = bItems.filter((i) => i.target_tool === "Lovable");
+      const stale = lovableItems.filter(
+        (i) =>
+          ["ready_for_automation", "queued"].includes(i.automation_status) &&
+          nowTs - new Date(i.updated_at).getTime() > ONE_DAY,
+      );
+      const withOutput = bItems.filter((i) => ((i.output_result ?? "").trim() !== ""));
+      const noNext = withOutput.filter((i) => !(i.next_step_generated ?? false));
+      const errs = bItems.filter(
+        (i) => i.automation_status === "failed" || i.approval_status === "blocked",
+      );
+      const recentLog = bLogs.some((l) => new Date(l.created_at).getTime() >= sevenDaysAgo);
+
+      const checks: AuditCheck[] = [
+        {
+          key: "roadmap",
+          label: "Roadmap presente",
+          state: bRoadmap.length > 0 ? "ok" : "warning",
+          detail: `${bRoadmap.length} item`,
+          suggestion: bRoadmap.length === 0 ? "Crea o importa la roadmap del progetto" : undefined,
+        },
+        {
+          key: "prompts",
+          label: "Prompt Lovable generati",
+          state: lovableItems.length > 0 ? "ok" : "warning",
+          detail: `${lovableItems.length} prompt`,
+          suggestion: lovableItems.length === 0 ? "Genera un prompt Lovable dal roadmap item aperto" : undefined,
+        },
+        {
+          key: "stale",
+          label: "Prompt pronti ma non eseguiti",
+          state: stale.length > 0 ? "warning" : "ok",
+          detail: stale.length > 0 ? `${stale.length} fermi da >24h` : "Nessuno",
+          suggestion: stale.length > 0 ? "Esegui i prompt in coda o archiviali" : undefined,
+        },
+        {
+          key: "results",
+          label: "Risultati salvati",
+          state: withOutput.length > 0 ? "ok" : "warning",
+          detail: `${withOutput.length} risultati`,
+          suggestion: withOutput.length === 0 ? "Salva il risultato di un'esecuzione manuale" : undefined,
+        },
+        {
+          key: "next",
+          label: "Risultati senza prossimo step",
+          state: noNext.length > 0 ? "warning" : "ok",
+          detail: noNext.length > 0 ? `${noNext.length} senza next step` : "OK",
+          suggestion: noNext.length > 0 ? "Genera prossimo step dal risultato" : undefined,
+        },
+        {
+          key: "errors",
+          label: "Errori o blocchi",
+          state: errs.length > 0 ? "alert" : "ok",
+          detail: errs.length > 0 ? `${errs.length} item` : "Nessuno",
+          suggestion: errs.length > 0 ? "Risolvi item falliti o bloccati prima di proseguire" : undefined,
+        },
+        {
+          key: "logs",
+          label: "Log recenti (7 giorni)",
+          state: recentLog ? "ok" : "warning",
+          detail: recentLog ? "Presenti" : "Assenti",
+          suggestion: !recentLog ? "Esegui un'azione per generare log recenti" : undefined,
+        },
+      ];
+
+      let overall: AuditState = "ok";
+      if (checks.some((c) => c.state === "alert")) overall = "alert";
+      else if (checks.some((c) => c.state === "warning")) overall = "warning";
+
+      const firstSugg = checks.find((c) => c.state === overall && c.suggestion)?.suggestion;
+      const finalSuggestion = overall === "ok" ? "Ciclo operativo pronto" : (firstSugg ?? "Verifica i check evidenziati");
+
+      return { brain, checks, overall, finalSuggestion };
+    })
+    .sort((a, b) => {
+      const o: AuditState[] = ["alert", "warning", "ok"];
+      return o.indexOf(a.overall) - o.indexOf(b.overall);
+    });
+
+  const AUDIT_META: Record<AuditState, { label: string; cls: string }> = {
+    ok: { label: "OK", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30" },
+    warning: { label: "Warning", cls: "bg-amber-500/15 text-amber-300 border-amber-500/30" },
+    alert: { label: "Alert", cls: "bg-rose-500/15 text-rose-300 border-rose-500/30" },
+  };
+
+
+
 
   const savePromptMut = useMutation({
     mutationFn: async ({ brain, roadmap, prompt }: { brain: Brain; roadmap: RoadmapItem; prompt: string }) => {
