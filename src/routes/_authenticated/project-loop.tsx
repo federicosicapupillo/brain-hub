@@ -812,6 +812,67 @@ CRITERI DI SUCCESSO:
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
+            <ListChecks className="h-4 w-4" /> Project Loop Audit
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {auditRows.length === 0 && (
+            <div className="text-sm text-muted-foreground">Nessun progetto disponibile.</div>
+          )}
+          {auditRows.map((a) => {
+            const meta = AUDIT_META[a.overall];
+            return (
+              <div key={a.brain.id} className="rounded-md border border-border/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full shrink-0"
+                      style={{ background: a.brain.color ?? "var(--neon-violet)" }}
+                    />
+                    <span className="font-medium truncate">{a.brain.name}</span>
+                    <Badge variant="outline" className={`text-[10px] ${meta.cls}`}>{meta.label}</Badge>
+                  </div>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link to="/progetti/$brainId" params={{ brainId: a.brain.id }}>
+                      <ExternalLink className="mr-1 h-3 w-3" /> Apri progetto
+                    </Link>
+                  </Button>
+                </div>
+                <div className="mt-2 grid gap-1.5 text-xs md:grid-cols-2">
+                  {a.checks.map((c) => {
+                    const cm = AUDIT_META[c.state];
+                    const Icon = c.state === "ok" ? CheckCircle2 : c.state === "alert" ? AlertTriangle : Clock;
+                    return (
+                      <div key={c.key} className="flex items-start gap-2 rounded border border-border/40 px-2 py-1.5">
+                        <Icon className={`h-3.5 w-3.5 mt-0.5 shrink-0 ${c.state === "ok" ? "text-emerald-300" : c.state === "alert" ? "text-rose-300" : "text-amber-300"}`} />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="truncate">{c.label}</span>
+                            <Badge variant="outline" className={`text-[9px] ${cm.cls}`}>{c.detail ?? cm.label}</Badge>
+                          </div>
+                          {c.suggestion && (
+                            <div className="text-[10px] text-muted-foreground mt-0.5">{c.suggestion}</div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 text-xs">
+                  <span className="text-muted-foreground">Suggerimento finale: </span>
+                  <span className="font-medium">{a.finalSuggestion}</span>
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
+
+
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
             <RefreshCw className="h-4 w-4" /> Active Project Loop
           </CardTitle>
         </CardHeader>
