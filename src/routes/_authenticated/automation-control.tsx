@@ -141,52 +141,12 @@ function AutomationControlPage() {
   });
 
   const [testingId, setTestingId] = useState<string | null>(null);
+  const testWebhookFn = useServerFn(testN8nWebhook);
+  const sendVerifiedFn = useServerFn(sendVerifiedPayloadToN8n);
 
   const testWebhookMut = useMutation({
     mutationFn: async (connector: Connector) => {
-      if (!connector.webhook_url) throw new Error("Webhook URL non configurata");
-      const { data: userData, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !userData.user) throw new Error("Non autenticato");
-      const payload = {
-        source: "brain_hub",
-        mode: "test",
-        message: "n8n webhook test",
-        timestamp: new Date().toISOString(),
-        connector_id: connector.id,
-        target_tool: connector.target_tool,
-      };
-      let statusCode: number | null = null;
-      let responseText = "";
-      let ok = false;
-      let errorMsg: string | null = null;
-      try {
-        const res = await fetch(connector.webhook_url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        statusCode = res.status;
-        responseText = (await res.text()).slice(0, 500);
-        ok = res.status === 200 || res.status === 201;
-        if (!ok) errorMsg = `HTTP ${res.status}`;
-      } catch (e) {
-        errorMsg = e instanceof Error ? e.message : "Errore di rete";
-      }
-      await supabase.from("clipboard_execution_logs").insert({
-        user_id: userData.user.id,
-        clipboard_item_id: null,
-        action: ok ? "n8n_webhook_test_success" : "n8n_webhook_test_failed",
-        notes: ok ? "Test webhook n8n riuscito" : errorMsg,
-        metadata: {
-          connector_id: connector.id,
-          connector_name: connector.name,
-          target_tool: connector.target_tool,
-          status_code: statusCode,
-          response_preview: responseText,
-        },
-      } as never);
-      if (!ok) throw new Error(errorMsg ?? "Test fallito");
-      return { statusCode, responseText };
+      return await testWebhookFn({ data: { connector_id: connector.id } });
     },
     onSuccess: (r) => {
       toast.success(`Webhook OK (${r.statusCode})`);
