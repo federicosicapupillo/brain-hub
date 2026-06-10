@@ -36,7 +36,33 @@ import {
   Gauge,
   Sparkles,
   Wand2,
+  HeartPulse,
 } from "lucide-react";
+
+type HealthStatus = "healthy" | "needs_attention" | "blocked" | "empty";
+
+const HEALTH_META: Record<HealthStatus, { label: string; cls: string; suggestion: string }> = {
+  healthy: {
+    label: "Healthy",
+    cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+    suggestion: "Continua il ciclo operativo",
+  },
+  needs_attention: {
+    label: "Needs attention",
+    cls: "bg-amber-500/15 text-amber-300 border-amber-500/30",
+    suggestion: "Genera un prompt dal prossimo roadmap item",
+  },
+  blocked: {
+    label: "Blocked",
+    cls: "bg-rose-500/15 text-rose-300 border-rose-500/30",
+    suggestion: "Risolvi item falliti o bloccati",
+  },
+  empty: {
+    label: "Empty",
+    cls: "bg-muted text-muted-foreground border-border",
+    suggestion: "Crea roadmap iniziale del progetto",
+  },
+};
 
 export const Route = createFileRoute("/_authenticated/project-loop")({
   head: () => ({ meta: [{ title: "Project Loop — AI Brain" }] }),
@@ -254,6 +280,7 @@ function ProjectLoopPage() {
 
   const brains = data?.brains ?? [];
   const roadmap = data?.roadmap ?? [];
+  const tasks = data?.tasks ?? [];
   const items = data?.items ?? [];
   const logs = data?.logs ?? [];
   const projectLinks = data?.projectLinks ?? [];
@@ -320,6 +347,68 @@ function ProjectLoopPage() {
     }>;
 
   const projectLinkById = new Map(projectLinks.map((p) => [p.id, p]));
+
+  // ============ Project Health ============
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const itemIdToBrain = new Map(items.map((i) => [i.id, i.brain_id]));
+  const logsByBrain = new Map<string, ExecLog[]>();
+  for (const l of logs) {
+    const bid = itemIdToBrain.get(l.clipboard_item_id);
+    if (!bid) continue;
+    const arr = logsByBrain.get(bid) ?? [];
+    arr.push(l);
+    logsByBrain.set(bid, arr);
+  }
+
+  const healthRows = brains
+    .map((brain) => {
+      const bid = brain.id;
+      const bRoadmap = roadmap.filter((r) => r.brain_id === bid);
+      const bTasks = tasks.filter((t) => t.brain_id === bid);
+      const bItems = items.filter((i) => i.brain_id === bid);
+      const bLogs = logsByBrain.get(bid) ?? [];
+
+      const openRoadmapCount = bRoadmap.filter(isOpenRoadmap).length;
+      const openTasksCount = bTasks.filter(
+        (t) => !["done", "completed", "completato", "archived"].includes((t.status ?? "").toLowerCase()),
+      ).length;
+      const readyPrompts = bItems.filter(
+        (i) => i.target_tool === "Lovable" && i.automation_status === "ready_for_automation" && i.status !== "archived",
+      ).length;
+      const failedItems = bItems.filter(
+        (i) => i.automation_status === "failed" || i.approval_status === "blocked",
+      ).length;
+      const lastLog = bLogs[0];
+      const lastLogTs = lastLog ? new Date(lastLog.created_at).getTime() : 0;
+      const hasRecentLog = lastLogTs >= sevenDaysAgo;
+
+      const isEmpty = bRoadmap.length === 0 && bTasks.length === 0 && bItems.length === 0;
+
+      let status: HealthStatus;
+      if (isEmpty) status = "empty";
+      else if (failedItems > 0) status = "blocked";
+      else if (!hasRecentLog || (openRoadmapCount > 0 && readyPrompts === 0)) status = "needs_attention";
+      else status = "healthy";
+
+      return {
+        brain,
+        status,
+        lastLog,
+        openRoadmapCount,
+        openTasksCount,
+        readyPrompts,
+        failedItems,
+      };
+    })
+    .sort((a, b) => {
+      const order: HealthStatus[] = ["blocked", "needs_attention", "empty", "healthy"];
+      return order.indexOf(a.status) - order.indexOf(b.status);
+    });
+
+  const needsAttentionCount = healthRows.filter(
+    (h) => h.status === "blocked" || h.status === "needs_attention",
+  ).length;
+
 
   const savePromptMut = useMutation({
     mutationFn: async ({ brain, roadmap, prompt }: { brain: Brain; roadmap: RoadmapItem; prompt: string }) => {
@@ -549,14 +638,78 @@ CRITERI DI SUCCESSO:
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-7">
         <StatCard label="Progetti attivi" value={activeBrainIds.size} icon={Rocket} />
+        <StatCard label="Progetti da attenzionare" value={needsAttentionCount} icon={HeartPulse} />
         <StatCard label="Roadmap aperti" value={openRoadmap} icon={ListChecks} />
         <StatCard label="Pronti per Lovable" value={readyForLovable} icon={Workflow} />
         <StatCard label="Prompt in coda" value={queuedLovable} icon={Clock} />
         <StatCard label="Da rielaborare" value={toReprocess} icon={AlertTriangle} />
         <StatCard label="Risultati salvati" value={recentSavedOutputs} icon={CheckCircle2} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <HeartPulse className="h-4 w-4" /> Project Health
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {healthRows.length === 0 && (
+            <div className="text-sm text-muted-foreground">Nessun progetto disponibile.</div>
+          )}
+          {healthRows.map((h) => {
+            const meta = HEALTH_META[h.status];
+            return (
+              <div key={h.brain.id} className="rounded-md border border-border/60 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className="h-2.5 w-2.5 rounded-full shrink-0"
+                      style={{ background: h.brain.color ?? "var(--neon-violet)" }}
+                    />
+                    <span className="font-medium truncate">{h.brain.name}</span>
+                    <Badge variant="outline" className={`text-[10px] ${meta.cls}`}>{meta.label}</Badge>
+                  </div>
+                  <Button asChild variant="ghost" size="sm">
+                    <Link to="/progetti/$brainId" params={{ brainId: h.brain.id }}>
+                      <ExternalLink className="mr-1 h-3 w-3" /> Apri progetto
+                    </Link>
+                  </Button>
+                </div>
+                <div className="mt-2 grid gap-2 text-xs md:grid-cols-3 lg:grid-cols-6">
+                  <div>
+                    <div className="text-muted-foreground">Ultimo log</div>
+                    <div className="truncate">
+                      {h.lastLog ? new Date(h.lastLog.created_at).toLocaleString() : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Roadmap aperti</div>
+                    <div>{h.openRoadmapCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Task aperti</div>
+                    <div>{h.openTasksCount}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Prompt pronti</div>
+                    <div>{h.readyPrompts}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Item falliti</div>
+                    <div className={h.failedItems > 0 ? "text-rose-300 font-medium" : ""}>{h.failedItems}</div>
+                  </div>
+                  <div className="md:col-span-3 lg:col-span-1">
+                    <div className="text-muted-foreground">Suggerimento</div>
+                    <div className="truncate" title={meta.suggestion}>{meta.suggestion}</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
