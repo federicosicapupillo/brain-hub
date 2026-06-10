@@ -259,7 +259,9 @@ function AutomationControlPage() {
 
   const { items, logs, connectors, brains, tasksCount, todayStart } = data;
 
-  const toApprove = items.filter((i) => i.human_review_required && i.approval_status !== "approved" && i.approval_status !== "blocked").length;
+  const toApprove = items
+    .map((i) => normalizeAutomationItem(i as unknown as Parameters<typeof normalizeAutomationItem>[0]))
+    .filter((n) => n.isPendingApproval).length;
   const ready = items.filter((i) => i.automation_status === "ready_for_automation").length;
   const queued = items.filter((i) => i.automation_status === "queued").length;
   const running = items.filter((i) => i.automation_status === "running").length;
