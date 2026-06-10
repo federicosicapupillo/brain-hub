@@ -263,23 +263,6 @@ export function N8nPilotConnector() {
     return JSON.stringify(buildCallbackTemplateObj(item), null, 2);
   }
 
-  function buildCallbackTemplate(item: ClipItem): string {
-    const run = getAutomationRun(item);
-    const stamp = Date.now().toString(36);
-    const tpl = {
-      execution_package_id: item.id,
-      run_id: run.run_id,
-      status: "completed",
-      build_status: "not_verified",
-      console_errors: false,
-      modified_files: [] as string[],
-      summary: "Risultato generato da n8n pilot",
-      notes: "",
-      external_result_reference: `n8n_pilot_${stamp}`,
-      raw_output: "",
-    };
-    return JSON.stringify(tpl, null, 2);
-  }
 
   async function logEvent(item: ClipItem, action: LogEventType, notes: string, extra?: Record<string, unknown>) {
     const { data: userData } = await supabase.auth.getUser();
