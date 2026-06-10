@@ -37,6 +37,9 @@ import {
   Sparkles,
   Wand2,
   HeartPulse,
+  ChevronDown,
+  ChevronRight,
+  Send,
 } from "lucide-react";
 
 type HealthStatus = "healthy" | "needs_attention" | "blocked" | "empty";
