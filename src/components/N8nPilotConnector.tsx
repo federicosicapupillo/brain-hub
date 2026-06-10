@@ -501,10 +501,15 @@ export function N8nPilotConnector() {
   });
 
   type ReadinessCheck = { label: string; ok: boolean; critical: boolean };
-  function readinessFor(item: ClipItem): { checks: ReadinessCheck[]; contract: ReturnType<typeof validateN8nContract>; canMark: boolean } {
+  function readinessFor(item: ClipItem): {
+    checks: ReadinessCheck[];
+    contract: ReturnType<typeof validateN8nContract>;
+    canMark: boolean;
+    payload: Record<string, unknown>;
+    callbackTpl: Record<string, unknown>;
+  } {
     const run = getAutomationRun(item);
     const rm = resultMeta(item);
-    const ext = externalConnector(item);
     const reviewed = reviewStatus(item);
     const dryActive = ((run as unknown) as { dry_run?: { enabled?: boolean } }).dry_run?.enabled === true && run.run_status === "running";
     const realApproved = rm?.source !== "dry_run" && rm?.is_simulated !== true && (reviewed === "approvato" || run.run_status === "completed");
@@ -523,8 +528,9 @@ export function N8nPilotConnector() {
       { label: "Test manuale/pilota consapevole", ok: true, critical: false },
     ];
     const canMark = checks.filter((c) => c.critical).every((c) => c.ok);
-    return { checks, contract, canMark };
+    return { checks, contract, canMark, payload, callbackTpl: tpl };
   }
+
 
   const markReadyMut = useMutation({
     mutationFn: async (item: ClipItem) => {
