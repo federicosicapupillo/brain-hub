@@ -610,8 +610,25 @@ Callback richiesta:
         <details className="rounded-md border border-blue-500/40 bg-blue-500/5 p-3">
           <summary className="cursor-pointer text-sm font-medium flex items-center gap-2">
             <Inbox className="h-3 w-3 text-blue-400" /> Endpoint callback n8n (ricezione reale)
+            <Badge
+              className={
+                secretStatusQ.isLoading
+                  ? "bg-muted text-muted-foreground text-[10px]"
+                  : secretConfigured
+                  ? "bg-emerald-500/15 text-emerald-300 text-[10px]"
+                  : "bg-red-500/15 text-red-300 text-[10px]"
+              }
+            >
+              Secret configurato: {secretStatusQ.isLoading ? "…" : secretConfigured ? "sì" : "no"}
+            </Badge>
           </summary>
           <div className="mt-2 space-y-2 text-xs">
+            {!secretStatusQ.isLoading && !secretConfigured && (
+              <div className="rounded-md border border-red-500/40 bg-red-500/5 p-2 text-red-300">
+                <AlertTriangle className="inline h-3 w-3 mr-1" />
+                Il secret <code>BRAINHUB_N8N_CALLBACK_SECRET</code> non è configurato lato server: l&apos;endpoint risponderà 503 e non accetterà callback.
+              </div>
+            )}
             <div className="grid gap-1 text-muted-foreground">
               <div><span className="font-medium text-foreground">Path:</span> <code>/api/public/n8n-pilot-callback</code></div>
               <div><span className="font-medium text-foreground">Metodo:</span> POST</div>
