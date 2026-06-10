@@ -2546,6 +2546,257 @@ Procedi e verifica i criteri sopra elencati.`;
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog
+        open={!!reviewItem}
+        onOpenChange={(o) => {
+          if (!o) setReviewItem(null);
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4" /> Review risultato Lovable
+            </DialogTitle>
+          </DialogHeader>
+          {reviewItem && (() => {
+            const derived = deriveReview({
+              buildStatus: reviewForm.buildStatus,
+              consoleStatus: reviewForm.consoleStatus,
+              matched: reviewForm.criteria.filter((c) => c.matched).map((c) => c.label),
+              missing: reviewForm.criteria.filter((c) => !c.matched).map((c) => c.label),
+              protectedTouched: reviewForm.protectedTouched,
+              completion: reviewForm.completion,
+              needsFix: reviewForm.needsFix,
+              notes: reviewForm.notes,
+            });
+            const meta = REVIEW_META[derived.review_status];
+            return (
+              <div className="space-y-3 text-sm">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="text-muted-foreground">Prompt</div>
+                    <div className="truncate font-medium">{reviewItem.title || "(senza titolo)"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Progetto</div>
+                    <div className="truncate font-medium">
+                      {reviewItem.brain_id ? brainsById.get(reviewItem.brain_id)?.name ?? "—" : "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Build riuscita?</div>
+                    <Select
+                      value={reviewForm.buildStatus}
+                      onValueChange={(v) =>
+                        setReviewForm((f) => ({ ...f, buildStatus: v as "yes" | "no" | "unverified" }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Sì</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                        <SelectItem value="unverified">Non verificato</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Errori console?</div>
+                    <Select
+                      value={reviewForm.consoleStatus}
+                      onValueChange={(v) =>
+                        setReviewForm((f) => ({ ...f, consoleStatus: v as "yes" | "no" | "unverified" }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">No</SelectItem>
+                        <SelectItem value="yes">Sì</SelectItem>
+                        <SelectItem value="unverified">Non verificato</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">
+                    Criteri di successo rispettati
+                  </div>
+                  {reviewForm.criteria.length === 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      Nessun criterio specifico definito nell'Execution Package.
+                    </div>
+                  )}
+                  <div className="space-y-1">
+                    {reviewForm.criteria.map((c, idx) => (
+                      <label key={idx} className="flex items-start gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          checked={c.matched}
+                          onChange={(e) =>
+                            setReviewForm((f) => {
+                              const next = [...f.criteria];
+                              next[idx] = { ...next[idx], matched: e.target.checked };
+                              return { ...f, criteria: next };
+                            })
+                          }
+                          className="mt-0.5"
+                        />
+                        <span>{c.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">
+                    Lovable ha toccato aree protette?
+                  </div>
+                  <div className="grid grid-cols-2 gap-1">
+                    {PROTECTED_AREAS.map((area) => {
+                      const checked = reviewForm.protectedTouched.includes(area);
+                      return (
+                        <label key={area} className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) =>
+                              setReviewForm((f) => ({
+                                ...f,
+                                protectedTouched: e.target.checked
+                                  ? [...f.protectedTouched, area]
+                                  : f.protectedTouched.filter((a) => a !== area),
+                              }))
+                            }
+                          />
+                          <span>{area}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-2">
+                  <div>
+                    <div className="mb-1 text-xs text-muted-foreground">Completamento</div>
+                    <Select
+                      value={reviewForm.completion}
+                      onValueChange={(v) =>
+                        setReviewForm((f) => ({ ...f, completion: v as CompletionLevel }))
+                      }
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="completo">Completo</SelectItem>
+                        <SelectItem value="parziale">Parziale</SelectItem>
+                        <SelectItem value="fallito">Fallito</SelectItem>
+                        <SelectItem value="non_verificato">Non verificato</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <label className="flex items-center gap-2 text-xs">
+                      <input
+                        type="checkbox"
+                        checked={reviewForm.needsFix}
+                        onChange={(e) => setReviewForm((f) => ({ ...f, needsFix: e.target.checked }))}
+                      />
+                      <span>Serve un fix</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-1 text-xs text-muted-foreground">Note review</div>
+                  <Textarea
+                    value={reviewForm.notes}
+                    onChange={(e) => setReviewForm((f) => ({ ...f, notes: e.target.value }))}
+                    className="min-h-[60px] text-xs"
+                  />
+                </div>
+
+                <div className="rounded-md border border-border/60 p-2 text-xs">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground">Esito calcolato:</span>
+                    <Badge variant="outline" className={`text-[10px] ${meta.cls}`}>{meta.label}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{derived.completion_level}</Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      next: {derived.recommended_next_action}
+                    </Badge>
+                  </div>
+                  {derived.detected_risks.length > 0 && (
+                    <div className="mt-1 text-rose-300">
+                      <AlertTriangle className="mr-1 inline h-3 w-3" />
+                      {derived.detected_risks.join(" · ")}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setReviewItem(null)}>
+              Chiudi
+            </Button>
+            {reviewItem && (() => {
+              const derived = deriveReview({
+                buildStatus: reviewForm.buildStatus,
+                consoleStatus: reviewForm.consoleStatus,
+                matched: reviewForm.criteria.filter((c) => c.matched).map((c) => c.label),
+                missing: reviewForm.criteria.filter((c) => !c.matched).map((c) => c.label),
+                protectedTouched: reviewForm.protectedTouched,
+                completion: reviewForm.completion,
+                needsFix: reviewForm.needsFix,
+                notes: reviewForm.notes,
+              });
+              const isFix = derived.recommended_next_action === "genera_fix_prompt";
+              return (
+                <>
+                  <Button
+                    variant="outline"
+                    disabled={saveReviewMut.isPending}
+                    onClick={() => saveReviewMut.mutate({ item: reviewItem, review: derived })}
+                  >
+                    <ClipboardCheck className="mr-1 h-3 w-3" />
+                    {saveReviewMut.isPending ? "Salvataggio…" : "Salva review"}
+                  </Button>
+                  {isFix ? (
+                    <Button
+                      disabled={generateFixPromptMut.isPending}
+                      onClick={async () => {
+                        await saveReviewMut.mutateAsync({ item: reviewItem, review: derived });
+                        generateFixPromptMut.mutate({ item: reviewItem });
+                      }}
+                    >
+                      <ShieldAlert className="mr-1 h-3 w-3" /> Salva e genera fix prompt
+                    </Button>
+                  ) : derived.review_status === "approved" ? (
+                    <Button
+                      disabled={saveReviewMut.isPending}
+                      onClick={async () => {
+                        await saveReviewMut.mutateAsync({ item: reviewItem, review: derived });
+                        triggerNextPrompt(reviewItem);
+                      }}
+                    >
+                      <Wand2 className="mr-1 h-3 w-3" /> Salva e genera prossimo prompt
+                    </Button>
+                  ) : (
+                    <Button
+                      disabled={saveReviewMut.isPending}
+                      onClick={() => saveReviewMut.mutate({ item: reviewItem, review: derived })}
+                    >
+                      <XCircle className="mr-1 h-3 w-3" /> Chiudi step in pending
+                    </Button>
+                  )}
+                </>
+              );
+            })()}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
