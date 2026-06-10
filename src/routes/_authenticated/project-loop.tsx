@@ -588,6 +588,10 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   n8n_callback_sent_to_inbox: "[n8n pilot] Callback n8n inviata alla inbox",
   n8n_ready_for_real_test: "[n8n pilot] Pronto per test reale controllato",
   n8n_callback_received: "[n8n webhook] Callback reale ricevuta",
+  lovable_prompt_copied: "[Lovable] Prompt copiato",
+  lovable_project_opened: "[Lovable] Progetto aperto",
+  lovable_prompt_sent_manually: "[Lovable] Prompt segnato come inviato",
+  lovable_result_saved: "[Lovable] Risultato salvato",
 };
 
 function buildTimelineEvents(
