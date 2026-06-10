@@ -47,10 +47,41 @@ export type ItemLike = {
   target_tool?: string | null;
   risk_level?: string | null;
   automation_status?: string | null;
+  project_id?: string | null;
+  success_criteria?: string | null;
+  expected_output?: string | null;
+  execution_instructions?: string | null;
   metadata: Record<string, unknown> | null;
 };
 
 const ACTIVE_RUN_STATUSES: RunStatus[] = ["approved", "queued", "running"];
+
+export const DEFAULT_SUCCESS_CRITERIA =
+  "Build pulita, nessun errore TypeScript, nessun errore console, funzionalità richiesta completata senza modificare aree protette.";
+export const DEFAULT_EXPECTED_OUTPUT =
+  "Riepilogo modifiche effettuate, file modificati, stato build, eventuali errori console e note operative.";
+export const DEFAULT_PROTECTED_AREAS =
+  "Non modificare auth, login, signup, sessioni, RLS, policy Supabase, route, sidebar, layout globale o componenti condivisi se non esplicitamente richiesto.";
+export const DEFAULT_PROJECT_NAME = "Progetto non specificato";
+
+/** Extract a section by uppercase-ish heading from a prompt text. Best-effort. */
+export function extractPromptSection(text: string | null | undefined, headers: string[]): string {
+  if (!text || typeof text !== "string") return "";
+  for (const h of headers) {
+    const esc = h.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(
+      `(?:^|\\n)[\\s*#>\\-]*${esc}[\\s*:#>\\-]*\\n([\\s\\S]*?)(?=\\n[\\s*#>\\-]*[A-ZÀ-Ý][A-ZÀ-Ý0-9 \\/&'\\-]{3,}[\\s*:#>\\-]*\\n|$)`,
+      "i",
+    );
+    const m = text.match(re);
+    if (m && m[1]) {
+      const v = m[1].trim();
+      if (v) return v;
+    }
+  }
+  return "";
+}
+
 
 export function defaultAutomationRun(): AutomationRun {
   return {
