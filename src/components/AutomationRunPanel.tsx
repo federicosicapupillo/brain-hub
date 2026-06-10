@@ -183,34 +183,52 @@ export function AutomationRunPanel() {
   const brains = data?.brains ?? [];
   const brainMap = useMemo(() => new Map(brains.map((b) => [b.id, b])), [brains]);
 
+  const normalized = useMemo(
+    () => items.map((i) => ({ item: i, norm: normalizeAutomationItem(i) })),
+    [items],
+  );
+
   const filtered = useMemo(() => {
-    return items.filter((i) => {
-      if (!VALID_AUTOMATION_STATUSES.includes(i.automation_status ?? "")) return false;
-      const run = getAutomationRun(i);
-      switch (filter) {
-        case "tutti":
-          return true;
-        case "da_approvare":
-          return run.run_status === "draft" || i.automation_status === "da_approvare";
-        case "approvati":
-          return run.run_status === "approved";
-        case "in_coda":
-          return run.run_status === "queued";
-        case "in_esecuzione":
-          return run.run_status === "running";
-        case "completati":
-          return run.run_status === "completed";
-        case "falliti":
-          return run.run_status === "failed";
-        case "alto_rischio":
-          return i.risk_level === "alto";
-        case "fix_prompt":
-          return pkgType(i) === "fix_prompt";
-        case "next_prompt":
-          return pkgType(i) === "next_prompt";
-      }
-    });
-  }, [items, filter]);
+    return normalized
+      .filter(({ norm }) => norm.isEligibleForRunLedger)
+      .filter(({ item, norm }) => {
+        const run = getAutomationRun(item);
+        switch (filter) {
+          case "tutti":
+            return true;
+          case "da_approvare":
+            return norm.isPendingApproval;
+          case "approvati":
+            return run.run_status === "approved";
+          case "in_coda":
+            return run.run_status === "queued";
+          case "in_esecuzione":
+            return run.run_status === "running";
+          case "completati":
+            return run.run_status === "completed";
+          case "falliti":
+            return run.run_status === "failed";
+          case "alto_rischio":
+            return item.risk_level === "alto";
+          case "fix_prompt":
+            return pkgType(item) === "fix_prompt";
+          case "next_prompt":
+            return pkgType(item) === "next_prompt";
+        }
+      })
+      .map(({ item }) => item);
+  }, [normalized, filter]);
+
+  const diagnostics = useMemo(() => {
+    const totalLoaded = items.length;
+    const executionPackages = normalized.filter((n) => n.norm.isExecutionPackage).length;
+    const pendingApproval = normalized.filter((n) => n.norm.isPendingApproval).length;
+    const visibleInFilter = filtered.length;
+    const excluded = normalized
+      .filter((n) => n.norm.exclusionReason)
+      .map((n) => ({ id: n.item.id, title: n.item.title, reason: n.norm.exclusionReason }));
+    return { totalLoaded, executionPackages, pendingApproval, visibleInFilter, excluded };
+  }, [normalized, items.length, filtered.length]);
 
   if (isLoading) return <div className="p-6 text-sm text-muted-foreground">Caricamento Run Ledger…</div>;
   if (error) return <div className="p-6 text-sm text-destructive">{(error as Error).message}</div>;
