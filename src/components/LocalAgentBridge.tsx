@@ -647,6 +647,7 @@ export function LocalAgentBridge() {
             );
           })}
         </div>
+        <PlaywrightStarterKit />
       </CardContent>
     </Card>
   );
