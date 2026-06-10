@@ -157,6 +157,10 @@ function externalConnector(i: ClipItem):
       last_payload_version?: number;
       last_callback_template_at?: string;
       last_sent_to_inbox_at?: string;
+      contract_status?: ContractStatus;
+      callback_schema_version?: number;
+      ready_for_real_test?: boolean;
+      ready_marked_at?: string;
     }
   | null {
   const run = getAutomationRun(i);
