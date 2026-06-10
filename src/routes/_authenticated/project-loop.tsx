@@ -1509,6 +1509,25 @@ CRITERI DI SUCCESSO:
           {lovableQueue.map((i) => {
             const brain = i.brain_id ? brainsById.get(i.brain_id) : null;
             const ptl = i.project_tool_link_id ? projectLinkById.get(i.project_tool_link_id) : null;
+            const stage = computePromptStage(i);
+            const stageMeta = STAGE_META[stage];
+            const meta = (i.metadata as Record<string, unknown> | null) ?? {};
+            const roadmapId = typeof meta.roadmap_item_id === "string" ? meta.roadmap_item_id : null;
+            const originRoadmap = roadmapId ? roadmap.find((r) => r.id === roadmapId) : null;
+            const handleCopy = (kind: "prompt_only" | "full_package") => {
+              const pkg = (meta.execution_package as ExecutionPackage | undefined) ?? null;
+              const text = kind === "prompt_only" && pkg?.promptOnly ? pkg.promptOnly : i.content;
+              copyPrompt(text);
+              logCopyMut.mutate({ item: i, kind });
+            };
+            const handleMarkSent = () => {
+              const checks = runPromptChecklist(i.content);
+              const missing = checks.filter((c) => !c.ok);
+              if (missing.length > 0) {
+                toast.warning(`Attenzione: ${missing.map((m) => m.label).join(" · ")}`);
+              }
+              markSentMut.mutate(i);
+            };
             return (
               <div key={i.id} className="rounded-md border border-border/60 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1517,16 +1536,19 @@ CRITERI DI SUCCESSO:
                     <div className="truncate text-xs text-muted-foreground">
                       {brain?.name ?? "—"}
                       {ptl ? ` · ${ptl.tool_name}` : ""}
+                      {originRoadmap ? ` · roadmap: ${originRoadmap.title}` : ""}
+                      {" · agg. "}
+                      {new Date(i.updated_at).toLocaleString()}
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-1">
+                    <Badge variant="outline" className={`text-[10px] ${stageMeta.cls}`}>{stageMeta.label}</Badge>
                     {i.risk_level && (
                       <Badge variant="outline" className="text-[10px]">
                         risk: {i.risk_level}
                       </Badge>
                     )}
                     <Badge variant="secondary" className="text-[10px]">{i.approval_status}</Badge>
-                    <Badge variant="default" className="text-[10px]">{i.automation_status}</Badge>
                     {i.next_step_generated && (
                       <Badge variant="outline" className="text-[10px]">
                         Prossimo step già generato
@@ -1541,14 +1563,17 @@ CRITERI DI SUCCESSO:
                   <Button asChild size="sm" variant="outline">
                     <Link to="/clipboard-ai"><ExternalLink className="mr-1 h-3 w-3" /> Apri</Link>
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => copyPrompt(i.content)}>
-                    <Copy className="mr-1 h-3 w-3" /> Copia prompt
+                  <Button size="sm" variant="ghost" onClick={() => handleCopy("prompt_only")}>
+                    <Copy className="mr-1 h-3 w-3" /> Copia solo prompt Lovable
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => handleCopy("full_package")}>
+                    <Copy className="mr-1 h-3 w-3" /> Copia pacchetto completo
                   </Button>
                   <Button
                     size="sm"
                     variant="ghost"
                     disabled={markSentMut.isPending}
-                    onClick={() => markSentMut.mutate(i)}
+                    onClick={handleMarkSent}
                   >
                     <CheckCircle2 className="mr-1 h-3 w-3" /> Segna inviato
                   </Button>
