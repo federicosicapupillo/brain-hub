@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
+  ExternalLink,
   ListChecks,
   Plus,
   ShieldAlert,
@@ -37,6 +38,7 @@ import {
   ACTION_TYPE_RISK,
   AutomationAction,
   ActionStatus,
+  ActionSource,
   ActionType,
   RISK_TONE,
   SOURCE_LABEL,
@@ -46,9 +48,32 @@ import {
   createAction,
   listActions,
   markExecuted,
+  markFailed,
   markReadyToExecute,
   rejectAction,
 } from "@/lib/action-queue";
+import type { LogEventType } from "@/lib/automation-run";
+
+async function logEvent(action: LogEventType, notes: string, metadata: Record<string, unknown>) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return;
+  await supabase.from("clipboard_execution_logs").insert({
+    user_id: u.user.id,
+    clipboard_item_id: null,
+    action,
+    notes,
+    metadata,
+  } as never);
+}
+
+const SOURCE_BADGE: Record<ActionSource, string> = {
+  project_health_check: "Da Project Health",
+  roadmap_intelligence: "Da Roadmap",
+  next_prompt_generator: "Da Next Prompt",
+  execution_tracking: "Da Execution Tracking",
+  user_manual: "Manuale",
+  system_suggestion: "Sistema",
+};
 
 export const Route = createFileRoute("/_authenticated/action-queue")({
   head: () => ({
