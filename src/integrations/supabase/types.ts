@@ -1022,6 +1022,81 @@ export type Database = {
           },
         ]
       }
+      project_knowledge_sources: {
+        Row: {
+          brain_id: string | null
+          category: string
+          created_at: string
+          description: string | null
+          external_drive_name: string | null
+          id: string
+          importance: string
+          local_path: string | null
+          metadata: Json
+          project_id: string | null
+          prompt_execution_log_id: string | null
+          roadmap_item_id: string | null
+          runbook_instance_id: string | null
+          source_type: string
+          source_url: string | null
+          status: string
+          tags: Json
+          task_id: string | null
+          title: string
+          tool_link_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          external_drive_name?: string | null
+          id?: string
+          importance?: string
+          local_path?: string | null
+          metadata?: Json
+          project_id?: string | null
+          prompt_execution_log_id?: string | null
+          roadmap_item_id?: string | null
+          runbook_instance_id?: string | null
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          tags?: Json
+          task_id?: string | null
+          title: string
+          tool_link_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          external_drive_name?: string | null
+          id?: string
+          importance?: string
+          local_path?: string | null
+          metadata?: Json
+          project_id?: string | null
+          prompt_execution_log_id?: string | null
+          roadmap_item_id?: string | null
+          runbook_instance_id?: string | null
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          tags?: Json
+          task_id?: string | null
+          title?: string
+          tool_link_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       project_links: {
         Row: {
           brain_id: string
