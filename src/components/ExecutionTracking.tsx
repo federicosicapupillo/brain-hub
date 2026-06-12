@@ -611,6 +611,11 @@ export function ExecutionTracking() {
       `Prompt fallito: ${row.prompt_title}${reason ? ` — ${reason}` : ""}`,
     );
     toast.success("Segnato come fallito");
+    void enqueueExecCta(row, "Segna come fallito", "mark_roadmap_needs_fix", "medium", {
+      result_status: "failed",
+      suggested_reason: "marked_failed",
+      failure_reason: reason || undefined,
+    });
   }
 
   async function copyReceipt(row: PEL) {
