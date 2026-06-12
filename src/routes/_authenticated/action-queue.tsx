@@ -1042,6 +1042,8 @@ function N8nControlledExecutionBox({
         )}
       </div>
 
+      <N8nTelegramApprovalHint action={action} workflowRisk={workflow.risk_level} />
+
       <div className="grid grid-cols-2 gap-2 text-[11px]">
         <div>
           <div className="text-[10px] uppercase text-muted-foreground">Input attesi</div>
