@@ -869,6 +869,10 @@ export function ExecutionTracking() {
     );
     refresh();
     toast.success("Prompt copiato e tracciato come inviato. Incollalo in Browser Bridge.");
+    void enqueueExecCta(parent, "Inserisci e invia con conferma", "send_next_prompt", "high", {
+      child_pel_id: child.id,
+      suggested_reason: "next_prompt_send_confirmed",
+    });
   }
 
 
