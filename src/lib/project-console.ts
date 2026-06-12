@@ -19,7 +19,8 @@ export type BlockId =
   | "log_attivita"
   | "build_status"
   | "checklist_operative"
-  | "project_health_check";
+  | "project_health_check"
+  | "automation_control";
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
