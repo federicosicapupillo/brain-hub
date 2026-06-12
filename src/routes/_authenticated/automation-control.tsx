@@ -328,6 +328,8 @@ function AutomationControlPage() {
 
       <ExecutionTracking />
 
+      <RoadmapIntelligence />
+
 
 
 
