@@ -358,6 +358,13 @@ function ProjectConsoleRoute() {
 function BlockPreview({ id, brainId }: { id: BlockId; brainId: string }) {
   const meta = ALL_BLOCKS.find((b) => b.id === id);
   const empty = useEmptyStateLabel(id);
+  if (id === "roadmap_intelligence" && brainId) {
+    return (
+      <div className="md:col-span-2">
+        <RoadmapIntelligence brainId={brainId} />
+      </div>
+    );
+  }
   return (
     <div className="rounded-md border border-border/60 bg-card/40 p-3">
       <div className="mb-1 flex items-center justify-between gap-2">
