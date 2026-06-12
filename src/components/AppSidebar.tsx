@@ -49,6 +49,7 @@ const items = [
   { title: "Automation Control", url: "/automation-control", icon: Gauge },
   { title: "Action Queue", url: "/action-queue", icon: Gauge },
   { title: "Automation Readiness", url: "/automation-readiness", icon: ShieldCheck },
+  { title: "n8n Workflows", url: "/n8n-workflows", icon: GitBranch },
   { title: "Project Loop", url: "/project-loop", icon: RefreshCw },
   { title: "Operating Dashboard", url: "/operating-dashboard", icon: LayoutDashboard },
   { title: "Project Console", url: "/project-console", icon: LayoutDashboard },
