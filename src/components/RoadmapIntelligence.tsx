@@ -219,6 +219,7 @@ export function RoadmapIntelligence({ brainId: brainIdProp }: { brainId?: string
   const [brainIdState, setBrainId] = useState<string>("");
   const brainId = brainIdProp ?? brainIdState;
   const lockedBrain = !!brainIdProp;
+  const navigate = useNavigate();
   const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
   const [linkDialogPEL, setLinkDialogPEL] = useState<PEL | null>(null);
   const [linkTargetRoadmap, setLinkTargetRoadmap] = useState<string>("");
