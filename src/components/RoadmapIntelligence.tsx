@@ -212,9 +212,11 @@ async function logEvent(
 
 const STALE_PENDING_MS = 1000 * 60 * 60 * 24; // 24h
 
-export function RoadmapIntelligence() {
+export function RoadmapIntelligence({ brainId: brainIdProp }: { brainId?: string } = {}) {
   const qc = useQueryClient();
-  const [brainId, setBrainId] = useState<string>("");
+  const [brainIdState, setBrainId] = useState<string>("");
+  const brainId = brainIdProp ?? brainIdState;
+  const lockedBrain = !!brainIdProp;
   const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
   const [linkDialogPEL, setLinkDialogPEL] = useState<PEL | null>(null);
   const [linkTargetRoadmap, setLinkTargetRoadmap] = useState<string>("");
