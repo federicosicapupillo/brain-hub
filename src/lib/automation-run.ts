@@ -285,7 +285,15 @@ export type LogEventType =
   | "tool_connection_status_changed"
   | "tool_connection_opened"
   | "tool_connection_manual_check_completed"
-  | "tool_connection_recommended_ignored";
+  | "tool_connection_recommended_ignored"
+  | "knowledge_source_created"
+  | "knowledge_source_updated"
+  | "knowledge_source_status_changed"
+  | "knowledge_source_opened"
+  | "knowledge_source_linked_to_tool"
+  | "knowledge_source_linked_to_roadmap"
+  | "knowledge_source_archived"
+  | "knowledge_source_missing_recommended";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
