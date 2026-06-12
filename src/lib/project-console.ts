@@ -93,6 +93,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "file_documenti",
       "kpi",
       "note_progetto",
+      "tool_connections",
     ],
   },
   marketing: {
