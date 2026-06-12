@@ -259,7 +259,14 @@ export type LogEventType =
   | "project_health_check_completed"
   | "project_health_issue_detected"
   | "project_health_warning_ignored"
-  | "project_health_next_action_suggested";
+  | "project_health_next_action_suggested"
+  | "automation_action_created"
+  | "automation_action_approved"
+  | "automation_action_rejected"
+  | "automation_action_ready_to_execute"
+  | "automation_action_executed"
+  | "automation_action_failed"
+  | "automation_action_cancelled";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
