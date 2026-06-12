@@ -589,6 +589,234 @@ export function ExecutionTracking() {
     return brainMap.get(row.brain_id)?.name ?? "—";
   }
 
+  // ─── Next Prompt Generator (v0.4) ──────────────────────────────────────────
+
+  function openGenerator(row: PEL) {
+    const cur = genDrafts[row.id];
+    if (cur?.open) {
+      setGenDrafts((s) => ({ ...s, [row.id]: { ...cur, open: false } }));
+      return;
+    }
+    const goal = (row.generation_goal as GenerationGoal) || suggestGoalFromResultType(row.result_type);
+    const text = row.generated_prompt_text || buildNextPrompt(row, goal);
+    setGenDrafts((s) => ({ ...s, [row.id]: { goal, text, open: true } }));
+  }
+
+  function regenerate(row: PEL) {
+    const cur = genDrafts[row.id];
+    const goal = cur?.goal ?? suggestGoalFromResultType(row.result_type);
+    const text = buildNextPrompt(row, goal);
+    setGenDrafts((s) => ({ ...s, [row.id]: { goal, text, open: true } }));
+  }
+
+  function setGenGoal(row: PEL, goal: GenerationGoal) {
+    const cur = genDrafts[row.id];
+    const text = buildNextPrompt(row, goal);
+    setGenDrafts((s) => ({ ...s, [row.id]: { goal, text, open: cur?.open ?? true } }));
+  }
+
+  function setGenText(rowId: string, text: string) {
+    const cur = genDrafts[rowId];
+    if (!cur) return;
+    setGenDrafts((s) => ({ ...s, [rowId]: { ...cur, text } }));
+  }
+
+  async function persistGenerated(row: PEL, draft: { goal: GenerationGoal; text: string }) {
+    await patchPel(row, {
+      generation_goal: draft.goal,
+      generated_prompt_text: draft.text,
+    });
+  }
+
+  async function copyGenerated(row: PEL) {
+    const draft = genDrafts[row.id];
+    if (!draft?.text.trim()) {
+      toast.error("Nessun prompt generato");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(draft.text);
+      toast.success("Prossimo prompt copiato");
+      await persistGenerated(row, draft);
+    } catch {
+      toast.error("Copia non riuscita");
+    }
+  }
+
+  async function createChildPel(
+    parent: PEL,
+    draft: { goal: GenerationGoal; text: string },
+    initialStatus: PELStatus,
+  ): Promise<PEL | null> {
+    const uid = await getUserId();
+    if (!uid) {
+      toast.error("Non autenticato");
+      return null;
+    }
+    const title = `[Next · ${draft.goal}] ${parent.prompt_title}`.slice(0, 240);
+    const { data: ins, error: insErr } = await supabase
+      .from("prompt_execution_logs")
+      .insert({
+        user_id: uid,
+        project_id: parent.project_id,
+        brain_id: parent.brain_id,
+        roadmap_item_id: parent.roadmap_item_id,
+        task_id: parent.task_id,
+        execution_package_id: parent.execution_package_id,
+        target_tool: parent.target_tool,
+        prompt_title: title,
+        prompt_content: draft.text,
+        status: initialStatus as PELStatus,
+        parent_execution_log_id: parent.id,
+        generation_goal: draft.goal,
+        metadata: {
+          source: "browser_bridge_v0.4",
+          generated_from_result: true,
+          generation_goal: draft.goal,
+          parent_pel_id: parent.id,
+          parent_execution_package_id: parent.execution_package_id,
+        },
+      } as never)
+      .select()
+      .single();
+    if (insErr) {
+      toast.error(insErr.message);
+      return null;
+    }
+    await persistGenerated(parent, draft);
+    refresh();
+    return ins as unknown as PEL;
+  }
+
+  async function saveAsExecutionPackage(parent: PEL) {
+    const draft = genDrafts[parent.id];
+    if (!draft?.text.trim()) {
+      toast.error("Nessun prompt generato");
+      return;
+    }
+    const uid = await getUserId();
+    if (!uid) {
+      toast.error("Non autenticato");
+      return;
+    }
+    const title = `[Next · ${draft.goal}] ${parent.prompt_title}`.slice(0, 240);
+    const { data: ci, error: ciErr } = await supabase
+      .from("clipboard_items")
+      .insert({
+        user_id: uid,
+        brain_id: parent.brain_id,
+        project_id: parent.project_id,
+        title,
+        content: draft.text,
+        source_tool: "brain_hub",
+        target_tool: parent.target_tool || "lovable",
+        content_type: "execution_package",
+        status: "saved",
+        notes: `Generato da Browser Bridge v0.4 — parent PEL: ${parent.id}`,
+        metadata: {
+          generated_from_result: true,
+          generation_goal: draft.goal,
+          parent_pel_id: parent.id,
+          parent_execution_package_id: parent.execution_package_id,
+          execution_package: { promptOnly: draft.text },
+        },
+        human_review_required: true,
+        requires_approval: true,
+        approval_status: "pending",
+      } as never)
+      .select()
+      .single();
+    if (ciErr) {
+      toast.error(ciErr.message);
+      return;
+    }
+    // Create linked child pel referencing the new clipboard_item
+    const uid2 = uid;
+    await supabase.from("prompt_execution_logs").insert({
+      user_id: uid2,
+      project_id: parent.project_id,
+      brain_id: parent.brain_id,
+      roadmap_item_id: parent.roadmap_item_id,
+      task_id: parent.task_id,
+      execution_package_id: (ci as { id: string }).id,
+      target_tool: parent.target_tool || "lovable",
+      prompt_title: title,
+      prompt_content: draft.text,
+      status: "prepared" as PELStatus,
+      parent_execution_log_id: parent.id,
+      generation_goal: draft.goal,
+      metadata: {
+        source: "browser_bridge_v0.4",
+        generated_from_result: true,
+        generation_goal: draft.goal,
+        parent_pel_id: parent.id,
+      },
+    } as never);
+    await persistGenerated(parent, draft);
+    refresh();
+    toast.success("Salvato come nuovo Execution Package");
+  }
+
+  async function insertChildInLovable(parent: PEL) {
+    const draft = genDrafts[parent.id];
+    if (!draft?.text.trim()) {
+      toast.error("Nessun prompt generato");
+      return;
+    }
+    const child = await createChildPel(parent, draft, "inserted_in_lovable");
+    if (!child) return;
+    try {
+      await navigator.clipboard.writeText(draft.text);
+    } catch {
+      // best effort
+    }
+    await logBridgeEvent(
+      parent.execution_package_id,
+      "lovable_browser_bridge_prompt_inserted",
+      `Next prompt generato e copiato per Browser Bridge: ${child.prompt_title}`,
+    );
+    toast.success("Prompt copiato. Aprilo nel popup Browser Bridge.");
+  }
+
+  async function insertChildAndSendConfirmed(parent: PEL) {
+    const draft = genDrafts[parent.id];
+    if (!draft?.text.trim()) {
+      toast.error("Nessun prompt generato");
+      return;
+    }
+    const ok = window.confirm(
+      "Confermi creazione del prossimo prompt come 'inviato con conferma'? Dovrai comunque incollarlo nel popup Browser Bridge e confermare l'invio in Chrome.",
+    );
+    if (!ok) return;
+    const child = await createChildPel(parent, draft, "result_pending");
+    if (!child) return;
+    try {
+      await navigator.clipboard.writeText(draft.text);
+    } catch {
+      // best effort
+    }
+    const receipt = {
+      source: "lovable_browser_bridge",
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      generated_from_parent: parent.id,
+      prompt_title: child.prompt_title,
+      prompt_preview: draft.text.slice(0, 300),
+    };
+    await supabase
+      .from("prompt_execution_logs")
+      .update({ receipt_json: receipt } as never)
+      .eq("id", child.id);
+    await logBridgeEvent(
+      parent.execution_package_id,
+      "lovable_browser_bridge_prompt_sent_confirmed",
+      `Next prompt: invio confermato (tracking): ${child.prompt_title}`,
+    );
+    refresh();
+    toast.success("Prompt copiato e tracciato come inviato. Incollalo in Browser Bridge.");
+  }
+
+
   function renderRow(row: PEL, includeResultBlock = true) {
     const draft = resultDrafts[row.id] ?? { text: "", type: "note", notes: "" };
     const linkedRoadmap = row.roadmap_item_id;
