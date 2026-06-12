@@ -649,10 +649,10 @@ function ActionRow({
                 n8n{n8nInfo.tested ? " · testato" : n8nInfo.ready ? " · attivo" : " · disponibile"}
               </Badge>
             )}
-            {a.status === "executed" && (a.metadata as Record<string, unknown> | null)?.n8n_executed && (
+            {a.status === "executed" && Boolean((a.metadata as Record<string, unknown> | null)?.n8n_executed) && (
               <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-600">n8n eseguito</Badge>
             )}
-            {a.status === "failed" && (a.metadata as Record<string, unknown> | null)?.n8n_failed && (
+            {a.status === "failed" && Boolean((a.metadata as Record<string, unknown> | null)?.n8n_failed) && (
               <Badge variant="outline" className="text-[10px] border-red-500/40 text-red-600">n8n fallito</Badge>
             )}
             {(a.metadata as Record<string, unknown> | null)?.duplicate_click_count ? (
