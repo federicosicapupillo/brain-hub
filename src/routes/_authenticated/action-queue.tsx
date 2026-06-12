@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import {
   AlertTriangle,
   CheckCircle2,
+  ExternalLink,
   ListChecks,
   Plus,
   ShieldAlert,
@@ -37,6 +38,7 @@ import {
   ACTION_TYPE_RISK,
   AutomationAction,
   ActionStatus,
+  ActionSource,
   ActionType,
   RISK_TONE,
   SOURCE_LABEL,
@@ -46,9 +48,32 @@ import {
   createAction,
   listActions,
   markExecuted,
+  markFailed,
   markReadyToExecute,
   rejectAction,
 } from "@/lib/action-queue";
+import type { LogEventType } from "@/lib/automation-run";
+
+async function logEvent(action: LogEventType, notes: string, metadata: Record<string, unknown>) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return;
+  await supabase.from("clipboard_execution_logs").insert({
+    user_id: u.user.id,
+    clipboard_item_id: null,
+    action,
+    notes,
+    metadata,
+  } as never);
+}
+
+const SOURCE_BADGE: Record<ActionSource, string> = {
+  project_health_check: "Da Project Health",
+  roadmap_intelligence: "Da Roadmap",
+  next_prompt_generator: "Da Next Prompt",
+  execution_tracking: "Da Execution Tracking",
+  user_manual: "Manuale",
+  system_suggestion: "Sistema",
+};
 
 export const Route = createFileRoute("/_authenticated/action-queue")({
   head: () => ({
@@ -61,6 +86,9 @@ export const Route = createFileRoute("/_authenticated/action-queue")({
       },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    brain: typeof search.brain === "string" ? search.brain : undefined,
+  }),
   component: ActionQueueRoute,
 });
 
@@ -68,7 +96,9 @@ type BrainRow = { id: string; name: string };
 
 function ActionQueueRoute() {
   const qc = useQueryClient();
-  const [brainFilter, setBrainFilter] = useState<string>("all");
+  const navigate = useNavigate();
+  const search = useSearch({ from: "/_authenticated/action-queue" }) as { brain?: string };
+  const [brainFilter, setBrainFilter] = useState<string>(search.brain ?? "all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [riskFilter, setRiskFilter] = useState<string>("all");
@@ -76,6 +106,12 @@ function ActionQueueRoute() {
   const [openDetailId, setOpenDetailId] = useState<string | null>(null);
   const [confirmHighId, setConfirmHighId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+
+  useEffect(() => {
+    if (search.brain && search.brain !== brainFilter) setBrainFilter(search.brain);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.brain]);
+
 
   const { data: brains = [] } = useQuery<BrainRow[]>({
     queryKey: ["action-queue-brains"],
@@ -169,22 +205,143 @@ function ActionQueueRoute() {
 
   async function handlePrepare(a: AutomationAction) {
     try {
-      // For low-risk informational actions, mark as executed directly.
-      // For everything else, mark ready_to_execute (manual run elsewhere).
-      if (a.risk_level === "low") {
-        await markExecuted(a, "Marcata eseguita (azione low risk)");
-        toast.success("Azione eseguita");
-      } else {
-        await markReadyToExecute(a);
-        toast.success("Azione preparata");
+      // Dispatch by action_type. None of these execute automations externally —
+      // they prepare the existing UI (Browser Bridge, Roadmap Intelligence, etc.)
+      // or, for direct mutations, require explicit confirmation.
+      const meta = (a.metadata ?? {}) as Record<string, unknown>;
+      switch (a.action_type) {
+        case "open_project_console": {
+          await markExecuted(a, "Project Console aperta");
+          await logEvent("automation_action_prepared", `Aperto Project Console: ${a.title}`, { action_id: a.id });
+          invalidate();
+          toast.success("Apro Project Console");
+          void navigate({ to: "/project-console" });
+          return;
+        }
+        case "send_next_prompt":
+        case "generate_fix_prompt":
+        case "generate_first_prompt":
+        case "save_lovable_result":
+        case "review_pending_result":
+        case "link_log_to_roadmap":
+        case "create_roadmap_item":
+        case "clean_orphan_logs": {
+          await markReadyToExecute(a);
+          await logEvent("automation_action_prepared", `Azione preparata: ${a.title}`, {
+            action_id: a.id,
+            action_type: a.action_type,
+          });
+          invalidate();
+          toast.success("Azione preparata — apro il componente collegato", {
+            action: {
+              label: "Apri ora",
+              onClick: () => {
+                if (a.action_type === "create_roadmap_item") void navigate({ to: "/roadmap" });
+                else void navigate({ to: "/automation-control" });
+              },
+            },
+          });
+          return;
+        }
+        case "mark_roadmap_completed": {
+          const ok = window.confirm(
+            `Confermi: segnare la roadmap come COMPLETATA?\n\n${a.title}\n\nQuesta azione modifica direttamente la roadmap.`,
+          );
+          if (!ok) return;
+          if (a.roadmap_item_id) {
+            const { error } = await supabase
+              .from("roadmap_items")
+              .update({ status: "completed" } as never)
+              .eq("id", a.roadmap_item_id);
+            if (error) {
+              await markFailed(a, error.message);
+              toast.error(error.message);
+              invalidate();
+              return;
+            }
+            await logEvent("roadmap_item_marked_completed", `Roadmap completata via Action Queue: ${a.title}`, {
+              roadmap_item_id: a.roadmap_item_id,
+              action_id: a.id,
+            });
+          }
+          await markExecuted(a, "Roadmap segnata come completata");
+          invalidate();
+          toast.success("Roadmap aggiornata");
+          return;
+        }
+        case "mark_roadmap_needs_fix": {
+          const ok = window.confirm(`Confermi: segnare la roadmap come DA CORREGGERE?\n\n${a.title}`);
+          if (!ok) return;
+          if (a.roadmap_item_id) {
+            const { error } = await supabase
+              .from("roadmap_items")
+              .update({ status: "blocked" } as never)
+              .eq("id", a.roadmap_item_id);
+            if (error) {
+              await markFailed(a, error.message);
+              toast.error(error.message);
+              invalidate();
+              return;
+            }
+            await logEvent("roadmap_item_marked_needs_fix", `Roadmap da correggere via Action Queue: ${a.title}`, {
+              roadmap_item_id: a.roadmap_item_id,
+              action_id: a.id,
+            });
+          }
+          await markExecuted(a, "Roadmap segnata da correggere");
+          invalidate();
+          toast.success("Roadmap aggiornata");
+          return;
+        }
+        case "manual_task":
+        default: {
+          if (a.risk_level === "low") {
+            await markExecuted(a, "Marcata eseguita (azione low risk)");
+            toast.success("Azione eseguita");
+          } else {
+            await markReadyToExecute(a);
+            toast.success("Azione preparata");
+          }
+          await logEvent("automation_action_prepared", `Azione preparata: ${a.title}`, { action_id: a.id });
+          invalidate();
+          // suppress unused meta warning
+          void meta;
+          return;
+        }
       }
-      invalidate();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Errore");
     }
   }
 
+  function openLinkedObject(a: AutomationAction) {
+    void logEvent("automation_action_linked_object_opened", `Oggetto collegato aperto: ${a.title}`, {
+      action_id: a.id,
+      brain_id: a.brain_id,
+      roadmap_item_id: a.roadmap_item_id,
+      prompt_execution_log_id: a.prompt_execution_log_id,
+    });
+    if (a.roadmap_item_id) void navigate({ to: "/roadmap" });
+    else if (a.prompt_execution_log_id) void navigate({ to: "/automation-control" });
+    else void navigate({ to: "/project-console" });
+  }
+
+  function openSource(a: AutomationAction) {
+    void logEvent("automation_action_source_opened", `Sorgente azione aperta: ${SOURCE_LABEL[a.source]}`, {
+      action_id: a.id,
+      source: a.source,
+    });
+    if (a.source === "project_health_check" || a.source === "roadmap_intelligence") {
+      void navigate({ to: "/project-console" });
+    } else if (a.source === "execution_tracking" || a.source === "next_prompt_generator") {
+      void navigate({ to: "/automation-control" });
+    } else {
+      void navigate({ to: "/action-queue" });
+    }
+  }
+
   const openDetail = actions.find((a) => a.id === openDetailId) ?? null;
+
 
   return (
     <div className="min-h-[calc(100vh-3rem)] space-y-4 p-4 lg:p-6">
@@ -300,6 +457,16 @@ function ActionQueueRoute() {
           </DialogHeader>
           {openDetail && <ActionDetail a={openDetail} brainName={brains.find((b) => b.id === openDetail.brain_id)?.name} />}
           <DialogFooter className="flex flex-wrap gap-2">
+            {openDetail && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => openLinkedObject(openDetail)}>
+                  <ExternalLink className="mr-1 h-3 w-3" /> Apri oggetto collegato
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => openSource(openDetail)}>
+                  Vai alla sorgente
+                </Button>
+              </>
+            )}
             <Button asChild variant="outline" size="sm">
               <Link to="/automation-control">Apri Automation Control</Link>
             </Button>
@@ -427,12 +594,17 @@ function ActionRow({
           )}
           <div className="mt-1 flex flex-wrap items-center gap-1">
             <Badge variant="outline" className="text-[10px]">{ACTION_TYPE_LABEL[a.action_type]}</Badge>
-            <Badge variant="secondary" className="text-[10px]">{SOURCE_LABEL[a.source]}</Badge>
+            <Badge variant="secondary" className="text-[10px]">{SOURCE_BADGE[a.source]}</Badge>
             <Badge className={`border text-[10px] ${RISK_TONE[a.risk_level]}`} variant="outline">
               {a.risk_level}
             </Badge>
             <Badge variant="outline" className="text-[10px]">{STATUS_LABEL[a.status]}</Badge>
             {brainName && <Badge variant="outline" className="text-[10px]">{brainName}</Badge>}
+            {(a.metadata as Record<string, unknown> | null)?.duplicate_click_count ? (
+              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
+                ×{String((a.metadata as Record<string, unknown>).duplicate_click_count)} duplicati evitati
+              </Badge>
+            ) : null}
             <span className="text-[10px] text-muted-foreground">
               · {new Date(a.created_at).toLocaleString()}
             </span>
@@ -463,6 +635,7 @@ function ActionRow({
 }
 
 function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: string }) {
+  const meta = (a.metadata ?? {}) as Record<string, unknown>;
   return (
     <div className="space-y-3 text-sm">
       <div className="grid grid-cols-2 gap-2">
@@ -472,6 +645,10 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
         <DetailItem label="Priorità" value={a.priority} />
         <DetailItem label="Stato" value={STATUS_LABEL[a.status]} />
         <DetailItem label="Progetto" value={brainName ?? a.brain_id ?? "—"} />
+        <DetailItem label="Origine CTA" value={String(meta.source_cta ?? "—")} />
+        <DetailItem label="Blocco sorgente" value={String(meta.source_block ?? "—")} />
+        <DetailItem label="Oggetto collegato" value={a.roadmap_item_id ? "Roadmap item" : a.prompt_execution_log_id ? "Execution log" : a.task_id ? "Task" : "—"} />
+        <DetailItem label="Azione già preparata?" value={a.status === "ready_to_execute" || a.status === "executed" ? "Sì" : "No"} />
       </div>
       {a.description && (
         <div>

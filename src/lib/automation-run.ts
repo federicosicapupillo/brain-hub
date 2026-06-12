@@ -266,7 +266,11 @@ export type LogEventType =
   | "automation_action_ready_to_execute"
   | "automation_action_executed"
   | "automation_action_failed"
-  | "automation_action_cancelled";
+  | "automation_action_cancelled"
+  | "automation_action_duplicate_prevented"
+  | "automation_action_prepared"
+  | "automation_action_source_opened"
+  | "automation_action_linked_object_opened";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -329,6 +333,10 @@ const LOG_TITLES: Record<LogEventType, string> = {
   automation_action_executed: "Azione automazione eseguita",
   automation_action_failed: "Azione automazione fallita",
   automation_action_cancelled: "Azione automazione annullata",
+  automation_action_duplicate_prevented: "Duplicato azione prevenuto",
+  automation_action_prepared: "Azione automazione preparata",
+  automation_action_source_opened: "Sorgente azione aperta",
+  automation_action_linked_object_opened: "Oggetto collegato azione aperto",
 };
 
 

@@ -31,6 +31,8 @@ import {
   Zap,
 } from "lucide-react";
 import type { LogEventType } from "@/lib/automation-run";
+import { enqueueFromCta } from "@/lib/action-queue-cta";
+import { useNavigate } from "@tanstack/react-router";
 
 type Brain = { id: string; name: string };
 
@@ -217,6 +219,7 @@ export function RoadmapIntelligence({ brainId: brainIdProp }: { brainId?: string
   const [brainIdState, setBrainId] = useState<string>("");
   const brainId = brainIdProp ?? brainIdState;
   const lockedBrain = !!brainIdProp;
+  const navigate = useNavigate();
   const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
   const [linkDialogPEL, setLinkDialogPEL] = useState<PEL | null>(null);
   const [linkTargetRoadmap, setLinkTargetRoadmap] = useState<string>("");
@@ -384,38 +387,62 @@ export function RoadmapIntelligence({ brainId: brainIdProp }: { brainId?: string
   }
 
   async function markRoadmapCompleted(item: RoadmapItem) {
-    const { error } = await supabase
-      .from("roadmap_items")
-      .update({ status: "completed" } as never)
-      .eq("id", item.id);
-    if (error) {
-      toast.error(`Errore: ${error.message}`);
-      return;
+    try {
+      const { duplicated } = await enqueueFromCta({
+        source: "roadmap_intelligence",
+        source_block: "RoadmapIntelligence",
+        source_cta: "Segna completata",
+        action_type: "mark_roadmap_completed",
+        title: `Segna roadmap completata: ${item.title}`,
+        risk_level: "high",
+        brain_id: item.brain_id,
+        roadmap_item_id: item.id,
+        extra: { suggested_reason: "manual_mark_completed" },
+      });
+      toast.success(
+        duplicated
+          ? "Azione già in coda — duplicato evitato"
+          : "Azione aggiunta alla Action Queue (high risk: richiede approvazione)",
+        {
+          action: {
+            label: "Apri Action Queue",
+            onClick: () => void navigate({ to: "/action-queue" }),
+          },
+        },
+      );
+      setConfirmCompleteId(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
     }
-    await logEvent("roadmap_item_marked_completed", `Roadmap completata: ${item.title}`, {
-      roadmap_item_id: item.id,
-      brain_id: item.brain_id,
-    });
-    toast.success(`Roadmap completata: ${item.title}`);
-    qc.invalidateQueries({ queryKey: ["roadmap-intel-items"] });
-    setConfirmCompleteId(null);
   }
 
   async function markRoadmapNeedsFix(item: RoadmapItem) {
-    const { error } = await supabase
-      .from("roadmap_items")
-      .update({ status: "blocked" } as never)
-      .eq("id", item.id);
-    if (error) {
-      toast.error(`Errore: ${error.message}`);
-      return;
+    try {
+      const { duplicated } = await enqueueFromCta({
+        source: "roadmap_intelligence",
+        source_block: "RoadmapIntelligence",
+        source_cta: "Segna da correggere",
+        action_type: "mark_roadmap_needs_fix",
+        title: `Segna roadmap da correggere: ${item.title}`,
+        risk_level: "medium",
+        brain_id: item.brain_id,
+        roadmap_item_id: item.id,
+        extra: { suggested_reason: "manual_mark_needs_fix" },
+      });
+      toast.success(
+        duplicated
+          ? "Azione già in coda — duplicato evitato"
+          : "Azione aggiunta alla Action Queue",
+        {
+          action: {
+            label: "Apri Action Queue",
+            onClick: () => void navigate({ to: "/action-queue" }),
+          },
+        },
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
     }
-    await logEvent("roadmap_item_marked_needs_fix", `Roadmap da correggere: ${item.title}`, {
-      roadmap_item_id: item.id,
-      brain_id: item.brain_id,
-    });
-    toast.success(`Segnata da correggere: ${item.title}`);
-    qc.invalidateQueries({ queryKey: ["roadmap-intel-items"] });
   }
 
   async function persistSuggestion(item: RoadmapItem, s: Suggestion) {

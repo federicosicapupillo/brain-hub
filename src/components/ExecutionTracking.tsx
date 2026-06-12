@@ -29,6 +29,34 @@ import {
   type ItemLike,
   type LogEventType,
 } from "@/lib/automation-run";
+import { enqueueFromCta } from "@/lib/action-queue-cta";
+import type { ActionType, RiskLevel } from "@/lib/action-queue";
+
+async function enqueueExecCta(
+  row: { id: string; brain_id: string | null; roadmap_item_id: string | null; prompt_title: string; parent_execution_log_id?: string | null },
+  cta: string,
+  action_type: ActionType,
+  risk_level: RiskLevel,
+  extra: Record<string, unknown> = {},
+) {
+  try {
+    await enqueueFromCta({
+      source: "execution_tracking",
+      source_block: "ExecutionTracking",
+      source_cta: cta,
+      action_type,
+      risk_level,
+      title: `${cta}: ${row.prompt_title}`,
+      brain_id: row.brain_id,
+      roadmap_item_id: row.roadmap_item_id,
+      prompt_execution_log_id: row.id,
+      parent_execution_log_id: row.parent_execution_log_id ?? null,
+      extra,
+    });
+  } catch {
+    // non-blocking
+  }
+}
 
 type ClipItem = ItemLike & {
   content: string | null;
@@ -545,6 +573,11 @@ export function ExecutionTracking() {
     );
     setResultDrafts((s) => ({ ...s, [row.id]: { text: "", type: "note", notes: "" } }));
     toast.success("Risultato salvato");
+    void enqueueExecCta(row, "Salva risultato", "save_lovable_result", "medium", {
+      result_type: draft.type,
+      result_status: "result_saved",
+      suggested_reason: "result_saved_from_execution_tracking",
+    });
   }
 
   async function markCompleted(row: PEL) {
@@ -556,6 +589,13 @@ export function ExecutionTracking() {
       `Prompt completato: ${row.prompt_title}`,
     );
     toast.success("Completato");
+    void enqueueExecCta(
+      row,
+      "Segna come completato",
+      row.roadmap_item_id ? "mark_roadmap_completed" : "manual_task",
+      row.roadmap_item_id ? "high" : "medium",
+      { result_status: "completed", suggested_reason: "marked_completed" },
+    );
   }
 
   async function markFailed(row: PEL) {
@@ -571,6 +611,11 @@ export function ExecutionTracking() {
       `Prompt fallito: ${row.prompt_title}${reason ? ` — ${reason}` : ""}`,
     );
     toast.success("Segnato come fallito");
+    void enqueueExecCta(row, "Segna come fallito", "mark_roadmap_needs_fix", "medium", {
+      result_status: "failed",
+      suggested_reason: "marked_failed",
+      failure_reason: reason || undefined,
+    });
   }
 
   async function copyReceipt(row: PEL) {
@@ -757,6 +802,10 @@ export function ExecutionTracking() {
     await persistGenerated(parent, draft);
     refresh();
     toast.success("Salvato come nuovo Execution Package");
+    void enqueueExecCta(parent, "Salva come nuovo execution package", "generate_first_prompt", "medium", {
+      child_clipboard_item_id: (ci as { id: string }).id,
+      suggested_reason: "next_prompt_saved_as_package",
+    });
   }
 
   async function insertChildInLovable(parent: PEL) {
@@ -778,6 +827,10 @@ export function ExecutionTracking() {
       `Next prompt generato e copiato per Browser Bridge: ${child.prompt_title}`,
     );
     toast.success("Prompt copiato. Aprilo nel popup Browser Bridge.");
+    void enqueueExecCta(parent, "Inserisci in Lovable", "send_next_prompt", "high", {
+      child_pel_id: child.id,
+      suggested_reason: "next_prompt_inserted_in_lovable",
+    });
   }
 
   async function insertChildAndSendConfirmed(parent: PEL) {
@@ -816,6 +869,10 @@ export function ExecutionTracking() {
     );
     refresh();
     toast.success("Prompt copiato e tracciato come inviato. Incollalo in Browser Bridge.");
+    void enqueueExecCta(parent, "Inserisci e invia con conferma", "send_next_prompt", "high", {
+      child_pel_id: child.id,
+      suggested_reason: "next_prompt_send_confirmed",
+    });
   }
 
 
