@@ -476,6 +476,7 @@ function ActionQueueRoute() {
                 key={a.id}
                 a={a}
                 brainName={brains.find((b) => b.id === a.brain_id)?.name}
+                n8nInfo={n8nCoverage.get(a.action_type)}
                 onOpen={() => setOpenDetailId(a.id)}
                 onApprove={() => handleApprove(a)}
                 onReject={() => handleReject(a)}
