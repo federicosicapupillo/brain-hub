@@ -22,7 +22,8 @@ export type BlockId =
   | "project_health_check"
   | "automation_control"
   | "runbooks"
-  | "tool_connections";
+  | "tool_connections"
+  | "knowledge_map";
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
