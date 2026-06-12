@@ -457,6 +457,16 @@ function ActionQueueRoute() {
           </DialogHeader>
           {openDetail && <ActionDetail a={openDetail} brainName={brains.find((b) => b.id === openDetail.brain_id)?.name} />}
           <DialogFooter className="flex flex-wrap gap-2">
+            {openDetail && (
+              <>
+                <Button variant="outline" size="sm" onClick={() => openLinkedObject(openDetail)}>
+                  <ExternalLink className="mr-1 h-3 w-3" /> Apri oggetto collegato
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => openSource(openDetail)}>
+                  Vai alla sorgente
+                </Button>
+              </>
+            )}
             <Button asChild variant="outline" size="sm">
               <Link to="/automation-control">Apri Automation Control</Link>
             </Button>
