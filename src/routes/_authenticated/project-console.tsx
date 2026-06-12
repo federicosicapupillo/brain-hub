@@ -406,6 +406,8 @@ function useEmptyStateLabel(id: BlockId): string {
     case "problemi_da_risolvere":
     case "build_status":
       return "Nessun problema rilevato";
+    case "project_health_check":
+      return "Calcolo health check…";
     case "file_documenti":
       return "Collega una fonte";
     case "lead_contatti":
