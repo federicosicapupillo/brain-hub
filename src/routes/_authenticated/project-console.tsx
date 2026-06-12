@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { RoadmapIntelligence } from "@/components/RoadmapIntelligence";
 import { ProjectHealthCheck } from "@/components/ProjectHealthCheck";
+import { AutomationControlBlock } from "@/components/AutomationControlBlock";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
