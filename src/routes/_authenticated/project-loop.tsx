@@ -605,6 +605,10 @@ const AUTOMATION_LOG_LABELS: Record<string, string> = {
   lovable_browser_bridge_extension_downloaded: "[Browser Bridge] Estensione scaricata",
   lovable_browser_bridge_prompt_inserted: "[Browser Bridge] Prompt inserito in Lovable",
   lovable_browser_bridge_prompt_sent_confirmed: "[Browser Bridge] Prompt inviato con conferma",
+  lovable_browser_bridge_result_saved: "[Browser Bridge] Risultato salvato",
+  lovable_browser_bridge_prompt_completed: "[Browser Bridge] Prompt completato",
+  lovable_browser_bridge_prompt_failed: "[Browser Bridge] Prompt fallito",
+  lovable_browser_bridge_prompt_retry_requested: "[Browser Bridge] Re-invio richiesto",
 };
 
 

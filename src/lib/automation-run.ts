@@ -244,7 +244,11 @@ export type LogEventType =
   | "lovable_browser_bridge_prompt_copied"
   | "lovable_browser_bridge_extension_downloaded"
   | "lovable_browser_bridge_prompt_inserted"
-  | "lovable_browser_bridge_prompt_sent_confirmed";
+  | "lovable_browser_bridge_prompt_sent_confirmed"
+  | "lovable_browser_bridge_result_saved"
+  | "lovable_browser_bridge_prompt_completed"
+  | "lovable_browser_bridge_prompt_failed"
+  | "lovable_browser_bridge_prompt_retry_requested";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -285,6 +289,10 @@ const LOG_TITLES: Record<LogEventType, string> = {
   lovable_browser_bridge_extension_downloaded: "Estensione Browser Bridge scaricata",
   lovable_browser_bridge_prompt_inserted: "Prompt inserito in Lovable via Browser Bridge",
   lovable_browser_bridge_prompt_sent_confirmed: "Prompt inviato a Lovable con conferma (Browser Bridge)",
+  lovable_browser_bridge_result_saved: "Risultato Lovable salvato (Browser Bridge)",
+  lovable_browser_bridge_prompt_completed: "Prompt Lovable segnato come completato (Browser Bridge)",
+  lovable_browser_bridge_prompt_failed: "Prompt Lovable segnato come fallito (Browser Bridge)",
+  lovable_browser_bridge_prompt_retry_requested: "Re-invio prompt Lovable richiesto (Browser Bridge)",
 };
 
 

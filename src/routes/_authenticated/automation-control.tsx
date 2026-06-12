@@ -18,6 +18,7 @@ import { N8nPilotConnector } from "@/components/N8nPilotConnector";
 import { LovableHandoffConnector } from "@/components/LovableHandoffConnector";
 import { LocalAgentBridge } from "@/components/LocalAgentBridge";
 import { LovableBrowserBridge } from "@/components/LovableBrowserBridge";
+import { ExecutionTracking } from "@/components/ExecutionTracking";
 
 import { normalizeAutomationItem } from "@/lib/automation-normalize";
 import { useEffect } from "react";
@@ -323,6 +324,8 @@ function AutomationControlPage() {
       <LocalAgentBridge />
 
       <LovableBrowserBridge />
+
+      <ExecutionTracking />
 
 
 

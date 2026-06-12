@@ -1025,6 +1025,75 @@ export type Database = {
           },
         ]
       }
+      prompt_execution_logs: {
+        Row: {
+          brain_id: string | null
+          created_at: string
+          execution_package_id: string | null
+          id: string
+          internal_notes: string | null
+          last_error: string | null
+          metadata: Json
+          project_id: string | null
+          prompt_content: string
+          prompt_title: string
+          receipt_json: Json | null
+          result_text: string | null
+          result_type: string | null
+          retry_count: number
+          roadmap_item_id: string | null
+          status: string
+          target_tool: string
+          task_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          created_at?: string
+          execution_package_id?: string | null
+          id?: string
+          internal_notes?: string | null
+          last_error?: string | null
+          metadata?: Json
+          project_id?: string | null
+          prompt_content?: string
+          prompt_title?: string
+          receipt_json?: Json | null
+          result_text?: string | null
+          result_type?: string | null
+          retry_count?: number
+          roadmap_item_id?: string | null
+          status?: string
+          target_tool?: string
+          task_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          created_at?: string
+          execution_package_id?: string | null
+          id?: string
+          internal_notes?: string | null
+          last_error?: string | null
+          metadata?: Json
+          project_id?: string | null
+          prompt_content?: string
+          prompt_title?: string
+          receipt_json?: Json | null
+          result_text?: string | null
+          result_type?: string | null
+          retry_count?: number
+          roadmap_item_id?: string | null
+          status?: string
+          target_tool?: string
+          task_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       roadmap_items: {
         Row: {
           brain_id: string | null
