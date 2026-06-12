@@ -70,6 +70,17 @@ import {
   type N8nExecutionLog,
 } from "@/lib/n8n-execution";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  APPROVAL_STATUS_LABEL,
+  APPROVAL_STATUS_TONE,
+  TelegramApprovalRequest,
+  buildMessagePreview,
+  cancelApproval,
+  createApprovalRequest,
+  listApprovalsForAction,
+  simulateApprove,
+  simulateReject,
+} from "@/lib/telegram-approvals";
 
 async function logEvent(action: LogEventType, notes: string, metadata: Record<string, unknown>) {
   const { data: u } = await supabase.auth.getUser();
