@@ -726,6 +726,7 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
           <Link to="/n8n-workflows" className="underline">Registra workflow</Link>
         </div>
       )}
+      <TelegramApprovalBox action={a} />
       {readiness && (
         <div className="rounded border border-border/60 bg-background/40 p-2 text-xs">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
