@@ -802,6 +802,10 @@ export function ExecutionTracking() {
     await persistGenerated(parent, draft);
     refresh();
     toast.success("Salvato come nuovo Execution Package");
+    void enqueueExecCta(parent, "Salva come nuovo execution package", "generate_first_prompt", "medium", {
+      child_clipboard_item_id: (ci as { id: string }).id,
+      suggested_reason: "next_prompt_saved_as_package",
+    });
   }
 
   async function insertChildInLovable(parent: PEL) {
