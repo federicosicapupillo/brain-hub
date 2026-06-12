@@ -387,6 +387,9 @@ function BlockPreview({ id, brainId }: { id: BlockId; brainId: string }) {
   if (id === "tool_connections" && brainId) {
     return <ToolConnectionsBlock brainId={brainId} />;
   }
+  if (id === "knowledge_map" && brainId) {
+    return <KnowledgeMapBlock brainId={brainId} />;
+  }
   return (
     <div className="rounded-md border border-border/60 bg-card/40 p-3">
       <div className="mb-1 flex items-center justify-between gap-2">
