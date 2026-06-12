@@ -244,7 +244,11 @@ export type LogEventType =
   | "lovable_browser_bridge_prompt_copied"
   | "lovable_browser_bridge_extension_downloaded"
   | "lovable_browser_bridge_prompt_inserted"
-  | "lovable_browser_bridge_prompt_sent_confirmed";
+  | "lovable_browser_bridge_prompt_sent_confirmed"
+  | "lovable_browser_bridge_result_saved"
+  | "lovable_browser_bridge_prompt_completed"
+  | "lovable_browser_bridge_prompt_failed"
+  | "lovable_browser_bridge_prompt_retry_requested";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
