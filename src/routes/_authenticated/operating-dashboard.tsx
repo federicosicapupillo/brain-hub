@@ -591,3 +591,84 @@ function AutomationReadinessMini() {
   );
 }
 
+function N8nControlledExecutionMini({ brainId }: { brainId: string | null }) {
+  const { data: workflows = [] } = useQuery({
+    queryKey: ["op-dash-n8n-workflows", brainId],
+    queryFn: async () => {
+      let q = supabase.from("n8n_workflow_registry" as never).select("*");
+      if (brainId) q = q.eq("brain_id", brainId);
+      const { data, error } = await q;
+      if (error) return [];
+      return (data ?? []) as Array<{ status: string; linked_action_types: string[] }>;
+    },
+  });
+  const { data: logs = [] } = useQuery({
+    queryKey: ["op-dash-n8n-logs", brainId],
+    queryFn: async () => {
+      let q = supabase
+        .from("n8n_execution_logs" as never)
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (brainId) q = q.eq("brain_id", brainId);
+      const { data, error } = await q;
+      if (error) return [];
+      return (data ?? []) as Array<{ success: boolean; execution_mode: string; created_at: string }>;
+    },
+  });
+  const { data: readyActions = 0 } = useQuery({
+    queryKey: ["op-dash-n8n-ready-actions", brainId, workflows.length],
+    queryFn: async () => {
+      const covered = new Set<string>();
+      for (const w of workflows) {
+        if (w.status === "active" || w.status === "tested") {
+          for (const t of w.linked_action_types ?? []) covered.add(t);
+        }
+      }
+      if (covered.size === 0) return 0;
+      let q = supabase
+        .from("automation_actions")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["approved", "ready_to_execute"])
+        .in("action_type", [...covered]);
+      if (brainId) q = q.eq("brain_id", brainId);
+      const { count } = await q;
+      return count ?? 0;
+    },
+  });
+
+  const activeN8n = workflows.filter((w) => w.status === "active" || w.status === "tested").length;
+  const recentErrors = logs.filter((l) => !l.success && l.execution_mode === "live").length;
+  const recentRuns = logs.length;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <Send className="h-4 w-4" /> n8n Controlled Execution
+          </span>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/action-queue">
+              Apri Action Queue <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+          <Tile label="Workflow attivi" value={activeN8n} />
+          <Tile label="Azioni pronte n8n" value={readyActions} />
+          <Tile label="Run recenti" value={recentRuns} />
+          <Tile label="Errori recenti" value={recentErrors} tone={recentErrors > 0 ? "red" : undefined} />
+        </div>
+        <div className="mt-2 flex gap-2">
+          <Button asChild size="sm" variant="ghost">
+            <Link to="/n8n-workflows">Apri n8n Workflows</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
