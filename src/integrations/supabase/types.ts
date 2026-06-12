@@ -942,6 +942,81 @@ export type Database = {
           },
         ]
       }
+      n8n_workflow_registry: {
+        Row: {
+          brain_id: string | null
+          created_at: string
+          expected_input_schema: Json | null
+          expected_output_schema: Json | null
+          id: string
+          last_manual_test_at: string | null
+          last_manual_test_status: string | null
+          linked_action_types: Json
+          metadata: Json
+          notes: string | null
+          project_id: string | null
+          risk_level: string
+          status: string
+          tool_link_id: string | null
+          updated_at: string
+          user_id: string
+          verification_method: string | null
+          webhook_method: string
+          webhook_url: string | null
+          workflow_description: string | null
+          workflow_name: string
+          workflow_url: string | null
+        }
+        Insert: {
+          brain_id?: string | null
+          created_at?: string
+          expected_input_schema?: Json | null
+          expected_output_schema?: Json | null
+          id?: string
+          last_manual_test_at?: string | null
+          last_manual_test_status?: string | null
+          linked_action_types?: Json
+          metadata?: Json
+          notes?: string | null
+          project_id?: string | null
+          risk_level?: string
+          status?: string
+          tool_link_id?: string | null
+          updated_at?: string
+          user_id: string
+          verification_method?: string | null
+          webhook_method?: string
+          webhook_url?: string | null
+          workflow_description?: string | null
+          workflow_name: string
+          workflow_url?: string | null
+        }
+        Update: {
+          brain_id?: string | null
+          created_at?: string
+          expected_input_schema?: Json | null
+          expected_output_schema?: Json | null
+          id?: string
+          last_manual_test_at?: string | null
+          last_manual_test_status?: string | null
+          linked_action_types?: Json
+          metadata?: Json
+          notes?: string | null
+          project_id?: string | null
+          risk_level?: string
+          status?: string
+          tool_link_id?: string | null
+          updated_at?: string
+          user_id?: string
+          verification_method?: string | null
+          webhook_method?: string
+          webhook_url?: string | null
+          workflow_description?: string | null
+          workflow_name?: string
+          workflow_url?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
