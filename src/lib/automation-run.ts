@@ -248,7 +248,14 @@ export type LogEventType =
   | "lovable_browser_bridge_result_saved"
   | "lovable_browser_bridge_prompt_completed"
   | "lovable_browser_bridge_prompt_failed"
-  | "lovable_browser_bridge_prompt_retry_requested";
+  | "lovable_browser_bridge_prompt_retry_requested"
+  | "roadmap_intelligence_status_suggested"
+  | "roadmap_intelligence_next_action_suggested"
+  | "roadmap_item_execution_log_linked"
+  | "roadmap_item_marked_completed"
+  | "roadmap_item_marked_needs_fix"
+  | "roadmap_intelligence_issue_detected"
+  | "roadmap_intelligence_issue_ignored";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
