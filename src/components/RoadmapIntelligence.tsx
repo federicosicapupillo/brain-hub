@@ -212,9 +212,11 @@ async function logEvent(
 
 const STALE_PENDING_MS = 1000 * 60 * 60 * 24; // 24h
 
-export function RoadmapIntelligence() {
+export function RoadmapIntelligence({ brainId: brainIdProp }: { brainId?: string } = {}) {
   const qc = useQueryClient();
-  const [brainId, setBrainId] = useState<string>("");
+  const [brainIdState, setBrainId] = useState<string>("");
+  const brainId = brainIdProp ?? brainIdState;
+  const lockedBrain = !!brainIdProp;
   const [confirmCompleteId, setConfirmCompleteId] = useState<string | null>(null);
   const [linkDialogPEL, setLinkDialogPEL] = useState<PEL | null>(null);
   const [linkTargetRoadmap, setLinkTargetRoadmap] = useState<string>("");
@@ -472,16 +474,22 @@ export function RoadmapIntelligence() {
             <Compass className="h-4 w-4" /> Roadmap Intelligence
             <Badge variant="outline" className="ml-2 text-[10px]">v0.5</Badge>
           </CardTitle>
-          <Select value={effectiveBrain} onValueChange={setBrainId}>
-            <SelectTrigger className="w-64">
-              <SelectValue placeholder="Seleziona brain" />
-            </SelectTrigger>
-            <SelectContent>
-              {brains.map((b) => (
-                <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {lockedBrain ? (
+            <Badge variant="secondary" className="text-[10px]">
+              {brains.find((b) => b.id === effectiveBrain)?.name ?? "Brain corrente"}
+            </Badge>
+          ) : (
+            <Select value={effectiveBrain} onValueChange={setBrainId}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="Seleziona brain" />
+              </SelectTrigger>
+              <SelectContent>
+                {brains.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
