@@ -34,6 +34,7 @@ import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_au
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
 import { Route as AuthenticatedAllineamentoRouteImport } from './routes/_authenticated/allineamento'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
+import { Route as AuthenticatedActionQueueRouteImport } from './routes/_authenticated/action-queue'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
 import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
@@ -174,6 +175,12 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedActionQueueRoute =
+  AuthenticatedActionQueueRouteImport.update({
+    id: '/action-queue',
+    path: '/action-queue',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedImportaIndexRoute =
   AuthenticatedImportaIndexRouteImport.update({
     id: '/',
@@ -207,6 +214,7 @@ const AuthenticatedImportaPromptStoriciRoute =
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
+  '/action-queue': typeof AuthenticatedActionQueueRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
@@ -237,6 +245,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
+  '/action-queue': typeof AuthenticatedActionQueueRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
@@ -269,6 +278,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/action-queue': typeof AuthenticatedActionQueueRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/allineamento': typeof AuthenticatedAllineamentoRoute
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
@@ -303,6 +313,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/action-queue'
     | '/agents'
     | '/allineamento'
     | '/archivio'
@@ -333,6 +344,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/action-queue'
     | '/agents'
     | '/allineamento'
     | '/archivio'
@@ -364,6 +376,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/action-queue'
     | '/_authenticated/agents'
     | '/_authenticated/allineamento'
     | '/_authenticated/archivio'
@@ -578,6 +591,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/action-queue': {
+      id: '/_authenticated/action-queue'
+      path: '/action-queue'
+      fullPath: '/action-queue'
+      preLoaderRoute: typeof AuthenticatedActionQueueRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/importa/': {
       id: '/_authenticated/importa/'
       path: '/'
@@ -644,6 +664,7 @@ const AuthenticatedProgettiRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedActionQueueRoute: typeof AuthenticatedActionQueueRoute
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAllineamentoRoute: typeof AuthenticatedAllineamentoRoute
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
@@ -670,6 +691,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedActionQueueRoute: AuthenticatedActionQueueRoute,
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAllineamentoRoute: AuthenticatedAllineamentoRoute,
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
