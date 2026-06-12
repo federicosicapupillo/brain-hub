@@ -821,8 +821,13 @@ export function ExecutionTracking() {
 
   function renderRow(row: PEL, includeResultBlock = true) {
     const draft = resultDrafts[row.id] ?? { text: "", type: "note", notes: "" };
+    const gen = genDrafts[row.id];
     const linkedRoadmap = row.roadmap_item_id;
     const linkedTask = row.task_id;
+    const parent = row.parent_execution_log_id ? pelById.get(row.parent_execution_log_id) : null;
+    const children = childrenByParent.get(row.id) ?? [];
+    const canGenerateNext =
+      !!row.result_text && ["result_saved", "completed", "failed"].includes(row.status);
     return (
       <div key={row.id} className="rounded-md border border-border/60 p-3 space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -831,12 +836,23 @@ export function ExecutionTracking() {
             <div className="truncate text-xs text-muted-foreground">
               {brainNameOf(row)} · {row.target_tool} · agg. {new Date(row.updated_at).toLocaleString()}
             </div>
-            {(linkedRoadmap || linkedTask) && (
-              <div className="mt-1 flex gap-1 text-[10px] text-muted-foreground">
-                {linkedRoadmap && <Badge variant="outline">roadmap: {linkedRoadmap.slice(0, 8)}</Badge>}
-                {linkedTask && <Badge variant="outline">task: {linkedTask.slice(0, 8)}</Badge>}
-              </div>
-            )}
+            <div className="mt-1 flex flex-wrap gap-1 text-[10px] text-muted-foreground">
+              {linkedRoadmap && <Badge variant="outline">roadmap: {linkedRoadmap.slice(0, 8)}</Badge>}
+              {linkedTask && <Badge variant="outline">task: {linkedTask.slice(0, 8)}</Badge>}
+              {parent && (
+                <Badge variant="outline" className="gap-1 bg-violet-500/10 text-violet-300 border-violet-500/30">
+                  <GitBranch className="h-3 w-3" /> Generato da: {parent.prompt_title.slice(0, 28)}
+                </Badge>
+              )}
+              {children.length > 0 && (
+                <Badge variant="outline" className="bg-violet-500/10 text-violet-300 border-violet-500/30">
+                  Next prompt × {children.length}
+                </Badge>
+              )}
+              {row.generation_goal && (
+                <Badge variant="outline" className="text-[10px]">goal: {row.generation_goal}</Badge>
+              )}
+            </div>
           </div>
           <div className="flex flex-col items-end gap-1">
             <Badge variant="outline" className={STATUS_COLOR[row.status]}>
@@ -940,9 +956,92 @@ export function ExecutionTracking() {
             </div>
           </div>
         )}
+
+        {canGenerateNext && (
+          <div className="rounded border border-violet-500/30 bg-violet-500/5 p-2 space-y-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="text-xs font-medium flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-violet-400" /> Next Prompt Generator
+                <Badge variant="outline" className="ml-1 text-[10px]">v0.4</Badge>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => openGenerator(row)}>
+                {gen?.open ? "Chiudi" : row.generated_prompt_text ? "Riapri prompt generato" : "Genera prossimo prompt"}
+              </Button>
+            </div>
+
+            {gen?.open && (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] text-muted-foreground">Obiettivo prossimo prompt:</span>
+                  <Select
+                    value={gen.goal}
+                    onValueChange={(v) => setGenGoal(row, v as GenerationGoal)}
+                  >
+                    <SelectTrigger className="h-8 w-[220px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {GENERATION_GOALS.map((g) => (
+                        <SelectItem key={g.value} value={g.value} className="text-xs">
+                          {g.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="ghost" onClick={() => regenerate(row)}>
+                    <RefreshCw className="mr-1 h-3 w-3" /> Rigenera
+                  </Button>
+                </div>
+
+                <Textarea
+                  value={gen.text}
+                  onChange={(e) => setGenText(row.id, e.target.value)}
+                  className="min-h-[200px] font-mono text-[11px]"
+                />
+
+                <div className="flex flex-wrap gap-1">
+                  <Button size="sm" onClick={() => copyGenerated(row)}>
+                    <Copy className="mr-1 h-3 w-3" /> Copia prossimo prompt
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => saveAsExecutionPackage(row)}>
+                    Salva come nuovo execution package
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => insertChildInLovable(row)}>
+                    Inserisci in Lovable
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => insertChildAndSendConfirmed(row)}>
+                    <Send className="mr-1 h-3 w-3" /> Inserisci e invia con conferma
+                  </Button>
+                </div>
+                <div className="text-[10px] text-muted-foreground">
+                  "Inserisci…" copia il prompt negli appunti e crea un nuovo tracking figlio collegato.
+                  L'inserimento e l'invio reali avvengono nel popup Browser Bridge sul tuo Chrome (v0.2/v0.3).
+                </div>
+              </>
+            )}
+
+            {children.length > 0 && (
+              <div className="space-y-1 pt-1">
+                <div className="text-[11px] text-muted-foreground">Prompt figli generati:</div>
+                {children.map((c) => (
+                  <div
+                    key={c.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded border border-border/40 bg-background/40 p-1.5 text-[11px]"
+                  >
+                    <span className="truncate flex-1 min-w-0">{c.prompt_title}</span>
+                    <Badge variant="outline" className={STATUS_COLOR[c.status]}>
+                      {STATUS_LABEL[c.status]}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   }
+
 
   return (
     <Card className="border-border/60">
