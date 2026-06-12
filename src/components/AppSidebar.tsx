@@ -53,6 +53,7 @@ const items = [
   { title: "Project Console", url: "/project-console", icon: LayoutDashboard },
   { title: "Tool Connections", url: "/tool-connections", icon: Plug },
   { title: "Runbooks", url: "/runbooks", icon: BookMarked },
+  { title: "Knowledge Map", url: "/knowledge-map", icon: BookOpen },
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },
   { title: "Prossime Azioni", url: "/prossime-azioni", icon: ListChecks },

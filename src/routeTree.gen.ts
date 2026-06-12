@@ -24,6 +24,7 @@ import { Route as AuthenticatedProgettiRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedOperatingDashboardRouteImport } from './routes/_authenticated/operating-dashboard'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
+import { Route as AuthenticatedKnowledgeMapRouteImport } from './routes/_authenticated/knowledge-map'
 import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
 import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticated/importa'
 import { Route as AuthenticatedHealthCheckRouteImport } from './routes/_authenticated/health-check'
@@ -124,6 +125,12 @@ const AuthenticatedLiveRoute = AuthenticatedLiveRouteImport.update({
   path: '/live',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedKnowledgeMapRoute =
+  AuthenticatedKnowledgeMapRouteImport.update({
+    id: '/knowledge-map',
+    path: '/knowledge-map',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedImpostazioniRoute =
   AuthenticatedImpostazioniRouteImport.update({
     id: '/impostazioni',
@@ -248,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/health-check': typeof AuthenticatedHealthCheckRoute
   '/importa': typeof AuthenticatedImportaRouteWithChildren
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
+  '/knowledge-map': typeof AuthenticatedKnowledgeMapRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
@@ -281,6 +289,7 @@ export interface FileRoutesByTo {
   '/guida': typeof AuthenticatedGuidaRoute
   '/health-check': typeof AuthenticatedHealthCheckRoute
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
+  '/knowledge-map': typeof AuthenticatedKnowledgeMapRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
@@ -318,6 +327,7 @@ export interface FileRoutesById {
   '/_authenticated/health-check': typeof AuthenticatedHealthCheckRoute
   '/_authenticated/importa': typeof AuthenticatedImportaRouteWithChildren
   '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
+  '/_authenticated/knowledge-map': typeof AuthenticatedKnowledgeMapRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
@@ -356,6 +366,7 @@ export interface FileRouteTypes {
     | '/health-check'
     | '/importa'
     | '/impostazioni'
+    | '/knowledge-map'
     | '/live'
     | '/logs'
     | '/operating-dashboard'
@@ -389,6 +400,7 @@ export interface FileRouteTypes {
     | '/guida'
     | '/health-check'
     | '/impostazioni'
+    | '/knowledge-map'
     | '/live'
     | '/logs'
     | '/operating-dashboard'
@@ -425,6 +437,7 @@ export interface FileRouteTypes {
     | '/_authenticated/health-check'
     | '/_authenticated/importa'
     | '/_authenticated/impostazioni'
+    | '/_authenticated/knowledge-map'
     | '/_authenticated/live'
     | '/_authenticated/logs'
     | '/_authenticated/operating-dashboard'
@@ -557,6 +570,13 @@ declare module '@tanstack/react-router' {
       path: '/live'
       fullPath: '/live'
       preLoaderRoute: typeof AuthenticatedLiveRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/knowledge-map': {
+      id: '/_authenticated/knowledge-map'
+      path: '/knowledge-map'
+      fullPath: '/knowledge-map'
+      preLoaderRoute: typeof AuthenticatedKnowledgeMapRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/impostazioni': {
@@ -737,6 +757,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHealthCheckRoute: typeof AuthenticatedHealthCheckRoute
   AuthenticatedImportaRoute: typeof AuthenticatedImportaRouteWithChildren
   AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
+  AuthenticatedKnowledgeMapRoute: typeof AuthenticatedKnowledgeMapRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedOperatingDashboardRoute: typeof AuthenticatedOperatingDashboardRoute
@@ -767,6 +788,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHealthCheckRoute: AuthenticatedHealthCheckRoute,
   AuthenticatedImportaRoute: AuthenticatedImportaRouteWithChildren,
   AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
+  AuthenticatedKnowledgeMapRoute: AuthenticatedKnowledgeMapRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedOperatingDashboardRoute: AuthenticatedOperatingDashboardRoute,

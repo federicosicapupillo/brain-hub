@@ -22,7 +22,8 @@ export type BlockId =
   | "project_health_check"
   | "automation_control"
   | "runbooks"
-  | "tool_connections";
+  | "tool_connections"
+  | "knowledge_map";
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
@@ -47,6 +48,7 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "automation_control", label: "Automation Control", hint: "Action Queue: azioni operative approvabili" },
   { id: "runbooks", label: "Runbooks", hint: "Procedure operative guidate (workflow templates)" },
   { id: "tool_connections", label: "Tool Connections", hint: "Tool collegati al progetto e stato collegamento" },
+  { id: "knowledge_map", label: "Knowledge Map", hint: "Materiali, file, link e fonti collegate al progetto" },
 ];
 
 export const PRIORITIES = [
@@ -81,6 +83,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "automation_control",
       "runbooks",
       "tool_connections",
+      "knowledge_map",
     ],
   },
   immobiliare: {
@@ -94,17 +97,18 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "kpi",
       "note_progetto",
       "tool_connections",
+      "knowledge_map",
     ],
   },
   marketing: {
     label: "Marketing / Comunicazione",
     priority: "marketing",
-    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections"],
+    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections", "knowledge_map"],
   },
   lead_generation: {
     label: "Lead Generation",
     priority: "lead_generation",
-    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita", "tool_connections"],
+    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita", "tool_connections", "knowledge_map"],
   },
   ai_automation: {
     label: "AI Automation",
@@ -120,12 +124,13 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "automation_control",
       "runbooks",
       "tool_connections",
+      "knowledge_map",
     ],
   },
   content_creation: {
     label: "Content Creation",
     priority: "contenuti_social",
-    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections"],
+    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections", "knowledge_map"],
   },
   roadmap_operativa: {
     label: "Roadmap Operativa",

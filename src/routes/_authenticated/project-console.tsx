@@ -8,6 +8,7 @@ import { ProjectHealthCheck } from "@/components/ProjectHealthCheck";
 import { AutomationControlBlock } from "@/components/AutomationControlBlock";
 import { RunbooksBlock } from "@/components/RunbooksBlock";
 import { ToolConnectionsBlock } from "@/components/ToolConnectionsBlock";
+import { KnowledgeMapBlock } from "@/components/KnowledgeMapBlock";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -385,6 +386,9 @@ function BlockPreview({ id, brainId }: { id: BlockId; brainId: string }) {
   }
   if (id === "tool_connections" && brainId) {
     return <ToolConnectionsBlock brainId={brainId} />;
+  }
+  if (id === "knowledge_map" && brainId) {
+    return <KnowledgeMapBlock brainId={brainId} />;
   }
   return (
     <div className="rounded-md border border-border/60 bg-card/40 p-3">

@@ -285,7 +285,15 @@ export type LogEventType =
   | "tool_connection_status_changed"
   | "tool_connection_opened"
   | "tool_connection_manual_check_completed"
-  | "tool_connection_recommended_ignored";
+  | "tool_connection_recommended_ignored"
+  | "knowledge_source_created"
+  | "knowledge_source_updated"
+  | "knowledge_source_status_changed"
+  | "knowledge_source_opened"
+  | "knowledge_source_linked_to_tool"
+  | "knowledge_source_linked_to_roadmap"
+  | "knowledge_source_archived"
+  | "knowledge_source_missing_recommended";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -367,6 +375,14 @@ const LOG_TITLES: Record<LogEventType, string> = {
   tool_connection_opened: "Tool aperto",
   tool_connection_manual_check_completed: "Verifica tool",
   tool_connection_recommended_ignored: "Tool consigliato ignorato",
+  knowledge_source_created: "Fonte knowledge creata",
+  knowledge_source_updated: "Fonte knowledge aggiornata",
+  knowledge_source_status_changed: "Stato fonte knowledge cambiato",
+  knowledge_source_opened: "Fonte knowledge aperta",
+  knowledge_source_linked_to_tool: "Fonte knowledge collegata a tool",
+  knowledge_source_linked_to_roadmap: "Fonte knowledge collegata a roadmap",
+  knowledge_source_archived: "Fonte knowledge archiviata",
+  knowledge_source_missing_recommended: "Fonte consigliata mancante",
 };
 
 
