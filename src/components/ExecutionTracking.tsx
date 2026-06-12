@@ -827,6 +827,10 @@ export function ExecutionTracking() {
       `Next prompt generato e copiato per Browser Bridge: ${child.prompt_title}`,
     );
     toast.success("Prompt copiato. Aprilo nel popup Browser Bridge.");
+    void enqueueExecCta(parent, "Inserisci in Lovable", "send_next_prompt", "high", {
+      child_pel_id: child.id,
+      suggested_reason: "next_prompt_inserted_in_lovable",
+    });
   }
 
   async function insertChildAndSendConfirmed(parent: PEL) {
