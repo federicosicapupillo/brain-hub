@@ -594,12 +594,17 @@ function ActionRow({
           )}
           <div className="mt-1 flex flex-wrap items-center gap-1">
             <Badge variant="outline" className="text-[10px]">{ACTION_TYPE_LABEL[a.action_type]}</Badge>
-            <Badge variant="secondary" className="text-[10px]">{SOURCE_LABEL[a.source]}</Badge>
+            <Badge variant="secondary" className="text-[10px]">{SOURCE_BADGE[a.source]}</Badge>
             <Badge className={`border text-[10px] ${RISK_TONE[a.risk_level]}`} variant="outline">
               {a.risk_level}
             </Badge>
             <Badge variant="outline" className="text-[10px]">{STATUS_LABEL[a.status]}</Badge>
             {brainName && <Badge variant="outline" className="text-[10px]">{brainName}</Badge>}
+            {(a.metadata as Record<string, unknown> | null)?.duplicate_click_count ? (
+              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
+                ×{String((a.metadata as Record<string, unknown>).duplicate_click_count)} duplicati evitati
+              </Badge>
+            ) : null}
             <span className="text-[10px] text-muted-foreground">
               · {new Date(a.created_at).toLocaleString()}
             </span>
