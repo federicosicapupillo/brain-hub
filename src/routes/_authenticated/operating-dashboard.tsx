@@ -401,6 +401,7 @@ function OperatingDashboardRoute() {
             <AutomationControlBlock brainId={brainId} />
             <RunbooksBlock brainId={brainId} />
             <AutomationReadinessMini />
+            <N8nControlledExecutionMini brainId={brainId} />
 
 
             {/* Roadmap snapshot */}
