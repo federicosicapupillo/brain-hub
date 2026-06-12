@@ -85,6 +85,42 @@ type NextAction = {
 
 export function ProjectHealthCheck({ brainId }: { brainId: string }) {
   const [ignored, setIgnored] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
+
+  async function enqueueAndGo(
+    action_type: ActionType,
+    title: string,
+    cta_label: string,
+    risk_level: RiskLevel,
+    extra: Partial<CtaContext> = {},
+  ) {
+    try {
+      const { duplicated } = await enqueueFromCta({
+        source: "project_health_check",
+        source_block: "ProjectHealthCheck",
+        source_cta: cta_label,
+        action_type,
+        title,
+        risk_level,
+        brain_id: brainId,
+        ...extra,
+      });
+      toast.success(
+        duplicated
+          ? "Azione già in coda — duplicato evitato"
+          : "Azione aggiunta alla Action Queue",
+        {
+          action: {
+            label: "Apri Action Queue",
+            onClick: () => void navigate({ to: "/action-queue" }),
+          },
+        },
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore enqueue azione");
+    }
+  }
+
 
   const { data: logs = [] } = useQuery<PEL[]>({
     queryKey: ["phc-pels", brainId],
