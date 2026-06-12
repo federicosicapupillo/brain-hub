@@ -173,37 +173,85 @@ export function ProjectHealthCheck({ brainId }: { brainId: string }) {
       critical.push({
         id: "failed",
         label: `${failed.length} prompt falliti da correggere`,
-        cta: { label: "Genera fix prompt", to: "/automation-control", icon: <Wrench className="h-3 w-3" /> },
+        cta: {
+          label: "Genera fix prompt",
+          onClick: () =>
+            enqueueAndGo("generate_fix_prompt", `Genera fix prompt (${failed.length} falliti)`, "Genera fix prompt", "medium", {
+              prompt_execution_log_id: failed[0]?.id ?? null,
+              extra: { suggested_reason: "failed_prompts", result_status: "failed" },
+            }),
+          icon: <Wrench className="h-3 w-3" />,
+        },
       });
     if (pending.length > 0)
       warnings.push({
         id: "pending",
         label: `${pending.length} risultati Lovable da salvare/verificare`,
-        cta: { label: "Salva risultato", to: "/automation-control", icon: <CheckCircle2 className="h-3 w-3" /> },
+        cta: {
+          label: "Salva risultato",
+          onClick: () =>
+            enqueueAndGo("review_pending_result", `Verifica risultato in attesa (${pending.length})`, "Salva risultato", "medium", {
+              prompt_execution_log_id: pending[0]?.id ?? null,
+              extra: { suggested_reason: "result_pending", result_status: "result_pending" },
+            }),
+          icon: <CheckCircle2 className="h-3 w-3" />,
+        },
       });
     if (nextReady.length > 0)
       warnings.push({
         id: "next_ready",
         label: `${nextReady.length} next prompt pronti ma non inviati`,
-        cta: { label: "Invia next prompt", to: "/automation-control", icon: <Send className="h-3 w-3" /> },
+        cta: {
+          label: "Invia next prompt",
+          onClick: () =>
+            enqueueAndGo("send_next_prompt", `Invia next prompt (${nextReady.length} pronti)`, "Invia next prompt", "high", {
+              prompt_execution_log_id: nextReady[0]?.id ?? null,
+              parent_execution_log_id: nextReady[0]?.parent_execution_log_id ?? null,
+              extra: { suggested_reason: "next_ready_not_sent" },
+            }),
+          icon: <Send className="h-3 w-3" />,
+        },
       });
     if (unlinked.length > 0 && roadmap.length > 0)
       warnings.push({
         id: "unlinked",
         label: `${unlinked.length} prompt scollegati dalla roadmap`,
-        cta: { label: "Collega alla roadmap", to: "/automation-control", icon: <Link2 className="h-3 w-3" /> },
+        cta: {
+          label: "Collega alla roadmap",
+          onClick: () =>
+            enqueueAndGo("link_log_to_roadmap", `Collega log alla roadmap (${unlinked.length})`, "Collega alla roadmap", "medium", {
+              prompt_execution_log_id: unlinked[0]?.id ?? null,
+              extra: { suggested_reason: "unlinked_logs" },
+            }),
+          icon: <Link2 className="h-3 w-3" />,
+        },
       });
     if (noRoadmap)
       incomplete.push({
         id: "no_roadmap",
         label: "Manca una roadmap per questo progetto",
-        cta: { label: "Crea roadmap", to: "/roadmap", icon: <ListChecks className="h-3 w-3" /> },
+        cta: {
+          label: "Crea roadmap",
+          onClick: () =>
+            enqueueAndGo("create_roadmap_item", "Crea roadmap per questo progetto", "Crea roadmap", "medium", {
+              extra: { suggested_reason: "no_roadmap" },
+            }),
+          icon: <ListChecks className="h-3 w-3" />,
+        },
       });
     if (roadmapNoPrompts.length > 0)
       incomplete.push({
         id: "roadmap_no_prompts",
         label: `${roadmapNoPrompts.length} punti roadmap senza prompt operativo`,
-        cta: { label: "Genera primo prompt", to: "/automation-control", icon: <Sparkles className="h-3 w-3" /> },
+        cta: {
+          label: "Genera primo prompt",
+          onClick: () =>
+            enqueueAndGo("generate_first_prompt", `Genera primo prompt per: ${roadmapNoPrompts[0]?.title ?? "roadmap item"}`, "Genera primo prompt", "medium", {
+              roadmap_item_id: roadmapNoPrompts[0]?.id ?? null,
+              extra: { suggested_reason: "roadmap_without_prompts" },
+            }),
+          icon: <Sparkles className="h-3 w-3" />,
+        },
       });
     if (logs.length === 0 && !noRoadmap)
       incomplete.push({ id: "no_logs", label: "Nessun execution log presente" });
@@ -228,17 +276,17 @@ export function ProjectHealthCheck({ brainId }: { brainId: string }) {
     // Next action — single priority
     let next: NextAction;
     if (failed.length > 0)
-      next = { label: "Genera prompt di correzione", hint: "Hai prompt falliti da risolvere", to: "/automation-control", icon: <Wrench className="h-4 w-4" /> };
+      next = { label: "Genera prompt di correzione", hint: "Hai prompt falliti da risolvere", to: "/action-queue", icon: <Wrench className="h-4 w-4" /> };
     else if (pending.length > 0)
-      next = { label: "Salva/verifica risultato Lovable", hint: "Ci sono risultati in attesa", to: "/automation-control", icon: <CheckCircle2 className="h-4 w-4" /> };
+      next = { label: "Salva/verifica risultato Lovable", hint: "Ci sono risultati in attesa", to: "/action-queue", icon: <CheckCircle2 className="h-4 w-4" /> };
     else if (nextReady.length > 0)
-      next = { label: "Invia next prompt", hint: "Next prompt pronti ma non inviati", to: "/automation-control", icon: <Send className="h-4 w-4" /> };
+      next = { label: "Invia next prompt", hint: "Next prompt pronti ma non inviati", to: "/action-queue", icon: <Send className="h-4 w-4" /> };
     else if (noRoadmap)
       next = { label: "Crea/importa roadmap", hint: "Manca una roadmap per il progetto", to: "/roadmap", icon: <ListChecks className="h-4 w-4" /> };
     else if (roadmapNoPrompts.length > 0)
-      next = { label: "Genera primo prompt", hint: "Roadmap item senza prompt operativo", to: "/automation-control", icon: <Sparkles className="h-4 w-4" /> };
+      next = { label: "Genera primo prompt", hint: "Roadmap item senza prompt operativo", to: "/action-queue", icon: <Sparkles className="h-4 w-4" /> };
     else if (unlinked.length > 0)
-      next = { label: "Collega log alla roadmap", hint: "Ci sono prompt scollegati", to: "/automation-control", icon: <Link2 className="h-4 w-4" /> };
+      next = { label: "Collega log alla roadmap", hint: "Ci sono prompt scollegati", to: "/action-queue", icon: <Link2 className="h-4 w-4" /> };
     else if (noData)
       next = { label: "Inizia da una roadmap o un prompt", hint: "Nessun dato disponibile per ora", to: "/roadmap", icon: <Sparkles className="h-4 w-4" /> };
     else
