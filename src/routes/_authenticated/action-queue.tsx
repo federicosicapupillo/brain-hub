@@ -1390,3 +1390,36 @@ function TelegramApprovalBox({ action }: { action: AutomationAction }) {
     </div>
   );
 }
+
+function N8nTelegramApprovalHint({
+  action,
+  workflowRisk,
+}: {
+  action: AutomationAction;
+  workflowRisk: string;
+}) {
+  const { data: approvals = [] } = useQuery({
+    queryKey: ["telegram-approvals-action", action.id],
+    queryFn: () => listApprovalsForAction(action.id),
+  });
+  const isHigh = action.risk_level === "high" || workflowRisk === "high";
+  if (!isHigh) return null;
+  const latest = approvals[0] as TelegramApprovalRequest | undefined;
+  if (latest?.status === "approved") {
+    return (
+      <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11px] text-emerald-700">
+        Approvato via Telegram. Puoi procedere con esecuzione manuale.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-[11px] text-amber-700 flex items-center justify-between gap-2">
+      <span>Per azioni high risk è consigliata approvazione Telegram prima dell'esecuzione live.</span>
+      <Button asChild size="sm" variant="outline">
+        <Link to="/telegram-approvals" search={{ brain: action.brain_id ?? undefined }}>
+          Apri Telegram Approvals
+        </Link>
+      </Button>
+    </div>
+  );
+}
