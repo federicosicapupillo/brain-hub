@@ -46,6 +46,12 @@ import {
   listRunbookInstances,
 } from "@/lib/runbooks";
 import { loadConfigForBrain, PRESETS } from "@/lib/project-console";
+import {
+  APPROVAL_STATUS_LABEL,
+  APPROVAL_STATUS_TONE,
+  listApprovalRequests,
+  summarizeApprovals,
+} from "@/lib/telegram-approvals";
 
 export const Route = createFileRoute("/_authenticated/operating-dashboard")({
   head: () => ({
@@ -402,6 +408,7 @@ function OperatingDashboardRoute() {
             <RunbooksBlock brainId={brainId} />
             <AutomationReadinessMini />
             <N8nControlledExecutionMini brainId={brainId} />
+            <TelegramApprovalsMini brainId={brainId} />
 
 
             {/* Roadmap snapshot */}
@@ -672,3 +679,70 @@ function N8nControlledExecutionMini({ brainId }: { brainId: string | null }) {
   );
 }
 
+
+function TelegramApprovalsMini({ brainId }: { brainId: string | null }) {
+  const { data: requests = [] } = useQuery({
+    queryKey: ["telegram-approvals", brainId],
+    queryFn: () => listApprovalRequests(brainId),
+    enabled: !!brainId,
+  });
+  const summary = summarizeApprovals(requests);
+  const recent = requests.slice(0, 4);
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <Send className="h-4 w-4" /> Telegram Approvals
+          </span>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/telegram-approvals" search={{ brain: brainId ?? undefined }}>
+              Apri <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-4 gap-2">
+          <MiniTile label="Pending" value={summary.pending} tone={summary.pending > 0 ? "amber" : undefined} />
+          <MiniTile label="High risk" value={summary.high_risk} tone={summary.high_risk > 0 ? "red" : undefined} />
+          <MiniTile label="Approvate" value={summary.approved} />
+          <MiniTile label="Rifiutate" value={summary.rejected} tone={summary.rejected > 0 ? "red" : undefined} />
+        </div>
+        {recent.length === 0 ? (
+          <div className="rounded border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
+            Nessuna richiesta. Le approvazioni Telegram appariranno qui.
+          </div>
+        ) : (
+          <ul className="space-y-1">
+            {recent.map((r) => (
+              <li key={r.id} className="rounded border border-border/60 bg-background/40 p-2 text-[11px]">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate font-medium">{r.title}</span>
+                  <Badge variant="outline" className={`text-[10px] ${APPROVAL_STATUS_TONE[r.status]}`}>
+                    {APPROVAL_STATUS_LABEL[r.status]}
+                  </Badge>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MiniTile({ label, value, tone }: { label: string; value: number; tone?: "amber" | "red" }) {
+  const cls =
+    tone === "red"
+      ? "border-red-500/30 bg-red-500/10 text-red-600"
+      : tone === "amber"
+      ? "border-amber-500/30 bg-amber-500/10 text-amber-700"
+      : "border-border bg-background/40";
+  return (
+    <div className={`rounded border p-2 text-center ${cls}`}>
+      <div className="text-base font-semibold">{value}</div>
+      <div className="text-[10px] uppercase tracking-wide">{label}</div>
+    </div>
+  );
+}

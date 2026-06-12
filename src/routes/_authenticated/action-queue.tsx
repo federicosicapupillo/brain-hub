@@ -70,6 +70,17 @@ import {
   type N8nExecutionLog,
 } from "@/lib/n8n-execution";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  APPROVAL_STATUS_LABEL,
+  APPROVAL_STATUS_TONE,
+  TelegramApprovalRequest,
+  buildMessagePreview,
+  cancelApproval,
+  createApprovalRequest,
+  listApprovalsForAction,
+  simulateApprove,
+  simulateReject,
+} from "@/lib/telegram-approvals";
 
 async function logEvent(action: LogEventType, notes: string, metadata: Record<string, unknown>) {
   const { data: u } = await supabase.auth.getUser();
@@ -715,6 +726,7 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
           <Link to="/n8n-workflows" className="underline">Registra workflow</Link>
         </div>
       )}
+      <TelegramApprovalBox action={a} />
       {readiness && (
         <div className="rounded border border-border/60 bg-background/40 p-2 text-xs">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -1030,6 +1042,8 @@ function N8nControlledExecutionBox({
         )}
       </div>
 
+      <N8nTelegramApprovalHint action={action} workflowRisk={workflow.risk_level} />
+
       <div className="grid grid-cols-2 gap-2 text-[11px]">
         <div>
           <div className="text-[10px] uppercase text-muted-foreground">Input attesi</div>
@@ -1215,3 +1229,197 @@ function N8nControlledExecutionBox({
 
 // Unused statuses re-export to silence unused-import for ActionStatus type
 export type _Status = ActionStatus;
+
+function TelegramApprovalBox({ action }: { action: AutomationAction }) {
+  const qc = useQueryClient();
+  const { data: approvals = [] } = useQuery({
+    queryKey: ["telegram-approvals-action", action.id],
+    queryFn: () => listApprovalsForAction(action.id),
+  });
+  const latest = approvals[0] as TelegramApprovalRequest | undefined;
+  const [rejectReason, setRejectReason] = useState("");
+
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ["telegram-approvals-action", action.id] });
+    qc.invalidateQueries({ queryKey: ["telegram-approvals"] });
+    qc.invalidateQueries({ queryKey: ["action-queue"] });
+  };
+
+  async function createNew() {
+    try {
+      const preview = buildMessagePreview({
+        title: action.title,
+        project: action.brain_id ?? undefined,
+        risk_level: action.risk_level,
+        approval_type: "manual_action",
+      });
+      const req = await createApprovalRequest({
+        brain_id: action.brain_id ?? null,
+        project_id: action.project_id ?? null,
+        automation_action_id: action.id,
+        approval_type: "manual_action",
+        title: action.title,
+        message_preview: preview,
+        payload_preview: {
+          action_id: action.id,
+          action_type: action.action_type,
+          risk_level: action.risk_level,
+        },
+        risk_level: (action.risk_level as "low" | "medium" | "high") ?? "medium",
+      });
+      toast.success("Richiesta Telegram creata");
+      void req;
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
+
+  return (
+    <div className="rounded border border-sky-500/30 bg-sky-500/5 p-2 text-xs">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[10px] uppercase tracking-wide text-sky-700">Telegram Approval</div>
+        {action.risk_level === "high" && (
+          <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-700">
+            <ShieldAlert className="mr-1 h-3 w-3" /> consigliata per high risk
+          </Badge>
+        )}
+      </div>
+      {!latest && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-muted-foreground">
+            Nessuna richiesta di approvazione per questa azione.
+          </div>
+          <Button size="sm" variant="outline" onClick={createNew}>
+            Richiedi approvazione Telegram
+          </Button>
+        </div>
+      )}
+      {latest && (
+        <div className="mt-2 space-y-2">
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge variant="outline" className={`text-[10px] ${APPROVAL_STATUS_TONE[latest.status]}`}>
+              {APPROVAL_STATUS_LABEL[latest.status]}
+            </Badge>
+            <Badge variant="outline" className={`text-[10px] ${RISK_TONE[latest.risk_level as "low" | "medium" | "high"] ?? ""}`}>
+              rischio: {latest.risk_level}
+            </Badge>
+            <span className="text-[10px] text-muted-foreground">
+              {new Date(latest.created_at).toLocaleString()}
+            </span>
+          </div>
+          {latest.message_preview && (
+            <pre className="max-h-32 overflow-auto whitespace-pre-wrap rounded border border-border/60 bg-background/40 p-2 text-[10px]">
+              {latest.message_preview}
+            </pre>
+          )}
+          {["draft", "ready_to_send", "sent", "pending_response"].includes(latest.status) && (
+            <div className="flex flex-wrap items-center gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    await simulateApprove(latest);
+                    toast.success("Approvazione simulata");
+                    refresh();
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Errore");
+                  }
+                }}
+              >
+                Simula approvazione
+              </Button>
+              <Input
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Motivo rifiuto"
+                className="h-7 w-40 text-[11px]"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={!rejectReason.trim()}
+                onClick={async () => {
+                  try {
+                    await simulateReject(latest, rejectReason.trim());
+                    toast.success("Rifiuto simulato");
+                    setRejectReason("");
+                    refresh();
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Errore");
+                  }
+                }}
+              >
+                Simula rifiuto
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  try {
+                    await cancelApproval(latest);
+                    toast.success("Annullata");
+                    refresh();
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Errore");
+                  }
+                }}
+              >
+                Annulla
+              </Button>
+              <Button asChild size="sm" variant="ghost">
+                <Link to="/telegram-approvals" search={{ brain: action.brain_id ?? undefined }}>
+                  Apri
+                </Link>
+              </Button>
+            </div>
+          )}
+          {latest.status === "rejected" && latest.rejection_reason && (
+            <div className="rounded border border-red-500/30 bg-red-500/5 p-2 text-[10px] text-red-700">
+              Motivo: {latest.rejection_reason}
+            </div>
+          )}
+          {latest.status === "approved" && (
+            <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2 text-[10px] text-emerald-700">
+              Approvato via Telegram. L'esecuzione resta manuale.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function N8nTelegramApprovalHint({
+  action,
+  workflowRisk,
+}: {
+  action: AutomationAction;
+  workflowRisk: string;
+}) {
+  const { data: approvals = [] } = useQuery({
+    queryKey: ["telegram-approvals-action", action.id],
+    queryFn: () => listApprovalsForAction(action.id),
+  });
+  const isHigh = action.risk_level === "high" || workflowRisk === "high";
+  if (!isHigh) return null;
+  const latest = approvals[0] as TelegramApprovalRequest | undefined;
+  if (latest?.status === "approved") {
+    return (
+      <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2 text-[11px] text-emerald-700">
+        Approvato via Telegram. Puoi procedere con esecuzione manuale.
+      </div>
+    );
+  }
+  return (
+    <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-[11px] text-amber-700 flex items-center justify-between gap-2">
+      <span>Per azioni high risk è consigliata approvazione Telegram prima dell'esecuzione live.</span>
+      <Button asChild size="sm" variant="outline">
+        <Link to="/telegram-approvals" search={{ brain: action.brain_id ?? undefined }}>
+          Apri Telegram Approvals
+        </Link>
+      </Button>
+    </div>
+  );
+}

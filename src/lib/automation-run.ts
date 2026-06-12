@@ -306,7 +306,14 @@ export type LogEventType =
   | "n8n_execution_started"
   | "n8n_execution_completed"
   | "n8n_execution_failed"
-  | "n8n_execution_receipt_saved";
+  | "n8n_execution_receipt_saved"
+  | "telegram_approval_request_created"
+  | "telegram_approval_request_ready"
+  | "telegram_approval_request_sent"
+  | "telegram_approval_request_approved"
+  | "telegram_approval_request_rejected"
+  | "telegram_approval_request_cancelled"
+  | "telegram_approval_request_failed";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -409,6 +416,13 @@ const LOG_TITLES: Record<LogEventType, string> = {
   n8n_execution_completed: "Esecuzione n8n completata",
   n8n_execution_failed: "Esecuzione n8n fallita",
   n8n_execution_receipt_saved: "Receipt esecuzione n8n salvata",
+  telegram_approval_request_created: "Richiesta approvazione Telegram creata",
+  telegram_approval_request_ready: "Richiesta Telegram pronta da inviare",
+  telegram_approval_request_sent: "Richiesta Telegram inviata",
+  telegram_approval_request_approved: "Approvazione Telegram ricevuta",
+  telegram_approval_request_rejected: "Rifiuto Telegram ricevuto",
+  telegram_approval_request_cancelled: "Richiesta Telegram annullata",
+  telegram_approval_request_failed: "Richiesta Telegram fallita",
 };
 
 
