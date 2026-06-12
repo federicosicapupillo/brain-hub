@@ -644,6 +644,7 @@ function ActionRow({
 function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: string }) {
   const meta = (a.metadata ?? {}) as Record<string, unknown>;
   const readiness = getReadiness(a.action_type);
+  const qc = useQueryClient();
   const { data: linkedWorkflows = [] } = useQuery({
     queryKey: ["n8n-workflows-for-action", a.action_type, a.brain_id],
     queryFn: () => listWorkflowsForActionType(a.action_type, a.brain_id ?? undefined),
@@ -651,37 +652,14 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
   return (
     <div className="space-y-3 text-sm">
       {linkedWorkflows.length > 0 && (
-        <div className="rounded border border-violet-500/30 bg-violet-500/5 p-2 text-xs">
-          <div className="text-[10px] uppercase tracking-wide text-violet-600">
-            Workflow n8n collegato
-          </div>
-          {linkedWorkflows.map((w) => (
-            <div key={w.id} className="mt-1 space-y-1">
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="font-medium">{w.workflow_name}</span>
-                <Badge variant="outline">{w.status}</Badge>
-                <Badge variant="outline" className={RISK_TONE[w.risk_level]}>{w.risk_level}</Badge>
-                {w.workflow_url && (
-                  <a href={w.workflow_url} target="_blank" rel="noreferrer" className="ml-auto text-violet-600 underline">
-                    Apri workflow
-                  </a>
-                )}
-              </div>
-              {w.expected_input_schema && (
-                <div className="text-muted-foreground">Input attesi: <code className="text-[10px]">{Object.keys(w.expected_input_schema).join(", ") || "—"}</code></div>
-              )}
-              {w.expected_output_schema && (
-                <div className="text-muted-foreground">Output attesi: <code className="text-[10px]">{Object.keys(w.expected_output_schema).join(", ") || "—"}</code></div>
-              )}
-              {w.verification_method && (
-                <div className="text-muted-foreground">Verifica: {w.verification_method}</div>
-              )}
-            </div>
-          ))}
-          <div className="mt-2 text-[10px] text-muted-foreground">
-            Il workflow non viene eseguito da Brain Hub. Apri n8n manualmente per testarlo.
-          </div>
-        </div>
+        <N8nControlledExecutionBox
+          action={a}
+          workflow={linkedWorkflows[0]}
+          onChanged={() => {
+            qc.invalidateQueries({ queryKey: ["action-queue"] });
+            qc.invalidateQueries({ queryKey: ["n8n-exec-logs", a.id] });
+          }}
+        />
       )}
       {linkedWorkflows.length === 0 && readiness?.execution_method === "n8n_workflow" && (
         <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs">
