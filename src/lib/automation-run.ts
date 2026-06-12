@@ -279,7 +279,13 @@ export type LogEventType =
   | "runbook_instance_completed"
   | "runbook_instance_blocked"
   | "runbook_instance_cancelled"
-  | "runbook_instance_failed";
+  | "runbook_instance_failed"
+  | "tool_connection_created"
+  | "tool_connection_updated"
+  | "tool_connection_status_changed"
+  | "tool_connection_opened"
+  | "tool_connection_manual_check_completed"
+  | "tool_connection_recommended_ignored";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -355,6 +361,12 @@ const LOG_TITLES: Record<LogEventType, string> = {
   runbook_instance_blocked: "Runbook bloccato",
   runbook_instance_cancelled: "Runbook annullato",
   runbook_instance_failed: "Runbook fallito",
+  tool_connection_created: "Tool collegato",
+  tool_connection_updated: "Tool aggiornato",
+  tool_connection_status_changed: "Stato tool cambiato",
+  tool_connection_opened: "Tool aperto",
+  tool_connection_manual_check_completed: "Verifica tool",
+  tool_connection_recommended_ignored: "Tool consigliato ignorato",
 };
 
 

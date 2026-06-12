@@ -51,6 +51,7 @@ const items = [
   { title: "Project Loop", url: "/project-loop", icon: RefreshCw },
   { title: "Operating Dashboard", url: "/operating-dashboard", icon: LayoutDashboard },
   { title: "Project Console", url: "/project-console", icon: LayoutDashboard },
+  { title: "Tool Connections", url: "/tool-connections", icon: Plug },
   { title: "Runbooks", url: "/runbooks", icon: BookMarked },
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },

@@ -1102,10 +1102,14 @@ export type Database = {
           brain_id: string
           connection_mode: string
           connection_status: string
+          connection_type: string | null
           created_at: string
           folder_path: string | null
           id: string
+          is_recommended: boolean
+          is_required: boolean
           last_checked_at: string | null
+          last_manual_check_at: string | null
           last_sync_at: string | null
           metadata: Json
           notes: string | null
@@ -1120,10 +1124,14 @@ export type Database = {
           brain_id: string
           connection_mode?: string
           connection_status?: string
+          connection_type?: string | null
           created_at?: string
           folder_path?: string | null
           id?: string
+          is_recommended?: boolean
+          is_required?: boolean
           last_checked_at?: string | null
+          last_manual_check_at?: string | null
           last_sync_at?: string | null
           metadata?: Json
           notes?: string | null
@@ -1138,10 +1146,14 @@ export type Database = {
           brain_id?: string
           connection_mode?: string
           connection_status?: string
+          connection_type?: string | null
           created_at?: string
           folder_path?: string | null
           id?: string
+          is_recommended?: boolean
+          is_required?: boolean
           last_checked_at?: string | null
+          last_manual_check_at?: string | null
           last_sync_at?: string | null
           metadata?: Json
           notes?: string | null
