@@ -38,6 +38,7 @@ import {
   STATUS_LABEL,
   listActions,
 } from "@/lib/action-queue";
+import { summarizeReadiness } from "@/lib/automation-readiness";
 import {
   RUNBOOK_STATUS_LABEL,
   RUNBOOK_STATUS_TONE,
@@ -399,6 +400,8 @@ function OperatingDashboardRoute() {
           <div className="grid gap-4 lg:grid-cols-2">
             <AutomationControlBlock brainId={brainId} />
             <RunbooksBlock brainId={brainId} />
+            <AutomationReadinessMini />
+
 
             {/* Roadmap snapshot */}
             <Card>
@@ -550,3 +553,40 @@ function Tile({
     </div>
   );
 }
+
+function AutomationReadinessMini() {
+  const summary = summarizeReadiness();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4" /> Automation Readiness
+          </span>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/automation-readiness">
+              Apri <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Pronte</div>
+            <div className="text-lg font-semibold">{summary.ready_now}</div>
+          </div>
+          <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Bloccate permessi</div>
+            <div className="text-lg font-semibold">{summary.blocked_by_permission}</div>
+          </div>
+          <div className="rounded border border-violet-500/30 bg-violet-500/5 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Future n8n</div>
+            <div className="text-lg font-semibold">{summary.future_n8n_ready}</div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+

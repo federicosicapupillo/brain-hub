@@ -53,6 +53,12 @@ import {
   rejectAction,
 } from "@/lib/action-queue";
 import type { LogEventType } from "@/lib/automation-run";
+import {
+  getReadiness,
+  AUTOMATION_LEVEL_LABEL,
+  AUTOMATION_LEVEL_TONE,
+  EXECUTION_METHOD_LABEL,
+} from "@/lib/automation-readiness";
 
 async function logEvent(action: LogEventType, notes: string, metadata: Record<string, unknown>) {
   const { data: u } = await supabase.auth.getUser();
@@ -636,8 +642,40 @@ function ActionRow({
 
 function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: string }) {
   const meta = (a.metadata ?? {}) as Record<string, unknown>;
+  const readiness = getReadiness(a.action_type);
   return (
     <div className="space-y-3 text-sm">
+      {readiness && (
+        <div className="rounded border border-border/60 bg-background/40 p-2 text-xs">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Automation Readiness
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            <Badge variant="outline" className={AUTOMATION_LEVEL_TONE[readiness.automation_level_current]}>
+              {AUTOMATION_LEVEL_LABEL[readiness.automation_level_current]}
+            </Badge>
+            <Badge variant="outline">
+              {EXECUTION_METHOD_LABEL[readiness.execution_method]}
+            </Badge>
+            <Badge
+              variant="outline"
+              className={
+                readiness.is_ready_for_automation
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                  : "border-red-500/30 bg-red-500/10 text-red-600"
+              }
+            >
+              {readiness.is_ready_for_automation ? "Pronta" : "Non pronta"}
+            </Badge>
+            {readiness.required_tool && (
+              <Badge variant="outline">Tool: {readiness.required_tool}</Badge>
+            )}
+          </div>
+          {readiness.blocking_reason && (
+            <div className="mt-1 text-amber-700">Blocco: {readiness.blocking_reason}</div>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-2">
         <DetailItem label="Tipo" value={ACTION_TYPE_LABEL[a.action_type]} />
         <DetailItem label="Origine" value={SOURCE_LABEL[a.source]} />

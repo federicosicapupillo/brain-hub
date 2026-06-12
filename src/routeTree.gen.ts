@@ -34,6 +34,7 @@ import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authe
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
+import { Route as AuthenticatedAutomationReadinessRouteImport } from './routes/_authenticated/automation-readiness'
 import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_authenticated/automation-control'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
 import { Route as AuthenticatedAllineamentoRouteImport } from './routes/_authenticated/allineamento'
@@ -180,6 +181,12 @@ const AuthenticatedClipboardAiRoute =
     path: '/clipboard-ai',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAutomationReadinessRoute =
+  AuthenticatedAutomationReadinessRouteImport.update({
+    id: '/automation-readiness',
+    path: '/automation-readiness',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAutomationControlRoute =
   AuthenticatedAutomationControlRouteImport.update({
     id: '/automation-control',
@@ -246,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
   '/automation-control': typeof AuthenticatedAutomationControlRoute
+  '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -281,6 +289,7 @@ export interface FileRoutesByTo {
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
   '/automation-control': typeof AuthenticatedAutomationControlRoute
+  '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -318,6 +327,7 @@ export interface FileRoutesById {
   '/_authenticated/allineamento': typeof AuthenticatedAllineamentoRoute
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
   '/_authenticated/automation-control': typeof AuthenticatedAutomationControlRoute
+  '/_authenticated/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
@@ -357,6 +367,7 @@ export interface FileRouteTypes {
     | '/allineamento'
     | '/archivio'
     | '/automation-control'
+    | '/automation-readiness'
     | '/clipboard-ai'
     | '/connettori'
     | '/fonti'
@@ -392,6 +403,7 @@ export interface FileRouteTypes {
     | '/allineamento'
     | '/archivio'
     | '/automation-control'
+    | '/automation-readiness'
     | '/clipboard-ai'
     | '/connettori'
     | '/fonti'
@@ -428,6 +440,7 @@ export interface FileRouteTypes {
     | '/_authenticated/allineamento'
     | '/_authenticated/archivio'
     | '/_authenticated/automation-control'
+    | '/_authenticated/automation-readiness'
     | '/_authenticated/clipboard-ai'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
@@ -642,6 +655,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClipboardAiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/automation-readiness': {
+      id: '/_authenticated/automation-readiness'
+      path: '/automation-readiness'
+      fullPath: '/automation-readiness'
+      preLoaderRoute: typeof AuthenticatedAutomationReadinessRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/automation-control': {
       id: '/_authenticated/automation-control'
       path: '/automation-control'
@@ -748,6 +768,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAllineamentoRoute: typeof AuthenticatedAllineamentoRoute
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
   AuthenticatedAutomationControlRoute: typeof AuthenticatedAutomationControlRoute
+  AuthenticatedAutomationReadinessRoute: typeof AuthenticatedAutomationReadinessRoute
   AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
@@ -779,6 +800,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAllineamentoRoute: AuthenticatedAllineamentoRoute,
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
   AuthenticatedAutomationControlRoute: AuthenticatedAutomationControlRoute,
+  AuthenticatedAutomationReadinessRoute: AuthenticatedAutomationReadinessRoute,
   AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
