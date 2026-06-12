@@ -20,6 +20,7 @@ import { Route as AuthenticatedProssimeAzioniRouteImport } from './routes/_authe
 import { Route as AuthenticatedProjectLoopRouteImport } from './routes/_authenticated/project-loop'
 import { Route as AuthenticatedProjectConsoleRouteImport } from './routes/_authenticated/project-console'
 import { Route as AuthenticatedProgettiRouteImport } from './routes/_authenticated/progetti'
+import { Route as AuthenticatedOperatingDashboardRouteImport } from './routes/_authenticated/operating-dashboard'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
@@ -100,6 +101,12 @@ const AuthenticatedProgettiRoute = AuthenticatedProgettiRouteImport.update({
   path: '/progetti',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedOperatingDashboardRoute =
+  AuthenticatedOperatingDashboardRouteImport.update({
+    id: '/operating-dashboard',
+    path: '/operating-dashboard',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedLogsRoute = AuthenticatedLogsRouteImport.update({
   id: '/logs',
   path: '/logs',
@@ -236,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
+  '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/project-console': typeof AuthenticatedProjectConsoleRoute
   '/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -267,6 +275,7 @@ export interface FileRoutesByTo {
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
+  '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/project-console': typeof AuthenticatedProjectConsoleRoute
   '/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -302,6 +311,7 @@ export interface FileRoutesById {
   '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
+  '/_authenticated/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
   '/_authenticated/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/_authenticated/project-console': typeof AuthenticatedProjectConsoleRoute
   '/_authenticated/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -338,6 +348,7 @@ export interface FileRouteTypes {
     | '/impostazioni'
     | '/live'
     | '/logs'
+    | '/operating-dashboard'
     | '/progetti'
     | '/project-console'
     | '/project-loop'
@@ -369,6 +380,7 @@ export interface FileRouteTypes {
     | '/impostazioni'
     | '/live'
     | '/logs'
+    | '/operating-dashboard'
     | '/progetti'
     | '/project-console'
     | '/project-loop'
@@ -403,6 +415,7 @@ export interface FileRouteTypes {
     | '/_authenticated/impostazioni'
     | '/_authenticated/live'
     | '/_authenticated/logs'
+    | '/_authenticated/operating-dashboard'
     | '/_authenticated/progetti'
     | '/_authenticated/project-console'
     | '/_authenticated/project-loop'
@@ -503,6 +516,13 @@ declare module '@tanstack/react-router' {
       path: '/progetti'
       fullPath: '/progetti'
       preLoaderRoute: typeof AuthenticatedProgettiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/operating-dashboard': {
+      id: '/_authenticated/operating-dashboard'
+      path: '/operating-dashboard'
+      fullPath: '/operating-dashboard'
+      preLoaderRoute: typeof AuthenticatedOperatingDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/logs': {
@@ -699,6 +719,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
+  AuthenticatedOperatingDashboardRoute: typeof AuthenticatedOperatingDashboardRoute
   AuthenticatedProgettiRoute: typeof AuthenticatedProgettiRouteWithChildren
   AuthenticatedProjectConsoleRoute: typeof AuthenticatedProjectConsoleRoute
   AuthenticatedProjectLoopRoute: typeof AuthenticatedProjectLoopRoute
@@ -727,6 +748,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
+  AuthenticatedOperatingDashboardRoute: AuthenticatedOperatingDashboardRoute,
   AuthenticatedProgettiRoute: AuthenticatedProgettiRouteWithChildren,
   AuthenticatedProjectConsoleRoute: AuthenticatedProjectConsoleRoute,
   AuthenticatedProjectLoopRoute: AuthenticatedProjectLoopRoute,
@@ -750,3 +772,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
