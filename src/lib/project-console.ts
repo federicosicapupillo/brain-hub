@@ -124,6 +124,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "automation_control",
       "runbooks",
       "tool_connections",
+      "knowledge_map",
     ],
   },
   content_creation: {
