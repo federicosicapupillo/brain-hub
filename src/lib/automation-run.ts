@@ -259,7 +259,14 @@ export type LogEventType =
   | "project_health_check_completed"
   | "project_health_issue_detected"
   | "project_health_warning_ignored"
-  | "project_health_next_action_suggested";
+  | "project_health_next_action_suggested"
+  | "automation_action_created"
+  | "automation_action_approved"
+  | "automation_action_rejected"
+  | "automation_action_ready_to_execute"
+  | "automation_action_executed"
+  | "automation_action_failed"
+  | "automation_action_cancelled";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -315,6 +322,13 @@ const LOG_TITLES: Record<LogEventType, string> = {
   project_health_issue_detected: "Problema salute progetto rilevato",
   project_health_warning_ignored: "Warning salute progetto ignorato",
   project_health_next_action_suggested: "Prossima azione salute progetto suggerita",
+  automation_action_created: "Azione automazione creata",
+  automation_action_approved: "Azione automazione approvata",
+  automation_action_rejected: "Azione automazione rifiutata",
+  automation_action_ready_to_execute: "Azione automazione pronta da eseguire",
+  automation_action_executed: "Azione automazione eseguita",
+  automation_action_failed: "Azione automazione fallita",
+  automation_action_cancelled: "Azione automazione annullata",
 };
 
 

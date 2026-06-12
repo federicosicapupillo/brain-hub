@@ -117,6 +117,87 @@ export type Database = {
           },
         ]
       }
+      automation_actions: {
+        Row: {
+          action_type: string
+          approved_at: string | null
+          brain_id: string | null
+          created_at: string
+          description: string | null
+          error_text: string | null
+          executed_at: string | null
+          id: string
+          metadata: Json
+          parent_execution_log_id: string | null
+          priority: string
+          project_id: string | null
+          prompt_execution_log_id: string | null
+          rejected_at: string | null
+          requires_confirmation: boolean
+          result_text: string | null
+          risk_level: string
+          roadmap_item_id: string | null
+          source: string
+          status: string
+          task_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          approved_at?: string | null
+          brain_id?: string | null
+          created_at?: string
+          description?: string | null
+          error_text?: string | null
+          executed_at?: string | null
+          id?: string
+          metadata?: Json
+          parent_execution_log_id?: string | null
+          priority?: string
+          project_id?: string | null
+          prompt_execution_log_id?: string | null
+          rejected_at?: string | null
+          requires_confirmation?: boolean
+          result_text?: string | null
+          risk_level?: string
+          roadmap_item_id?: string | null
+          source?: string
+          status?: string
+          task_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          approved_at?: string | null
+          brain_id?: string | null
+          created_at?: string
+          description?: string | null
+          error_text?: string | null
+          executed_at?: string | null
+          id?: string
+          metadata?: Json
+          parent_execution_log_id?: string | null
+          priority?: string
+          project_id?: string | null
+          prompt_execution_log_id?: string | null
+          rejected_at?: string | null
+          requires_confirmation?: boolean
+          result_text?: string | null
+          risk_level?: string
+          roadmap_item_id?: string | null
+          source?: string
+          status?: string
+          task_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       automation_connectors: {
         Row: {
           browser_profile: string | null
