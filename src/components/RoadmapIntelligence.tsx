@@ -26,7 +26,7 @@ import {
   Compass,
   Link2,
   ListChecks,
-  Map,
+  Map as MapIcon,
   Target,
   Zap,
 } from "lucide-react";
