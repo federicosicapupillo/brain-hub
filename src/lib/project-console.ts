@@ -99,12 +99,12 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   marketing: {
     label: "Marketing / Comunicazione",
     priority: "marketing",
-    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita"],
+    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections"],
   },
   lead_generation: {
     label: "Lead Generation",
     priority: "lead_generation",
-    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita"],
+    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita", "tool_connections"],
   },
   ai_automation: {
     label: "AI Automation",
@@ -119,12 +119,13 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "project_health_check",
       "automation_control",
       "runbooks",
+      "tool_connections",
     ],
   },
   content_creation: {
     label: "Content Creation",
     priority: "contenuti_social",
-    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi"],
+    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections"],
   },
   roadmap_operativa: {
     label: "Roadmap Operativa",
