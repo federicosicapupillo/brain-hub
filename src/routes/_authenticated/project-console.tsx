@@ -367,6 +367,13 @@ function BlockPreview({ id, brainId }: { id: BlockId; brainId: string }) {
       </div>
     );
   }
+  if (id === "project_health_check" && brainId) {
+    return (
+      <div className="md:col-span-2">
+        <ProjectHealthCheck brainId={brainId} />
+      </div>
+    );
+  }
   return (
     <div className="rounded-md border border-border/60 bg-card/40 p-3">
       <div className="mb-1 flex items-center justify-between gap-2">
