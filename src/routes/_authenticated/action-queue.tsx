@@ -644,6 +644,17 @@ function ActionRow({
             </Badge>
             <Badge variant="outline" className="text-[10px]">{STATUS_LABEL[a.status]}</Badge>
             {brainName && <Badge variant="outline" className="text-[10px]">{brainName}</Badge>}
+            {n8nInfo && (
+              <Badge variant="outline" className={`text-[10px] ${n8nInfo.ready ? "border-violet-500/40 text-violet-600" : "border-slate-500/30 text-slate-600"}`}>
+                n8n{n8nInfo.tested ? " · testato" : n8nInfo.ready ? " · attivo" : " · disponibile"}
+              </Badge>
+            )}
+            {a.status === "executed" && (a.metadata as Record<string, unknown> | null)?.n8n_executed && (
+              <Badge variant="outline" className="text-[10px] border-emerald-500/40 text-emerald-600">n8n eseguito</Badge>
+            )}
+            {a.status === "failed" && (a.metadata as Record<string, unknown> | null)?.n8n_failed && (
+              <Badge variant="outline" className="text-[10px] border-red-500/40 text-red-600">n8n fallito</Badge>
+            )}
             {(a.metadata as Record<string, unknown> | null)?.duplicate_click_count ? (
               <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
                 ×{String((a.metadata as Record<string, unknown>).duplicate_click_count)} duplicati evitati
