@@ -24,6 +24,7 @@ import {
   RefreshCw,
   LayoutDashboard,
   BookMarked,
+  Send,
 } from "lucide-react";
 import {
   Sidebar,
