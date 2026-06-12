@@ -23,6 +23,7 @@ import {
   Gauge,
   RefreshCw,
   LayoutDashboard,
+  BookMarked,
 } from "lucide-react";
 import {
   Sidebar,
@@ -49,6 +50,7 @@ const items = [
   { title: "Action Queue", url: "/action-queue", icon: Gauge },
   { title: "Project Loop", url: "/project-loop", icon: RefreshCw },
   { title: "Project Console", url: "/project-console", icon: LayoutDashboard },
+  { title: "Runbooks", url: "/runbooks", icon: BookMarked },
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },
   { title: "Prossime Azioni", url: "/prossime-azioni", icon: ListChecks },

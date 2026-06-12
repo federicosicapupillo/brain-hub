@@ -270,7 +270,16 @@ export type LogEventType =
   | "automation_action_duplicate_prevented"
   | "automation_action_prepared"
   | "automation_action_source_opened"
-  | "automation_action_linked_object_opened";
+  | "automation_action_linked_object_opened"
+  | "runbook_template_selected"
+  | "runbook_instance_created"
+  | "runbook_instance_started"
+  | "runbook_step_action_created"
+  | "runbook_step_completed"
+  | "runbook_instance_completed"
+  | "runbook_instance_blocked"
+  | "runbook_instance_cancelled"
+  | "runbook_instance_failed";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -337,6 +346,15 @@ const LOG_TITLES: Record<LogEventType, string> = {
   automation_action_prepared: "Azione automazione preparata",
   automation_action_source_opened: "Sorgente azione aperta",
   automation_action_linked_object_opened: "Oggetto collegato azione aperto",
+  runbook_template_selected: "Template runbook selezionato",
+  runbook_instance_created: "Runbook creato",
+  runbook_instance_started: "Runbook avviato",
+  runbook_step_action_created: "Step runbook creato",
+  runbook_step_completed: "Step runbook completato",
+  runbook_instance_completed: "Runbook completato",
+  runbook_instance_blocked: "Runbook bloccato",
+  runbook_instance_cancelled: "Runbook annullato",
+  runbook_instance_failed: "Runbook fallito",
 };
 
 

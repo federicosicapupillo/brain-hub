@@ -20,7 +20,8 @@ export type BlockId =
   | "build_status"
   | "checklist_operative"
   | "project_health_check"
-  | "automation_control";
+  | "automation_control"
+  | "runbooks";
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
@@ -43,6 +44,7 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "checklist_operative", label: "Checklist operative", hint: "To-do strutturate" },
   { id: "project_health_check", label: "Project Health Check", hint: "Salute progetto, problemi, prossima azione" },
   { id: "automation_control", label: "Automation Control", hint: "Action Queue: azioni operative approvabili" },
+  { id: "runbooks", label: "Runbooks", hint: "Procedure operative guidate (workflow templates)" },
 ];
 
 export const PRIORITIES = [
@@ -75,6 +77,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "file_documenti",
       "project_health_check",
       "automation_control",
+      "runbooks",
     ],
   },
   immobiliare: {
@@ -111,6 +114,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "build_status",
       "project_health_check",
       "automation_control",
+      "runbooks",
     ],
   },
   content_creation: {
@@ -121,7 +125,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   roadmap_operativa: {
     label: "Roadmap Operativa",
     priority: "generico",
-    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control"],
+    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks"],
   },
 };
 

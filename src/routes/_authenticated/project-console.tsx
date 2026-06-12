@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { RoadmapIntelligence } from "@/components/RoadmapIntelligence";
 import { ProjectHealthCheck } from "@/components/ProjectHealthCheck";
 import { AutomationControlBlock } from "@/components/AutomationControlBlock";
+import { RunbooksBlock } from "@/components/RunbooksBlock";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -377,6 +378,9 @@ function BlockPreview({ id, brainId }: { id: BlockId; brainId: string }) {
   }
   if (id === "automation_control" && brainId) {
     return <AutomationControlBlock brainId={brainId} />;
+  }
+  if (id === "runbooks" && brainId) {
+    return <RunbooksBlock brainId={brainId} />;
   }
   return (
     <div className="rounded-md border border-border/60 bg-card/40 p-3">
