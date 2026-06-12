@@ -80,6 +80,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "project_health_check",
       "automation_control",
       "runbooks",
+      "tool_connections",
     ],
   },
   immobiliare: {
