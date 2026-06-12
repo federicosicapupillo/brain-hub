@@ -205,22 +205,143 @@ function ActionQueueRoute() {
 
   async function handlePrepare(a: AutomationAction) {
     try {
-      // For low-risk informational actions, mark as executed directly.
-      // For everything else, mark ready_to_execute (manual run elsewhere).
-      if (a.risk_level === "low") {
-        await markExecuted(a, "Marcata eseguita (azione low risk)");
-        toast.success("Azione eseguita");
-      } else {
-        await markReadyToExecute(a);
-        toast.success("Azione preparata");
+      // Dispatch by action_type. None of these execute automations externally —
+      // they prepare the existing UI (Browser Bridge, Roadmap Intelligence, etc.)
+      // or, for direct mutations, require explicit confirmation.
+      const meta = (a.metadata ?? {}) as Record<string, unknown>;
+      switch (a.action_type) {
+        case "open_project_console": {
+          await markExecuted(a, "Project Console aperta");
+          await logEvent("automation_action_prepared", `Aperto Project Console: ${a.title}`, { action_id: a.id });
+          invalidate();
+          toast.success("Apro Project Console");
+          void navigate({ to: "/project-console" });
+          return;
+        }
+        case "send_next_prompt":
+        case "generate_fix_prompt":
+        case "generate_first_prompt":
+        case "save_lovable_result":
+        case "review_pending_result":
+        case "link_log_to_roadmap":
+        case "create_roadmap_item":
+        case "clean_orphan_logs": {
+          await markReadyToExecute(a);
+          await logEvent("automation_action_prepared", `Azione preparata: ${a.title}`, {
+            action_id: a.id,
+            action_type: a.action_type,
+          });
+          invalidate();
+          toast.success("Azione preparata — apro il componente collegato", {
+            action: {
+              label: "Apri ora",
+              onClick: () => {
+                if (a.action_type === "create_roadmap_item") void navigate({ to: "/roadmap" });
+                else void navigate({ to: "/automation-control" });
+              },
+            },
+          });
+          return;
+        }
+        case "mark_roadmap_completed": {
+          const ok = window.confirm(
+            `Confermi: segnare la roadmap come COMPLETATA?\n\n${a.title}\n\nQuesta azione modifica direttamente la roadmap.`,
+          );
+          if (!ok) return;
+          if (a.roadmap_item_id) {
+            const { error } = await supabase
+              .from("roadmap_items")
+              .update({ status: "completed" } as never)
+              .eq("id", a.roadmap_item_id);
+            if (error) {
+              await markFailed(a, error.message);
+              toast.error(error.message);
+              invalidate();
+              return;
+            }
+            await logEvent("roadmap_item_marked_completed", `Roadmap completata via Action Queue: ${a.title}`, {
+              roadmap_item_id: a.roadmap_item_id,
+              action_id: a.id,
+            });
+          }
+          await markExecuted(a, "Roadmap segnata come completata");
+          invalidate();
+          toast.success("Roadmap aggiornata");
+          return;
+        }
+        case "mark_roadmap_needs_fix": {
+          const ok = window.confirm(`Confermi: segnare la roadmap come DA CORREGGERE?\n\n${a.title}`);
+          if (!ok) return;
+          if (a.roadmap_item_id) {
+            const { error } = await supabase
+              .from("roadmap_items")
+              .update({ status: "blocked" } as never)
+              .eq("id", a.roadmap_item_id);
+            if (error) {
+              await markFailed(a, error.message);
+              toast.error(error.message);
+              invalidate();
+              return;
+            }
+            await logEvent("roadmap_item_marked_needs_fix", `Roadmap da correggere via Action Queue: ${a.title}`, {
+              roadmap_item_id: a.roadmap_item_id,
+              action_id: a.id,
+            });
+          }
+          await markExecuted(a, "Roadmap segnata da correggere");
+          invalidate();
+          toast.success("Roadmap aggiornata");
+          return;
+        }
+        case "manual_task":
+        default: {
+          if (a.risk_level === "low") {
+            await markExecuted(a, "Marcata eseguita (azione low risk)");
+            toast.success("Azione eseguita");
+          } else {
+            await markReadyToExecute(a);
+            toast.success("Azione preparata");
+          }
+          await logEvent("automation_action_prepared", `Azione preparata: ${a.title}`, { action_id: a.id });
+          invalidate();
+          // suppress unused meta warning
+          void meta;
+          return;
+        }
       }
-      invalidate();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Errore");
     }
   }
 
+  function openLinkedObject(a: AutomationAction) {
+    void logEvent("automation_action_linked_object_opened", `Oggetto collegato aperto: ${a.title}`, {
+      action_id: a.id,
+      brain_id: a.brain_id,
+      roadmap_item_id: a.roadmap_item_id,
+      prompt_execution_log_id: a.prompt_execution_log_id,
+    });
+    if (a.roadmap_item_id) void navigate({ to: "/roadmap" });
+    else if (a.prompt_execution_log_id) void navigate({ to: "/automation-control" });
+    else void navigate({ to: "/project-console" });
+  }
+
+  function openSource(a: AutomationAction) {
+    void logEvent("automation_action_source_opened", `Sorgente azione aperta: ${SOURCE_LABEL[a.source]}`, {
+      action_id: a.id,
+      source: a.source,
+    });
+    if (a.source === "project_health_check" || a.source === "roadmap_intelligence") {
+      void navigate({ to: "/project-console" });
+    } else if (a.source === "execution_tracking" || a.source === "next_prompt_generator") {
+      void navigate({ to: "/automation-control" });
+    } else {
+      void navigate({ to: "/action-queue" });
+    }
+  }
+
   const openDetail = actions.find((a) => a.id === openDetailId) ?? null;
+
 
   return (
     <div className="min-h-[calc(100vh-3rem)] space-y-4 p-4 lg:p-6">
