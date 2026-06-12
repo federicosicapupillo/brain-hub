@@ -74,6 +74,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "build_status",
       "file_documenti",
       "project_health_check",
+      "automation_control",
     ],
   },
   immobiliare: {
