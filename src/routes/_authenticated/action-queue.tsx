@@ -863,5 +863,317 @@ function NewActionDialog({
   );
 }
 
+function N8nControlledExecutionBox({
+  action,
+  workflow,
+  onChanged,
+}: {
+  action: AutomationAction;
+  workflow: N8nWorkflow;
+  onChanged: () => void;
+}) {
+  const [showPayload, setShowPayload] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [confirmHighOpen, setConfirmHighOpen] = useState(false);
+  const [failReason, setFailReason] = useState("");
+  const [failOpen, setFailOpen] = useState(false);
+
+  const { data: execLogs = [] } = useQuery({
+    queryKey: ["n8n-exec-logs", action.id],
+    queryFn: () => listExecutionLogsForAction(action.id),
+  });
+
+  const payload = useMemo(() => buildPayload(action, workflow, "live"), [action, workflow]);
+
+  const canDryRun = ["ready_to_test", "tested", "active"].includes(workflow.status);
+  const canLive =
+    ["approved", "ready_to_execute"].includes(action.status) &&
+    ["tested", "active"].includes(workflow.status) &&
+    !!workflow.webhook_url;
+
+  const lastDry = execLogs.find((l) => l.execution_mode === "dry_run");
+  const lastLive = execLogs.find((l) => l.execution_mode === "live");
+  const lastReceipt = execLogs.find((l) => l.receipt_json);
+
+  async function handlePrepare() {
+    setBusy("prepare");
+    try {
+      await logPayloadPrepared(action, workflow, payload);
+      toast.success("Payload preparato e tracciato");
+      setShowPayload(true);
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function handleDryRun() {
+    if (!confirm("Avvio dry run controllato (dry_run:true). Confermi?")) return;
+    setBusy("dry");
+    try {
+      const r = await executeDryRun(action, workflow);
+      if (r.success) toast.success(`Dry run ok (${r.status})`);
+      else toast.error(`Dry run fallito: ${r.error ?? `HTTP ${r.status}`}`);
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setBusy(null);
+    }
+  }
+  async function doLive() {
+    setBusy("live");
+    try {
+      const r = await executeLive(action, workflow);
+      if (r.success) toast.success("Workflow eseguito");
+      else toast.error(`Esecuzione fallita: ${r.error ?? `HTTP ${r.status}`}`);
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setBusy(null);
+      setConfirmHighOpen(false);
+    }
+  }
+  async function handleLive() {
+    if (workflow.risk_level === "high") {
+      setConfirmHighOpen(true);
+      return;
+    }
+    if (!confirm("Eseguire il workflow n8n collegato? L'azione verrà aggiornata.")) return;
+    await doLive();
+  }
+  async function handleMarkFailed() {
+    if (!failReason.trim()) {
+      toast.error("Indica un motivo");
+      return;
+    }
+    setBusy("fail");
+    try {
+      await markExecutionFailedManual(action, workflow, failReason.trim());
+      toast.success("Segnata fallita");
+      setFailOpen(false);
+      setFailReason("");
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="rounded border border-violet-500/30 bg-violet-500/5 p-3 text-xs space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Zap className="h-3.5 w-3.5 text-violet-600" />
+        <span className="text-[10px] uppercase tracking-wide text-violet-600 font-semibold">
+          n8n Controlled Execution
+        </span>
+        <Badge variant="outline" className="text-[10px]">{workflow.workflow_name}</Badge>
+        <Badge variant="outline" className="text-[10px]">
+          {WORKFLOW_STATUS_LABEL[workflow.status]}
+        </Badge>
+        <Badge variant="outline" className={`text-[10px] ${RISK_TONE[workflow.risk_level]}`}>
+          risk: {workflow.risk_level}
+        </Badge>
+        <Badge variant="outline" className="text-[10px]">
+          {(workflow.webhook_method || "POST").toUpperCase()}
+        </Badge>
+        {workflow.workflow_url && (
+          <a
+            href={workflow.workflow_url}
+            target="_blank"
+            rel="noreferrer"
+            className="ml-auto text-violet-600 underline inline-flex items-center gap-1"
+          >
+            Apri in n8n <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-[11px]">
+        <div>
+          <div className="text-[10px] uppercase text-muted-foreground">Input attesi</div>
+          <code className="text-[10px]">
+            {workflow.expected_input_schema
+              ? Object.keys(workflow.expected_input_schema).join(", ") || "—"
+              : "—"}
+          </code>
+        </div>
+        <div>
+          <div className="text-[10px] uppercase text-muted-foreground">Output attesi</div>
+          <code className="text-[10px]">
+            {workflow.expected_output_schema
+              ? Object.keys(workflow.expected_output_schema).join(", ") || "—"
+              : "—"}
+          </code>
+        </div>
+        <div className="col-span-2">
+          <div className="text-[10px] uppercase text-muted-foreground">Metodo verifica</div>
+          <div>{workflow.verification_method ?? "—"}</div>
+        </div>
+      </div>
+
+      {workflow.webhook_url && (
+        <div className="rounded border border-amber-500/30 bg-amber-500/5 p-1.5 text-[10px] text-amber-700">
+          ⚠ Non condividere webhook URL pubblicamente se contiene token o endpoint sensibili.
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-1.5">
+        <Button size="sm" variant="outline" disabled={busy !== null} onClick={handlePrepare}>
+          Prepara payload
+        </Button>
+        <Button size="sm" variant="outline" disabled={busy !== null || !canDryRun} onClick={handleDryRun}>
+          Esegui test controllato
+        </Button>
+        <Button size="sm" variant="default" disabled={busy !== null || !canLive} onClick={handleLive}>
+          Esegui workflow
+        </Button>
+        <Button size="sm" variant="ghost" disabled={busy !== null} onClick={() => setFailOpen(true)}>
+          Segna esecuzione fallita
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setShowPayload((v) => !v)}>
+          {showPayload ? "Nascondi payload" : "Mostra payload"}
+        </Button>
+      </div>
+
+      {!canLive && (
+        <div className="text-[10px] text-muted-foreground">
+          Esecuzione live disponibile solo se azione = approved/ready_to_execute e workflow = tested/active.
+        </div>
+      )}
+
+      {showPayload && (
+        <div>
+          <div className="text-[10px] uppercase text-muted-foreground">Payload preview</div>
+          <pre className="max-h-60 overflow-auto rounded border border-border/60 bg-background/60 p-2 text-[10px]">
+            {JSON.stringify(payload, null, 2)}
+          </pre>
+        </div>
+      )}
+
+      {(lastDry || lastLive) && (
+        <div className="grid grid-cols-1 gap-1.5 md:grid-cols-2">
+          {lastDry && (
+            <div className="rounded border border-border/60 bg-background/40 p-2">
+              <div className="text-[10px] uppercase text-muted-foreground">Ultimo dry run</div>
+              <div className="flex items-center gap-1">
+                <Badge variant="outline" className={lastDry.success ? "border-emerald-500/30 text-emerald-600" : "border-red-500/30 text-red-600"}>
+                  {lastDry.success ? "ok" : "failed"}
+                </Badge>
+                <span className="text-[10px]">HTTP {lastDry.response_status ?? "—"}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(lastDry.created_at).toLocaleString()}
+                </span>
+              </div>
+              {lastDry.error_text && (
+                <div className="text-[10px] text-red-600">{lastDry.error_text}</div>
+              )}
+            </div>
+          )}
+          {lastLive && (
+            <div className="rounded border border-border/60 bg-background/40 p-2">
+              <div className="text-[10px] uppercase text-muted-foreground">Ultimo live run</div>
+              <div className="flex items-center gap-1">
+                <Badge variant="outline" className={lastLive.success ? "border-emerald-500/30 text-emerald-600" : "border-red-500/30 text-red-600"}>
+                  {lastLive.success ? "ok" : "failed"}
+                </Badge>
+                <span className="text-[10px]">HTTP {lastLive.response_status ?? "—"}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(lastLive.created_at).toLocaleString()}
+                </span>
+              </div>
+              {lastLive.error_text && (
+                <div className="text-[10px] text-red-600">{lastLive.error_text}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {lastReceipt?.receipt_json && (
+        <details className="rounded border border-border/60 bg-background/40 p-2">
+          <summary className="cursor-pointer text-[10px] uppercase text-muted-foreground">
+            Ultima receipt
+          </summary>
+          <pre className="mt-1 max-h-48 overflow-auto text-[10px]">
+            {JSON.stringify(lastReceipt.receipt_json, null, 2)}
+          </pre>
+        </details>
+      )}
+
+      {execLogs.length > 0 && (
+        <details className="rounded border border-border/60 bg-background/40 p-2">
+          <summary className="cursor-pointer text-[10px] uppercase text-muted-foreground">
+            Storico esecuzioni n8n ({execLogs.length})
+          </summary>
+          <div className="mt-1 space-y-1 max-h-60 overflow-auto">
+            {execLogs.map((l) => (
+              <div key={l.id} className="flex items-center justify-between text-[10px] border-b border-border/40 py-0.5">
+                <span>
+                  <Badge variant="outline" className="mr-1">{l.execution_mode}</Badge>
+                  <span className={l.success ? "text-emerald-600" : "text-red-600"}>
+                    {l.success ? "ok" : "failed"}
+                  </span>
+                  {l.response_status != null && <span> · HTTP {l.response_status}</span>}
+                </span>
+                <span className="text-muted-foreground">
+                  {new Date(l.created_at).toLocaleString()}
+                </span>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+
+      {/* High risk confirmation */}
+      <Dialog open={confirmHighOpen} onOpenChange={setConfirmHighOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 text-red-600" />
+              Conferma esecuzione high risk
+            </DialogTitle>
+            <DialogDescription>
+              Questa azione eseguirà un workflow n8n collegato al progetto. Confermi?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmHighOpen(false)}>Annulla</Button>
+            <Button variant="destructive" disabled={busy !== null} onClick={doLive}>
+              Confermo, esegui
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual failure dialog */}
+      <Dialog open={failOpen} onOpenChange={setFailOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Segna esecuzione fallita</DialogTitle>
+            <DialogDescription>
+              Registra una esecuzione fallita manualmente. L'azione verrà marcata come failed.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={failReason}
+            onChange={(e) => setFailReason(e.target.value)}
+            placeholder="Motivo del fallimento"
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setFailOpen(false)}>Annulla</Button>
+            <Button variant="destructive" disabled={busy !== null} onClick={handleMarkFailed}>
+              Segna fallita
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // Unused statuses re-export to silence unused-import for ActionStatus type
 export type _Status = ActionStatus;
