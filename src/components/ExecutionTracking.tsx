@@ -32,6 +32,32 @@ import {
 import { enqueueFromCta } from "@/lib/action-queue-cta";
 import type { ActionType, RiskLevel } from "@/lib/action-queue";
 
+async function enqueueExecCta(
+  row: { id: string; brain_id: string | null; roadmap_item_id: string | null; prompt_title: string; parent_execution_log_id?: string | null },
+  cta: string,
+  action_type: ActionType,
+  risk_level: RiskLevel,
+  extra: Record<string, unknown> = {},
+) {
+  try {
+    await enqueueFromCta({
+      source: "execution_tracking",
+      source_block: "ExecutionTracking",
+      source_cta: cta,
+      action_type,
+      risk_level,
+      title: `${cta}: ${row.prompt_title}`,
+      brain_id: row.brain_id,
+      roadmap_item_id: row.roadmap_item_id,
+      prompt_execution_log_id: row.id,
+      parent_execution_log_id: row.parent_execution_log_id ?? null,
+      extra,
+    });
+  } catch {
+    // non-blocking
+  }
+}
+
 type ClipItem = ItemLike & {
   content: string | null;
   content_type: string | null;
