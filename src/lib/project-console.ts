@@ -110,6 +110,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "log_attivita",
       "build_status",
       "project_health_check",
+      "automation_control",
     ],
   },
   content_creation: {
