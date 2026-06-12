@@ -360,6 +360,9 @@ export function ExecutionTracking() {
   const [resultDrafts, setResultDrafts] = useState<
     Record<string, { text: string; type: string; notes: string }>
   >({});
+  const [genDrafts, setGenDrafts] = useState<
+    Record<string, { goal: GenerationGoal; text: string; open: boolean }>
+  >({});
   const [showHistory, setShowHistory] = useState(false);
 
   const items = data?.items ?? [];
