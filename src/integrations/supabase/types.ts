@@ -1030,10 +1030,13 @@ export type Database = {
           brain_id: string | null
           created_at: string
           execution_package_id: string | null
+          generated_prompt_text: string | null
+          generation_goal: string | null
           id: string
           internal_notes: string | null
           last_error: string | null
           metadata: Json
+          parent_execution_log_id: string | null
           project_id: string | null
           prompt_content: string
           prompt_title: string
@@ -1052,10 +1055,13 @@ export type Database = {
           brain_id?: string | null
           created_at?: string
           execution_package_id?: string | null
+          generated_prompt_text?: string | null
+          generation_goal?: string | null
           id?: string
           internal_notes?: string | null
           last_error?: string | null
           metadata?: Json
+          parent_execution_log_id?: string | null
           project_id?: string | null
           prompt_content?: string
           prompt_title?: string
@@ -1074,10 +1080,13 @@ export type Database = {
           brain_id?: string | null
           created_at?: string
           execution_package_id?: string | null
+          generated_prompt_text?: string | null
+          generation_goal?: string | null
           id?: string
           internal_notes?: string | null
           last_error?: string | null
           metadata?: Json
+          parent_execution_log_id?: string | null
           project_id?: string | null
           prompt_content?: string
           prompt_title?: string
@@ -1092,7 +1101,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "prompt_execution_logs_parent_execution_log_id_fkey"
+            columns: ["parent_execution_log_id"]
+            isOneToOne: false
+            referencedRelation: "prompt_execution_logs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       roadmap_items: {
         Row: {
