@@ -7,6 +7,7 @@ import { ProjectHealthCheck } from "@/components/ProjectHealthCheck";
 import { AutomationControlBlock } from "@/components/AutomationControlBlock";
 import { RunbooksBlock } from "@/components/RunbooksBlock";
 import { ToolConnectionsBlock } from "@/components/ToolConnectionsBlock";
+import { KnowledgeMapBlock } from "@/components/KnowledgeMapBlock";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
