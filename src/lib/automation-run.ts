@@ -300,6 +300,13 @@ const LOG_TITLES: Record<LogEventType, string> = {
   lovable_browser_bridge_prompt_completed: "Prompt Lovable segnato come completato (Browser Bridge)",
   lovable_browser_bridge_prompt_failed: "Prompt Lovable segnato come fallito (Browser Bridge)",
   lovable_browser_bridge_prompt_retry_requested: "Re-invio prompt Lovable richiesto (Browser Bridge)",
+  roadmap_intelligence_status_suggested: "Stato roadmap suggerito (Roadmap Intelligence)",
+  roadmap_intelligence_next_action_suggested: "Prossima azione roadmap suggerita (Roadmap Intelligence)",
+  roadmap_item_execution_log_linked: "Execution log collegato a roadmap item",
+  roadmap_item_marked_completed: "Roadmap item segnata come completata",
+  roadmap_item_marked_needs_fix: "Roadmap item segnata da correggere",
+  roadmap_intelligence_issue_detected: "Problema roadmap rilevato (Roadmap Intelligence)",
+  roadmap_intelligence_issue_ignored: "Problema roadmap ignorato (Roadmap Intelligence)",
 };
 
 
