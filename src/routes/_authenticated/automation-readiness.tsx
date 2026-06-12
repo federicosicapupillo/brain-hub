@@ -215,6 +215,23 @@ function AutomationReadinessPage() {
                   <ShieldAlert className="h-3 w-3" /> {e.blocking_reason}
                 </div>
               )}
+              {(e.execution_method === "n8n_workflow" ||
+                e.automation_level_future === "external_connector_required") && (
+                <div className="md:col-span-12 flex flex-wrap items-center gap-2 rounded border border-violet-500/30 bg-violet-500/5 p-2 text-[11px] text-violet-700">
+                  {workflowCoverage.get(String(e.action_type)) ? (
+                    <span>
+                      ✓ {workflowCoverage.get(String(e.action_type))} workflow n8n collegato/i
+                    </span>
+                  ) : (
+                    <span>Nessun workflow n8n collegato a questa azione.</span>
+                  )}
+                  <Button asChild size="sm" variant="ghost" className="ml-auto h-6 text-xs">
+                    <Link to="/n8n-workflows">
+                      {workflowCoverage.get(String(e.action_type)) ? "Apri n8n Workflows" : "Registra workflow n8n"}
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </div>
           ))}
         </CardContent>
