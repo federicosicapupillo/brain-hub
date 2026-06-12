@@ -1049,7 +1049,7 @@ export function ExecutionTracking() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <Activity className="h-4 w-4 text-cyan-400" /> Execution Tracking
-            <Badge variant="outline" className="ml-1 text-[10px]">v0.3</Badge>
+            <Badge variant="outline" className="ml-1 text-[10px]">v0.4</Badge>
           </CardTitle>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={refresh}>
