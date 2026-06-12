@@ -306,7 +306,14 @@ export type LogEventType =
   | "n8n_execution_started"
   | "n8n_execution_completed"
   | "n8n_execution_failed"
-  | "n8n_execution_receipt_saved";
+  | "n8n_execution_receipt_saved"
+  | "telegram_approval_request_created"
+  | "telegram_approval_request_ready"
+  | "telegram_approval_request_sent"
+  | "telegram_approval_request_approved"
+  | "telegram_approval_request_rejected"
+  | "telegram_approval_request_cancelled"
+  | "telegram_approval_request_failed";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
