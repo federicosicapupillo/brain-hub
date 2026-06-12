@@ -148,6 +148,30 @@ function ActionQueueRoute() {
       listActions({ brainId: brainFilter === "all" ? undefined : brainFilter }),
   });
 
+  const { data: allWorkflows = [] } = useQuery<N8nWorkflow[]>({
+    queryKey: ["action-queue-workflows", brainFilter],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("n8n_workflow_registry" as never)
+        .select("*");
+      if (error) return [];
+      return (data ?? []) as unknown as N8nWorkflow[];
+    },
+  });
+
+  const n8nCoverage = useMemo(() => {
+    const map = new Map<string, { ready: boolean; tested: boolean }>();
+    for (const w of allWorkflows) {
+      for (const t of w.linked_action_types ?? []) {
+        const cur = map.get(t) ?? { ready: false, tested: false };
+        if (w.status === "active" || w.status === "tested") cur.ready = true;
+        if (w.status === "tested") cur.tested = true;
+        map.set(t, cur);
+      }
+    }
+    return map;
+  }, [allWorkflows]);
+
   const filtered = useMemo(() => {
     return actions.filter((a) => {
       if (statusFilter !== "all" && a.status !== statusFilter) return false;
