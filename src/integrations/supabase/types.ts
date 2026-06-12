@@ -1118,6 +1118,7 @@ export type Database = {
           description: string | null
           due_date: string | null
           id: string
+          metadata: Json
           order_index: number
           phase: string | null
           priority: string
@@ -1132,6 +1133,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          metadata?: Json
           order_index?: number
           phase?: string | null
           priority?: string
@@ -1146,6 +1148,7 @@ export type Database = {
           description?: string | null
           due_date?: string | null
           id?: string
+          metadata?: Json
           order_index?: number
           phase?: string | null
           priority?: string

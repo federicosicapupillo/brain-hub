@@ -19,6 +19,7 @@ import { LovableHandoffConnector } from "@/components/LovableHandoffConnector";
 import { LocalAgentBridge } from "@/components/LocalAgentBridge";
 import { LovableBrowserBridge } from "@/components/LovableBrowserBridge";
 import { ExecutionTracking } from "@/components/ExecutionTracking";
+import { RoadmapIntelligence } from "@/components/RoadmapIntelligence";
 
 import { normalizeAutomationItem } from "@/lib/automation-normalize";
 import { useEffect } from "react";
@@ -326,6 +327,8 @@ function AutomationControlPage() {
       <LovableBrowserBridge />
 
       <ExecutionTracking />
+
+      <RoadmapIntelligence />
 
 
 
