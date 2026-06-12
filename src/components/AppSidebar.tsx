@@ -48,6 +48,7 @@ const items = [
   { title: "Clipboard AI", url: "/clipboard-ai", icon: Clipboard },
   { title: "Automation Control", url: "/automation-control", icon: Gauge },
   { title: "Action Queue", url: "/action-queue", icon: Gauge },
+  { title: "Automation Readiness", url: "/automation-readiness", icon: ShieldCheck },
   { title: "Project Loop", url: "/project-loop", icon: RefreshCw },
   { title: "Operating Dashboard", url: "/operating-dashboard", icon: LayoutDashboard },
   { title: "Project Console", url: "/project-console", icon: LayoutDashboard },
