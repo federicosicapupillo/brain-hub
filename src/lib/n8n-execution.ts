@@ -296,6 +296,7 @@ export async function executeLive(
   const log = logRow as unknown as N8nExecutionLog;
 
   // Update automation_action
+  const existingMeta = (action.metadata ?? {}) as Record<string, unknown>;
   const actionPatch: Record<string, unknown> = success
     ? {
         status: "executed",
@@ -305,6 +306,13 @@ export async function executeLive(
             ? JSON.stringify(summary).slice(0, 2000)
             : "Eseguito tramite n8n",
         error_text: null,
+        metadata: {
+          ...existingMeta,
+          n8n_executed: true,
+          n8n_failed: false,
+          n8n_last_log_id: log.id,
+          n8n_last_run_at: new Date().toISOString(),
+        },
       }
     : {
         status: "failed",
@@ -313,6 +321,13 @@ export async function executeLive(
           `HTTP ${status ?? "??"} — ${
             typeof summary === "object" && summary ? JSON.stringify(summary).slice(0, 500) : "errore"
           }`,
+        metadata: {
+          ...existingMeta,
+          n8n_executed: false,
+          n8n_failed: true,
+          n8n_last_log_id: log.id,
+          n8n_last_run_at: new Date().toISOString(),
+        },
       };
   await supabase
     .from("automation_actions" as never)
