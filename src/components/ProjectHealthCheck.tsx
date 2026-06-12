@@ -18,7 +18,19 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { logEvent } from "@/lib/automation-run";
+import type { LogEventType } from "@/lib/automation-run";
+
+async function logEvent(action: LogEventType, notes: string, metadata: Record<string, unknown>) {
+  const { data: u } = await supabase.auth.getUser();
+  if (!u.user) return;
+  await supabase.from("clipboard_execution_logs").insert({
+    user_id: u.user.id,
+    clipboard_item_id: null,
+    action,
+    notes,
+    metadata,
+  } as never);
+}
 
 type PEL = {
   id: string;
