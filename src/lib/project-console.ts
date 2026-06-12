@@ -130,7 +130,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   content_creation: {
     label: "Content Creation",
     priority: "contenuti_social",
-    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections"],
+    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections", "knowledge_map"],
   },
   roadmap_operativa: {
     label: "Roadmap Operativa",
