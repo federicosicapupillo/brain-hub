@@ -375,6 +375,9 @@ function BlockPreview({ id, brainId }: { id: BlockId; brainId: string }) {
       </div>
     );
   }
+  if (id === "automation_control" && brainId) {
+    return <AutomationControlBlock brainId={brainId} />;
+  }
   return (
     <div className="rounded-md border border-border/60 bg-card/40 p-3">
       <div className="mb-1 flex items-center justify-between gap-2">
