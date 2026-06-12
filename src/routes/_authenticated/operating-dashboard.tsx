@@ -307,18 +307,17 @@ function OperatingDashboardRoute() {
   return (
     <div className="space-y-6 p-6">
       <PageHeader
-        icon={LayoutDashboard}
         title="Operating Dashboard"
         subtitle="Cabina di comando operativa del progetto"
-        rightSlot={
-          <div className="flex items-center gap-2">
+        actions={
+          <>
             <Badge variant="outline" className="text-[10px]">v1.0</Badge>
             <Button asChild size="sm" variant="outline">
               <Link to="/project-console">
                 Apri Project Console <ArrowRight className="ml-1 h-3 w-3" />
               </Link>
             </Button>
-          </div>
+          </>
         }
       />
 
