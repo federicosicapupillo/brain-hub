@@ -399,6 +399,8 @@ function OperatingDashboardRoute() {
           <div className="grid gap-4 lg:grid-cols-2">
             <AutomationControlBlock brainId={brainId} />
             <RunbooksBlock brainId={brainId} />
+            <AutomationReadinessMini />
+
 
             {/* Roadmap snapshot */}
             <Card>
