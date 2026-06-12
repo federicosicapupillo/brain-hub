@@ -299,7 +299,14 @@ export type LogEventType =
   | "n8n_workflow_status_changed"
   | "n8n_workflow_linked_to_action_type"
   | "n8n_workflow_manual_test_marked"
-  | "n8n_workflow_opened";
+  | "n8n_workflow_opened"
+  | "n8n_execution_payload_prepared"
+  | "n8n_execution_dry_run_started"
+  | "n8n_execution_dry_run_completed"
+  | "n8n_execution_started"
+  | "n8n_execution_completed"
+  | "n8n_execution_failed"
+  | "n8n_execution_receipt_saved";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -395,6 +402,13 @@ const LOG_TITLES: Record<LogEventType, string> = {
   n8n_workflow_linked_to_action_type: "Workflow n8n collegato ad action type",
   n8n_workflow_manual_test_marked: "Test manuale workflow n8n",
   n8n_workflow_opened: "Workflow n8n aperto",
+  n8n_execution_payload_prepared: "Payload n8n preparato (controllato)",
+  n8n_execution_dry_run_started: "Dry run n8n avviato",
+  n8n_execution_dry_run_completed: "Dry run n8n completato",
+  n8n_execution_started: "Esecuzione n8n avviata",
+  n8n_execution_completed: "Esecuzione n8n completata",
+  n8n_execution_failed: "Esecuzione n8n fallita",
+  n8n_execution_receipt_saved: "Receipt esecuzione n8n salvata",
 };
 
 

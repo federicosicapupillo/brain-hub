@@ -942,6 +942,63 @@ export type Database = {
           },
         ]
       }
+      n8n_execution_logs: {
+        Row: {
+          automation_action_id: string | null
+          brain_id: string | null
+          created_at: string
+          error_text: string | null
+          execution_mode: string
+          id: string
+          metadata: Json
+          project_id: string | null
+          receipt_json: Json | null
+          request_payload: Json | null
+          response_body: Json | null
+          response_status: number | null
+          runbook_instance_id: string | null
+          success: boolean
+          user_id: string
+          workflow_registry_id: string | null
+        }
+        Insert: {
+          automation_action_id?: string | null
+          brain_id?: string | null
+          created_at?: string
+          error_text?: string | null
+          execution_mode?: string
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          receipt_json?: Json | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          response_status?: number | null
+          runbook_instance_id?: string | null
+          success?: boolean
+          user_id: string
+          workflow_registry_id?: string | null
+        }
+        Update: {
+          automation_action_id?: string | null
+          brain_id?: string | null
+          created_at?: string
+          error_text?: string | null
+          execution_mode?: string
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          receipt_json?: Json | null
+          request_payload?: Json | null
+          response_body?: Json | null
+          response_status?: number | null
+          runbook_instance_id?: string | null
+          success?: boolean
+          user_id?: string
+          workflow_registry_id?: string | null
+        }
+        Relationships: []
+      }
       n8n_workflow_registry: {
         Row: {
           brain_id: string | null
