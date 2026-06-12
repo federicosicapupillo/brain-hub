@@ -1138,9 +1138,15 @@ export function ExecutionTracking() {
                   <div className="truncate text-[11px] text-muted-foreground">
                     {brainNameOf(r)} · {r.target_tool}
                     {r.retry_count > 0 ? ` · retry × ${r.retry_count}` : ""}
+                    {r.parent_execution_log_id ? " · generato da risultato precedente" : ""}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                  {r.parent_execution_log_id && (
+                    <Badge variant="outline" className="bg-violet-500/10 text-violet-300 border-violet-500/30 text-[10px] gap-1">
+                      <GitBranch className="h-3 w-3" /> Next
+                    </Badge>
+                  )}
                   <Badge variant="outline" className={STATUS_COLOR[r.status]}>
                     {STATUS_LABEL[r.status]}
                   </Badge>
