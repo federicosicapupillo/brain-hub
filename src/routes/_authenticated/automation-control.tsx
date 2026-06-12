@@ -324,6 +324,8 @@ function AutomationControlPage() {
 
       <LovableBrowserBridge />
 
+      <ExecutionTracking />
+
 
 
 
