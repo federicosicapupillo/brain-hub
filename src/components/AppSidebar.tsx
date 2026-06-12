@@ -22,6 +22,7 @@ import {
   Clipboard,
   Gauge,
   RefreshCw,
+  LayoutDashboard,
 } from "lucide-react";
 import {
   Sidebar,
@@ -46,6 +47,7 @@ const items = [
   { title: "Clipboard AI", url: "/clipboard-ai", icon: Clipboard },
   { title: "Automation Control", url: "/automation-control", icon: Gauge },
   { title: "Project Loop", url: "/project-loop", icon: RefreshCw },
+  { title: "Project Console", url: "/project-console", icon: LayoutDashboard },
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },
   { title: "Prossime Azioni", url: "/prossime-azioni", icon: ListChecks },

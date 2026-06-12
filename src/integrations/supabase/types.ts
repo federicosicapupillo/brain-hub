@@ -885,6 +885,62 @@ export type Database = {
         }
         Relationships: []
       }
+      project_console_configs: {
+        Row: {
+          block_order: Json
+          block_settings: Json
+          brain_id: string | null
+          console_name: string
+          created_at: string
+          id: string
+          metadata: Json
+          preset: string
+          project_id: string | null
+          project_priority: string
+          updated_at: string
+          user_id: string
+          visible_blocks: Json
+        }
+        Insert: {
+          block_order?: Json
+          block_settings?: Json
+          brain_id?: string | null
+          console_name?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          preset?: string
+          project_id?: string | null
+          project_priority?: string
+          updated_at?: string
+          user_id: string
+          visible_blocks?: Json
+        }
+        Update: {
+          block_order?: Json
+          block_settings?: Json
+          brain_id?: string | null
+          console_name?: string
+          created_at?: string
+          id?: string
+          metadata?: Json
+          preset?: string
+          project_id?: string | null
+          project_priority?: string
+          updated_at?: string
+          user_id?: string
+          visible_blocks?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_console_configs_brain_id_fkey"
+            columns: ["brain_id"]
+            isOneToOne: false
+            referencedRelation: "brains"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_links: {
         Row: {
           brain_id: string
