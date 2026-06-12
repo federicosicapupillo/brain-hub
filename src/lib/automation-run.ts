@@ -293,7 +293,13 @@ export type LogEventType =
   | "knowledge_source_linked_to_tool"
   | "knowledge_source_linked_to_roadmap"
   | "knowledge_source_archived"
-  | "knowledge_source_missing_recommended";
+  | "knowledge_source_missing_recommended"
+  | "n8n_workflow_registered"
+  | "n8n_workflow_updated"
+  | "n8n_workflow_status_changed"
+  | "n8n_workflow_linked_to_action_type"
+  | "n8n_workflow_manual_test_marked"
+  | "n8n_workflow_opened";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -383,6 +389,12 @@ const LOG_TITLES: Record<LogEventType, string> = {
   knowledge_source_linked_to_roadmap: "Fonte knowledge collegata a roadmap",
   knowledge_source_archived: "Fonte knowledge archiviata",
   knowledge_source_missing_recommended: "Fonte consigliata mancante",
+  n8n_workflow_registered: "Workflow n8n registrato",
+  n8n_workflow_updated: "Workflow n8n aggiornato",
+  n8n_workflow_status_changed: "Stato workflow n8n cambiato",
+  n8n_workflow_linked_to_action_type: "Workflow n8n collegato ad action type",
+  n8n_workflow_manual_test_marked: "Test manuale workflow n8n",
+  n8n_workflow_opened: "Workflow n8n aperto",
 };
 
 
