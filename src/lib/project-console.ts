@@ -42,6 +42,7 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "build_status", label: "Errori / build status", hint: "Stato build Lovable" },
   { id: "checklist_operative", label: "Checklist operative", hint: "To-do strutturate" },
   { id: "project_health_check", label: "Project Health Check", hint: "Salute progetto, problemi, prossima azione" },
+  { id: "automation_control", label: "Automation Control", hint: "Action Queue: azioni operative approvabili" },
 ];
 
 export const PRIORITIES = [
