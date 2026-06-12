@@ -386,6 +386,19 @@ export function ExecutionTracking() {
     [pel],
   );
 
+  // Children map: parent_id -> child pel rows
+  const childrenByParent = useMemo(() => {
+    const m = new Map<string, PEL[]>();
+    for (const r of pel) {
+      if (!r.parent_execution_log_id) continue;
+      const arr = m.get(r.parent_execution_log_id) ?? [];
+      arr.push(r);
+      m.set(r.parent_execution_log_id, arr);
+    }
+    return m;
+  }, [pel]);
+  const pelById = useMemo(() => new Map(pel.map((r) => [r.id, r])), [pel]);
+
   function refresh() {
     void qc.invalidateQueries({ queryKey: ["execution-tracking"] });
   }
