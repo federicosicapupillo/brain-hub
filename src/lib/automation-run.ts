@@ -255,7 +255,11 @@ export type LogEventType =
   | "roadmap_item_marked_completed"
   | "roadmap_item_marked_needs_fix"
   | "roadmap_intelligence_issue_detected"
-  | "roadmap_intelligence_issue_ignored";
+  | "roadmap_intelligence_issue_ignored"
+  | "project_health_check_completed"
+  | "project_health_issue_detected"
+  | "project_health_warning_ignored"
+  | "project_health_next_action_suggested";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
