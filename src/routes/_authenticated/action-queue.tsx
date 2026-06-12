@@ -96,7 +96,9 @@ type BrainRow = { id: string; name: string };
 
 function ActionQueueRoute() {
   const qc = useQueryClient();
-  const [brainFilter, setBrainFilter] = useState<string>("all");
+  const navigate = useNavigate();
+  const search = useSearch({ from: "/_authenticated/action-queue" }) as { brain?: string };
+  const [brainFilter, setBrainFilter] = useState<string>(search.brain ?? "all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [riskFilter, setRiskFilter] = useState<string>("all");
@@ -104,6 +106,12 @@ function ActionQueueRoute() {
   const [openDetailId, setOpenDetailId] = useState<string | null>(null);
   const [confirmHighId, setConfirmHighId] = useState<string | null>(null);
   const [newOpen, setNewOpen] = useState(false);
+
+  useEffect(() => {
+    if (search.brain && search.brain !== brainFilter) setBrainFilter(search.brain);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.brain]);
+
 
   const { data: brains = [] } = useQuery<BrainRow[]>({
     queryKey: ["action-queue-brains"],
