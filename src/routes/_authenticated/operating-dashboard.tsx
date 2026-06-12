@@ -513,53 +513,7 @@ function OperatingDashboardRoute() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center justify-between gap-2 text-base">
-                  <span className="flex items-center gap-2">
-                    <Wrench className="h-4 w-4" /> Tool collegati
-                  </span>
-                  <Button asChild size="sm" variant="outline">
-                    <Link to="/strumenti-progetti">Gestisci</Link>
-                  </Button>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {tools.length === 0 ? (
-                  <div className="rounded border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                    Nessun tool collegato.
-                  </div>
-                ) : (
-                  <ul className="space-y-2">
-                    {tools.map((t) => (
-                      <li
-                        key={t.id}
-                        className="flex items-center justify-between gap-2 rounded border border-border/60 p-2 text-xs"
-                      >
-                        <div className="min-w-0">
-                          <div className="font-medium truncate">{t.tool_name}</div>
-                          {t.connection_status && (
-                            <Badge variant="outline" className="text-[10px] mt-0.5">
-                              {t.connection_status}
-                            </Badge>
-                          )}
-                        </div>
-                        {t.url && (
-                          <a
-                            href={t.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-primary hover:underline shrink-0"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </a>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
+            <ToolConnectionsBlock brainId={brainId} />
           </div>
         </>
       )}
