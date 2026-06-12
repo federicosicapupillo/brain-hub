@@ -96,6 +96,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "kpi",
       "note_progetto",
       "tool_connections",
+      "knowledge_map",
     ],
   },
   marketing: {
