@@ -48,6 +48,7 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "automation_control", label: "Automation Control", hint: "Action Queue: azioni operative approvabili" },
   { id: "runbooks", label: "Runbooks", hint: "Procedure operative guidate (workflow templates)" },
   { id: "tool_connections", label: "Tool Connections", hint: "Tool collegati al progetto e stato collegamento" },
+  { id: "knowledge_map", label: "Knowledge Map", hint: "Materiali, file, link e fonti collegate al progetto" },
 ];
 
 export const PRIORITIES = [
