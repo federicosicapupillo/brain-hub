@@ -46,6 +46,7 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "project_health_check", label: "Project Health Check", hint: "Salute progetto, problemi, prossima azione" },
   { id: "automation_control", label: "Automation Control", hint: "Action Queue: azioni operative approvabili" },
   { id: "runbooks", label: "Runbooks", hint: "Procedure operative guidate (workflow templates)" },
+  { id: "tool_connections", label: "Tool Connections", hint: "Tool collegati al progetto e stato collegamento" },
 ];
 
 export const PRIORITIES = [
