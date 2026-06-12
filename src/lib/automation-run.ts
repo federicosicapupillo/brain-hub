@@ -416,6 +416,13 @@ const LOG_TITLES: Record<LogEventType, string> = {
   n8n_execution_completed: "Esecuzione n8n completata",
   n8n_execution_failed: "Esecuzione n8n fallita",
   n8n_execution_receipt_saved: "Receipt esecuzione n8n salvata",
+  telegram_approval_request_created: "Richiesta approvazione Telegram creata",
+  telegram_approval_request_ready: "Richiesta Telegram pronta da inviare",
+  telegram_approval_request_sent: "Richiesta Telegram inviata",
+  telegram_approval_request_approved: "Approvazione Telegram ricevuta",
+  telegram_approval_request_rejected: "Rifiuto Telegram ricevuto",
+  telegram_approval_request_cancelled: "Richiesta Telegram annullata",
+  telegram_approval_request_failed: "Richiesta Telegram fallita",
 };
 
 
