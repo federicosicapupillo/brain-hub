@@ -552,7 +552,7 @@ export function RoadmapIntelligence() {
         {/* Roadmap items list */}
         <div>
           <div className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <Map className="h-4 w-4" /> Roadmap items ({roadmap.length})
+            <MapIcon className="h-4 w-4" /> Roadmap items ({roadmap.length})
           </div>
           {roadmap.length === 0 ? (
             <p className="text-xs text-muted-foreground">Nessun roadmap item per questo brain.</p>
