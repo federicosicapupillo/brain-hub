@@ -266,7 +266,11 @@ export type LogEventType =
   | "automation_action_ready_to_execute"
   | "automation_action_executed"
   | "automation_action_failed"
-  | "automation_action_cancelled";
+  | "automation_action_cancelled"
+  | "automation_action_duplicate_prevented"
+  | "automation_action_prepared"
+  | "automation_action_source_opened"
+  | "automation_action_linked_object_opened";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
