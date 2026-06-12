@@ -22,6 +22,7 @@ import {
   Clipboard,
   Gauge,
   RefreshCw,
+  LayoutDashboard,
 } from "lucide-react";
 import {
   Sidebar,
