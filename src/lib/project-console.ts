@@ -108,7 +108,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   lead_generation: {
     label: "Lead Generation",
     priority: "lead_generation",
-    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita", "tool_connections"],
+    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita", "tool_connections", "knowledge_map"],
   },
   ai_automation: {
     label: "AI Automation",
