@@ -78,7 +78,7 @@ function AutomationReadinessPage() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Automation Readiness Matrix"
-        description="Quali azioni Brain Hub può automatizzare, quali richiedono conferma, quali richiedono integrazioni esterne."
+        subtitle="Quali azioni Brain Hub può automatizzare, quali richiedono conferma, quali richiedono integrazioni esterne."
       />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
