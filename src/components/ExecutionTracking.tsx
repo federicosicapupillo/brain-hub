@@ -573,6 +573,11 @@ export function ExecutionTracking() {
     );
     setResultDrafts((s) => ({ ...s, [row.id]: { text: "", type: "note", notes: "" } }));
     toast.success("Risultato salvato");
+    void enqueueExecCta(row, "Salva risultato", "save_lovable_result", "medium", {
+      result_type: draft.type,
+      result_status: "result_saved",
+      suggested_reason: "result_saved_from_execution_tracking",
+    });
   }
 
   async function markCompleted(row: PEL) {
