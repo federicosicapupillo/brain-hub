@@ -49,6 +49,7 @@ const items = [
   { title: "Automation Control", url: "/automation-control", icon: Gauge },
   { title: "Action Queue", url: "/action-queue", icon: Gauge },
   { title: "Project Loop", url: "/project-loop", icon: RefreshCw },
+  { title: "Operating Dashboard", url: "/operating-dashboard", icon: LayoutDashboard },
   { title: "Project Console", url: "/project-console", icon: LayoutDashboard },
   { title: "Runbooks", url: "/runbooks", icon: BookMarked },
   { title: "Cervelli", url: "/", icon: Brain },
