@@ -7,6 +7,7 @@ import { RoadmapIntelligence } from "@/components/RoadmapIntelligence";
 import { ProjectHealthCheck } from "@/components/ProjectHealthCheck";
 import { AutomationControlBlock } from "@/components/AutomationControlBlock";
 import { RunbooksBlock } from "@/components/RunbooksBlock";
+import { ToolConnectionsBlock } from "@/components/ToolConnectionsBlock";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
