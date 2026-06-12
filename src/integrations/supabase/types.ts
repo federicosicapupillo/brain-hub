@@ -1304,6 +1304,66 @@ export type Database = {
           },
         ]
       }
+      runbook_instances: {
+        Row: {
+          brain_id: string | null
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string
+          current_step_index: number
+          description: string | null
+          id: string
+          metadata: Json
+          project_id: string | null
+          risk_level: string
+          started_at: string | null
+          status: string
+          template_key: string
+          title: string
+          total_steps: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          current_step_index?: number
+          description?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          risk_level?: string
+          started_at?: string | null
+          status?: string
+          template_key: string
+          title: string
+          total_steps?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          current_step_index?: number
+          description?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          risk_level?: string
+          started_at?: string | null
+          status?: string
+          template_key?: string
+          title?: string
+          total_steps?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           agent_id: string | null
