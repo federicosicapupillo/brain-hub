@@ -29,6 +29,8 @@ import {
   type ItemLike,
   type LogEventType,
 } from "@/lib/automation-run";
+import { enqueueFromCta } from "@/lib/action-queue-cta";
+import type { ActionType, RiskLevel } from "@/lib/action-queue";
 
 type ClipItem = ItemLike & {
   content: string | null;
