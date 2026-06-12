@@ -59,7 +59,17 @@ import {
   AUTOMATION_LEVEL_TONE,
   EXECUTION_METHOD_LABEL,
 } from "@/lib/automation-readiness";
-import { listWorkflowsForActionType } from "@/lib/n8n-workflows";
+import { listWorkflowsForActionType, type N8nWorkflow, WORKFLOW_STATUS_LABEL } from "@/lib/n8n-workflows";
+import {
+  buildPayload,
+  executeDryRun,
+  executeLive,
+  listExecutionLogsForAction,
+  logPayloadPrepared,
+  markExecutionFailedManual,
+  type N8nExecutionLog,
+} from "@/lib/n8n-execution";
+import { Textarea } from "@/components/ui/textarea";
 
 async function logEvent(action: LogEventType, notes: string, metadata: Record<string, unknown>) {
   const { data: u } = await supabase.auth.getUser();
