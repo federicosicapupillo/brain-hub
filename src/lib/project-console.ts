@@ -18,7 +18,8 @@ export type BlockId =
   | "kpi"
   | "log_attivita"
   | "build_status"
-  | "checklist_operative";
+  | "checklist_operative"
+  | "project_health_check";
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
@@ -39,6 +40,7 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "log_attivita", label: "Log attività", hint: "Storico azioni" },
   { id: "build_status", label: "Errori / build status", hint: "Stato build Lovable" },
   { id: "checklist_operative", label: "Checklist operative", hint: "To-do strutturate" },
+  { id: "project_health_check", label: "Project Health Check", hint: "Salute progetto, problemi, prossima azione" },
 ];
 
 export const PRIORITIES = [
@@ -69,6 +71,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "problemi_da_risolvere",
       "build_status",
       "file_documenti",
+      "project_health_check",
     ],
   },
   immobiliare: {
@@ -103,6 +106,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "roadmap_intelligence",
       "log_attivita",
       "build_status",
+      "project_health_check",
     ],
   },
   content_creation: {
@@ -113,7 +117,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   roadmap_operativa: {
     label: "Roadmap Operativa",
     priority: "generico",
-    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere"],
+    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check"],
   },
 };
 

@@ -255,7 +255,11 @@ export type LogEventType =
   | "roadmap_item_marked_completed"
   | "roadmap_item_marked_needs_fix"
   | "roadmap_intelligence_issue_detected"
-  | "roadmap_intelligence_issue_ignored";
+  | "roadmap_intelligence_issue_ignored"
+  | "project_health_check_completed"
+  | "project_health_issue_detected"
+  | "project_health_warning_ignored"
+  | "project_health_next_action_suggested";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -307,6 +311,10 @@ const LOG_TITLES: Record<LogEventType, string> = {
   roadmap_item_marked_needs_fix: "Roadmap item segnata da correggere",
   roadmap_intelligence_issue_detected: "Problema roadmap rilevato (Roadmap Intelligence)",
   roadmap_intelligence_issue_ignored: "Problema roadmap ignorato (Roadmap Intelligence)",
+  project_health_check_completed: "Project Health Check completato",
+  project_health_issue_detected: "Problema salute progetto rilevato",
+  project_health_warning_ignored: "Warning salute progetto ignorato",
+  project_health_next_action_suggested: "Prossima azione salute progetto suggerita",
 };
 
 

@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { RoadmapIntelligence } from "@/components/RoadmapIntelligence";
+import { ProjectHealthCheck } from "@/components/ProjectHealthCheck";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -366,6 +367,13 @@ function BlockPreview({ id, brainId }: { id: BlockId; brainId: string }) {
       </div>
     );
   }
+  if (id === "project_health_check" && brainId) {
+    return (
+      <div className="md:col-span-2">
+        <ProjectHealthCheck brainId={brainId} />
+      </div>
+    );
+  }
   return (
     <div className="rounded-md border border-border/60 bg-card/40 p-3">
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -398,6 +406,8 @@ function useEmptyStateLabel(id: BlockId): string {
     case "problemi_da_risolvere":
     case "build_status":
       return "Nessun problema rilevato";
+    case "project_health_check":
+      return "Calcolo health check…";
     case "file_documenti":
       return "Collega una fonte";
     case "lead_contatti":
