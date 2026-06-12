@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { listWorkflows } from "@/lib/n8n-workflows";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +47,20 @@ function AutomationReadinessPage() {
   const [ready, setReady] = useState<string>("all");
   const [tool, setTool] = useState<string>("");
   const [detail, setDetail] = useState<ReadinessEntry | null>(null);
+
+  const { data: workflows = [] } = useQuery({
+    queryKey: ["n8n-workflows-all"],
+    queryFn: () => listWorkflows(),
+  });
+  const workflowCoverage = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const w of workflows) {
+      for (const t of w.linked_action_types ?? []) {
+        m.set(t, (m.get(t) ?? 0) + 1);
+      }
+    }
+    return m;
+  }, [workflows]);
 
   const filtered = useMemo(() => {
     return READINESS_MATRIX.filter((e) => {
