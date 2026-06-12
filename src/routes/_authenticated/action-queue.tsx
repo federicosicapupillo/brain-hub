@@ -606,6 +606,7 @@ function FilterSelect({
 function ActionRow({
   a,
   brainName,
+  n8nInfo,
   onOpen,
   onApprove,
   onReject,
@@ -614,6 +615,7 @@ function ActionRow({
 }: {
   a: AutomationAction;
   brainName?: string;
+  n8nInfo?: { ready: boolean; tested: boolean };
   onOpen: () => void;
   onApprove: () => void;
   onReject: () => void;
