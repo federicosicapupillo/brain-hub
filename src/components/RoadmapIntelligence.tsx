@@ -31,6 +31,8 @@ import {
   Zap,
 } from "lucide-react";
 import type { LogEventType } from "@/lib/automation-run";
+import { enqueueFromCta } from "@/lib/action-queue-cta";
+import { useNavigate } from "@tanstack/react-router";
 
 type Brain = { id: string; name: string };
 
