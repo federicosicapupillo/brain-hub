@@ -71,6 +71,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "problemi_da_risolvere",
       "build_status",
       "file_documenti",
+      "project_health_check",
     ],
   },
   immobiliare: {
@@ -105,6 +106,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "roadmap_intelligence",
       "log_attivita",
       "build_status",
+      "project_health_check",
     ],
   },
   content_creation: {
@@ -115,7 +117,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   roadmap_operativa: {
     label: "Roadmap Operativa",
     priority: "generico",
-    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere"],
+    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check"],
   },
 };
 
