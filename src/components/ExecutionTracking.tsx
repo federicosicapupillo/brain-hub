@@ -589,6 +589,13 @@ export function ExecutionTracking() {
       `Prompt completato: ${row.prompt_title}`,
     );
     toast.success("Completato");
+    void enqueueExecCta(
+      row,
+      "Segna come completato",
+      row.roadmap_item_id ? "mark_roadmap_completed" : "manual_task",
+      row.roadmap_item_id ? "high" : "medium",
+      { result_status: "completed", suggested_reason: "marked_completed" },
+    );
   }
 
   async function markFailed(row: PEL) {
