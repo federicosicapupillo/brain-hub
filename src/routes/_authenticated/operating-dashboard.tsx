@@ -46,6 +46,12 @@ import {
   listRunbookInstances,
 } from "@/lib/runbooks";
 import { loadConfigForBrain, PRESETS } from "@/lib/project-console";
+import {
+  APPROVAL_STATUS_LABEL,
+  APPROVAL_STATUS_TONE,
+  listApprovalRequests,
+  summarizeApprovals,
+} from "@/lib/telegram-approvals";
 
 export const Route = createFileRoute("/_authenticated/operating-dashboard")({
   head: () => ({
