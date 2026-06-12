@@ -112,8 +112,8 @@ function N8nWorkflowsPage() {
     () =>
       toolLinks.some(
         (l) =>
-          (l.tool_name?.toLowerCase().includes("n8n") || l.tool_key === "n8n") &&
-          ["connected", "active"].includes((l.status ?? "").toLowerCase()),
+          l.tool_name?.toLowerCase().includes("n8n") &&
+          ["connected", "active"].includes((l.connection_status ?? "").toLowerCase()),
       ),
     [toolLinks],
   );

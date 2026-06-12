@@ -293,7 +293,13 @@ export type LogEventType =
   | "knowledge_source_linked_to_tool"
   | "knowledge_source_linked_to_roadmap"
   | "knowledge_source_archived"
-  | "knowledge_source_missing_recommended";
+  | "knowledge_source_missing_recommended"
+  | "n8n_workflow_registered"
+  | "n8n_workflow_updated"
+  | "n8n_workflow_status_changed"
+  | "n8n_workflow_linked_to_action_type"
+  | "n8n_workflow_manual_test_marked"
+  | "n8n_workflow_opened";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
