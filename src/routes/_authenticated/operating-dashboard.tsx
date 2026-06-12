@@ -515,7 +515,10 @@ function OperatingDashboardRoute() {
               </CardContent>
             </Card>
 
-            <ToolConnectionsBlock brainId={brainId} />
+            <div className="space-y-4">
+              <ToolConnectionsBlock brainId={brainId} />
+              <KnowledgeMapBlock brainId={brainId} />
+            </div>
           </div>
         </>
       )}
