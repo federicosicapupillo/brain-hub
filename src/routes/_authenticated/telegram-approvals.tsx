@@ -124,10 +124,10 @@ function TelegramApprovalsRoute() {
   return (
     <div className="space-y-4 p-4">
       <PageHeader
-        icon={Send}
         title="Telegram Approvals"
         subtitle="Brain Hub v1.7 — livello approvazioni Telegram per azioni operative importanti"
       />
+
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3 p-4">

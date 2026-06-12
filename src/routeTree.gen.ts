@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedToolConnectionsRouteImport } from './routes/_authenticated/tool-connections'
+import { Route as AuthenticatedTelegramApprovalsRouteImport } from './routes/_authenticated/telegram-approvals'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedStrumentiProgettiRouteImport } from './routes/_authenticated/strumenti-progetti'
 import { Route as AuthenticatedRunbooksRouteImport } from './routes/_authenticated/runbooks'
@@ -65,6 +66,12 @@ const AuthenticatedToolConnectionsRoute =
   AuthenticatedToolConnectionsRouteImport.update({
     id: '/tool-connections',
     path: '/tool-connections',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedTelegramApprovalsRoute =
+  AuthenticatedTelegramApprovalsRouteImport.update({
+    id: '/telegram-approvals',
+    path: '/telegram-approvals',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
@@ -283,6 +290,7 @@ export interface FileRoutesByFullPath {
   '/runbooks': typeof AuthenticatedRunbooksRoute
   '/strumenti-progetti': typeof AuthenticatedStrumentiProgettiRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
@@ -319,6 +327,7 @@ export interface FileRoutesByTo {
   '/runbooks': typeof AuthenticatedRunbooksRoute
   '/strumenti-progetti': typeof AuthenticatedStrumentiProgettiRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/': typeof AuthenticatedIndexRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
@@ -359,6 +368,7 @@ export interface FileRoutesById {
   '/_authenticated/runbooks': typeof AuthenticatedRunbooksRoute
   '/_authenticated/strumenti-progetti': typeof AuthenticatedStrumentiProgettiRoute
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/_authenticated/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/_authenticated/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
@@ -400,6 +410,7 @@ export interface FileRouteTypes {
     | '/runbooks'
     | '/strumenti-progetti'
     | '/tasks'
+    | '/telegram-approvals'
     | '/tool-connections'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
@@ -436,6 +447,7 @@ export interface FileRouteTypes {
     | '/runbooks'
     | '/strumenti-progetti'
     | '/tasks'
+    | '/telegram-approvals'
     | '/tool-connections'
     | '/'
     | '/importa/prompt-storici'
@@ -475,6 +487,7 @@ export interface FileRouteTypes {
     | '/_authenticated/runbooks'
     | '/_authenticated/strumenti-progetti'
     | '/_authenticated/tasks'
+    | '/_authenticated/telegram-approvals'
     | '/_authenticated/tool-connections'
     | '/_authenticated/'
     | '/_authenticated/importa/prompt-storici'
@@ -519,6 +532,13 @@ declare module '@tanstack/react-router' {
       path: '/tool-connections'
       fullPath: '/tool-connections'
       preLoaderRoute: typeof AuthenticatedToolConnectionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/telegram-approvals': {
+      id: '/_authenticated/telegram-approvals'
+      path: '/telegram-approvals'
+      fullPath: '/telegram-approvals'
+      preLoaderRoute: typeof AuthenticatedTelegramApprovalsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/tasks': {
@@ -811,6 +831,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRunbooksRoute: typeof AuthenticatedRunbooksRoute
   AuthenticatedStrumentiProgettiRoute: typeof AuthenticatedStrumentiProgettiRoute
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
+  AuthenticatedTelegramApprovalsRoute: typeof AuthenticatedTelegramApprovalsRoute
   AuthenticatedToolConnectionsRoute: typeof AuthenticatedToolConnectionsRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
@@ -844,6 +865,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRunbooksRoute: AuthenticatedRunbooksRoute,
   AuthenticatedStrumentiProgettiRoute: AuthenticatedStrumentiProgettiRoute,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
+  AuthenticatedTelegramApprovalsRoute: AuthenticatedTelegramApprovalsRoute,
   AuthenticatedToolConnectionsRoute: AuthenticatedToolConnectionsRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
