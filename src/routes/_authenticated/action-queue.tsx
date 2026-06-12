@@ -635,6 +635,7 @@ function ActionRow({
 }
 
 function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: string }) {
+  const meta = (a.metadata ?? {}) as Record<string, unknown>;
   return (
     <div className="space-y-3 text-sm">
       <div className="grid grid-cols-2 gap-2">
@@ -644,6 +645,10 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
         <DetailItem label="Priorità" value={a.priority} />
         <DetailItem label="Stato" value={STATUS_LABEL[a.status]} />
         <DetailItem label="Progetto" value={brainName ?? a.brain_id ?? "—"} />
+        <DetailItem label="Origine CTA" value={String(meta.source_cta ?? "—")} />
+        <DetailItem label="Blocco sorgente" value={String(meta.source_block ?? "—")} />
+        <DetailItem label="Oggetto collegato" value={a.roadmap_item_id ? "Roadmap item" : a.prompt_execution_log_id ? "Execution log" : a.task_id ? "Task" : "—"} />
+        <DetailItem label="Azione già preparata?" value={a.status === "ready_to_execute" || a.status === "executed" ? "Sì" : "No"} />
       </div>
       {a.description && (
         <div>
