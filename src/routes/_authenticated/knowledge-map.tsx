@@ -137,7 +137,6 @@ function KnowledgeMapRoute() {
       <PageHeader
         title="Knowledge Map"
         subtitle="Project Knowledge & File Map — mappa dei materiali, link e riferimenti del progetto"
-        icon={<BookOpen className="h-5 w-5" />}
       />
 
       <Card>
