@@ -1653,6 +1653,87 @@ export type Database = {
           },
         ]
       }
+      telegram_approval_requests: {
+        Row: {
+          approval_type: string
+          approved_at: string | null
+          approved_by: string | null
+          automation_action_id: string | null
+          brain_id: string | null
+          created_at: string
+          expired_at: string | null
+          id: string
+          message_preview: string | null
+          metadata: Json
+          n8n_execution_log_id: string | null
+          payload_preview: Json | null
+          project_id: string | null
+          rejected_at: string | null
+          rejection_reason: string | null
+          requested_at: string | null
+          risk_level: string
+          runbook_instance_id: string | null
+          status: string
+          telegram_chat_id: string | null
+          telegram_message_id: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approval_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          automation_action_id?: string | null
+          brain_id?: string | null
+          created_at?: string
+          expired_at?: string | null
+          id?: string
+          message_preview?: string | null
+          metadata?: Json
+          n8n_execution_log_id?: string | null
+          payload_preview?: Json | null
+          project_id?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          requested_at?: string | null
+          risk_level?: string
+          runbook_instance_id?: string | null
+          status?: string
+          telegram_chat_id?: string | null
+          telegram_message_id?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approval_type?: string
+          approved_at?: string | null
+          approved_by?: string | null
+          automation_action_id?: string | null
+          brain_id?: string | null
+          created_at?: string
+          expired_at?: string | null
+          id?: string
+          message_preview?: string | null
+          metadata?: Json
+          n8n_execution_log_id?: string | null
+          payload_preview?: Json | null
+          project_id?: string | null
+          rejected_at?: string | null
+          rejection_reason?: string | null
+          requested_at?: string | null
+          risk_level?: string
+          runbook_instance_id?: string | null
+          status?: string
+          telegram_chat_id?: string | null
+          telegram_message_id?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       warehouses: {
         Row: {
           brain_id: string | null
