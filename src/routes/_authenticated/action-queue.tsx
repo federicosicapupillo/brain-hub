@@ -86,6 +86,9 @@ export const Route = createFileRoute("/_authenticated/action-queue")({
       },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    brain: typeof search.brain === "string" ? search.brain : undefined,
+  }),
   component: ActionQueueRoute,
 });
 
