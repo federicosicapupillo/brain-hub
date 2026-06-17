@@ -118,7 +118,7 @@ function ResultReviewRoute() {
     <div className="space-y-6">
       <PageHeader
         title="Result Review"
-        description="Rivedi i risultati prodotti da Lovable, Codex, n8n, Browser Bridge e azioni manuali. Decidi cosa è ok, cosa va corretto, cosa è fallito."
+        subtitle="Rivedi i risultati prodotti da Lovable, Codex, n8n, Browser Bridge e azioni manuali. Decidi cosa è ok, cosa va corretto, cosa è fallito."
       />
 
       <div className="flex flex-wrap items-center gap-3">
