@@ -703,6 +703,65 @@ function N8nControlledExecutionMini({ brainId }: { brainId: string | null }) {
 }
 
 
+function N8nRealExecutionMini({ brainId }: { brainId: string | null }) {
+  const { data: summary } = useQuery({
+    queryKey: ["op-dash-n8n-real-summary", brainId],
+    queryFn: () => getN8nRealExecutionSummary(brainId),
+  });
+  useEffect(() => {
+    void logN8nRealExecutionEvent(
+      "n8n_real_execution_dashboard_viewed",
+      "Tile esecuzione reale n8n visualizzata",
+      { brain_id: brainId },
+    );
+  }, [brainId]);
+  const s = summary ?? {
+    realEnabled: 0,
+    productionMode: 0,
+    runsToday: 0,
+    failedToday: 0,
+    lastExecutionAt: null,
+    lastExecutionStatus: null,
+    totalWorkflows: 0,
+  };
+  return (
+    <Card className="border-amber-500/30">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <Play className="h-4 w-4" /> n8n Real Execution
+          </span>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/n8n-workflows">
+              Apri <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+          <Tile label="Reali abilitati" value={s.realEnabled} />
+          <Tile label="Production" value={s.productionMode} tone={s.productionMode > 0 ? "amber" : undefined} />
+          <Tile label="Run oggi" value={s.runsToday} />
+          <Tile label="Fallite oggi" value={s.failedToday} tone={s.failedToday > 0 ? "red" : undefined} />
+        </div>
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+          <span>
+            Ultima:{" "}
+            {s.lastExecutionAt
+              ? `${new Date(s.lastExecutionAt).toLocaleString()} · ${s.lastExecutionStatus ?? "?"}`
+              : "—"}
+          </span>
+          <Button asChild size="sm" variant="ghost" className="ml-auto">
+            <Link to="/action-queue">Action Queue</Link>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 function TelegramApprovalsMini({ brainId }: { brainId: string | null }) {
   const { data: requests = [] } = useQuery({
     queryKey: ["telegram-approvals", brainId],
