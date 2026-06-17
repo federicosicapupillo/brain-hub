@@ -382,6 +382,7 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
       knowledgeNotes: knowledgeFromLoop.length,
       roadmapUpdateActions: roadmapActions.length,
       nextPromptCreated: nextPromptApplied.length,
+      incompleteChains,
     },
   };
 }
