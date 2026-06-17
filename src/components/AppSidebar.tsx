@@ -28,6 +28,7 @@ import {
   Building2,
   Cpu,
   Home,
+  FileText,
 } from "lucide-react";
 import {
   Sidebar,
