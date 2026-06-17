@@ -111,7 +111,38 @@ export type AgentRunLog = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  ai_prompt_text?: string | null;
+  ai_result_text?: string | null;
+  ai_provider?: string | null;
+  ai_handoff_status?: AiHandoffStatus | string | null;
+  ai_prompt_copied_at?: string | null;
+  ai_result_received_at?: string | null;
 };
+
+export type AiProvider = "chatgpt" | "claude" | "gemini" | "manual_ai";
+
+export const AI_PROVIDER_LABEL: Record<AiProvider, string> = {
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  gemini: "Gemini",
+  manual_ai: "Manual AI",
+};
+
+export type AiHandoffStatus =
+  | "not_started"
+  | "prompt_ready"
+  | "prompt_copied"
+  | "result_received"
+  | "action_created"
+  | "review_created";
+
+export const AI_HANDOFF_STATUS_LABEL: Record<AiHandoffStatus, string> = {
+  not_started: "Non iniziato",
+  prompt_ready: "Prompt pronto",
+  prompt_copied: "Prompt copiato",
+  result_received: "Risultato ricevuto",
+  action_created: "Action creata",
+  review_created: "Review creata",
 
 // ============================================================
 // Logging
