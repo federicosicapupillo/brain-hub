@@ -35,6 +35,7 @@ export type ReviewSourceType =
   | "n8n_execution_log"
   | "automation_action"
   | "runbook_step"
+  | "code_engine_handoff"
   | "manual";
 
 export const SOURCE_TYPE_LABEL: Record<ReviewSourceType, string> = {
@@ -43,6 +44,7 @@ export const SOURCE_TYPE_LABEL: Record<ReviewSourceType, string> = {
   n8n_execution_log: "n8n execution",
   automation_action: "Automation action",
   runbook_step: "Runbook step",
+  code_engine_handoff: "Codex/Claude Code handoff",
   manual: "Manuale",
 };
 
