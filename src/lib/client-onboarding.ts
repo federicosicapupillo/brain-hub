@@ -166,7 +166,7 @@ function buildSteps(
     },
     {
       id: "engine",
-      order: 5,
+      order: 6,
       title: "Scegli il motore di sviluppo",
       description:
         "Brain Hub suggerisce se usare Lovable, Codex, Claude Code o un altro motore.",
@@ -177,7 +177,7 @@ function buildSteps(
     },
     {
       id: "actions",
-      order: 6,
+      order: 7,
       title: "Approva le prime azioni",
       description:
         "Controlla cosa Brain Hub propone prima di far partire qualsiasi attività.",
@@ -188,7 +188,7 @@ function buildSteps(
     },
     {
       id: "results",
-      order: 7,
+      order: 8,
       title: "Controlla i risultati",
       description:
         "Ogni risultato viene verificato prima di diventare parte del sistema.",
@@ -199,7 +199,7 @@ function buildSteps(
     },
     {
       id: "improvements",
-      order: 8,
+      order: 9,
       title: "Applica i miglioramenti",
       description:
         "Brain Hub trasforma i risultati approvati in nuovi suggerimenti e prossimi passi.",
@@ -210,7 +210,7 @@ function buildSteps(
     },
     {
       id: "system",
-      order: 9,
+      order: 10,
       title: "Verifica il ciclo operativo",
       description:
         "Controlla se il lavoro si è fermato o se il sistema è completo.",
