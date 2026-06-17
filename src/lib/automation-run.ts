@@ -540,6 +540,17 @@ const LOG_TITLES: Record<LogEventType, string> = {
   claude_code_prompt_built: "Prompt Claude Code preparato",
   github_issue_draft_built: "Bozza GitHub issue preparata",
   github_operational_review_created: "Result Review creata da GitHub Operational",
+  agent_created: "Agente creato",
+  agent_updated: "Agente aggiornato",
+  agent_archived: "Agente archiviato",
+  agent_activated: "Agente attivato",
+  agent_paused: "Agente messo in pausa",
+  agent_permission_updated: "Permesso agente aggiornato",
+  agent_template_created: "Agente creato da template",
+  agent_safety_warning: "Warning sicurezza agente",
+  agent_action_created: "Azione creata da agente",
+  agent_center_viewed: "Agent Center visualizzato",
+
 };
 
 
