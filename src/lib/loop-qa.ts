@@ -128,11 +128,23 @@ type KnowledgeRow = {
 export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSummary> {
   const filters: Array<[string, string]> = brainId ? [["brain_id", brainId]] : [];
 
-  const [actions, reviews, suggestions, knowledge] = await Promise.all([
+type TelegramRow = {
+  id: string;
+  automation_action_id: string | null;
+  status: string;
+  created_at: string;
+  brain_id: string | null;
+};
+
+export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSummary> {
+  const filters: Array<[string, string]> = brainId ? [["brain_id", brainId]] : [];
+
+  const [actions, reviews, suggestions, knowledge, telegram] = await Promise.all([
     fetchLatest<ActionRow>("automation_actions", filters, 100),
     fetchLatest<ReviewRow>("result_review_items", filters, 100),
     fetchLatest<SuggestionRow>("learning_loop_suggestions", filters, 100),
     fetchLatest<KnowledgeRow>("knowledge_sources", filters, 100),
+    fetchLatest<TelegramRow>("telegram_approval_requests", filters, 100),
   ]);
 
   const reviewsByStatus = (s: string) => reviews.filter((r) => r.review_status === s);
