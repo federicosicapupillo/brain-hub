@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
@@ -16,14 +16,38 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ExternalLink, Wand2, Copy, CheckCircle2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  ExternalLink,
+  Wand2,
+  Copy,
+  CheckCircle2,
+  Pencil,
+  Plus,
+  PowerOff,
+  Power,
+  RotateCcw,
+  Archive,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BuildEngine,
+  BuildEngineDetailed,
   BuildEngineHandoff,
   CONNECTION_MODE_LABEL,
+  ConnectionMode,
   ENGINE_TYPE_LABEL,
+  EngineRegistryInput,
+  EngineStatus,
+  EngineType,
   STATUS_LABEL,
   TASK_TYPE_LABEL,
   TaskType,
@@ -31,15 +55,60 @@ import {
   RouterInput,
   buildEnginePrompt,
   createBuildEngineHandoff,
+  createCustomBuildEngine,
+  disableBuildEngine,
+  enableBuildEngine,
   getBuildEngine,
-  listBuildEngines,
+  isDefaultEngineKey,
+  listBuildEnginesDetailed,
   listBuildEngineHandoffs,
   logBuildEngineEvent,
+  resetBuildEngineOverride,
   scoreBuildEngines,
+  updateBuildEngine,
   updateHandoffStatus,
+  validateEngineKey,
 } from "@/lib/build-engines";
 import { createAction } from "@/lib/action-queue";
 import { createReviewItem } from "@/lib/result-review";
+
+type BuildEngineSearch = {
+  preferred_engine?: string;
+  task_type?: TaskType;
+  title?: string;
+  description?: string;
+  source?: string;
+  source_id?: string;
+  brain?: string;
+};
+
+const VALID_TASK_TYPES: TaskType[] = [
+  "new_mvp",
+  "feature",
+  "bug_fix",
+  "refactor",
+  "ui_design",
+  "backend",
+  "database",
+  "automation",
+  "deployment",
+  "documentation",
+  "analysis",
+];
+
+function validateSearch(raw: Record<string, unknown>): BuildEngineSearch {
+  const s: BuildEngineSearch = {};
+  if (typeof raw.preferred_engine === "string") s.preferred_engine = raw.preferred_engine;
+  if (typeof raw.task_type === "string" && (VALID_TASK_TYPES as string[]).includes(raw.task_type)) {
+    s.task_type = raw.task_type as TaskType;
+  }
+  if (typeof raw.title === "string") s.title = raw.title.slice(0, 300);
+  if (typeof raw.description === "string") s.description = raw.description.slice(0, 4000);
+  if (typeof raw.source === "string") s.source = raw.source.slice(0, 80);
+  if (typeof raw.source_id === "string") s.source_id = raw.source_id.slice(0, 120);
+  if (typeof raw.brain === "string") s.brain = raw.brain;
+  return s;
+}
 
 export const Route = createFileRoute("/_authenticated/build-engines")({
   head: () => ({
@@ -52,6 +121,7 @@ export const Route = createFileRoute("/_authenticated/build-engines")({
       },
     ],
   }),
+  validateSearch,
   component: BuildEnginesPage,
 });
 
@@ -59,10 +129,25 @@ type Brain = { id: string; name: string };
 
 function BuildEnginesPage() {
   const qc = useQueryClient();
-  const [brainId, setBrainId] = useState<string | null>(null);
+  const search = useSearch({ from: "/_authenticated/build-engines" });
+  const [brainId, setBrainId] = useState<string | null>(search.brain ?? null);
 
   useEffect(() => {
     void logBuildEngineEvent("build_engines_viewed", "Apertura Build Engines");
+    if (search.source === "company_os") {
+      void logBuildEngineEvent(
+        "build_engine_router_prefilled_from_company_os",
+        "Router precompilato da Company OS",
+        { source_id: search.source_id },
+      );
+    } else if (search.source === "company_blueprint") {
+      void logBuildEngineEvent(
+        "build_engine_router_prefilled_from_company_blueprint",
+        "Router precompilato da Company Blueprint",
+        { source_id: search.source_id },
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { data: brains = [] } = useQuery({
@@ -81,8 +166,8 @@ function BuildEnginesPage() {
   }, [brains, brainId]);
 
   const { data: engines = [] } = useQuery({
-    queryKey: ["build-engines", brainId],
-    queryFn: () => listBuildEngines(brainId),
+    queryKey: ["build-engines-detailed", brainId],
+    queryFn: () => listBuildEnginesDetailed(brainId),
   });
 
   const { data: handoffs = [] } = useQuery({
@@ -93,9 +178,9 @@ function BuildEnginesPage() {
   // ---- Router form state ----
   const [form, setForm] = useState<RouterInput>({
     brain_id: null,
-    task_title: "",
-    task_description: "",
-    task_type: "new_mvp",
+    task_title: search.title ?? "",
+    task_description: search.description ?? "",
+    task_type: search.task_type ?? "new_mvp",
     complexity: "medium",
     needs_backend: false,
     needs_database: false,
@@ -103,7 +188,7 @@ function BuildEnginesPage() {
     needs_ui: true,
     needs_deploy: false,
     risk_level: "low",
-    preferred_engine: null,
+    preferred_engine: search.preferred_engine ?? null,
   });
 
   useEffect(() => {
@@ -132,6 +217,15 @@ function BuildEnginesPage() {
     toast.success(top ? `Consigliato: ${top.engine_name}` : "Nessun engine consigliato");
   };
 
+  const handoffMetadata = useMemo(() => {
+    const m: Record<string, unknown> = { source: "build_engine_router" };
+    if (search.source) {
+      m.upstream_source = search.source;
+      if (search.source_id) m.upstream_source_id = search.source_id;
+    }
+    return m;
+  }, [search.source, search.source_id]);
+
   const onCreateHandoff = async (engineKey: string) => {
     try {
       const handoff = await createBuildEngineHandoff({
@@ -142,7 +236,7 @@ function BuildEnginesPage() {
         description: form.task_description,
         router_input: form,
         risk_level: form.risk_level ?? null,
-        metadata: { source: "build_engine_router" },
+        metadata: handoffMetadata,
       });
       await updateHandoffStatus(handoff.id, "ready");
       void qc.invalidateQueries({ queryKey: ["build-engine-handoffs"] });
@@ -170,6 +264,12 @@ function BuildEnginesPage() {
               ))}
             </SelectContent>
           </Select>
+          {search.source && (
+            <Badge variant="secondary">
+              Prefilled da: {search.source}
+              {search.source_id ? ` · ${search.source_id.slice(0, 8)}…` : ""}
+            </Badge>
+          )}
           <div className="ml-auto text-xs text-muted-foreground">
             {engines.length} motori · {handoffs.length} handoff
           </div>
@@ -300,24 +400,36 @@ function BuildEnginesPage() {
                 Perché questo motore
               </div>
               <div className="grid gap-2 md:grid-cols-2">
-                {scored.slice(0, 4).map((s, i) => (
-                  <div key={s.engine_key} className={`rounded border p-3 ${i === 0 ? "border-primary" : ""}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="font-semibold">{s.engine_name}</div>
-                      <Badge variant="outline">score {s.score}</Badge>
+                {scored.slice(0, 4).map((s, i) => {
+                  const isPreferred =
+                    !!form.preferred_engine && form.preferred_engine === s.engine_key;
+                  return (
+                    <div
+                      key={s.engine_key}
+                      className={`rounded border p-3 ${i === 0 ? "border-primary" : ""} ${
+                        isPreferred ? "ring-2 ring-primary/40" : ""
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="font-semibold">{s.engine_name}</div>
+                        <div className="flex gap-1">
+                          {isPreferred && <Badge>preferito</Badge>}
+                          <Badge variant="outline">score {s.score}</Badge>
+                        </div>
+                      </div>
+                      {s.reasons.length > 0 && (
+                        <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+                          {s.reasons.map((r, j) => (<li key={j}>{r}</li>))}
+                        </ul>
+                      )}
+                      {s.warnings.length > 0 && (
+                        <ul className="mt-1 list-disc pl-4 text-xs text-amber-600">
+                          {s.warnings.map((r, j) => (<li key={j}>⚠ {r}</li>))}
+                        </ul>
+                      )}
                     </div>
-                    {s.reasons.length > 0 && (
-                      <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
-                        {s.reasons.map((r, j) => (<li key={j}>{r}</li>))}
-                      </ul>
-                    )}
-                    {s.warnings.length > 0 && (
-                      <ul className="mt-1 list-disc pl-4 text-xs text-amber-600">
-                        {s.warnings.map((r, j) => (<li key={j}>⚠ {r}</li>))}
-                      </ul>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -346,16 +458,37 @@ function BuildEnginesPage() {
         </CardContent>
       </Card>
 
-      {/* Engine cards */}
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-        {engines.map((e) => (
-          <EngineCard
-            key={e.engine_key}
-            engine={e}
-            onUse={() => setForm({ ...form, preferred_engine: e.engine_key })}
+      {/* Engine registry management */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="text-base">Engine Registry</CardTitle>
+          <EngineFormDialog
+            mode="create"
+            brainId={brainId}
+            trigger={
+              <Button size="sm" variant="outline">
+                <Plus className="mr-1 h-3 w-3" /> Aggiungi engine custom
+              </Button>
+            }
+            onSaved={() => qc.invalidateQueries({ queryKey: ["build-engines-detailed"] })}
           />
-        ))}
-      </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {engines.map((e) => (
+              <EngineCard
+                key={e.engine_key}
+                engine={e}
+                brainId={brainId}
+                onUse={() => setForm({ ...form, preferred_engine: e.engine_key })}
+                onChanged={() =>
+                  qc.invalidateQueries({ queryKey: ["build-engines-detailed"] })
+                }
+              />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Handoffs list */}
       <Card>
@@ -374,7 +507,37 @@ function BuildEnginesPage() {
   );
 }
 
-function EngineCard({ engine, onUse }: { engine: BuildEngine; onUse: () => void }) {
+function EngineCard({
+  engine,
+  brainId,
+  onUse,
+  onChanged,
+}: {
+  engine: BuildEngineDetailed;
+  brainId: string | null;
+  onUse: () => void;
+  onChanged: () => void;
+}) {
+  const isDisabled = engine.status === "disabled";
+  const handleToggle = async () => {
+    try {
+      if (isDisabled) await enableBuildEngine(engine.engine_key, brainId);
+      else await disableBuildEngine(engine.engine_key, brainId);
+      toast.success(isDisabled ? "Engine riattivato" : "Engine disabilitato");
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  };
+  const handleReset = async () => {
+    try {
+      await resetBuildEngineOverride(engine.engine_key, brainId);
+      toast.success("Override rimosso");
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  };
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -385,6 +548,12 @@ function EngineCard({ engine, onUse }: { engine: BuildEngine; onUse: () => void 
         <div className="flex flex-wrap gap-1 text-[11px]">
           <Badge variant="secondary">{ENGINE_TYPE_LABEL[engine.engine_type]}</Badge>
           <Badge variant="outline">{CONNECTION_MODE_LABEL[engine.connection_mode]}</Badge>
+          <Badge variant="outline" className="font-mono">{engine.engine_key}</Badge>
+          {engine.is_custom && <Badge>custom</Badge>}
+          {engine.has_override && <Badge variant="secondary">override</Badge>}
+          {engine.risk_level && (
+            <Badge variant="outline">rischio {engine.risk_level}</Badge>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-2 text-xs">
@@ -409,15 +578,258 @@ function EngineCard({ engine, onUse }: { engine: BuildEngine; onUse: () => void 
               </a>
             </Button>
           )}
+          <EngineFormDialog
+            mode="edit"
+            brainId={brainId}
+            initial={engine}
+            trigger={
+              <Button size="sm" variant="ghost">
+                <Pencil className="mr-1 h-3 w-3" /> Modifica
+              </Button>
+            }
+            onSaved={onChanged}
+          />
+          <Button size="sm" variant="ghost" onClick={handleToggle}>
+            {isDisabled ? (
+              <><Power className="mr-1 h-3 w-3" /> Riattiva</>
+            ) : (
+              <><PowerOff className="mr-1 h-3 w-3" /> Disattiva</>
+            )}
+          </Button>
+          {engine.is_default && engine.has_override && (
+            <Button size="sm" variant="ghost" onClick={handleReset}>
+              <RotateCcw className="mr-1 h-3 w-3" /> Ripristina default
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>
   );
 }
 
+function EngineFormDialog({
+  mode,
+  brainId,
+  initial,
+  trigger,
+  onSaved,
+}: {
+  mode: "create" | "edit";
+  brainId: string | null;
+  initial?: BuildEngineDetailed;
+  trigger: React.ReactNode;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const empty: EngineRegistryInput = {
+    engine_key: "",
+    engine_name: "",
+    engine_type: "app_builder",
+    status: "available",
+    connection_mode: "manual",
+    best_for: [],
+    limitations: [],
+    risk_level: null,
+    tool_url: null,
+    metadata: {},
+    brain_id: brainId,
+  };
+  const [form, setForm] = useState<EngineRegistryInput>(empty);
+
+  useEffect(() => {
+    if (!open) return;
+    if (mode === "edit" && initial) {
+      setForm({
+        engine_key: initial.engine_key,
+        engine_name: initial.engine_name,
+        engine_type: initial.engine_type,
+        status: initial.status,
+        connection_mode: initial.connection_mode,
+        best_for: initial.best_for,
+        limitations: initial.limitations,
+        risk_level: initial.risk_level,
+        tool_url: initial.tool_url,
+        metadata: initial.metadata,
+        brain_id: brainId,
+      });
+    } else {
+      setForm({ ...empty });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const onSubmit = async () => {
+    try {
+      if (mode === "create") {
+        const v = validateEngineKey(form.engine_key);
+        if (!v.ok) {
+          toast.error(v.error);
+          return;
+        }
+      }
+      if (mode === "edit" && initial?.has_override && initial?.id) {
+        await updateBuildEngine(initial.id, form);
+      } else if (mode === "edit" && initial && !initial.has_override) {
+        // editing a pure default → create an override row
+        await createCustomBuildEngine({ ...form, engine_key: initial.engine_key });
+      } else {
+        await createCustomBuildEngine(form);
+      }
+      toast.success(mode === "create" ? "Engine creato" : "Engine aggiornato");
+      setOpen(false);
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            {mode === "create" ? "Aggiungi engine custom" : `Modifica ${form.engine_name}`}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-3 md:grid-cols-2">
+          <div className="space-y-1">
+            <Label>Engine key</Label>
+            <Input
+              value={form.engine_key}
+              disabled={mode === "edit"}
+              onChange={(e) =>
+                setForm({ ...form, engine_key: e.target.value.toLowerCase() })
+              }
+              placeholder="lowercase_with_underscore"
+            />
+            {mode === "edit" && isDefaultEngineKey(form.engine_key) && (
+              <p className="text-[11px] text-muted-foreground">
+                Override di un engine predefinito.
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Nome</Label>
+            <Input
+              value={form.engine_name}
+              onChange={(e) => setForm({ ...form, engine_name: e.target.value })}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Tipo</Label>
+            <Select
+              value={form.engine_type}
+              onValueChange={(v) => setForm({ ...form, engine_type: v as EngineType })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(ENGINE_TYPE_LABEL).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Status</Label>
+            <Select
+              value={form.status}
+              onValueChange={(v) => setForm({ ...form, status: v as EngineStatus })}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(STATUS_LABEL).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Connection mode</Label>
+            <Select
+              value={form.connection_mode}
+              onValueChange={(v) =>
+                setForm({ ...form, connection_mode: v as ConnectionMode })
+              }
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {Object.entries(CONNECTION_MODE_LABEL).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Risk level</Label>
+            <Select
+              value={form.risk_level ?? "__none"}
+              onValueChange={(v) =>
+                setForm({ ...form, risk_level: v === "__none" ? null : (v as RiskLevel) })
+              }
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none">—</SelectItem>
+                <SelectItem value="low">Basso</SelectItem>
+                <SelectItem value="medium">Medio</SelectItem>
+                <SelectItem value="high">Alto</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Tool URL</Label>
+            <Input
+              value={form.tool_url ?? ""}
+              onChange={(e) => setForm({ ...form, tool_url: e.target.value })}
+              placeholder="https://…"
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Best for (una voce per riga)</Label>
+            <Textarea
+              rows={3}
+              value={form.best_for.join("\n")}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  best_for: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                })
+              }
+            />
+          </div>
+          <div className="space-y-1 md:col-span-2">
+            <Label>Limiti (una voce per riga)</Label>
+            <Textarea
+              rows={3}
+              value={form.limitations.join("\n")}
+              onChange={(e) =>
+                setForm({
+                  ...form,
+                  limitations: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean),
+                })
+              }
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Annulla</Button>
+          <Button onClick={onSubmit}>
+            {mode === "create" ? "Crea engine" : "Salva modifiche"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function HandoffRow({ handoff }: { handoff: BuildEngineHandoff }) {
   const qc = useQueryClient();
   const engine = getBuildEngine(handoff.engine_key);
+  const upstreamSource = (handoff.metadata?.upstream_source ?? handoff.metadata?.source) as
+    | string
+    | undefined;
+  const upstreamSourceId = handoff.metadata?.upstream_source_id as string | undefined;
   const onCopy = async () => {
     await navigator.clipboard.writeText(handoff.generated_prompt);
     await updateHandoffStatus(handoff.id, "copied");
@@ -428,6 +840,11 @@ function HandoffRow({ handoff }: { handoff: BuildEngineHandoff }) {
     void qc.invalidateQueries({ queryKey: ["build-engine-handoffs"] });
     toast.success("Prompt copiato");
   };
+  const onMarkReady = async () => {
+    await updateHandoffStatus(handoff.id, "ready");
+    void qc.invalidateQueries({ queryKey: ["build-engine-handoffs"] });
+    toast.success("Segnato pronto");
+  };
   const onMarkSent = async () => {
     await updateHandoffStatus(handoff.id, "sent_manually");
     void qc.invalidateQueries({ queryKey: ["build-engine-handoffs"] });
@@ -437,6 +854,14 @@ function HandoffRow({ handoff }: { handoff: BuildEngineHandoff }) {
     await updateHandoffStatus(handoff.id, "result_received");
     void qc.invalidateQueries({ queryKey: ["build-engine-handoffs"] });
     toast.success("Risultato ricevuto");
+  };
+  const onArchive = async () => {
+    await updateHandoffStatus(handoff.id, "archived");
+    await logBuildEngineEvent("build_engine_handoff_archived", `Handoff archiviato`, {
+      handoff_id: handoff.id,
+    });
+    void qc.invalidateQueries({ queryKey: ["build-engine-handoffs"] });
+    toast.success("Archiviato");
   };
   const onCreateAction = async () => {
     try {
@@ -455,6 +880,8 @@ function HandoffRow({ handoff }: { handoff: BuildEngineHandoff }) {
           build_engine_handoff_id: handoff.id,
           engine_key: handoff.engine_key,
           task_type: handoff.task_type,
+          upstream_source: upstreamSource,
+          upstream_source_id: upstreamSourceId,
         },
       });
       await logBuildEngineEvent(
@@ -480,6 +907,8 @@ function HandoffRow({ handoff }: { handoff: BuildEngineHandoff }) {
           source_type_alias: "build_engine_handoff",
           build_engine_handoff_id: handoff.id,
           engine_key: handoff.engine_key,
+          upstream_source: upstreamSource,
+          upstream_source_id: upstreamSourceId,
         },
       });
       await updateHandoffStatus(handoff.id, "reviewed");
@@ -503,14 +932,27 @@ function HandoffRow({ handoff }: { handoff: BuildEngineHandoff }) {
         <Badge variant="outline">{handoff.task_type}</Badge>
         <Badge variant="outline">{handoff.handoff_status}</Badge>
         {handoff.risk_level && <Badge variant="outline">rischio {handoff.risk_level}</Badge>}
+        {upstreamSource && (
+          <Badge variant="secondary">
+            {upstreamSource}
+            {upstreamSourceId ? ` · ${upstreamSourceId.slice(0, 8)}…` : ""}
+          </Badge>
+        )}
       </div>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="outline" onClick={onCopy}><Copy className="mr-1 h-3 w-3" /> Copia prompt</Button>
+        <Button size="sm" variant="outline" onClick={onMarkReady}>Segna pronto</Button>
         <Button size="sm" variant="outline" onClick={onMarkSent}>Segna inviato manualmente</Button>
         <Button size="sm" variant="outline" onClick={onMarkResult}><CheckCircle2 className="mr-1 h-3 w-3" /> Risultato ricevuto</Button>
         <Button size="sm" variant="outline" onClick={onCreateAction}>Crea action da handoff</Button>
         <Button size="sm" variant="outline" onClick={onCreateReview}>Crea review risultato</Button>
+        <Button size="sm" variant="ghost" onClick={onArchive}>
+          <Archive className="mr-1 h-3 w-3" /> Archivia
+        </Button>
       </div>
     </div>
   );
 }
+
+// Silence unused-imports warning for Link kept for potential future internal nav
+void Link;
