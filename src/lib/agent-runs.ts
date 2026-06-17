@@ -1157,7 +1157,7 @@ export async function createActionFromAgentAiResult(
 }
 
 function pickLowerRisk(a: RiskLevel, b: RiskLevel): RiskLevel {
-  const order: RiskLevel[] = ["low", "medium", "high", "critical"];
+  const order: RiskLevel[] = ["low", "medium", "high"];
   const ia = order.indexOf(a);
   const ib = order.indexOf(b);
   if (ia < 0) return b;
