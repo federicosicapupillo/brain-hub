@@ -990,12 +990,9 @@ function simpleHash(input: string): string {
 function formatAgentPermissionsForPrompt(agent: Agent): string[] {
   const lines: string[] = [];
   lines.push(`- max_risk_level: ${agent.max_risk_level ?? "low"}`);
-  lines.push(`- requires_human_approval: ${agent.requires_human_approval ?? true}`);
+  lines.push(`- requires_approval: ${agent.requires_approval ?? true}`);
   if (Array.isArray(agent.allowed_tools)) {
     lines.push(`- allowed_tools: ${agent.allowed_tools.join(", ") || "—"}`);
-  }
-  if (Array.isArray(agent.allowed_actions)) {
-    lines.push(`- allowed_actions: ${agent.allowed_actions.join(", ") || "—"}`);
   }
   return lines;
 }
