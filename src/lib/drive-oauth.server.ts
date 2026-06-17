@@ -231,7 +231,8 @@ export function buildDrivePathMap(files: DriveApiFile[]): Map<string, string> {
       if (seen.has(cur.id)) break;
       seen.add(cur.id);
       segments.unshift(cur.name);
-      const parentId = cur.parents && cur.parents.length > 0 ? cur.parents[0] : null;
+      const parentId: string | null =
+        cur.parents && cur.parents.length > 0 ? cur.parents[0] : null;
       if (!parentId) break;
       const parentName = nameById.get(parentId);
       if (!parentName) {
