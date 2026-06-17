@@ -384,6 +384,111 @@ export type Database = {
         }
         Relationships: []
       }
+      build_engine_handoffs: {
+        Row: {
+          brain_id: string | null
+          created_at: string
+          description: string | null
+          engine_key: string
+          generated_prompt: string
+          handoff_status: string
+          id: string
+          metadata: Json
+          project_id: string | null
+          risk_level: string | null
+          task_type: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          created_at?: string
+          description?: string | null
+          engine_key: string
+          generated_prompt: string
+          handoff_status?: string
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          risk_level?: string | null
+          task_type: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          created_at?: string
+          description?: string | null
+          engine_key?: string
+          generated_prompt?: string
+          handoff_status?: string
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          risk_level?: string | null
+          task_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      build_engine_registry: {
+        Row: {
+          best_for: string[]
+          brain_id: string | null
+          connection_mode: string
+          created_at: string
+          engine_key: string
+          engine_name: string
+          engine_type: string
+          id: string
+          limitations: string[]
+          metadata: Json
+          risk_level: string | null
+          status: string
+          tool_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          best_for?: string[]
+          brain_id?: string | null
+          connection_mode?: string
+          created_at?: string
+          engine_key: string
+          engine_name: string
+          engine_type: string
+          id?: string
+          limitations?: string[]
+          metadata?: Json
+          risk_level?: string | null
+          status?: string
+          tool_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          best_for?: string[]
+          brain_id?: string | null
+          connection_mode?: string
+          created_at?: string
+          engine_key?: string
+          engine_name?: string
+          engine_type?: string
+          id?: string
+          limitations?: string[]
+          metadata?: Json
+          risk_level?: string | null
+          status?: string
+          tool_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       clipboard_execution_logs: {
         Row: {
           action: string
