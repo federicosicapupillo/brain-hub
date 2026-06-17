@@ -528,3 +528,43 @@ function ResultReviewProjectBlock({ brainId }: { brainId: string }) {
     </div>
   );
 }
+
+function LoopQaProjectBlock({ brainId }: { brainId: string }) {
+  const { data: summary } = useQuery({
+    queryKey: ["loop-qa-project-block", brainId],
+    queryFn: async () => {
+      const { getLoopQaSummary } = await import("@/lib/loop-qa");
+      return getLoopQaSummary(brainId);
+    },
+  });
+  const health = summary?.health ?? "incomplete";
+  const tone =
+    health === "healthy"
+      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+      : health === "warning"
+        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+        : "bg-orange-500/10 text-orange-600 border-orange-500/30";
+  const label =
+    health === "healthy" ? "Sano" : health === "warning" ? "Con warning" : "Incompleto";
+  const nextMissing = summary?.steps.find((s) => s.status === "missing");
+  return (
+    <div className="rounded-md border border-border/60 bg-card/40 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-sm font-semibold">Loop QA</div>
+        <Badge variant="outline" className={tone}>{label}</Badge>
+      </div>
+      <div className="text-xs text-muted-foreground">
+        {nextMissing ? (
+          <>Prossimo punto da completare: <span className="font-medium">{nextMissing.label}</span></>
+        ) : (
+          "Ciclo completo end-to-end."
+        )}
+      </div>
+      <div className="mt-2">
+        <Button asChild size="sm" variant="outline">
+          <a href={`/loop-qa?brain=${brainId}`}>Apri Loop QA</a>
+        </Button>
+      </div>
+    </div>
+  );
+}
