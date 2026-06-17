@@ -357,6 +357,24 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     });
   }
 
+  // n8n real execution warnings (v2.7.1)
+  try {
+    const n8nWarnings = await getN8nRealExecutionWarnings(brainId ?? null);
+    for (const w of n8nWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
+
+
   // Single chain (legacy) + multi-chain history (v1.9.2)
   const chain = buildChain(actions, reviews, suggestions, knowledge, telegram);
   const chains = buildRecentChains(actions, reviews, suggestions, knowledge, telegram, 5);
