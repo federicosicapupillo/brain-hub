@@ -81,6 +81,7 @@ import {
   simulateApprove,
   simulateReject,
 } from "@/lib/telegram-approvals";
+import { ResultReviewBox } from "@/components/ResultReviewBox";
 
 async function logEvent(action: LogEventType, notes: string, metadata: Record<string, unknown>) {
   const { data: u } = await supabase.auth.getUser();
@@ -727,6 +728,12 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
         </div>
       )}
       <TelegramApprovalBox action={a} />
+      <ResultReviewBox
+        sourceType="automation_action"
+        sourceId={a.id}
+        createdEvent="result_review_created_from_action_queue"
+        openedEvent="result_review_opened_from_action_queue"
+      />
       {readiness && (
         <div className="rounded border border-border/60 bg-background/40 p-2 text-xs">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
@@ -1178,6 +1185,17 @@ function N8nControlledExecutionBox({
             ))}
           </div>
         </details>
+      )}
+
+      {(lastLive ?? lastDry) && (
+        <ResultReviewBox
+          sourceType="n8n_execution_log"
+          sourceId={(lastLive ?? lastDry)!.id}
+          title="Review risultato n8n"
+          createdEvent="result_review_created_from_n8n"
+          openedEvent="result_review_opened_from_n8n"
+          compact
+        />
       )}
 
       {/* High risk confirmation */}

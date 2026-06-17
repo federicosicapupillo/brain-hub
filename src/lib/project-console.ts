@@ -23,7 +23,8 @@ export type BlockId =
   | "automation_control"
   | "runbooks"
   | "tool_connections"
-  | "knowledge_map";
+  | "knowledge_map"
+  | "result_review";
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
@@ -49,6 +50,7 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "runbooks", label: "Runbooks", hint: "Procedure operative guidate (workflow templates)" },
   { id: "tool_connections", label: "Tool Connections", hint: "Tool collegati al progetto e stato collegamento" },
   { id: "knowledge_map", label: "Knowledge Map", hint: "Materiali, file, link e fonti collegate al progetto" },
+  { id: "result_review", label: "Result Review", hint: "Risultati da rivedere, approvati, da correggere, falliti" },
 ];
 
 export const PRIORITIES = [
@@ -84,6 +86,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "runbooks",
       "tool_connections",
       "knowledge_map",
+      "result_review",
     ],
   },
   immobiliare: {
@@ -103,7 +106,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   marketing: {
     label: "Marketing / Comunicazione",
     priority: "marketing",
-    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections", "knowledge_map"],
+    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections", "knowledge_map", "result_review"],
   },
   lead_generation: {
     label: "Lead Generation",
@@ -125,17 +128,18 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "runbooks",
       "tool_connections",
       "knowledge_map",
+      "result_review",
     ],
   },
   content_creation: {
     label: "Content Creation",
     priority: "contenuti_social",
-    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections", "knowledge_map"],
+    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections", "knowledge_map", "result_review"],
   },
   roadmap_operativa: {
     label: "Roadmap Operativa",
     priority: "generico",
-    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks"],
+    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review"],
   },
 };
 
