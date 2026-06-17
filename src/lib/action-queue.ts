@@ -13,7 +13,11 @@ export type ActionType =
   | "review_pending_result"
   | "clean_orphan_logs"
   | "open_project_console"
-  | "manual_task";
+  | "manual_task"
+  | "meeting_preparation"
+  | "meeting_follow_up"
+  | "calendar_deadline_check"
+  | "calendar_content_check";
 
 export type ActionStatus =
   | "suggested"
@@ -31,7 +35,9 @@ export type ActionSource =
   | "next_prompt_generator"
   | "execution_tracking"
   | "user_manual"
-  | "system_suggestion";
+  | "system_suggestion"
+  | "google_calendar";
+
 
 export type RiskLevel = "low" | "medium" | "high";
 export type Priority = "low" | "medium" | "high";
