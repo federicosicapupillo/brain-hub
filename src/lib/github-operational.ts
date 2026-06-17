@@ -532,7 +532,7 @@ export async function createGithubOperationalReview(input: {
       repository_id: input.repository_id,
       engine: input.engine,
       file_path: input.file_path ?? null,
-      prompt,
+      prompt: input.prompt,
     },
   });
   await logEvent("github_operational_review_created", `Review creata per handoff codice`, {
