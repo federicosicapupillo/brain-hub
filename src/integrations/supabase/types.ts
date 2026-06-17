@@ -1467,6 +1467,75 @@ export type Database = {
           },
         ]
       }
+      result_review_items: {
+        Row: {
+          brain_id: string | null
+          created_at: string
+          error_text: string | null
+          id: string
+          linked_action_id: string | null
+          linked_next_prompt_id: string | null
+          linked_roadmap_item_id: string | null
+          linked_runbook_instance_id: string | null
+          linked_workflow_id: string | null
+          metadata: Json
+          project_id: string | null
+          result_text: string | null
+          review_note: string | null
+          review_status: string
+          risk_level: string | null
+          source_id: string | null
+          source_type: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          created_at?: string
+          error_text?: string | null
+          id?: string
+          linked_action_id?: string | null
+          linked_next_prompt_id?: string | null
+          linked_roadmap_item_id?: string | null
+          linked_runbook_instance_id?: string | null
+          linked_workflow_id?: string | null
+          metadata?: Json
+          project_id?: string | null
+          result_text?: string | null
+          review_note?: string | null
+          review_status?: string
+          risk_level?: string | null
+          source_id?: string | null
+          source_type: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          created_at?: string
+          error_text?: string | null
+          id?: string
+          linked_action_id?: string | null
+          linked_next_prompt_id?: string | null
+          linked_roadmap_item_id?: string | null
+          linked_runbook_instance_id?: string | null
+          linked_workflow_id?: string | null
+          metadata?: Json
+          project_id?: string | null
+          result_text?: string | null
+          review_note?: string | null
+          review_status?: string
+          risk_level?: string | null
+          source_id?: string | null
+          source_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       roadmap_items: {
         Row: {
           brain_id: string | null
