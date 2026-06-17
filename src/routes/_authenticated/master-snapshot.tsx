@@ -94,6 +94,11 @@ function MasterSnapshotRoute() {
   );
 
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(draftFromUrl ?? null);
+  useEffect(() => {
+    if (draftFromUrl && draftFromUrl !== selectedDraftId) {
+      setSelectedDraftId(draftFromUrl);
+    }
+  }, [draftFromUrl, selectedDraftId]);
   const selectedDraft = useMemo(
     () => drafts.find((d) => d.id === selectedDraftId) ?? drafts[0] ?? null,
     [drafts, selectedDraftId],
