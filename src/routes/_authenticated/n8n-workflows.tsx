@@ -768,6 +768,14 @@ function RealWebhookEditor({
     }
   }
 
+  const liveValidation = validateRealExecutionConfig({
+    enabled,
+    environment: env,
+    testUrl: testUrl || null,
+    prodUrl: prodUrl || null,
+    risk: workflow.risk_level,
+    requiresTelegram: requiresTg,
+  });
   const productionWarn = env === "production" && enabled;
   const blockedHigh =
     workflow.risk_level === "high" && enabled && !requiresTg;
