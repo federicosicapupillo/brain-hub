@@ -817,3 +817,46 @@ function ResultReviewMini({ brainId }: { brainId: string | null }) {
     </Card>
   );
 }
+
+function LoopQaMini({ brainId }: { brainId: string | null }) {
+  const { data: summary } = useQuery({
+    queryKey: ["loop-qa-mini", brainId],
+    queryFn: async () => {
+      const { getLoopQaSummary } = await import("@/lib/loop-qa");
+      return getLoopQaSummary(brainId);
+    },
+  });
+  const health = summary?.health ?? "incomplete";
+  const tone =
+    health === "healthy"
+      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+      : health === "warning"
+        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+        : "bg-orange-500/10 text-orange-600 border-orange-500/30";
+  const label =
+    health === "healthy" ? "Sano" : health === "warning" ? "Warning" : "Incompleto";
+  const pendingReview = summary?.steps.find((s) => s.id === "3_review_created")?.count ?? 0;
+  const pendingSuggestions = summary?.counters.suggestions ?? 0;
+  const applied = summary?.counters.suggestionsApplied ?? 0;
+  const loopActionsPending = (summary?.warnings.find((w) => w.id === "pending_loop_actions")?.title.match(/\d+/)?.[0]) ?? "0";
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2"><Sparkles className="h-4 w-4" /> Loop QA</span>
+          <Badge variant="outline" className={tone}>{label}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <Tile label="Reviews" value={pendingReview} />
+          <Tile label="Suggerimenti" value={pendingSuggestions} tone={pendingSuggestions > applied ? "amber" : undefined} />
+          <Tile label="Action loop pending" value={Number(loopActionsPending)} />
+        </div>
+        <Button asChild size="sm" variant="outline" className="w-full">
+          <Link to="/loop-qa" search={{}}>Apri Loop QA <ArrowRight className="ml-1 h-3 w-3" /></Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
