@@ -58,6 +58,7 @@ const items = [
   { title: "GitHub Sync", url: "/github-sync", icon: GitBranch },
   { title: "GitHub Coverage", url: "/github-coverage", icon: ShieldCheck },
   { title: "GitHub Operational", url: "/github-operational", icon: GitBranch },
+  { title: "Agent Center", url: "/agent-center", icon: ShieldCheck },
 
   { title: "Health Check", url: "/health-check", icon: Stethoscope },
   { title: "Clipboard AI", url: "/clipboard-ai", icon: Clipboard },
