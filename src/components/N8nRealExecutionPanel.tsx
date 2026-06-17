@@ -167,17 +167,6 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
           >
             HMAC {hmacEnabled ? (hmacSecretConfigured ? "ON · secret OK" : "ON · secret missing") : "OFF"}
           </Badge>
-
-              variant="outline"
-              className={
-                wf.last_real_execution_status === "ok"
-                  ? "border-emerald-500/40 text-emerald-600"
-                  : "border-red-500/40 text-red-600"
-              }
-            >
-              ultimo: {wf.last_real_execution_status}
-            </Badge>
-          )}
         </div>
 
         {!enabled && (
