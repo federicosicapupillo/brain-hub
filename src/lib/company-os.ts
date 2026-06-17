@@ -367,7 +367,7 @@ export async function upsertCompanyProfile(input: CompanyProfileInput): Promise<
   };
   const { data, error } = await supabase
     .from("company_os_profiles")
-    .upsert(row, { onConflict: "user_id,brain_id" })
+    .upsert(row as never, { onConflict: "user_id,brain_id" })
     .select("*")
     .maybeSingle();
   if (error) return null;
