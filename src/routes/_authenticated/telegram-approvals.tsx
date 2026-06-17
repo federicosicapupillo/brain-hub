@@ -47,6 +47,8 @@ import {
 } from "@/lib/telegram-approvals";
 import { listToolLinks, normalizeStatus } from "@/lib/tool-connections";
 import { RISK_TONE } from "@/lib/action-queue";
+import { TelegramSettingsSection } from "@/components/TelegramSettingsSection";
+import { TelegramSendControls } from "@/components/TelegramSendControls";
 
 export const Route = createFileRoute("/_authenticated/telegram-approvals")({
   head: () => ({
@@ -182,6 +184,8 @@ function TelegramApprovalsRoute() {
           configurato in modo sicuro (token gestiti via Lovable Cloud).
         </div>
       )}
+
+      <TelegramSettingsSection brainId={brainId} />
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-7">
         <Tile label="Totale" value={summary.total} />
@@ -427,9 +431,17 @@ function ApprovalDetail({
 
       {!telegramConnected && (
         <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700">
-          Telegram non configurato — invio reale disabilitato. Puoi solo simulare approvazione/rifiuto.
+          Telegram non configurato in Tool Connections — puoi comunque inviare la notifica reale se
+          il server token è configurato e hai una destinazione abilitata.
         </div>
       )}
+
+      <div className="rounded border border-sky-500/30 bg-sky-500/5 p-2">
+        <div className="mb-2 text-[10px] uppercase tracking-wide text-sky-700">
+          Invio reale su Telegram
+        </div>
+        <TelegramSendControls request={req} onChanged={() => onChanged(req)} />
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {req.status === "draft" && (

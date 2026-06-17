@@ -85,6 +85,10 @@ export type TelegramApprovalRequest = {
   rejection_reason: string | null;
   telegram_message_id: string | null;
   telegram_chat_id: string | null;
+  telegram_delivery_status: string | null;
+  telegram_sent_at: string | null;
+  telegram_error_text: string | null;
+  telegram_receipt_json: Record<string, unknown> | null;
   metadata: Record<string, unknown>;
 };
 

@@ -2165,7 +2165,11 @@ export type Database = {
           runbook_instance_id: string | null
           status: string
           telegram_chat_id: string | null
+          telegram_delivery_status: string | null
+          telegram_error_text: string | null
           telegram_message_id: string | null
+          telegram_receipt_json: Json | null
+          telegram_sent_at: string | null
           title: string
           updated_at: string
           user_id: string
@@ -2191,7 +2195,11 @@ export type Database = {
           runbook_instance_id?: string | null
           status?: string
           telegram_chat_id?: string | null
+          telegram_delivery_status?: string | null
+          telegram_error_text?: string | null
           telegram_message_id?: string | null
+          telegram_receipt_json?: Json | null
+          telegram_sent_at?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -2217,8 +2225,51 @@ export type Database = {
           runbook_instance_id?: string | null
           status?: string
           telegram_chat_id?: string | null
+          telegram_delivery_status?: string | null
+          telegram_error_text?: string | null
           telegram_message_id?: string | null
+          telegram_receipt_json?: Json | null
+          telegram_sent_at?: string | null
           title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_connection_settings: {
+        Row: {
+          brain_id: string | null
+          chat_id: string
+          created_at: string
+          default_for_approvals: boolean
+          id: string
+          is_enabled: boolean
+          label: string
+          metadata: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          chat_id: string
+          created_at?: string
+          default_for_approvals?: boolean
+          id?: string
+          is_enabled?: boolean
+          label: string
+          metadata?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          chat_id?: string
+          created_at?: string
+          default_for_approvals?: boolean
+          id?: string
+          is_enabled?: boolean
+          label?: string
+          metadata?: Json
           updated_at?: string
           user_id?: string
         }
