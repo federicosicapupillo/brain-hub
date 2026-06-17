@@ -350,7 +350,12 @@ export type LogEventType =
   | "google_calendar_sync_started"
   | "google_calendar_sync_completed"
   | "google_calendar_sync_failed"
-  | "google_calendar_action_created";
+  | "google_calendar_action_created"
+  | "calendar_suggestion_generated"
+  | "calendar_action_created"
+  | "calendar_suggestion_ignored"
+  | "calendar_followup_suggested"
+  | "calendar_preparation_suggested";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
