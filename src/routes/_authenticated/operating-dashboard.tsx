@@ -327,6 +327,11 @@ function OperatingDashboardRoute() {
                 Apri Home Azienda <ArrowRight className="ml-1 h-3 w-3" />
               </Link>
             </Button>
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/client-onboarding">
+                Percorso guidato cliente <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
             <Button asChild size="sm" variant="outline">
               <Link to="/project-console">
                 Apri Project Console <ArrowRight className="ml-1 h-3 w-3" />
