@@ -586,6 +586,51 @@ export type Database = {
           },
         ]
       }
+      company_os_blueprints: {
+        Row: {
+          blueprint_json: Json
+          blueprint_status: string
+          brain_id: string
+          company_os_profile_id: string
+          created_at: string
+          executive_summary: string | null
+          id: string
+          markdown_content: string | null
+          metadata: Json
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blueprint_json?: Json
+          blueprint_status?: string
+          brain_id: string
+          company_os_profile_id: string
+          created_at?: string
+          executive_summary?: string | null
+          id?: string
+          markdown_content?: string | null
+          metadata?: Json
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blueprint_json?: Json
+          blueprint_status?: string
+          brain_id?: string
+          company_os_profile_id?: string
+          created_at?: string
+          executive_summary?: string | null
+          id?: string
+          markdown_content?: string | null
+          metadata?: Json
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       company_os_profiles: {
         Row: {
           active_departments: string[]
