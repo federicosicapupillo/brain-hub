@@ -143,6 +143,9 @@ export const AI_HANDOFF_STATUS_LABEL: Record<AiHandoffStatus, string> = {
   result_received: "Risultato ricevuto",
   action_created: "Action creata",
   review_created: "Review creata",
+};
+
+
 
 // ============================================================
 // Logging
