@@ -156,8 +156,7 @@ function BuildEnginesPage() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Build Engines"
-        description="Scegli il motore migliore per ogni task. Routing manuale e controllato."
-        icon={Cpu}
+        subtitle="Scegli il motore migliore per ogni task. Routing manuale e controllato."
       />
 
       <Card>
