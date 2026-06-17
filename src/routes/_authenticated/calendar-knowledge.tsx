@@ -237,6 +237,32 @@ function CalendarKnowledgePage() {
     }
   }
 
+  async function handleCreateSuggested(s: CalendarActionSuggestionItem) {
+    try {
+      const res = await createSuggestedActionsFromCalendarEvent(s.event.id, {
+        suggestionType: s.suggestionType,
+      });
+      if (res.duplicate) {
+        toast.info("Action già presente in Action Queue");
+      } else {
+        toast.success("Action suggerita creata in Action Queue");
+      }
+      await refetchSuggestions();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
+
+  async function handleIgnoreSuggested(s: CalendarActionSuggestionItem) {
+    try {
+      await ignoreCalendarSuggestion(s.event.id, s.suggestionType);
+      toast.success("Suggerimento ignorato");
+      await refetchSuggestions();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
+
   const configured = !!oauthStatus?.configured;
 
   return (
