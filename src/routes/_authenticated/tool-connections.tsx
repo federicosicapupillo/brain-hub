@@ -202,6 +202,9 @@ function ToolConnectionsRoute() {
             <Button asChild size="sm" variant="outline">
               <Link to="/project-console">Project Console</Link>
             </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/drive-knowledge">Drive Knowledge</Link>
+            </Button>
           </>
         }
       />
