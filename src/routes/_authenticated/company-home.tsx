@@ -295,6 +295,9 @@ function CompanyHomeRoute() {
         </div>
       </Card>
 
+      {/* Agenti AI (v3.3) */}
+      <AgentiAiBlock brainId={brainId} linkSearch={linkSearch} />
+
       {/* Percorso guidato */}
       <Card>
         <CardHeader>
