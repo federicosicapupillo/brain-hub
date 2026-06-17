@@ -586,6 +586,60 @@ export type Database = {
           },
         ]
       }
+      company_os_profiles: {
+        Row: {
+          active_departments: string[]
+          brain_id: string
+          company_name: string
+          company_size: string | null
+          created_at: string
+          id: string
+          industry: string | null
+          main_goal: string | null
+          metadata: Json
+          operating_model: string | null
+          pain_points: string[]
+          preferred_modules: string[]
+          preset: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          active_departments?: string[]
+          brain_id: string
+          company_name: string
+          company_size?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          main_goal?: string | null
+          metadata?: Json
+          operating_model?: string | null
+          pain_points?: string[]
+          preferred_modules?: string[]
+          preset?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          active_departments?: string[]
+          brain_id?: string
+          company_name?: string
+          company_size?: string | null
+          created_at?: string
+          id?: string
+          industry?: string | null
+          main_goal?: string | null
+          metadata?: Json
+          operating_model?: string | null
+          pain_points?: string[]
+          preferred_modules?: string[]
+          preset?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       connectors: {
         Row: {
           config: Json
