@@ -352,6 +352,10 @@ export const executeN8nRealWorkflow = createServerFn({ method: "POST" })
           phase: "real",
           duration_ms: durationMs,
           environment: wf.webhook_environment,
+          hmac_enabled: hmacCfg.enabled,
+          hmac_secret_configured: hmacCfg.secretConfigured,
+          signature_version: hmacSignatureVersion,
+          signature_preview: hmacSignaturePreview,
         },
       } as never)
       .select("id,success,response_status,error_text,created_at")
