@@ -24,7 +24,8 @@ export type BlockId =
   | "runbooks"
   | "tool_connections"
   | "knowledge_map"
-  | "result_review";
+  | "result_review"
+  | "loop_qa";
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
