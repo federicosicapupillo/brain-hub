@@ -305,3 +305,49 @@ export function TelegramSettingsSection({ brainId }: { brainId: string | null })
     </Card>
   );
 }
+
+export function TelegramDiagnosticsCard({ brainId }: { brainId: string | null }) {
+  const { data: tokenStatus } = useQuery({
+    queryKey: ["telegram-token-config"],
+    queryFn: () => checkTelegramTokenConfig(),
+    staleTime: 60_000,
+  });
+  const { data: connections = [] } = useQuery({
+    queryKey: ["telegram-connections", brainId],
+    queryFn: () => listTelegramConnections(brainId),
+    staleTime: 30_000,
+  });
+
+  const tokenOk = !!tokenStatus?.configured;
+  const enabledCount = connections.filter((c) => c.is_enabled).length;
+  const hasDefault = connections.some((c) => c.is_enabled && c.default_for_approvals);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Activity className="h-4 w-4" /> Diagnostica Telegram
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-xs">
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className={tokenOk ? "border-emerald-500/30 text-emerald-600" : "border-red-500/30 text-red-600"}>
+            Token: {tokenOk ? "Sì" : "No"}
+          </Badge>
+          <Badge variant="outline">{enabledCount} destinazioni abilitate</Badge>
+          <Badge variant="outline" className={hasDefault ? "border-emerald-500/30" : "border-amber-500/30"}>
+            Default: {hasDefault ? "Sì" : "No"}
+          </Badge>
+        </div>
+        {!tokenOk && (
+          <div className="flex items-center gap-1 text-amber-600">
+            <ShieldAlert className="h-3 w-3" /> Token Telegram non configurato lato server.
+          </div>
+        )}
+        {tokenOk && enabledCount === 0 && (
+          <div className="text-muted-foreground">Aggiungi una destinazione per iniziare a ricevere notifiche.</div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

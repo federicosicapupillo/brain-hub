@@ -325,7 +325,14 @@ export type LogEventType =
   | "telegram_delivery_unblocked"
   | "telegram_delivery_retry_started"
   | "telegram_delivery_attempt_logged"
-  | "telegram_connection_diagnostics_opened";
+  | "telegram_connection_diagnostics_opened"
+  | "n8n_real_execution_enabled"
+  | "n8n_real_execution_disabled"
+  | "n8n_real_execution_started"
+  | "n8n_real_execution_succeeded"
+  | "n8n_real_execution_failed"
+  | "n8n_real_execution_blocked_missing_approval"
+  | "n8n_real_execution_review_created";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -447,6 +454,13 @@ const LOG_TITLES: Record<LogEventType, string> = {
   telegram_delivery_retry_started: "Retry invio Telegram avviato",
   telegram_delivery_attempt_logged: "Tentativo invio Telegram registrato",
   telegram_connection_diagnostics_opened: "Diagnostica Telegram aperta",
+  n8n_real_execution_enabled: "Esecuzione reale n8n abilitata",
+  n8n_real_execution_disabled: "Esecuzione reale n8n disabilitata",
+  n8n_real_execution_started: "Esecuzione reale n8n avviata",
+  n8n_real_execution_succeeded: "Esecuzione reale n8n riuscita",
+  n8n_real_execution_failed: "Esecuzione reale n8n fallita",
+  n8n_real_execution_blocked_missing_approval: "Esecuzione reale n8n bloccata: manca approvazione Telegram",
+  n8n_real_execution_review_created: "Result Review creata da esecuzione reale n8n",
 };
 
 

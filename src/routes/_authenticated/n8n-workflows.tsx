@@ -325,6 +325,10 @@ function N8nWorkflowsPage() {
                   {w.last_manual_test_status}
                 </div>
               )}
+              <RealWebhookEditor
+                workflow={w}
+                onChanged={() => void qc.invalidateQueries({ queryKey: ["n8n-workflows"] })}
+              />
             </div>
           ))}
         </CardContent>
@@ -674,5 +678,161 @@ function WorkflowDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function truncate(url: string | null | undefined): string {
+  if (!url) return "—";
+  try {
+    const u = new URL(url);
+    const tail = u.pathname.length > 10 ? `…${u.pathname.slice(-6)}` : u.pathname;
+    return `${u.host}${tail}`;
+  } catch {
+    return url.slice(0, 24) + "…";
+  }
+}
+
+function RealWebhookEditor({
+  workflow,
+  onChanged,
+}: {
+  workflow: N8nWorkflow;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [testUrl, setTestUrl] = useState(workflow.webhook_test_url ?? workflow.webhook_url ?? "");
+  const [prodUrl, setProdUrl] = useState(workflow.webhook_production_url ?? "");
+  const [method, setMethod] = useState(workflow.webhook_method || "POST");
+  const [env, setEnv] = useState<string>(workflow.webhook_environment ?? "test");
+  const [enabled, setEnabled] = useState<boolean>(!!workflow.real_execution_enabled);
+  const [requiresTg, setRequiresTg] = useState<boolean>(workflow.requires_telegram_approval !== false);
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    setSaving(true);
+    try {
+      const wasEnabled = !!workflow.real_execution_enabled;
+      await updateWorkflow(workflow.id, {
+        webhook_test_url: testUrl || null,
+        webhook_production_url: prodUrl || null,
+        webhook_method: method,
+        webhook_environment: env,
+        real_execution_enabled: enabled,
+        requires_telegram_approval: requiresTg,
+      } as Partial<N8nWorkflow>);
+      if (wasEnabled !== enabled) {
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          clipboard_item_id: null,
+          action: enabled ? "n8n_real_execution_enabled" : "n8n_real_execution_disabled",
+          notes: `Esecuzione reale ${enabled ? "abilitata" : "disabilitata"}: ${workflow.workflow_name}`,
+          metadata: { workflow_id: workflow.id },
+        } as never);
+      }
+      toast.success("Webhook reale aggiornato");
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const productionWarn = env === "production" && enabled;
+  const blockedHigh =
+    workflow.risk_level === "high" && enabled && !requiresTg;
+
+  return (
+    <div className="mt-3 rounded border border-border/50 bg-background/30 p-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between text-[11px] font-medium text-muted-foreground hover:text-foreground"
+      >
+        <span>Webhook reale · {enabled ? `ON (${env})` : "OFF"}</span>
+        <span className="flex gap-2">
+          {workflow.last_real_execution_status && (
+            <Badge
+              variant="outline"
+              className={
+                workflow.last_real_execution_status === "ok"
+                  ? "border-emerald-500/40 text-emerald-600"
+                  : "border-red-500/40 text-red-600"
+              }
+            >
+              ultima reale: {workflow.last_real_execution_status}
+            </Badge>
+          )}
+          <span>{open ? "−" : "+"}</span>
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2 text-[11px]">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="space-y-1">
+              <div className="text-muted-foreground">Test URL</div>
+              <Input value={testUrl} onChange={(e) => setTestUrl(e.target.value)} placeholder="https://…/webhook-test/…" />
+              <div className="text-muted-foreground">→ {truncate(testUrl)}</div>
+            </label>
+            <label className="space-y-1">
+              <div className="text-muted-foreground">Production URL</div>
+              <Input value={prodUrl} onChange={(e) => setProdUrl(e.target.value)} placeholder="https://…/webhook/…" />
+              <div className="text-muted-foreground">→ {truncate(prodUrl)}</div>
+            </label>
+            <label className="space-y-1">
+              <div className="text-muted-foreground">Metodo</div>
+              <Select value={method} onValueChange={setMethod}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["POST", "GET", "PUT", "PATCH"].map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="space-y-1">
+              <div className="text-muted-foreground">Ambiente attivo</div>
+              <Select value={env} onValueChange={setEnv}>
+                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="test">test</SelectItem>
+                  <SelectItem value="production">production</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+              Abilita esecuzione reale
+            </label>
+            <label className="flex items-center gap-1">
+              <input type="checkbox" checked={requiresTg} onChange={(e) => setRequiresTg(e.target.checked)} />
+              Richiede approvazione Telegram
+            </label>
+          </div>
+          {productionWarn && (
+            <div className="flex items-center gap-1 text-amber-600">
+              <ShieldAlert className="h-3 w-3" /> Production attivo: ogni esecuzione produrrà effetti reali.
+            </div>
+          )}
+          {blockedHigh && (
+            <div className="flex items-center gap-1 text-red-600">
+              <ShieldAlert className="h-3 w-3" /> Workflow high-risk senza approvazione Telegram obbligatoria.
+            </div>
+          )}
+          {workflow.last_real_execution_at && (
+            <div className="text-muted-foreground">
+              Ultima esecuzione reale: {new Date(workflow.last_real_execution_at).toLocaleString()}
+            </div>
+          )}
+          <div className="flex justify-end">
+            <Button size="sm" onClick={save} disabled={saving}>
+              {saving ? "Salvo…" : "Salva webhook reale"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

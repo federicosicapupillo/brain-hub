@@ -71,6 +71,7 @@ import {
   type N8nExecutionLog,
 } from "@/lib/n8n-execution";
 import { Textarea } from "@/components/ui/textarea";
+import { N8nRealExecutionPanel } from "@/components/N8nRealExecutionPanel";
 import {
   APPROVAL_STATUS_LABEL,
   APPROVAL_STATUS_TONE,
@@ -736,6 +737,8 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
         </div>
       )}
       <TelegramApprovalBox action={a} />
+      <N8nRealExecutionPanel action={a} />
+
       <ResultReviewBox
         sourceType="automation_action"
         sourceId={a.id}
