@@ -342,7 +342,15 @@ export type LogEventType =
   | "n8n_hmac_disabled"
   | "n8n_hmac_secret_missing"
   | "n8n_hmac_signature_attached"
-  | "n8n_hmac_execution_blocked";
+  | "n8n_hmac_execution_blocked"
+  | "google_calendar_oauth_started"
+  | "google_calendar_oauth_completed"
+  | "google_calendar_oauth_failed"
+  | "google_calendar_disconnected"
+  | "google_calendar_sync_started"
+  | "google_calendar_sync_completed"
+  | "google_calendar_sync_failed"
+  | "google_calendar_action_created";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -481,6 +489,14 @@ const LOG_TITLES: Record<LogEventType, string> = {
   n8n_hmac_secret_missing: "Secret HMAC n8n mancante",
   n8n_hmac_signature_attached: "Firma HMAC n8n allegata alla request",
   n8n_hmac_execution_blocked: "Esecuzione n8n bloccata per secret HMAC mancante",
+  google_calendar_oauth_started: "Google Calendar OAuth avviato",
+  google_calendar_oauth_completed: "Google Calendar OAuth completato",
+  google_calendar_oauth_failed: "Google Calendar OAuth fallito",
+  google_calendar_disconnected: "Google Calendar disconnesso",
+  google_calendar_sync_started: "Sync Google Calendar avviato",
+  google_calendar_sync_completed: "Sync Google Calendar completato",
+  google_calendar_sync_failed: "Sync Google Calendar fallito",
+  google_calendar_action_created: "Action creata da evento Calendar",
 };
 
 

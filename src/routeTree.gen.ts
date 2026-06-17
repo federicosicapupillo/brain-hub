@@ -45,6 +45,7 @@ import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenti
 import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
 import { Route as AuthenticatedClientOnboardingRouteImport } from './routes/_authenticated/client-onboarding'
+import { Route as AuthenticatedCalendarKnowledgeRouteImport } from './routes/_authenticated/calendar-knowledge'
 import { Route as AuthenticatedBuildEnginesRouteImport } from './routes/_authenticated/build-engines'
 import { Route as AuthenticatedAutomationReadinessRouteImport } from './routes/_authenticated/automation-readiness'
 import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_authenticated/automation-control'
@@ -58,6 +59,7 @@ import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 import { Route as AuthenticatedImportaPromptStoriciRouteImport } from './routes/_authenticated/importa.prompt-storici'
 import { Route as ApiPublicDriveOauthCallbackRouteImport } from './routes/api/public/drive-oauth/callback'
+import { Route as ApiPublicCalendarOauthCallbackRouteImport } from './routes/api/public/calendar-oauth/callback'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -257,6 +259,12 @@ const AuthenticatedClientOnboardingRoute =
     path: '/client-onboarding',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCalendarKnowledgeRoute =
+  AuthenticatedCalendarKnowledgeRouteImport.update({
+    id: '/calendar-knowledge',
+    path: '/calendar-knowledge',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedBuildEnginesRoute =
   AuthenticatedBuildEnginesRouteImport.update({
     id: '/build-engines',
@@ -332,6 +340,12 @@ const ApiPublicDriveOauthCallbackRoute =
     path: '/api/public/drive-oauth/callback',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCalendarOauthCallbackRoute =
+  ApiPublicCalendarOauthCallbackRouteImport.update({
+    id: '/api/public/calendar-oauth/callback',
+    path: '/api/public/calendar-oauth/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -343,6 +357,7 @@ export interface FileRoutesByFullPath {
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/build-engines': typeof AuthenticatedBuildEnginesRoute
+  '/calendar-knowledge': typeof AuthenticatedCalendarKnowledgeRoute
   '/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
@@ -381,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/importa/': typeof AuthenticatedImportaIndexRoute
+  '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
 }
 export interface FileRoutesByTo {
@@ -392,6 +408,7 @@ export interface FileRoutesByTo {
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/build-engines': typeof AuthenticatedBuildEnginesRoute
+  '/calendar-knowledge': typeof AuthenticatedCalendarKnowledgeRoute
   '/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
@@ -430,6 +447,7 @@ export interface FileRoutesByTo {
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/importa': typeof AuthenticatedImportaIndexRoute
+  '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
 }
 export interface FileRoutesById {
@@ -443,6 +461,7 @@ export interface FileRoutesById {
   '/_authenticated/automation-control': typeof AuthenticatedAutomationControlRoute
   '/_authenticated/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/_authenticated/build-engines': typeof AuthenticatedBuildEnginesRoute
+  '/_authenticated/calendar-knowledge': typeof AuthenticatedCalendarKnowledgeRoute
   '/_authenticated/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/_authenticated/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
@@ -482,6 +501,7 @@ export interface FileRoutesById {
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
+  '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
 }
 export interface FileRouteTypes {
@@ -496,6 +516,7 @@ export interface FileRouteTypes {
     | '/automation-control'
     | '/automation-readiness'
     | '/build-engines'
+    | '/calendar-knowledge'
     | '/client-onboarding'
     | '/clipboard-ai'
     | '/company-blueprint'
@@ -534,6 +555,7 @@ export interface FileRouteTypes {
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/importa/'
+    | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -545,6 +567,7 @@ export interface FileRouteTypes {
     | '/automation-control'
     | '/automation-readiness'
     | '/build-engines'
+    | '/calendar-knowledge'
     | '/client-onboarding'
     | '/clipboard-ai'
     | '/company-blueprint'
@@ -583,6 +606,7 @@ export interface FileRouteTypes {
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/importa'
+    | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
   id:
     | '__root__'
@@ -595,6 +619,7 @@ export interface FileRouteTypes {
     | '/_authenticated/automation-control'
     | '/_authenticated/automation-readiness'
     | '/_authenticated/build-engines'
+    | '/_authenticated/calendar-knowledge'
     | '/_authenticated/client-onboarding'
     | '/_authenticated/clipboard-ai'
     | '/_authenticated/company-blueprint'
@@ -634,6 +659,7 @@ export interface FileRouteTypes {
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/_authenticated/importa/'
+    | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
   fileRoutesById: FileRoutesById
 }
@@ -642,6 +668,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
+  ApiPublicCalendarOauthCallbackRoute: typeof ApiPublicCalendarOauthCallbackRoute
   ApiPublicDriveOauthCallbackRoute: typeof ApiPublicDriveOauthCallbackRoute
 }
 
@@ -899,6 +926,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientOnboardingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/calendar-knowledge': {
+      id: '/_authenticated/calendar-knowledge'
+      path: '/calendar-knowledge'
+      fullPath: '/calendar-knowledge'
+      preLoaderRoute: typeof AuthenticatedCalendarKnowledgeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/build-engines': {
       id: '/_authenticated/build-engines'
       path: '/build-engines'
@@ -990,6 +1024,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicDriveOauthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/calendar-oauth/callback': {
+      id: '/api/public/calendar-oauth/callback'
+      path: '/api/public/calendar-oauth/callback'
+      fullPath: '/api/public/calendar-oauth/callback'
+      preLoaderRoute: typeof ApiPublicCalendarOauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1028,6 +1069,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAutomationControlRoute: typeof AuthenticatedAutomationControlRoute
   AuthenticatedAutomationReadinessRoute: typeof AuthenticatedAutomationReadinessRoute
   AuthenticatedBuildEnginesRoute: typeof AuthenticatedBuildEnginesRoute
+  AuthenticatedCalendarKnowledgeRoute: typeof AuthenticatedCalendarKnowledgeRoute
   AuthenticatedClientOnboardingRoute: typeof AuthenticatedClientOnboardingRoute
   AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
   AuthenticatedCompanyBlueprintRoute: typeof AuthenticatedCompanyBlueprintRoute
@@ -1072,6 +1114,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAutomationControlRoute: AuthenticatedAutomationControlRoute,
   AuthenticatedAutomationReadinessRoute: AuthenticatedAutomationReadinessRoute,
   AuthenticatedBuildEnginesRoute: AuthenticatedBuildEnginesRoute,
+  AuthenticatedCalendarKnowledgeRoute: AuthenticatedCalendarKnowledgeRoute,
   AuthenticatedClientOnboardingRoute: AuthenticatedClientOnboardingRoute,
   AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
   AuthenticatedCompanyBlueprintRoute: AuthenticatedCompanyBlueprintRoute,
@@ -1116,8 +1159,19 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
+  ApiPublicCalendarOauthCallbackRoute: ApiPublicCalendarOauthCallbackRoute,
   ApiPublicDriveOauthCallbackRoute: ApiPublicDriveOauthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}

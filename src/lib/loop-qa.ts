@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getN8nRealExecutionWarnings } from "@/lib/n8n-real-execution";
 import { getDriveKnowledgeWarnings } from "@/lib/drive-knowledge";
+import { getCalendarKnowledgeWarnings } from "@/lib/calendar-knowledge";
 
 
 
@@ -389,6 +390,23 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
   } catch {
     // non-blocking
   }
+
+  // Calendar warnings (v3.0)
+  try {
+    const calWarnings = await getCalendarKnowledgeWarnings(brainId ?? null);
+    for (const w of calWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
 
 
 
