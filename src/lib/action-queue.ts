@@ -165,7 +165,9 @@ export const SOURCE_LABEL: Record<ActionSource, string> = {
   google_calendar: "Google Calendar",
   github_operational: "GitHub Operational",
   code_repository: "Repository codice",
+  agent_center: "Agent Center",
 };
+
 
 
 export const RISK_TONE: Record<RiskLevel, string> = {
