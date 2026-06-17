@@ -325,7 +325,14 @@ export type LogEventType =
   | "telegram_delivery_unblocked"
   | "telegram_delivery_retry_started"
   | "telegram_delivery_attempt_logged"
-  | "telegram_connection_diagnostics_opened";
+  | "telegram_connection_diagnostics_opened"
+  | "n8n_real_execution_enabled"
+  | "n8n_real_execution_disabled"
+  | "n8n_real_execution_started"
+  | "n8n_real_execution_succeeded"
+  | "n8n_real_execution_failed"
+  | "n8n_real_execution_blocked_missing_approval"
+  | "n8n_real_execution_review_created";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {

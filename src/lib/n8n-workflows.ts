@@ -55,7 +55,15 @@ export type N8nWorkflow = {
   last_manual_test_status: string | null;
   notes: string | null;
   metadata: Record<string, unknown>;
+  webhook_test_url?: string | null;
+  webhook_production_url?: string | null;
+  webhook_environment?: "test" | "production" | string;
+  real_execution_enabled?: boolean;
+  requires_telegram_approval?: boolean;
+  last_real_execution_at?: string | null;
+  last_real_execution_status?: string | null;
 };
+
 
 export const SUPPORTED_WORKFLOW_CASES: { action_type: string; label: string }[] = [
   { action_type: "send_telegram_approval", label: "Approvazione Telegram" },
