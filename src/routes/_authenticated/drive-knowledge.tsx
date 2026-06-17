@@ -59,14 +59,19 @@ import {
   startGoogleDriveOAuth,
 } from "@/lib/drive-oauth.functions";
 
-const searchSchema = z.object({
-  oauth: fallback(z.enum(["success", "error"]).optional(), undefined),
-  message: fallback(z.string().optional(), undefined),
-  brain: fallback(z.string().optional(), undefined),
-});
+type DriveKnowledgeSearch = {
+  oauth?: "success" | "error";
+  message?: string;
+  brain?: string;
+};
 
 export const Route = createFileRoute("/_authenticated/drive-knowledge")({
-  validateSearch: zodValidator(searchSchema),
+  validateSearch: (s: Record<string, unknown>): DriveKnowledgeSearch => ({
+    oauth:
+      s.oauth === "success" || s.oauth === "error" ? (s.oauth as "success" | "error") : undefined,
+    message: typeof s.message === "string" ? s.message : undefined,
+    brain: typeof s.brain === "string" ? s.brain : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Google Drive Knowledge — Brain Hub" },
