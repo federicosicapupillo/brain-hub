@@ -605,9 +605,10 @@ function DriveKnowledgeRoute() {
         <CardContent className="flex items-start gap-2 p-4 text-[11px] text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-3 w-3" />
           <p>
-            Brain Hub v2.8 è read-only: nessun file viene creato, spostato o cancellato su Google
-            Drive. I token OAuth, se mai configurati, restano server-side e non sono mai esposti
-            al frontend.
+            Brain Hub v2.8.1 è read-only e usa lo scope <code>drive.metadata.readonly</code>:
+            legge solo metadata (id, nome, mimeType, modifiedTime, webViewLink). Nessun contenuto
+            file viene scaricato; nessun file viene creato, spostato o cancellato su Google Drive.
+            I token OAuth non vengono mai salvati nel database né mostrati al frontend.
           </p>
         </CardContent>
       </Card>
