@@ -320,7 +320,7 @@ export function TelegramDiagnosticsCard({ brainId }: { brainId: string | null })
 
   const tokenOk = !!tokenStatus?.configured;
   const enabledCount = connections.filter((c) => c.is_enabled).length;
-  const hasDefault = connections.some((c) => c.is_enabled && c.is_default);
+  const hasDefault = connections.some((c) => c.is_enabled && c.default_for_approvals);
 
   return (
     <Card>
