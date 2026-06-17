@@ -39,6 +39,7 @@ import {
   type SimpleHomeCard,
   type SimpleProgressStep,
 } from "@/lib/company-simple-home";
+import { CalendarUpcomingPreview } from "@/components/CalendarUpcomingPreview";
 
 type CompanyHomeSearch = { brain?: string };
 
@@ -394,6 +395,9 @@ function CompanyHomeRoute() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Calendar preview */}
+        <CalendarUpcomingPreview brainId={brainId} compact />
       </div>
 
       <div className="pt-2 text-center">

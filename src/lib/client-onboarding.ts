@@ -3,11 +3,13 @@ import {
   getCompanyHomeSummary,
   type CompanyHomeSummary,
 } from "@/lib/company-simple-home";
+import { getCalendarKnowledgeSummary } from "@/lib/calendar-knowledge";
 
 export type ClientOnboardingStepId =
   | "profile"
   | "blueprint"
   | "documents"
+  | "calendar"
   | "mvp"
   | "engine"
   | "actions"
@@ -52,7 +54,16 @@ export type ClientOnboardingEvent =
   | "client_onboarding_expert_mode_opened"
   | "drive_opened_from_client_onboarding";
 
-function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
+type CalendarStepInput = {
+  connections: number;
+  hasNeverSynced: boolean;
+  lastSyncFailed: boolean;
+};
+
+function buildSteps(
+  s: CompanyHomeSummary,
+  cal: CalendarStepInput,
+): ClientOnboardingStep[] {
   const profileDone = s.hasProfile;
   const blueprintDone = s.hasBlueprint;
   const mvpDone = s.mvpCount > 0;
@@ -121,8 +132,30 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
       ctaTo: "/drive-knowledge",
     },
     {
-      id: "mvp",
+      id: "calendar",
       order: 4,
+      title: "Collega Google Calendar",
+      description:
+        cal.connections === 0
+          ? "Collega Google Calendar (read-only) per mappare riunioni e scadenze nel sistema."
+          : cal.hasNeverSynced
+            ? "Calendar configurato ma mai sincronizzato. Avvia il primo sync per popolare la mappa eventi."
+            : cal.lastSyncFailed
+              ? "L'ultima sincronizzazione Calendar è fallita. Riprova dal pannello Calendar."
+              : "Google Calendar collegato e sincronizzato. Brain Hub non crea, modifica o cancella eventi.",
+      output: "Calendar Map",
+      status:
+        cal.connections === 0
+          ? "todo"
+          : cal.hasNeverSynced || cal.lastSyncFailed
+            ? "warning"
+            : "done",
+      ctaLabel: "Collega calendario",
+      ctaTo: "/calendar-knowledge",
+    },
+    {
+      id: "mvp",
+      order: 5,
       title: "Crea il primo progetto o MVP",
       description:
         "Trasforma una priorità aziendale in una specifica MVP pronta da costruire.",
@@ -133,7 +166,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "engine",
-      order: 5,
+      order: 6,
       title: "Scegli il motore di sviluppo",
       description:
         "Brain Hub suggerisce se usare Lovable, Codex, Claude Code o un altro motore.",
@@ -144,7 +177,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "actions",
-      order: 6,
+      order: 7,
       title: "Approva le prime azioni",
       description:
         "Controlla cosa Brain Hub propone prima di far partire qualsiasi attività.",
@@ -155,7 +188,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "results",
-      order: 7,
+      order: 8,
       title: "Controlla i risultati",
       description:
         "Ogni risultato viene verificato prima di diventare parte del sistema.",
@@ -166,7 +199,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "improvements",
-      order: 8,
+      order: 9,
       title: "Applica i miglioramenti",
       description:
         "Brain Hub trasforma i risultati approvati in nuovi suggerimenti e prossimi passi.",
@@ -177,7 +210,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "system",
-      order: 9,
+      order: 10,
       title: "Verifica il ciclo operativo",
       description:
         "Controlla se il lavoro si è fermato o se il sistema è completo.",
@@ -210,7 +243,22 @@ export async function getClientOnboardingSummary(
   brainId?: string | null,
 ): Promise<ClientOnboardingSummary> {
   const home = await getCompanyHomeSummary(brainId);
-  const steps = buildSteps(home);
+  let cal: CalendarStepInput = {
+    connections: 0,
+    hasNeverSynced: false,
+    lastSyncFailed: false,
+  };
+  try {
+    const cs = await getCalendarKnowledgeSummary(brainId ?? null);
+    cal = {
+      connections: cs.connections,
+      hasNeverSynced: cs.hasNeverSynced,
+      lastSyncFailed: cs.lastSyncFailed,
+    };
+  } catch {
+    // calendar non disponibile: lasciamo stato 'todo'
+  }
+  const steps = buildSteps(home, cal);
   return {
     brainId: home.brainId,
     companyName: home.companyName,

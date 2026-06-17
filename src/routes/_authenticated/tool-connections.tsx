@@ -205,6 +205,11 @@ function ToolConnectionsRoute() {
             <Button asChild size="sm" variant="outline">
               <Link to="/drive-knowledge">Drive Knowledge</Link>
             </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/calendar-knowledge" search={{ brain: brainId || undefined }}>
+                Google Calendar
+              </Link>
+            </Button>
           </>
         }
       />
