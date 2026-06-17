@@ -313,7 +313,14 @@ export type LogEventType =
   | "telegram_approval_request_approved"
   | "telegram_approval_request_rejected"
   | "telegram_approval_request_cancelled"
-  | "telegram_approval_request_failed";
+  | "telegram_approval_request_failed"
+  | "telegram_connection_created"
+  | "telegram_connection_updated"
+  | "telegram_connection_disabled"
+  | "telegram_approval_send_started"
+  | "telegram_approval_sent"
+  | "telegram_approval_send_failed"
+  | "telegram_approval_resend_requested";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
