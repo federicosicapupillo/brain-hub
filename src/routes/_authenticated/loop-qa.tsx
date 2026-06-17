@@ -193,6 +193,8 @@ function LoopQaRoute() {
             </Card>
           </div>
 
+          <CompanyOsRow brainId={brainId} />
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Sezioni collegate</CardTitle>
