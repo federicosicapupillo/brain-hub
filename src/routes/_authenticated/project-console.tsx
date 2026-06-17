@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
+import { MasterSnapshotUpdateButton } from "@/components/MasterSnapshotUpdateButton";
 import { RoadmapIntelligence } from "@/components/RoadmapIntelligence";
 import { ProjectHealthCheck } from "@/components/ProjectHealthCheck";
 import { AutomationControlBlock } from "@/components/AutomationControlBlock";
