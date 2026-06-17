@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ExternalLink, Wand2, Copy, CheckCircle2, Cpu } from "lucide-react";
+import { ExternalLink, Wand2, Copy, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
