@@ -57,6 +57,8 @@ const items = [
   { title: "Strumenti Progetti", url: "/strumenti-progetti", icon: PlugZap },
   { title: "GitHub Sync", url: "/github-sync", icon: GitBranch },
   { title: "GitHub Coverage", url: "/github-coverage", icon: ShieldCheck },
+  { title: "GitHub Operational", url: "/github-operational", icon: GitBranch },
+
   { title: "Health Check", url: "/health-check", icon: Stethoscope },
   { title: "Clipboard AI", url: "/clipboard-ai", icon: Clipboard },
   { title: "Automation Control", url: "/automation-control", icon: Gauge },

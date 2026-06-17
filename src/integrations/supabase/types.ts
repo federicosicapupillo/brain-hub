@@ -810,6 +810,65 @@ export type Database = {
           },
         ]
       }
+      code_file_map: {
+        Row: {
+          area: string | null
+          brain_id: string | null
+          created_at: string
+          file_path: string
+          file_type: string | null
+          id: string
+          importance: string | null
+          metadata: Json
+          project_id: string | null
+          repository_id: string | null
+          status: string
+          summary: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          area?: string | null
+          brain_id?: string | null
+          created_at?: string
+          file_path: string
+          file_type?: string | null
+          id?: string
+          importance?: string | null
+          metadata?: Json
+          project_id?: string | null
+          repository_id?: string | null
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          area?: string | null
+          brain_id?: string | null
+          created_at?: string
+          file_path?: string
+          file_type?: string | null
+          id?: string
+          importance?: string | null
+          metadata?: Json
+          project_id?: string | null
+          repository_id?: string | null
+          status?: string
+          summary?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "code_file_map_repository_id_fkey"
+            columns: ["repository_id"]
+            isOneToOne: false
+            referencedRelation: "github_repository_registry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_os_blueprints: {
         Row: {
           blueprint_json: Json
@@ -1120,6 +1179,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      github_repository_registry: {
+        Row: {
+          brain_id: string | null
+          connected_status: string
+          created_at: string
+          default_branch: string | null
+          id: string
+          last_sync_at: string | null
+          metadata: Json
+          project_id: string | null
+          provider: string
+          repository_name: string | null
+          repository_owner: string | null
+          repository_url: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          connected_status?: string
+          created_at?: string
+          default_branch?: string | null
+          id?: string
+          last_sync_at?: string | null
+          metadata?: Json
+          project_id?: string | null
+          provider?: string
+          repository_name?: string | null
+          repository_owner?: string | null
+          repository_url: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          connected_status?: string
+          created_at?: string
+          default_branch?: string | null
+          id?: string
+          last_sync_at?: string | null
+          metadata?: Json
+          project_id?: string | null
+          provider?: string
+          repository_name?: string | null
+          repository_owner?: string | null
+          repository_url?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       google_calendar_oauth_states: {
         Row: {

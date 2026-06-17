@@ -17,7 +17,13 @@ export type ActionType =
   | "meeting_preparation"
   | "meeting_follow_up"
   | "calendar_deadline_check"
-  | "calendar_content_check";
+  | "calendar_content_check"
+  | "code_review"
+  | "code_fix"
+  | "code_refactor"
+  | "code_test"
+  | "code_deploy_check"
+  | "github_issue_draft";
 
 export type ActionStatus =
   | "suggested"
@@ -36,7 +42,10 @@ export type ActionSource =
   | "execution_tracking"
   | "user_manual"
   | "system_suggestion"
-  | "google_calendar";
+  | "google_calendar"
+  | "github_operational"
+  | "code_repository";
+
 
 
 export type RiskLevel = "low" | "medium" | "high";
@@ -86,6 +95,12 @@ export const ACTION_TYPE_LABEL: Record<ActionType, string> = {
   meeting_follow_up: "Follow-up dopo riunione",
   calendar_deadline_check: "Verifica scadenza calendario",
   calendar_content_check: "Verifica contenuto calendario",
+  code_review: "Code review",
+  code_fix: "Code fix",
+  code_refactor: "Refactor codice",
+  code_test: "Test codice",
+  code_deploy_check: "Verifica deployment",
+  github_issue_draft: "Bozza GitHub issue",
 };
 
 export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
@@ -105,6 +120,12 @@ export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
   meeting_follow_up: "low",
   calendar_deadline_check: "low",
   calendar_content_check: "low",
+  code_review: "low",
+  code_fix: "medium",
+  code_refactor: "medium",
+  code_test: "low",
+  code_deploy_check: "medium",
+  github_issue_draft: "low",
 };
 
 export const STATUS_LABEL: Record<ActionStatus, string> = {
@@ -124,9 +145,13 @@ export const SOURCE_LABEL: Record<ActionSource, string> = {
   next_prompt_generator: "Next Prompt Generator",
   execution_tracking: "Execution Tracking",
   user_manual: "Manuale",
+
   system_suggestion: "Sistema",
   google_calendar: "Google Calendar",
+  github_operational: "GitHub Operational",
+  code_repository: "Repository codice",
 };
+
 
 export const RISK_TONE: Record<RiskLevel, string> = {
   low: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",

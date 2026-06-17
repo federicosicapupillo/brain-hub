@@ -36,6 +36,7 @@ import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedHealthCheckRouteImport } from './routes/_authenticated/health-check'
 import { Route as AuthenticatedGuidaRouteImport } from './routes/_authenticated/guida'
 import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authenticated/github-sync'
+import { Route as AuthenticatedGithubOperationalRouteImport } from './routes/_authenticated/github-operational'
 import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authenticated/github-coverage'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedDriveKnowledgeRouteImport } from './routes/_authenticated/drive-knowledge'
@@ -208,6 +209,12 @@ const AuthenticatedGithubSyncRoute = AuthenticatedGithubSyncRouteImport.update({
   path: '/github-sync',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGithubOperationalRoute =
+  AuthenticatedGithubOperationalRouteImport.update({
+    id: '/github-operational',
+    path: '/github-operational',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedGithubCoverageRoute =
   AuthenticatedGithubCoverageRouteImport.update({
     id: '/github-coverage',
@@ -367,6 +374,7 @@ export interface FileRoutesByFullPath {
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
+  '/github-operational': typeof AuthenticatedGithubOperationalRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/health-check': typeof AuthenticatedHealthCheckRoute
@@ -418,6 +426,7 @@ export interface FileRoutesByTo {
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
+  '/github-operational': typeof AuthenticatedGithubOperationalRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/health-check': typeof AuthenticatedHealthCheckRoute
@@ -471,6 +480,7 @@ export interface FileRoutesById {
   '/_authenticated/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
   '/_authenticated/github-coverage': typeof AuthenticatedGithubCoverageRoute
+  '/_authenticated/github-operational': typeof AuthenticatedGithubOperationalRoute
   '/_authenticated/github-sync': typeof AuthenticatedGithubSyncRoute
   '/_authenticated/guida': typeof AuthenticatedGuidaRoute
   '/_authenticated/health-check': typeof AuthenticatedHealthCheckRoute
@@ -526,6 +536,7 @@ export interface FileRouteTypes {
     | '/drive-knowledge'
     | '/fonti'
     | '/github-coverage'
+    | '/github-operational'
     | '/github-sync'
     | '/guida'
     | '/health-check'
@@ -577,6 +588,7 @@ export interface FileRouteTypes {
     | '/drive-knowledge'
     | '/fonti'
     | '/github-coverage'
+    | '/github-operational'
     | '/github-sync'
     | '/guida'
     | '/health-check'
@@ -629,6 +641,7 @@ export interface FileRouteTypes {
     | '/_authenticated/drive-knowledge'
     | '/_authenticated/fonti'
     | '/_authenticated/github-coverage'
+    | '/_authenticated/github-operational'
     | '/_authenticated/github-sync'
     | '/_authenticated/guida'
     | '/_authenticated/health-check'
@@ -863,6 +876,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGithubSyncRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/github-operational': {
+      id: '/_authenticated/github-operational'
+      path: '/github-operational'
+      fullPath: '/github-operational'
+      preLoaderRoute: typeof AuthenticatedGithubOperationalRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/github-coverage': {
       id: '/_authenticated/github-coverage'
       path: '/github-coverage'
@@ -1079,6 +1099,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDriveKnowledgeRoute: typeof AuthenticatedDriveKnowledgeRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
   AuthenticatedGithubCoverageRoute: typeof AuthenticatedGithubCoverageRoute
+  AuthenticatedGithubOperationalRoute: typeof AuthenticatedGithubOperationalRoute
   AuthenticatedGithubSyncRoute: typeof AuthenticatedGithubSyncRoute
   AuthenticatedGuidaRoute: typeof AuthenticatedGuidaRoute
   AuthenticatedHealthCheckRoute: typeof AuthenticatedHealthCheckRoute
@@ -1124,6 +1145,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDriveKnowledgeRoute: AuthenticatedDriveKnowledgeRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
   AuthenticatedGithubCoverageRoute: AuthenticatedGithubCoverageRoute,
+  AuthenticatedGithubOperationalRoute: AuthenticatedGithubOperationalRoute,
   AuthenticatedGithubSyncRoute: AuthenticatedGithubSyncRoute,
   AuthenticatedGuidaRoute: AuthenticatedGuidaRoute,
   AuthenticatedHealthCheckRoute: AuthenticatedHealthCheckRoute,
