@@ -574,3 +574,67 @@ function LoopQaProjectBlock({ brainId }: { brainId: string }) {
     </div>
   );
 }
+
+function CompanyOsProjectBlock({ brainId }: { brainId: string }) {
+  const { data: summary } = useQuery({
+    queryKey: ["company-os-project-block", brainId],
+    queryFn: async () => {
+      const { getCompanyOsSummary } = await import("@/lib/company-os");
+      return getCompanyOsSummary(brainId || null);
+    },
+  });
+  const configured = !!summary?.configured;
+  const tone = configured
+    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+    : "bg-amber-500/10 text-amber-600 border-amber-500/30";
+  const onOpen = async () => {
+    const { logCompanyOsEvent } = await import("@/lib/company-os");
+    void logCompanyOsEvent(
+      "company_os_opened_from_project_console",
+      "Apertura Company OS da Project Console",
+      { brain_id: brainId },
+    );
+  };
+  return (
+    <div className="rounded-md border border-border/60 bg-card/40 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-sm font-semibold">Company OS</div>
+        <Badge variant="outline" className={tone}>{configured ? "Configurato" : "Non configurato"}</Badge>
+      </div>
+      {configured ? (
+        <div className="space-y-2 text-xs">
+          <div><span className="text-muted-foreground">Azienda:</span> <span className="font-medium">{summary?.companyName ?? "—"}</span></div>
+          {summary?.presetLabel && (
+            <div><span className="text-muted-foreground">Preset:</span> <span className="font-medium">{summary.presetLabel}</span></div>
+          )}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded border p-2 text-center">
+              <div className="text-sm font-semibold">{summary?.activeDepartments ?? 0}</div>
+              <div className="text-[10px] text-muted-foreground">Aree attive</div>
+            </div>
+            <div className="rounded border p-2 text-center">
+              <div className="text-sm font-semibold">{summary?.preferredModules ?? 0}</div>
+              <div className="text-[10px] text-muted-foreground">Moduli attivi</div>
+            </div>
+          </div>
+          {summary?.nextSetupAction && (
+            <div className="rounded border bg-background/40 p-2">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Prossima azione consigliata</div>
+              <div className="truncate font-medium">{summary.nextSetupAction.title}</div>
+            </div>
+          )}
+          <Button asChild size="sm" variant="outline" onClick={onOpen}>
+            <a href="/company-os">Apri Company OS</a>
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2 text-xs">
+          <p className="text-muted-foreground">Profilo aziendale non ancora configurato.</p>
+          <Button asChild size="sm" variant="outline" onClick={onOpen}>
+            <a href="/company-os">Configura Company OS</a>
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
