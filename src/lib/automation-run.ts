@@ -337,7 +337,12 @@ export type LogEventType =
   | "n8n_real_execution_warning_opened"
   | "n8n_real_execution_environment_validation_failed"
   | "n8n_real_execution_duplicate_run_confirmed"
-  | "n8n_real_execution_recent_log_opened";
+  | "n8n_real_execution_recent_log_opened"
+  | "n8n_hmac_enabled"
+  | "n8n_hmac_disabled"
+  | "n8n_hmac_secret_missing"
+  | "n8n_hmac_signature_attached"
+  | "n8n_hmac_execution_blocked";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -471,6 +476,11 @@ const LOG_TITLES: Record<LogEventType, string> = {
   n8n_real_execution_environment_validation_failed: "Validazione ambiente/URL n8n fallita",
   n8n_real_execution_duplicate_run_confirmed: "Run reale duplicata confermata manualmente",
   n8n_real_execution_recent_log_opened: "Log esecuzione reale n8n aperto",
+  n8n_hmac_enabled: "Firma HMAC n8n abilitata",
+  n8n_hmac_disabled: "Firma HMAC n8n disabilitata",
+  n8n_hmac_secret_missing: "Secret HMAC n8n mancante",
+  n8n_hmac_signature_attached: "Firma HMAC n8n allegata alla request",
+  n8n_hmac_execution_blocked: "Esecuzione n8n bloccata per secret HMAC mancante",
 };
 
 

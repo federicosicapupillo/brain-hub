@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { buildN8nSignedHeaders, getN8nHmacConfig } from "@/lib/n8n-hmac";
 
 const SENSITIVE_KEYS = [
   "password",
@@ -90,6 +91,8 @@ type WorkflowRow = {
   status: string;
   brain_id: string | null;
   project_id: string | null;
+  hmac_signing_enabled: boolean | null;
+  hmac_secret_env_key: string | null;
 };
 
 type ActionRow = {
@@ -115,7 +118,7 @@ export const executeN8nRealWorkflow = createServerFn({ method: "POST" })
     const { data: wfRaw, error: wfErr } = await supabase
       .from("n8n_workflow_registry" as never)
       .select(
-        "id,user_id,workflow_name,webhook_url,webhook_method,webhook_test_url,webhook_production_url,webhook_environment,real_execution_enabled,requires_telegram_approval,risk_level,status,brain_id,project_id",
+        "id,user_id,workflow_name,webhook_url,webhook_method,webhook_test_url,webhook_production_url,webhook_environment,real_execution_enabled,requires_telegram_approval,risk_level,status,brain_id,project_id,hmac_signing_enabled,hmac_secret_env_key",
       )
       .eq("id", data.workflow_id)
       .eq("user_id", userId)
@@ -219,6 +222,68 @@ export const executeN8nRealWorkflow = createServerFn({ method: "POST" })
     } as never);
 
     const method = (wf.webhook_method || "POST").toUpperCase();
+
+    // ============= HMAC outbound signing =============
+    const hmacCfg = getN8nHmacConfig(wf);
+    let hmacHeaders: Record<string, string> = {};
+    let hmacSignaturePreview: string | null = null;
+    let hmacSignatureVersion: string | null = null;
+    if (hmacCfg.enabled) {
+      const signed = buildN8nSignedHeaders({
+        payload: requestPayload,
+        workflow: wf,
+        actionId: action?.id ?? null,
+      });
+      if (signed.enabled && "error" in signed && signed.error === "secret_missing") {
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: userId,
+          clipboard_item_id: null,
+          action: "n8n_hmac_secret_missing",
+          notes: `HMAC richiesto ma secret env mancante per ${wf.workflow_name}`,
+          metadata: {
+            workflow_id: wf.id,
+            action_id: action?.id ?? null,
+            hmac_enabled: true,
+            hmac_secret_configured: false,
+            env_key: signed.envKey,
+          },
+        } as never);
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: userId,
+          clipboard_item_id: null,
+          action: "n8n_hmac_execution_blocked",
+          notes: `Esecuzione bloccata: secret HMAC mancante (${wf.workflow_name})`,
+          metadata: {
+            workflow_id: wf.id,
+            action_id: action?.id ?? null,
+            env_key: signed.envKey,
+          },
+        } as never);
+        throw new Error(
+          "Firma HMAC richiesta ma secret non configurato. Imposta la variabile d'ambiente sul server prima di eseguire.",
+        );
+      }
+      if (signed.enabled && "headers" in signed) {
+        hmacHeaders = signed.headers;
+        hmacSignaturePreview = signed.signaturePreview;
+        hmacSignatureVersion = signed.signatureVersion;
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: userId,
+          clipboard_item_id: null,
+          action: "n8n_hmac_signature_attached",
+          notes: `Firma HMAC allegata: ${wf.workflow_name}`,
+          metadata: {
+            workflow_id: wf.id,
+            action_id: action?.id ?? null,
+            hmac_enabled: true,
+            hmac_secret_configured: true,
+            signature_version: hmacSignatureVersion,
+            signature_preview: hmacSignaturePreview,
+          },
+        } as never);
+      }
+    }
+
     const startedAt = Date.now();
     let httpStatus: number | null = null;
     let success = false;
@@ -230,7 +295,7 @@ export const executeN8nRealWorkflow = createServerFn({ method: "POST" })
     try {
       const init: RequestInit = {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...hmacHeaders },
         signal: controller.signal,
       };
       if (method !== "GET" && method !== "HEAD") {
@@ -287,6 +352,10 @@ export const executeN8nRealWorkflow = createServerFn({ method: "POST" })
           phase: "real",
           duration_ms: durationMs,
           environment: wf.webhook_environment,
+          hmac_enabled: hmacCfg.enabled,
+          hmac_secret_configured: hmacCfg.secretConfigured,
+          signature_version: hmacSignatureVersion,
+          signature_preview: hmacSignaturePreview,
         },
       } as never)
       .select("id,success,response_status,error_text,created_at")

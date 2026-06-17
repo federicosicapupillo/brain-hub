@@ -9,6 +9,8 @@ import { AlertTriangle, PlayCircle, ShieldAlert, FileCheck2, History } from "luc
 import { Link } from "@tanstack/react-router";
 import { listWorkflowsForActionType, type N8nWorkflow } from "@/lib/n8n-workflows";
 import { executeN8nRealWorkflow, createReviewFromN8nLog } from "@/lib/n8n-real-execution.functions";
+import { getN8nHmacSecretStatus } from "@/lib/n8n-hmac.functions";
+import { DEFAULT_HMAC_SECRET_ENV_KEY } from "@/lib/n8n-hmac";
 import {
   getRecentN8nRealExecutionsForWorkflow,
   logN8nRealExecutionEvent,
@@ -22,6 +24,7 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
   const qc = useQueryClient();
   const exec = useServerFn(executeN8nRealWorkflow);
   const review = useServerFn(createReviewFromN8nLog);
+  const hmacStatusFn = useServerFn(getN8nHmacSecretStatus);
   const [running, setRunning] = useState(false);
   const [lastLogId, setLastLogId] = useState<string | null>(null);
   const [lastOk, setLastOk] = useState<boolean | null>(null);
@@ -39,6 +42,16 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
     enabled: !!wf?.id,
     queryFn: () => getRecentN8nRealExecutionsForWorkflow(wf!.id, 3),
   });
+
+  const hmacEnvKey = wf?.hmac_secret_env_key || DEFAULT_HMAC_SECRET_ENV_KEY;
+  const hmacEnabled = !!wf?.hmac_signing_enabled;
+  const { data: hmacStatus } = useQuery({
+    queryKey: ["n8n-hmac-secret-status-panel", hmacEnvKey],
+    enabled: !!wf,
+    queryFn: () => hmacStatusFn({ data: { env_keys: [hmacEnvKey] } }),
+  });
+  const hmacSecretConfigured = !!hmacStatus?.configured?.[hmacEnvKey];
+  const hmacBlocked = hmacEnabled && !hmacSecretConfigured;
 
   const enabled = !!wf?.real_execution_enabled;
   const env = wf?.webhook_environment ?? "test";
@@ -142,6 +155,18 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
               ultimo: {wf.last_real_execution_status}
             </Badge>
           )}
+          <Badge
+            variant="outline"
+            className={
+              hmacEnabled
+                ? hmacSecretConfigured
+                  ? "border-emerald-500/40 text-emerald-600"
+                  : "border-red-500/40 text-red-600"
+                : "border-slate-500/40 text-slate-600"
+            }
+          >
+            HMAC {hmacEnabled ? (hmacSecretConfigured ? "ON · secret OK" : "ON · secret missing") : "OFF"}
+          </Badge>
         </div>
 
         {!enabled && (
@@ -164,6 +189,16 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
             </Link>
           </div>
         )}
+        {hmacBlocked && (
+          <div className="rounded border border-red-500/40 bg-red-500/5 p-2 text-red-600">
+            <div className="flex items-center gap-1 font-medium">
+              <ShieldAlert className="h-3 w-3" /> Bloccato: firma HMAC richiesta ma secret "{hmacEnvKey}" non configurato sul server.
+            </div>
+            <Link to="/n8n-workflows" search={{ brain: action.brain_id ?? undefined }} className="underline">
+              Apri n8n Workflows
+            </Link>
+          </div>
+        )}
         {recentlyRan && (
           <div className="flex items-center gap-1 text-amber-600">
             <AlertTriangle className="h-3 w-3" /> Run eseguita meno di 30s fa.
@@ -174,7 +209,7 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
           <Button
             size="sm"
             onClick={run}
-            disabled={running || !enabled || !hasUrl || blocked}
+            disabled={running || !enabled || !hasUrl || blocked || hmacBlocked}
             variant={isHighRisk ? "destructive" : "default"}
           >
             <PlayCircle className="mr-1 h-3 w-3" />

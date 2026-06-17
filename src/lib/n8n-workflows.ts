@@ -62,6 +62,10 @@ export type N8nWorkflow = {
   requires_telegram_approval?: boolean;
   last_real_execution_at?: string | null;
   last_real_execution_status?: string | null;
+  hmac_signing_enabled?: boolean | null;
+  hmac_secret_env_key?: string | null;
+  hmac_last_verified_at?: string | null;
+  hmac_status?: string | null;
 };
 
 

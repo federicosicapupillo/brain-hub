@@ -29,6 +29,8 @@ import {
   getLoopQaSummary,
   logLoopQaEvent,
 } from "@/lib/loop-qa";
+import { useServerFn } from "@tanstack/react-start";
+import { getN8nHmacWarnings } from "@/lib/n8n-hmac.functions";
 
 export const Route = createFileRoute("/_authenticated/loop-qa")({
   head: () => ({
@@ -72,6 +74,16 @@ function LoopQaRoute() {
     queryKey: ["loop-qa-summary", brainId],
     queryFn: () => getLoopQaSummary(brainId),
   });
+
+  const hmacWarningsFn = useServerFn(getN8nHmacWarnings);
+  const { data: hmacExtra } = useQuery({
+    queryKey: ["loop-qa-hmac-warnings", brainId],
+    queryFn: () => hmacWarningsFn({ data: { brain_id: brainId } }),
+  });
+  const mergedWarnings: LoopWarning[] = [
+    ...(summary?.warnings ?? []),
+    ...((hmacExtra?.warnings ?? []) as LoopWarning[]),
+  ];
 
   const openSection = (to: string, label: string) => {
     void logLoopQaEvent("loop_qa_related_section_opened", `Apertura sezione: ${label}`, { to });
@@ -153,10 +165,10 @@ function LoopQaRoute() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {summary.warnings.length === 0 ? (
+                {mergedWarnings.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nessun warning rilevato.</p>
                 ) : (
-                  summary.warnings.map((w) => (
+                  mergedWarnings.map((w) => (
                     <WarningRow
                       key={w.id}
                       w={w}

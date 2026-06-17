@@ -57,6 +57,9 @@ import { READINESS_MATRIX } from "@/lib/automation-readiness";
 import { listToolLinks } from "@/lib/tool-connections";
 import { RISK_TONE } from "@/lib/action-queue";
 import { validateRealExecutionConfig } from "@/lib/n8n-real-execution";
+import { useServerFn } from "@tanstack/react-start";
+import { getN8nHmacSecretStatus } from "@/lib/n8n-hmac.functions";
+import { DEFAULT_HMAC_SECRET_ENV_KEY } from "@/lib/n8n-hmac";
 
 const searchSchema = z.object({ brain: z.string().optional() });
 
@@ -177,6 +180,34 @@ function N8nWorkflowsPage() {
         title="n8n Workflow Registry"
         subtitle="Registra e organizza i workflow n8n. Nessuna esecuzione automatica — solo preparazione."
       />
+
+      <Card className="border-sky-500/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Come verificare HMAC in n8n</CardTitle>
+        </CardHeader>
+        <CardContent className="text-xs text-muted-foreground space-y-1">
+          <p>
+            Brain Hub firma il payload outbound per i workflow con HMAC abilitato. Verifica così la
+            request nel tuo workflow n8n:
+          </p>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>Leggi gli header <code>X-BrainHub-Signature</code> e <code>X-BrainHub-Timestamp</code>.</li>
+            <li>
+              Calcola HMAC SHA-256 su <code>timestamp + "." + JSON.stringify(payload)</code> usando
+              lo stesso secret della env var (default <code>{DEFAULT_HMAC_SECRET_ENV_KEY}</code>).
+            </li>
+            <li>
+              Confronta in modo time-safe con <code>sha256=&lt;digest_hex&gt;</code> ricevuto
+              nell'header.
+            </li>
+            <li>
+              Rifiuta richieste con timestamp più vecchi di ~5 minuti per prevenire replay.
+            </li>
+          </ol>
+          <p>Il secret non transita mai nel payload né nei log di Brain Hub.</p>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3 pt-6">
@@ -708,7 +739,19 @@ function RealWebhookEditor({
   const [env, setEnv] = useState<string>(workflow.webhook_environment ?? "test");
   const [enabled, setEnabled] = useState<boolean>(!!workflow.real_execution_enabled);
   const [requiresTg, setRequiresTg] = useState<boolean>(workflow.requires_telegram_approval !== false);
+  const [hmacEnabled, setHmacEnabled] = useState<boolean>(!!workflow.hmac_signing_enabled);
+  const [hmacEnvKey, setHmacEnvKey] = useState<string>(
+    workflow.hmac_secret_env_key || DEFAULT_HMAC_SECRET_ENV_KEY,
+  );
   const [saving, setSaving] = useState(false);
+
+  const hmacStatusFn = useServerFn(getN8nHmacSecretStatus);
+  const { data: hmacStatus } = useQuery({
+    queryKey: ["n8n-hmac-secret-status", hmacEnvKey],
+    queryFn: () => hmacStatusFn({ data: { env_keys: [hmacEnvKey] } }),
+    enabled: !!hmacEnvKey,
+  });
+  const secretConfigured = !!hmacStatus?.configured?.[hmacEnvKey];
 
   async function save() {
     setSaving(true);
@@ -743,6 +786,7 @@ function RealWebhookEditor({
           return;
         }
       }
+      const wasHmac = !!workflow.hmac_signing_enabled;
       await updateWorkflow(workflow.id, {
         webhook_test_url: testUrl || null,
         webhook_production_url: prodUrl || null,
@@ -750,6 +794,8 @@ function RealWebhookEditor({
         webhook_environment: env,
         real_execution_enabled: enabled,
         requires_telegram_approval: requiresTg,
+        hmac_signing_enabled: hmacEnabled,
+        hmac_secret_env_key: hmacEnvKey || DEFAULT_HMAC_SECRET_ENV_KEY,
       } as Partial<N8nWorkflow>);
       if (wasEnabled !== enabled) {
         await supabase.from("clipboard_execution_logs").insert({
@@ -758,6 +804,18 @@ function RealWebhookEditor({
           action: enabled ? "n8n_real_execution_enabled" : "n8n_real_execution_disabled",
           notes: `Esecuzione reale ${enabled ? "abilitata" : "disabilitata"}: ${workflow.workflow_name}`,
           metadata: { workflow_id: workflow.id },
+        } as never);
+      }
+      if (wasHmac !== hmacEnabled) {
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          clipboard_item_id: null,
+          action: hmacEnabled ? "n8n_hmac_enabled" : "n8n_hmac_disabled",
+          notes: `Firma HMAC ${hmacEnabled ? "abilitata" : "disabilitata"}: ${workflow.workflow_name}`,
+          metadata: {
+            workflow_id: workflow.id,
+            env_key: hmacEnvKey || DEFAULT_HMAC_SECRET_ENV_KEY,
+          },
         } as never);
       }
       toast.success("Webhook reale aggiornato");
@@ -849,6 +907,70 @@ function RealWebhookEditor({
               <input type="checkbox" checked={requiresTg} onChange={(e) => setRequiresTg(e.target.checked)} />
               Richiede approvazione Telegram
             </label>
+          </div>
+
+          {/* ============= Firma HMAC (v2.9) ============= */}
+          <div className="rounded border border-border/60 bg-background/40 p-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="font-medium text-foreground">Firma HMAC</div>
+              <Badge
+                variant="outline"
+                className={
+                  hmacEnabled
+                    ? secretConfigured
+                      ? "border-emerald-500/40 text-emerald-600"
+                      : "border-red-500/40 text-red-600"
+                    : "border-slate-500/40 text-slate-600"
+                }
+              >
+                {hmacEnabled ? (secretConfigured ? "ON · secret OK" : "ON · secret mancante") : "OFF"}
+              </Badge>
+            </div>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={hmacEnabled}
+                onChange={(e) => setHmacEnabled(e.target.checked)}
+              />
+              Richiedi firma HMAC sulle chiamate webhook
+            </label>
+            <label className="space-y-1 block">
+              <div className="text-muted-foreground">Env key del secret</div>
+              <Input
+                value={hmacEnvKey}
+                onChange={(e) => setHmacEnvKey(e.target.value)}
+                placeholder={DEFAULT_HMAC_SECRET_ENV_KEY}
+              />
+              <div className="text-muted-foreground">
+                Il valore del secret NON viene salvato in database né mostrato. Impostalo come
+                variabile d'ambiente sul server.
+              </div>
+            </label>
+            <div className="text-[11px]">
+              Stato secret server:{" "}
+              {secretConfigured ? (
+                <span className="text-emerald-600">configurato</span>
+              ) : (
+                <span className="text-red-600">mancante</span>
+              )}
+            </div>
+            {hmacEnabled && !secretConfigured && (
+              <div className="flex items-center gap-1 text-red-600">
+                <ShieldAlert className="h-3 w-3" /> HMAC richiesto ma secret "{hmacEnvKey}" non
+                configurato: l'esecuzione sarà bloccata.
+              </div>
+            )}
+            {enabled && env === "production" && !hmacEnabled && (
+              <div className="flex items-center gap-1 text-amber-600">
+                <AlertTriangle className="h-3 w-3" /> Production attivo senza firma HMAC: considera
+                di abilitarla.
+              </div>
+            )}
+            {enabled && !hmacEnabled && (
+              <div className="flex items-center gap-1 text-amber-600">
+                <AlertTriangle className="h-3 w-3" /> Esecuzione reale abilitata senza firma HMAC.
+              </div>
+            )}
           </div>
           {productionWarn && (
             <div className="flex items-center gap-1 text-amber-600">

@@ -14,6 +14,8 @@ export type N8nRealWorkflowRow = {
   requires_telegram_approval: boolean | null;
   last_real_execution_at: string | null;
   last_real_execution_status: string | null;
+  hmac_signing_enabled: boolean | null;
+  hmac_secret_env_key: string | null;
 };
 
 export type N8nRealLogRow = {
@@ -70,7 +72,7 @@ async function fetchWorkflows(brainId?: string | null): Promise<N8nRealWorkflowR
   let q = supabase
     .from("n8n_workflow_registry" as never)
     .select(
-      "id,workflow_name,brain_id,risk_level,webhook_environment,webhook_test_url,webhook_production_url,webhook_url,real_execution_enabled,requires_telegram_approval,last_real_execution_at,last_real_execution_status",
+      "id,workflow_name,brain_id,risk_level,webhook_environment,webhook_test_url,webhook_production_url,webhook_url,real_execution_enabled,requires_telegram_approval,last_real_execution_at,last_real_execution_status,hmac_signing_enabled,hmac_secret_env_key",
     )
     .order("last_real_execution_at", { ascending: false, nullsFirst: false });
   if (brainId) q = q.eq("brain_id", brainId);
@@ -200,6 +202,29 @@ export async function getN8nRealExecutionWarnings(
         title: `Ultima esecuzione fallita: ${w.workflow_name}`,
         description: "L'ultimo run reale non è andato a buon fine.",
         cta: { label: "Apri Action Queue", to: "/action-queue" },
+      });
+    }
+
+    // HMAC warnings (v2.9)
+    const hmacOn = !!w.hmac_signing_enabled;
+    if ((w.webhook_environment ?? "test") === "production" && !hmacOn) {
+      warnings.push({
+        id: `n8n_hmac_prod_no_sign_${w.id}`,
+        level: "warning",
+        title: `Production senza firma HMAC: ${w.workflow_name}`,
+        description:
+          "Production attivo ma il workflow non firma le request verso n8n. Considera di abilitare HMAC.",
+        cta: { label: "Apri n8n Workflows", to: "/n8n-workflows" },
+      });
+    }
+    if (!hmacOn && !w.requires_telegram_approval) {
+      warnings.push({
+        id: `n8n_hmac_no_sign_no_tg_${w.id}`,
+        level: "warning",
+        title: `Real enabled senza HMAC e senza Telegram approval: ${w.workflow_name}`,
+        description:
+          "Nessun controllo di integrità (HMAC) né approvazione Telegram. Abilita almeno uno dei due.",
+        cta: { label: "Apri n8n Workflows", to: "/n8n-workflows" },
       });
     }
   }
