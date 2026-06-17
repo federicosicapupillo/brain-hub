@@ -73,10 +73,12 @@ export const sendTelegramApproval = createServerFn({ method: "POST" })
     if (reqErr) throw new Error(reqErr.message);
     if (!req) throw new Error("Richiesta approvazione non trovata");
 
-    // Load destination
+    // Load destinations and pick best match (risk/type → brain default → global default)
     let destQuery = supabase
       .from("telegram_connection_settings")
-      .select("id,chat_id,label,is_enabled,default_for_approvals,brain_id")
+      .select(
+        "id,chat_id,label,is_enabled,default_for_approvals,brain_id,risk_levels,approval_types",
+      )
       .eq("user_id", userId)
       .eq("is_enabled", true);
     if (data.connection_id) {
@@ -84,11 +86,42 @@ export const sendTelegramApproval = createServerFn({ method: "POST" })
     } else if (req.brain_id) {
       destQuery = destQuery.or(`brain_id.eq.${req.brain_id},brain_id.is.null`);
     }
-    const { data: dests, error: dErr } = await destQuery.order("default_for_approvals", {
-      ascending: false,
-    });
+    const { data: destsRaw, error: dErr } = await destQuery;
     if (dErr) throw new Error(dErr.message);
-    const dest = (dests ?? [])[0];
+    type DestRow = {
+      id: string;
+      chat_id: string;
+      label: string;
+      is_enabled: boolean;
+      default_for_approvals: boolean;
+      brain_id: string | null;
+      risk_levels: string[] | null;
+      approval_types: string[] | null;
+    };
+    const dests = (destsRaw ?? []) as unknown as DestRow[];
+    const riskLevel = String(req.risk_level ?? "");
+    const approvalType = String(req.approval_type ?? "");
+    const matchRisk = (c: DestRow) =>
+      c.risk_levels && c.risk_levels.length > 0 ? c.risk_levels.includes(riskLevel) : true;
+    const matchType = (c: DestRow) =>
+      c.approval_types && c.approval_types.length > 0
+        ? c.approval_types.includes(approvalType)
+        : true;
+    const hasFilter = (c: DestRow) =>
+      (c.risk_levels && c.risk_levels.length > 0) ||
+      (c.approval_types && c.approval_types.length > 0);
+    let dest: DestRow | undefined =
+      dests.find(
+        (c) => c.brain_id === req.brain_id && hasFilter(c) && matchRisk(c) && matchType(c),
+      ) ??
+      dests.find((c) => c.brain_id === req.brain_id && c.default_for_approvals) ??
+      dests.find(
+        (c) => c.brain_id === null && hasFilter(c) && matchRisk(c) && matchType(c),
+      ) ??
+      dests.find((c) => c.brain_id === null && c.default_for_approvals) ??
+      dests.find((c) => c.brain_id === req.brain_id) ??
+      dests.find((c) => c.brain_id === null) ??
+      dests[0];
     if (!dest) {
       throw new Error(
         "Nessuna destinazione Telegram abilitata configurata. Aggiungi una destinazione in Telegram Approvals.",
@@ -189,6 +222,29 @@ export const sendTelegramApproval = createServerFn({ method: "POST" })
       .update(updatePayload as never)
       .eq("id", req.id);
     if (upErr) throw new Error(upErr.message);
+
+    // Append to delivery attempts ledger (best-effort, non-blocking)
+    try {
+      const { count } = await supabase
+        .from("telegram_delivery_attempts")
+        .select("id", { count: "exact", head: true })
+        .eq("approval_request_id", req.id);
+      const attemptNumber = (count ?? 0) + 1;
+      await supabase.from("telegram_delivery_attempts").insert({
+        user_id: userId,
+        brain_id: req.brain_id ?? null,
+        approval_request_id: req.id,
+        connection_id: dest.id,
+        delivery_status: ok ? "sent" : "failed",
+        telegram_message_id: messageId,
+        telegram_chat_id: dest.chat_id,
+        error_text: errorText ? errorText.slice(0, 500) : null,
+        receipt_json: receipt,
+        attempt_number: attemptNumber,
+      } as never);
+    } catch {
+      // swallow ledger errors; primary update already succeeded
+    }
 
     return {
       ok,
