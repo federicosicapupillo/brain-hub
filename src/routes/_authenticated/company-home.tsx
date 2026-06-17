@@ -278,11 +278,20 @@ function CompanyHomeRoute() {
               )
             }
           >
-            <Link to={next.cta.to} search={linkSearch}>
+          <Link to={next.cta.to} search={linkSearch}>
               {next.cta.label} <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
         </CardContent>
+        <div className="border-t bg-muted/30 px-6 py-3">
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/client-onboarding" search={linkSearch}>
+              <Sparkles className="mr-1 h-3 w-3" />
+              Apri percorso guidato
+              <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
+          </Button>
+        </div>
       </Card>
 
       {/* Percorso guidato */}
