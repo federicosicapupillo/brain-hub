@@ -985,3 +985,50 @@ function BuildEnginesMini({ brainId }: { brainId: string | null }) {
     </Card>
   );
 }
+
+function MvpFactoryMini({ brainId }: { brainId: string | null }) {
+  const { data: projects = [] } = useQuery({
+    queryKey: ["mvp-factory-mini", brainId],
+    queryFn: async () => {
+      const { listMvpProjects } = await import("@/lib/mvp-factory");
+      return listMvpProjects({ brain_id: brainId || undefined });
+    },
+  });
+  const draft = projects.filter((p) => p.status === "draft").length;
+  const ready = projects.filter(
+    (p) => p.status === "generated" || p.status === "approved",
+  ).length;
+  const last = projects[0];
+  const onOpen = async () => {
+    const { logMvpFactoryEvent } = await import("@/lib/mvp-factory");
+    void logMvpFactoryEvent(
+      "mvp_opened_from_operating_dashboard",
+      "Apertura MVP Factory da Operating Dashboard",
+      { brain_id: brainId },
+    );
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2"><Sparkles className="h-4 w-4" /> MVP Factory</span>
+          <Badge variant="outline">{draft} draft · {ready} ready</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="rounded border bg-background/40 p-2 text-xs">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Ultimo MVP</div>
+          <div className="truncate font-medium">{last?.title ?? "—"}</div>
+          {last?.recommended_engine ? (
+            <div className="mt-1 text-[10px] text-muted-foreground">Engine: {last.recommended_engine}</div>
+          ) : null}
+        </div>
+        <Button asChild size="sm" variant="outline" className="w-full" onClick={onOpen}>
+          <Link to="/mvp-factory" search={{ brain: brainId || undefined }}>
+            Apri MVP Factory <ArrowRight className="ml-1 h-3 w-3" />
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
