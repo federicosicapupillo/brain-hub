@@ -198,6 +198,39 @@ export async function getCalendarKnowledgeWarnings(
         cta,
       });
     }
+    // v3.1 — intelligence warnings (non-blocking)
+    try {
+      const intel = await getCalendarIntelligenceSummary(brainId ?? null);
+      if (intel.upcomingMissingPreparation > 0) {
+        out.push({
+          id: "calendar-missing-preparation",
+          level: "warning",
+          title: `${intel.upcomingMissingPreparation} eventi senza preparazione`,
+          description: "Alcuni eventi prossimi non hanno un'azione preparatoria suggerita.",
+          cta: { label: "Vedi suggerimenti", to: "/calendar-knowledge" },
+        });
+      }
+      if (intel.pastMissingFollowUp > 0) {
+        out.push({
+          id: "calendar-missing-followup",
+          level: "warning",
+          title: `${intel.pastMissingFollowUp} eventi senza follow-up`,
+          description: "Alcuni eventi recenti non hanno un follow-up registrato.",
+          cta: { label: "Apri Action Queue", to: "/action-queue" },
+        });
+      }
+      if (intel.unlinkedEvents >= 10) {
+        out.push({
+          id: "calendar-too-many-unlinked",
+          level: "info",
+          title: `${intel.unlinkedEvents} eventi non collegati a brain/progetto`,
+          description: "Collega gli eventi a brain o progetti per migliorare i suggerimenti.",
+          cta,
+        });
+      }
+    } catch {
+      // non-blocking
+    }
   } catch {
     // non-blocking
   }
@@ -221,9 +254,7 @@ export async function logCalendarEvent(
 }
 
 // ============================================================
-// Create an automation_action from a calendar event.
-// We use action_type 'manual_task' so we don't add to the strict
-// ActionType union. Source is 'user_manual'. Never executes anything.
+// Create an automation_action from a calendar event (legacy v3.0).
 // ============================================================
 export type CalendarActionSuggestion =
   | "prepare_meeting"
@@ -298,3 +329,354 @@ export async function linkCalendarEventToBrain(input: {
     .eq("id", input.eventId);
   if (error) throw error;
 }
+
+// ============================================================
+// Brain Hub v3.1 — Calendar Intelligence & Follow-up Actions
+// ============================================================
+// Read-only Calendar. Genera solo azioni interne suggested.
+// ============================================================
+
+export type CalendarEventClass =
+  | "meeting"
+  | "call_cliente"
+  | "scadenza"
+  | "appuntamento_tecnico"
+  | "review_interna"
+  | "contenuto_social"
+  | "altro";
+
+export type CalendarSuggestionType = "preparation" | "follow_up";
+
+export type CalendarSuggestionPriority = "low" | "medium" | "high";
+
+export type CalendarActionSuggestionItem = {
+  id: string; // composite: `${event.id}:${suggestionType}`
+  event: CalendarEvent;
+  eventClass: CalendarEventClass;
+  suggestionType: CalendarSuggestionType;
+  actionType:
+    | "meeting_preparation"
+    | "meeting_follow_up"
+    | "calendar_deadline_check"
+    | "calendar_content_check";
+  title: string;
+  description: string;
+  priority: CalendarSuggestionPriority;
+  alreadyExists: boolean;
+  ignored: boolean;
+};
+
+export function classifyCalendarEvent(event: CalendarEvent): CalendarEventClass {
+  const title = (event.title ?? "").toLowerCase();
+  const calName = (event.calendar_name ?? "").toLowerCase();
+  const desc = (event.description ?? "").toLowerCase();
+  const haystack = `${title} ${calName} ${desc}`;
+  const hasHangout = !!event.hangout_link;
+  const attendees = event.attendees_count ?? 0;
+
+  if (/scadenz|deadline|due\b|consegn/.test(haystack)) return "scadenza";
+  if (/social|post|reel|content|content[oi]|instagram|tiktok|linkedin/.test(haystack))
+    return "contenuto_social";
+  if (/review interna|retro|standup|stand-up|sync interno|team sync/.test(haystack))
+    return "review_interna";
+  if (/tecnic|installazione|sopralluogo|on[- ]?site|cantiere|intervento/.test(haystack))
+    return "appuntamento_tecnico";
+  if (/call|chiamat|cliente|client\b|customer|prospect|demo/.test(haystack))
+    return "call_cliente";
+  if (/meeting|riunion|incontro|kickoff|kick-off/.test(haystack) || hasHangout || attendees > 1)
+    return "meeting";
+  return "altro";
+}
+
+function priorityForEvent(
+  event: CalendarEvent,
+  cls: CalendarEventClass,
+): CalendarSuggestionPriority {
+  if (cls === "scadenza") return "high";
+  if (cls === "call_cliente" || cls === "appuntamento_tecnico") return "high";
+  const attendees = event.attendees_count ?? 0;
+  if (attendees >= 3) return "medium";
+  return "medium";
+}
+
+export function getEventPreparationSuggestion(
+  event: CalendarEvent,
+): CalendarActionSuggestionItem | null {
+  const cls = classifyCalendarEvent(event);
+  if (cls === "altro") return null;
+  const evTitle = event.title || "Evento";
+  const when = event.start_at ? new Date(event.start_at).toLocaleString() : "data sconosciuta";
+  const ignored = isSuggestionIgnored(event, "preparation");
+  let title = `Preparare: ${evTitle}`;
+  let description = `Recupera documenti collegati, prepara scaletta, verifica materiali e controlla note precedenti.`;
+  let actionType: CalendarActionSuggestionItem["actionType"] = "meeting_preparation";
+  if (cls === "scadenza") {
+    title = `Verifica scadenza: ${evTitle}`;
+    description = `Controlla cosa è dovuto entro la scadenza e che tutto sia pronto.`;
+    actionType = "calendar_deadline_check";
+  } else if (cls === "contenuto_social") {
+    title = `Verifica contenuto: ${evTitle}`;
+    description = `Controlla che il contenuto sia pronto, approvato e schedulato correttamente.`;
+    actionType = "calendar_content_check";
+  }
+  return {
+    id: `${event.id}:preparation`,
+    event,
+    eventClass: cls,
+    suggestionType: "preparation",
+    actionType,
+    title,
+    description: `${description} (${when})`,
+    priority: priorityForEvent(event, cls),
+    alreadyExists: false,
+    ignored,
+  };
+}
+
+export function getEventFollowUpSuggestion(
+  event: CalendarEvent,
+): CalendarActionSuggestionItem | null {
+  const cls = classifyCalendarEvent(event);
+  if (cls === "altro" || cls === "scadenza") return null;
+  const evTitle = event.title || "Evento";
+  const when = event.start_at ? new Date(event.start_at).toLocaleString() : "data sconosciuta";
+  const ignored = isSuggestionIgnored(event, "follow_up");
+  return {
+    id: `${event.id}:follow_up`,
+    event,
+    eventClass: cls,
+    suggestionType: "follow_up",
+    actionType: "meeting_follow_up",
+    title: `Follow-up: ${evTitle}`,
+    description: `Aggiorna note, assegna prossima azione, invia riepilogo, collega risultato a Result Review. (${when})`,
+    priority: priorityForEvent(event, cls),
+    alreadyExists: false,
+    ignored,
+  };
+}
+
+function isSuggestionIgnored(
+  event: CalendarEvent,
+  suggestionType: CalendarSuggestionType,
+): boolean {
+  const meta = event.metadata as Record<string, unknown> | null;
+  const arr = (meta?.ignored_suggestions ?? []) as unknown;
+  if (!Array.isArray(arr)) return false;
+  return arr.includes(suggestionType);
+}
+
+export async function getCalendarActionSuggestions(
+  brainId?: string | null,
+): Promise<CalendarActionSuggestionItem[]> {
+  const now = new Date();
+  const in7 = new Date(now);
+  in7.setDate(in7.getDate() + 7);
+  const past3 = new Date(now);
+  past3.setDate(past3.getDate() - 3);
+
+  // upcoming next 7d
+  let qUp = supabase
+    .from("calendar_event_map" as never)
+    .select("*")
+    .gte("start_at", now.toISOString())
+    .lte("start_at", in7.toISOString())
+    .order("start_at", { ascending: true })
+    .limit(100);
+  if (brainId) qUp = qUp.eq("brain_id", brainId);
+  const { data: upData, error: upErr } = await qUp;
+  if (upErr) throw upErr;
+
+  // past 3d
+  let qPast = supabase
+    .from("calendar_event_map" as never)
+    .select("*")
+    .gte("start_at", past3.toISOString())
+    .lt("start_at", now.toISOString())
+    .order("start_at", { ascending: false })
+    .limit(100);
+  if (brainId) qPast = qPast.eq("brain_id", brainId);
+  const { data: pastData, error: pastErr } = await qPast;
+  if (pastErr) throw pastErr;
+
+  const upcoming = (upData ?? []) as unknown as CalendarEvent[];
+  const past = (pastData ?? []) as unknown as CalendarEvent[];
+
+  // existing v3.1 calendar actions (avoid duplicates)
+  const eventIds = [...upcoming, ...past].map((e) => e.id);
+  let existing: Array<{ metadata: Record<string, unknown> | null }> = [];
+  if (eventIds.length > 0) {
+    const { data: ex } = await supabase
+      .from("automation_actions" as never)
+      .select("metadata")
+      .eq("source", "google_calendar");
+    existing = (ex ?? []) as unknown as typeof existing;
+  }
+  const existsKey = new Set<string>();
+  for (const a of existing) {
+    const m = a.metadata ?? {};
+    const evId = (m as Record<string, unknown>).calendar_event_map_id;
+    const st = (m as Record<string, unknown>).suggestion_type;
+    if (typeof evId === "string" && typeof st === "string") {
+      existsKey.add(`${evId}:${st}`);
+    }
+  }
+
+  const out: CalendarActionSuggestionItem[] = [];
+  for (const ev of upcoming) {
+    const s = getEventPreparationSuggestion(ev);
+    if (s) {
+      s.alreadyExists = existsKey.has(s.id);
+      out.push(s);
+    }
+  }
+  for (const ev of past) {
+    const s = getEventFollowUpSuggestion(ev);
+    if (s) {
+      s.alreadyExists = existsKey.has(s.id);
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+export async function createSuggestedActionsFromCalendarEvent(
+  eventId: string,
+  options: { suggestionType: CalendarSuggestionType },
+): Promise<{ action_id: string; duplicate: boolean }> {
+  const { data: u, error: ue } = await supabase.auth.getUser();
+  if (ue || !u.user) throw ue ?? new Error("Non autenticato");
+
+  const { data: evData, error: evErr } = await supabase
+    .from("calendar_event_map" as never)
+    .select("*")
+    .eq("id", eventId)
+    .single();
+  if (evErr) throw evErr;
+  const event = evData as unknown as CalendarEvent;
+
+  // anti-duplicate
+  const { data: existing } = await supabase
+    .from("automation_actions" as never)
+    .select("id, metadata")
+    .eq("source", "google_calendar")
+    .eq("user_id", u.user.id);
+  const dup = ((existing ?? []) as unknown as Array<{
+    id: string;
+    metadata: Record<string, unknown> | null;
+  }>).find(
+    (a) =>
+      (a.metadata?.calendar_event_map_id as string | undefined) === eventId &&
+      (a.metadata?.suggestion_type as string | undefined) === options.suggestionType,
+  );
+  if (dup) {
+    return { action_id: dup.id, duplicate: true };
+  }
+
+  const suggestion =
+    options.suggestionType === "preparation"
+      ? getEventPreparationSuggestion(event)
+      : getEventFollowUpSuggestion(event);
+  if (!suggestion) throw new Error("Nessun suggerimento applicabile per questo evento");
+
+  const payload = {
+    user_id: u.user.id,
+    source: "google_calendar",
+    action_type: suggestion.actionType,
+    title: suggestion.title,
+    description: suggestion.description,
+    priority: suggestion.priority,
+    risk_level: "low",
+    status: "suggested",
+    requires_confirmation: true,
+    brain_id: event.brain_id ?? null,
+    project_id: null,
+    metadata: {
+      source: "google_calendar",
+      calendar_event_map_id: event.id,
+      google_event_id: event.google_event_id,
+      google_calendar_id: event.google_calendar_id,
+      suggestion_type: options.suggestionType,
+      event_class: suggestion.eventClass,
+      calendar_event_title: event.title,
+      calendar_event_start_at: event.start_at,
+    },
+  };
+  const { data, error } = await supabase
+    .from("automation_actions" as never)
+    .insert(payload as never)
+    .select("id")
+    .single();
+  if (error) throw error;
+  const created = data as { id: string };
+
+  const logEvent: LogEventType =
+    options.suggestionType === "preparation"
+      ? "calendar_preparation_suggested"
+      : "calendar_followup_suggested";
+  await logCalendarEvent(logEvent, suggestion.title, {
+    action_id: created.id,
+    calendar_event_map_id: event.id,
+    suggestion_type: options.suggestionType,
+  });
+  await logCalendarEvent("calendar_action_created", suggestion.title, {
+    action_id: created.id,
+    calendar_event_map_id: event.id,
+    suggestion_type: options.suggestionType,
+  });
+  return { action_id: created.id, duplicate: false };
+}
+
+export async function ignoreCalendarSuggestion(
+  eventId: string,
+  suggestionType: CalendarSuggestionType,
+): Promise<void> {
+  const { data: evData, error: evErr } = await supabase
+    .from("calendar_event_map" as never)
+    .select("metadata")
+    .eq("id", eventId)
+    .single();
+  if (evErr) throw evErr;
+  const meta = ((evData as { metadata: Record<string, unknown> | null } | null)?.metadata ??
+    {}) as Record<string, unknown>;
+  const arr = Array.isArray(meta.ignored_suggestions)
+    ? (meta.ignored_suggestions as string[])
+    : [];
+  if (!arr.includes(suggestionType)) arr.push(suggestionType);
+  const newMeta = { ...meta, ignored_suggestions: arr };
+  const { error } = await supabase
+    .from("calendar_event_map" as never)
+    .update({ metadata: newMeta } as never)
+    .eq("id", eventId);
+  if (error) throw error;
+  await logCalendarEvent(
+    "calendar_suggestion_ignored",
+    `Suggerimento ${suggestionType} ignorato`,
+    { calendar_event_map_id: eventId, suggestion_type: suggestionType },
+  );
+}
+
+export type CalendarIntelligenceSummary = {
+  upcomingMissingPreparation: number;
+  pastMissingFollowUp: number;
+  unlinkedEvents: number;
+};
+
+export async function getCalendarIntelligenceSummary(
+  brainId?: string | null,
+): Promise<CalendarIntelligenceSummary> {
+  try {
+    const suggestions = await getCalendarActionSuggestions(brainId ?? null);
+    const upcomingMissingPreparation = suggestions.filter(
+      (s) => s.suggestionType === "preparation" && !s.alreadyExists && !s.ignored,
+    ).length;
+    const pastMissingFollowUp = suggestions.filter(
+      (s) => s.suggestionType === "follow_up" && !s.alreadyExists && !s.ignored,
+    ).length;
+    const events = await listUpcomingCalendarEvents({ brainId, limit: 100 });
+    const unlinkedEvents = events.filter((e) => !e.brain_id).length;
+    return { upcomingMissingPreparation, pastMissingFollowUp, unlinkedEvents };
+  } catch {
+    return { upcomingMissingPreparation: 0, pastMissingFollowUp: 0, unlinkedEvents: 0 };
+  }
+}
+

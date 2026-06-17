@@ -13,7 +13,11 @@ export type ActionType =
   | "review_pending_result"
   | "clean_orphan_logs"
   | "open_project_console"
-  | "manual_task";
+  | "manual_task"
+  | "meeting_preparation"
+  | "meeting_follow_up"
+  | "calendar_deadline_check"
+  | "calendar_content_check";
 
 export type ActionStatus =
   | "suggested"
@@ -31,7 +35,9 @@ export type ActionSource =
   | "next_prompt_generator"
   | "execution_tracking"
   | "user_manual"
-  | "system_suggestion";
+  | "system_suggestion"
+  | "google_calendar";
+
 
 export type RiskLevel = "low" | "medium" | "high";
 export type Priority = "low" | "medium" | "high";
@@ -76,6 +82,10 @@ export const ACTION_TYPE_LABEL: Record<ActionType, string> = {
   clean_orphan_logs: "Pulisci log scollegati",
   open_project_console: "Apri Project Console",
   manual_task: "Task manuale",
+  meeting_preparation: "Preparare riunione",
+  meeting_follow_up: "Follow-up dopo riunione",
+  calendar_deadline_check: "Verifica scadenza calendario",
+  calendar_content_check: "Verifica contenuto calendario",
 };
 
 export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
@@ -91,6 +101,10 @@ export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
   clean_orphan_logs: "medium",
   open_project_console: "low",
   manual_task: "low",
+  meeting_preparation: "low",
+  meeting_follow_up: "low",
+  calendar_deadline_check: "low",
+  calendar_content_check: "low",
 };
 
 export const STATUS_LABEL: Record<ActionStatus, string> = {
@@ -111,6 +125,7 @@ export const SOURCE_LABEL: Record<ActionSource, string> = {
   execution_tracking: "Execution Tracking",
   user_manual: "Manuale",
   system_suggestion: "Sistema",
+  google_calendar: "Google Calendar",
 };
 
 export const RISK_TONE: Record<RiskLevel, string> = {

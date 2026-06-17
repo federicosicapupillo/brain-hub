@@ -105,6 +105,7 @@ const SOURCE_BADGE: Record<ActionSource, string> = {
   execution_tracking: "Da Execution Tracking",
   user_manual: "Manuale",
   system_suggestion: "Sistema",
+  google_calendar: "Da Google Calendar",
 };
 
 export const Route = createFileRoute("/_authenticated/action-queue")({

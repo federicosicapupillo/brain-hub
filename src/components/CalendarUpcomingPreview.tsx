@@ -9,10 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarClock, CalendarDays } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, CalendarDays } from "lucide-react";
+import { toast } from "sonner";
 import {
   getCalendarKnowledgeSummary,
   listUpcomingCalendarEvents,
+  getCalendarIntelligenceSummary,
+  createSuggestedActionsFromCalendarEvent,
 } from "@/lib/calendar-knowledge";
 
 function fmtWhen(iso: string | null): string {
@@ -50,6 +53,29 @@ export function CalendarUpcomingPreview({
         limit: compact ? 3 : 6,
       }),
   });
+
+  const { data: intel, refetch: refetchIntel } = useQuery({
+    queryKey: ["calendar-intel", brainId ?? null],
+    queryFn: () => getCalendarIntelligenceSummary(brainId ?? null),
+  });
+
+  async function handleQuickPrep() {
+    const next = events.find(
+      (e) => e.start_at && new Date(e.start_at).getTime() > Date.now(),
+    );
+    if (!next) return;
+    try {
+      const res = await createSuggestedActionsFromCalendarEvent(next.id, {
+        suggestionType: "preparation",
+      });
+      toast.success(
+        res.duplicate ? "Action già presente in Action Queue" : "Action creata in Action Queue",
+      );
+      await refetchIntel();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
 
   const isConfigured = (summary?.connections ?? 0) > 0;
 
@@ -102,6 +128,22 @@ export function CalendarUpcomingPreview({
               </li>
             ))}
           </ul>
+        )}
+        {intel && intel.upcomingMissingPreparation > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded border border-amber-500/40 bg-amber-500/5 p-2">
+            <AlertTriangle className="h-3 w-3 text-amber-600" />
+            <span className="text-amber-700">
+              Preparazione mancante ({intel.upcomingMissingPreparation})
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto h-6 px-2 text-[11px]"
+              onClick={handleQuickPrep}
+            >
+              + Crea azione
+            </Button>
+          </div>
         )}
         <Button asChild size="sm" variant="outline" className="w-full">
           <Link to="/calendar-knowledge" search={{ brain: brainId ?? undefined }}>

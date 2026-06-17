@@ -33,9 +33,13 @@ import {
   listUpcomingCalendarEvents,
   createActionFromCalendarEvent,
   logCalendarEvent,
+  getCalendarActionSuggestions,
+  createSuggestedActionsFromCalendarEvent,
+  ignoreCalendarSuggestion,
   type CalendarConnection,
   type CalendarEvent,
   type CalendarActionSuggestion,
+  type CalendarActionSuggestionItem,
 } from "@/lib/calendar-knowledge";
 import {
   getGoogleCalendarOauthStatus,
@@ -157,6 +161,11 @@ function CalendarKnowledgePage() {
       }),
   });
 
+  const { data: suggestions = [], refetch: refetchSuggestions } = useQuery({
+    queryKey: ["calendar-suggestions", effectiveBrain],
+    queryFn: () => getCalendarActionSuggestions(effectiveBrain),
+  });
+
   const calendarNames = useMemo(() => {
     const set = new Set<string>();
     for (const e of events) if (e.calendar_name) set.add(e.calendar_name);
@@ -223,6 +232,32 @@ function CalendarKnowledgePage() {
     try {
       await createActionFromCalendarEvent({ event: ev, suggestion });
       toast.success("Action creata in Action Queue");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
+
+  async function handleCreateSuggested(s: CalendarActionSuggestionItem) {
+    try {
+      const res = await createSuggestedActionsFromCalendarEvent(s.event.id, {
+        suggestionType: s.suggestionType,
+      });
+      if (res.duplicate) {
+        toast.info("Action già presente in Action Queue");
+      } else {
+        toast.success("Action suggerita creata in Action Queue");
+      }
+      await refetchSuggestions();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
+
+  async function handleIgnoreSuggested(s: CalendarActionSuggestionItem) {
+    try {
+      await ignoreCalendarSuggestion(s.event.id, s.suggestionType);
+      toast.success("Suggerimento ignorato");
+      await refetchSuggestions();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Errore");
     }
@@ -388,6 +423,89 @@ function CalendarKnowledgePage() {
             Brain Hub non crea, modifica o cancella eventi. Non invia inviti. I token di
             accesso non vengono salvati: per sincronizzare di nuovo, riautorizza.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* v3.1 — Suggested actions from calendar */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <CalendarClock className="h-4 w-4" /> Azioni suggerite dal calendario (
+            {suggestions.filter((s) => !s.alreadyExists && !s.ignored).length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {suggestions.filter((s) => !s.alreadyExists && !s.ignored).length === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Nessuna azione suggerita dal calendario in questo momento.
+            </p>
+          ) : (
+            <ul className="divide-y divide-border/40">
+              {suggestions
+                .filter((s) => !s.alreadyExists && !s.ignored)
+                .map((s) => (
+                  <li key={s.id} className="space-y-1 py-3 text-xs">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-medium">{s.event.title || "Evento"}</span>
+                      <Badge variant="outline" className="text-[10px]">
+                        {s.event.start_at
+                          ? new Date(s.event.start_at).toLocaleString()
+                          : "—"}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {s.suggestionType === "preparation" ? "Preparazione" : "Follow-up"}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {s.eventClass}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={
+                          s.priority === "high"
+                            ? "border-red-500/40 text-red-600 text-[10px]"
+                            : s.priority === "medium"
+                              ? "border-amber-500/40 text-amber-600 text-[10px]"
+                              : "border-emerald-500/40 text-emerald-600 text-[10px]"
+                        }
+                      >
+                        {s.priority}
+                      </Badge>
+                    </div>
+                    <div className="text-muted-foreground">{s.description}</div>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={() => handleCreateSuggested(s)}
+                      >
+                        + Crea action
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-[11px]"
+                        onClick={() => handleIgnoreSuggested(s)}
+                      >
+                        Ignora
+                      </Button>
+                      {s.event.html_link && (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-[11px]"
+                        >
+                          <a href={s.event.html_link} target="_blank" rel="noreferrer">
+                            <ExternalLink className="mr-1 h-3 w-3" /> Apri evento
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
 
