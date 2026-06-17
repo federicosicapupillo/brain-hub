@@ -176,32 +176,18 @@ function LoopQaRoute() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <GitBranch className="h-4 w-4" /> Ultimo ciclo operativo
+                  <GitBranch className="h-4 w-4" /> Ultimi cicli operativi
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {summary.chain.nodes.length === 0 ? (
+              <CardContent className="space-y-3">
+                {summary.chains.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
                     Nessun ciclo recente. Crea una action o una review per iniziare.
                   </p>
                 ) : (
-                  <>
-                    <div className="space-y-1">
-                      {summary.chain.nodes.map((n, i) => (
-                        <ChainNodeRow key={i} node={n} />
-                      ))}
-                    </div>
-                    {summary.chain.missing.length > 0 && (
-                      <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs">
-                        <div className="font-medium text-amber-700">Dove si è fermato il lavoro?</div>
-                        <ul className="ml-4 list-disc text-amber-700/90">
-                          {summary.chain.missing.map((m, i) => (
-                            <li key={i}>{m}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </>
+                  summary.chains.map((c) => (
+                    <ChainCard key={c.id} chain={c} onOpen={openSection} />
+                  ))
                 )}
               </CardContent>
             </Card>
