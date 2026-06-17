@@ -431,3 +431,48 @@ function ChainCard({
     </div>
   );
 }
+
+function CompanyOsRow({ brainId }: { brainId: string | null }) {
+  const { data: summary } = useQuery({
+    queryKey: ["company-os-loop-qa-row", brainId],
+    queryFn: async () => {
+      const { getCompanyOsSummary } = await import("@/lib/company-os");
+      return getCompanyOsSummary(brainId);
+    },
+  });
+  const configured = !!summary?.configured;
+  const tone = configured
+    ? "border-emerald-500/30 bg-emerald-500/5"
+    : "border-amber-500/30 bg-amber-500/5";
+  const onOpen = async () => {
+    const { logCompanyOsEvent } = await import("@/lib/company-os");
+    void logCompanyOsEvent(
+      "company_os_opened_from_loop_qa",
+      "Apertura Company OS da Loop QA",
+      { brain_id: brainId },
+    );
+  };
+  return (
+    <div className={`rounded border p-3 text-sm ${tone}`}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="font-medium">
+            Company OS configurato: <span>{configured ? "Sì" : "No"}</span>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {configured
+              ? summary?.companyName
+                ? `Azienda: ${summary.companyName}`
+                : "Profilo aziendale presente"
+              : "Informativo — non influisce sulla salute del ciclo."}
+          </div>
+        </div>
+        <Button asChild size="sm" variant="outline" onClick={onOpen}>
+          <Link to="/company-os" search={{}}>
+            {configured ? "Apri Company OS" : "Configura Company OS"}
+          </Link>
+        </Button>
+      </div>
+    </div>
+  );
+}
