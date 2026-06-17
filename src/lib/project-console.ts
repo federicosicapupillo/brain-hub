@@ -86,6 +86,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "runbooks",
       "tool_connections",
       "knowledge_map",
+      "result_review",
     ],
   },
   immobiliare: {
