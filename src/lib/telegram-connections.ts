@@ -227,3 +227,58 @@ export async function logResendRequested(approvalId: string) {
     { approval_id: approvalId },
   );
 }
+
+export async function logRetryStarted(approvalId: string) {
+  await logEvent(
+    "telegram_delivery_retry_started" as LogEventType,
+    "Telegram delivery retry started",
+    { approval_id: approvalId },
+  );
+}
+
+export async function logStaleDetected(approvalId: string) {
+  await logEvent(
+    "telegram_delivery_stale_detected" as LogEventType,
+    "Telegram delivery stale detected",
+    { approval_id: approvalId },
+  );
+}
+
+export async function logDiagnosticsOpened(brainId: string | null) {
+  await logEvent(
+    "telegram_connection_diagnostics_opened" as LogEventType,
+    "Telegram diagnostics opened",
+    { brain_id: brainId },
+  );
+}
+
+export async function listDeliveryAttempts(approvalId: string): Promise<TelegramDeliveryAttempt[]> {
+  const { data, error } = await supabase
+    .from("telegram_delivery_attempts" as never)
+    .select("*")
+    .eq("approval_id", approvalId)
+    .order("attempt_number", { ascending: false })
+    .limit(20);
+  if (error) return [];
+  return (data ?? []) as unknown as TelegramDeliveryAttempt[];
+}
+
+export async function markTelegramDeliveryFailedManual(
+  approvalId: string,
+  reason: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("telegram_approval_requests" as never)
+    .update({
+      telegram_delivery_status: "failed",
+      telegram_error_text: reason.slice(0, 500),
+    } as never)
+    .eq("id", approvalId);
+  if (error) throw new Error(error.message);
+  await logEvent(
+    "telegram_delivery_unblocked" as LogEventType,
+    "Telegram delivery unblocked manually",
+    { approval_id: approvalId, reason: reason.slice(0, 200) },
+  );
+}
+
