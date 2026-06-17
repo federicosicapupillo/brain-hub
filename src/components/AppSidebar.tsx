@@ -25,6 +25,7 @@ import {
   LayoutDashboard,
   BookMarked,
   Send,
+  Building2,
 } from "lucide-react";
 import {
   Sidebar,
