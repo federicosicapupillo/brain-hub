@@ -541,6 +541,12 @@ function CompanyDashboard({ profile, onEdit }: { profile: CompanyOsProfile; onEd
             <Button asChild size="sm" variant="outline">
               <Link to="/knowledge-map" search={{}}>Knowledge Map</Link>
             </Button>
+            <Button asChild size="sm">
+              <Link to="/company-blueprint" search={{}}>Genera Company Blueprint</Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/company-blueprint" search={{}}>Apri Blueprint</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
