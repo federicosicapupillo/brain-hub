@@ -619,9 +619,9 @@ function DriveKnowledgeRoute() {
           <DialogHeader>
             <DialogTitle>Collega Google Drive</DialogTitle>
             <DialogDescription>
-              OAuth Google non è ancora configurato in questa versione. Creiamo un connettore
-              placeholder sicuro: potrai importare link Drive manualmente e mapparli alle
-              knowledge source.
+              Crea un connettore Drive. Dopo la creazione, usa "Autorizza Google Drive" per
+              completare l'OAuth read-only (scope <code>drive.metadata.readonly</code>). In
+              alternativa puoi sempre importare link Drive manualmente.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
