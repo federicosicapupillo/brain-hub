@@ -26,7 +26,8 @@ export type LoopChainNode =
   | { kind: "suggestion"; id: string; title: string; type: string; status: string; created_at: string }
   | { kind: "knowledge"; id: string; title: string; created_at: string }
   | { kind: "automation_action"; id: string; title: string; status: string; created_at: string }
-  | { kind: "next_prompt"; preview: string; created_at: string };
+  | { kind: "next_prompt"; preview: string; created_at: string }
+  | { kind: "telegram"; id: string; status: string; created_at: string };
 
 export type LoopChain = {
   startedFrom: "action" | "review" | "none";
@@ -34,11 +35,23 @@ export type LoopChain = {
   missing: string[];
 };
 
+export type LoopMultiChain = LoopChain & {
+  id: string;
+  title: string;
+  reviewId: string | null;
+  reviewStatus: string | null;
+  suggestionsCount: number;
+  createdObjectKind: "knowledge" | "automation_action" | "next_prompt" | null;
+  stopStep: string | null;
+  createdAt: string;
+};
+
 export type LoopSummary = {
   health: "healthy" | "incomplete" | "warning";
   steps: LoopStep[];
   warnings: LoopWarning[];
   chain: LoopChain;
+  chains: LoopMultiChain[];
   counters: {
     actions: number;
     reviews: number;
@@ -47,6 +60,7 @@ export type LoopSummary = {
     knowledgeNotes: number;
     roadmapUpdateActions: number;
     nextPromptCreated: number;
+    incompleteChains: number;
   };
 };
 
