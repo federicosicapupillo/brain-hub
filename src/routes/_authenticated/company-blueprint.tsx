@@ -511,6 +511,24 @@ function BlueprintPreview({ content }: { content: BlueprintContent }) {
             </div>
           ))
         )}
+        <div className="pt-2">
+          <Button asChild size="sm" variant="outline">
+            <Link
+              to="/build-engines"
+              search={{}}
+              onClick={() => {
+                void import("@/lib/build-engines").then((m) =>
+                  m.logBuildEngineEvent(
+                    "build_engine_opened_from_company_blueprint",
+                    "Apertura Build Engines da Company Blueprint",
+                  ),
+                );
+              }}
+            >
+              Prepara con Build Engine
+            </Link>
+          </Button>
+        </div>
       </Section>
 
       <Section title="Conclusione">

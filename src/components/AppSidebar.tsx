@@ -26,6 +26,7 @@ import {
   BookMarked,
   Send,
   Building2,
+  Cpu,
 } from "lucide-react";
 import {
   Sidebar,
@@ -43,6 +44,7 @@ import {
 const items = [
   { title: "Company OS", url: "/company-os", icon: Building2 },
   { title: "Company Blueprint", url: "/company-blueprint", icon: BookMarked },
+  { title: "Build Engines", url: "/build-engines", icon: Cpu },
   { title: "Live", url: "/live", icon: Activity },
   { title: "Connettori", url: "/connettori", icon: Plug },
   { title: "Strumenti Progetti", url: "/strumenti-progetti", icon: PlugZap },
