@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getDriveKnowledgeSummary } from "@/lib/drive-knowledge";
 
 export type SimpleStepStatus = "done" | "todo" | "warning";
 
@@ -44,6 +45,11 @@ export type CompanyHomeSummary = {
   toolsMissing: number;
   knowledgeCount: number;
   handoffsActive: number;
+  driveConnections: number;
+  driveConfigured: number;
+  driveFilesMapped: number;
+  driveKnowledgeCount: number;
+  driveStatus: "not_configured" | "configured" | "mapped" | "knowledge_ready";
 };
 
 export type CompanyHomeNextAction = {
@@ -64,7 +70,8 @@ export type CompanyHomeEvent =
   | "company_home_card_opened"
   | "company_home_expert_mode_opened"
   | "company_home_brain_selected"
-  | "company_home_empty_state_opened";
+  | "company_home_empty_state_opened"
+  | "drive_opened_from_company_home";
 
 export type CompanyHomeOption = {
   brainId: string;
@@ -181,10 +188,15 @@ export async function getCompanyHomeSummary(
     toolsMissing: 0,
     knowledgeCount: 0,
     handoffsActive: 0,
+    driveConnections: 0,
+    driveConfigured: 0,
+    driveFilesMapped: 0,
+    driveKnowledgeCount: 0,
+    driveStatus: "not_configured",
   };
   if (!resolved) return empty;
 
-  const [profile, blueprint, mvps, actions, results, suggestions, tools, knowledge, handoffs] =
+  const [profile, blueprint, mvps, actions, results, suggestions, tools, knowledge, handoffs, drive] =
     await Promise.all([
       supabase
         .from("company_os_profiles")
@@ -225,6 +237,7 @@ export async function getCompanyHomeSummary(
         .from("build_engine_handoffs")
         .select("id,handoff_status")
         .eq("brain_id", resolved),
+      getDriveKnowledgeSummary(resolved).catch(() => null),
     ]);
 
   const actionRows = (actions.data ?? []) as Array<{ status: string; risk_level: string }>;
@@ -272,6 +285,18 @@ export async function getCompanyHomeSummary(
     handoffsActive: handoffRows.filter((h) =>
       ["ready", "sent", "in_progress"].includes(h.handoff_status),
     ).length,
+    driveConnections: drive?.connections ?? 0,
+    driveConfigured: drive?.configuredConnections ?? 0,
+    driveFilesMapped: drive?.totalFiles ?? 0,
+    driveKnowledgeCount: drive?.knowledgeSourcesCreated ?? 0,
+    driveStatus:
+      !drive || drive.connections === 0
+        ? "not_configured"
+        : drive.knowledgeSourcesCreated > 0
+          ? "knowledge_ready"
+          : drive.totalFiles > 0
+            ? "mapped"
+            : "configured",
   };
 }
 
@@ -467,9 +492,19 @@ export function getCompanyHomeCards(s: CompanyHomeSummary): SimpleHomeCard[] {
       id: "knowledge",
       title: "Documenti e conoscenza",
       metric: `${s.knowledgeCount} documenti`,
-      hint: s.knowledgeCount > 0 ? "Base di conoscenza attiva" : "Nessun documento caricato",
-      cta: { label: "Apri documenti", to: "/knowledge-map" },
-      tone: s.knowledgeCount > 0 ? "ok" : "muted",
+      hint:
+        s.driveConnections > 0
+          ? `Drive: ${s.driveFilesMapped} file mappati · ${s.driveKnowledgeCount} knowledge`
+          : s.knowledgeCount > 0
+            ? "Base di conoscenza attiva · Drive non collegato"
+            : "Nessun documento caricato · Drive non collegato",
+      cta: { label: "Apri documenti", to: "/drive-knowledge" },
+      tone:
+        s.driveStatus === "knowledge_ready" || s.knowledgeCount > 0
+          ? "ok"
+          : s.driveStatus === "mapped" || s.driveStatus === "configured"
+            ? "muted"
+            : "muted",
     },
   ];
 }

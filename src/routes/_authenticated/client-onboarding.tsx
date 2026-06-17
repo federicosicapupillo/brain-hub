@@ -214,13 +214,20 @@ function ClientOnboardingRoute() {
                   asChild
                   size="sm"
                   variant={step.status === "done" ? "ghost" : "outline"}
-                  onClick={() =>
+                  onClick={() => {
                     void logClientOnboardingEvent(
                       "client_onboarding_step_opened",
                       `Step aperto: ${step.id}`,
                       { step: step.id, to: step.ctaTo, brain: brainId },
-                    )
-                  }
+                    );
+                    if (step.id === "documents") {
+                      void logClientOnboardingEvent(
+                        "drive_opened_from_client_onboarding",
+                        "Apertura Drive Knowledge dal percorso guidato",
+                        { brain: brainId },
+                      );
+                    }
+                  }}
                 >
                   <Link to={step.ctaTo} search={linkSearch}>
                     {step.ctaLabel} <ArrowRight className="ml-1 h-3 w-3" />

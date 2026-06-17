@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { getN8nRealExecutionWarnings } from "@/lib/n8n-real-execution";
+import { getDriveKnowledgeWarnings } from "@/lib/drive-knowledge";
 
 
 
@@ -373,6 +374,22 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
+  // Drive Knowledge warnings (v2.8)
+  try {
+    const driveWarnings = await getDriveKnowledgeWarnings(brainId ?? null);
+    for (const w of driveWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
 
 
   // Single chain (legacy) + multi-chain history (v1.9.2)
@@ -607,7 +624,11 @@ export async function getLoopWarnings(brainId?: string | null): Promise<LoopWarn
 }
 
 export async function logLoopQaEvent(
-  action: "loop_qa_viewed" | "loop_qa_warning_opened" | "loop_qa_related_section_opened",
+  action:
+    | "loop_qa_viewed"
+    | "loop_qa_warning_opened"
+    | "loop_qa_related_section_opened"
+    | "drive_warning_opened_from_loop_qa",
   notes: string,
   metadata: Record<string, unknown> = {},
 ) {

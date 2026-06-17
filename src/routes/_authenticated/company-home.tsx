@@ -344,13 +344,20 @@ function CompanyHomeRoute() {
                   size="sm"
                   variant="outline"
                   className="w-full"
-                  onClick={() =>
+                  onClick={() => {
                     void logCompanyHomeEvent(
                       "company_home_card_opened",
                       `Card aperta: ${card.id}`,
                       { card: card.id, to: card.cta.to, brain: brainId },
-                    )
-                  }
+                    );
+                    if (card.id === "knowledge") {
+                      void logCompanyHomeEvent(
+                        "drive_opened_from_company_home",
+                        "Apertura Drive Knowledge da Home Azienda",
+                        { brain: brainId, files: summary.driveFilesMapped },
+                      );
+                    }
+                  }}
                 >
                   <Link to={card.cta.to} search={linkSearch}>
                     {card.cta.label} <ArrowRight className="ml-1 h-3 w-3" />
