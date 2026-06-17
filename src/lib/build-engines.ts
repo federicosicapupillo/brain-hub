@@ -301,8 +301,254 @@ export async function listBuildEngines(brainId?: string | null): Promise<BuildEn
   return Array.from(map.values());
 }
 
+export type BuildEngineDetailed = BuildEngine & {
+  is_default: boolean;
+  is_custom: boolean;
+  has_override: boolean;
+};
+
+export async function listBuildEnginesDetailed(
+  brainId?: string | null,
+): Promise<BuildEngineDetailed[]> {
+  const { data, error } = await supabase
+    .from("build_engine_registry" as never)
+    .select("*")
+    .order("engine_name", { ascending: true });
+  const rows = error ? [] : ((data ?? []) as unknown as BuildEngine[]);
+  const userScoped = brainId
+    ? rows.filter((r) => !r.brain_id || r.brain_id === brainId)
+    : rows;
+  const overrideKeys = new Set(userScoped.map((r) => r.engine_key));
+  const out: BuildEngineDetailed[] = [];
+  const seen = new Set<string>();
+  // Defaults (with override applied if exists)
+  for (const def of DEFAULT_ENGINES) {
+    const ov = userScoped.find((r) => r.engine_key === def.engine_key);
+    const base = ov ?? def;
+    out.push({
+      ...base,
+      is_default: true,
+      is_custom: false,
+      has_override: !!ov,
+    });
+    seen.add(def.engine_key);
+  }
+  // Custom-only engines (not in defaults)
+  for (const r of userScoped) {
+    if (seen.has(r.engine_key)) continue;
+    out.push({ ...r, is_default: false, is_custom: true, has_override: false });
+  }
+  return out.sort((a, b) => a.engine_name.localeCompare(b.engine_name));
+  // suppress unused warning
+  void overrideKeys;
+}
+
 export function getBuildEngine(engineKey: string): BuildEngine | undefined {
   return DEFAULT_ENGINES.find((e) => e.engine_key === engineKey);
+}
+
+export function isDefaultEngineKey(engineKey: string): boolean {
+  return DEFAULT_ENGINES.some((e) => e.engine_key === engineKey);
+}
+
+// ============================================================
+// Validation / Sanitization for engine registry input
+// ============================================================
+
+const SENSITIVE_KEY_PATTERNS = [
+  /api[_-]?key/i,
+  /token/i,
+  /password/i,
+  /authorization/i,
+  /bearer/i,
+  /secret/i,
+  /webhook[_-]?secret/i,
+  /access[_-]?key/i,
+  /private[_-]?key/i,
+];
+
+export function validateEngineKey(engineKey: string): { ok: true } | { ok: false; error: string } {
+  if (!engineKey || engineKey.length < 2) {
+    return { ok: false, error: "Engine key troppo corto" };
+  }
+  if (engineKey.length > 60) {
+    return { ok: false, error: "Engine key troppo lungo (max 60)" };
+  }
+  if (!/^[a-z0-9_-]+$/.test(engineKey)) {
+    return {
+      ok: false,
+      error: "Solo lettere minuscole, numeri, underscore o trattino",
+    };
+  }
+  return { ok: true };
+}
+
+function looksSensitive(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  return SENSITIVE_KEY_PATTERNS.some((p) => p.test(value));
+}
+
+export function sanitizeEngineMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  if (!metadata || typeof metadata !== "object") return {};
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(metadata)) {
+    if (SENSITIVE_KEY_PATTERNS.some((p) => p.test(k))) continue;
+    if (looksSensitive(v)) continue;
+    if (typeof v === "string" && v.length > 2000) continue;
+    clean[k] = v;
+  }
+  return clean;
+}
+
+export function sanitizeToolUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  if (SENSITIVE_KEY_PATTERNS.some((p) => p.test(trimmed))) return null;
+  return trimmed.slice(0, 500);
+}
+
+export type EngineRegistryInput = {
+  engine_key: string;
+  engine_name: string;
+  engine_type: EngineType;
+  status: EngineStatus;
+  connection_mode: ConnectionMode;
+  best_for: string[];
+  limitations: string[];
+  risk_level: RiskLevel | null;
+  tool_url: string | null;
+  metadata?: Record<string, unknown>;
+  brain_id?: string | null;
+};
+
+async function getEngineRowByKey(
+  engineKey: string,
+  brainId: string | null | undefined,
+): Promise<{ id: string } | null> {
+  let q = supabase
+    .from("build_engine_registry" as never)
+    .select("id,brain_id")
+    .eq("engine_key", engineKey);
+  if (brainId) q = q.or(`brain_id.eq.${brainId},brain_id.is.null`);
+  const { data } = await q.limit(1);
+  const row = (data ?? [])[0] as { id: string } | undefined;
+  return row ?? null;
+}
+
+export async function createCustomBuildEngine(
+  input: EngineRegistryInput,
+): Promise<BuildEngine> {
+  const keyCheck = validateEngineKey(input.engine_key);
+  if (!keyCheck.ok) throw new Error(keyCheck.error);
+  const { data: u, error: ue } = await supabase.auth.getUser();
+  if (ue || !u.user) throw ue ?? new Error("Non autenticato");
+  const existing = await getEngineRowByKey(input.engine_key, input.brain_id ?? null);
+  if (existing) throw new Error("Esiste già un engine con questa key");
+  const payload = {
+    user_id: u.user.id,
+    brain_id: input.brain_id ?? null,
+    engine_key: input.engine_key,
+    engine_name: input.engine_name,
+    engine_type: input.engine_type,
+    status: input.status,
+    connection_mode: input.connection_mode,
+    best_for: input.best_for,
+    limitations: input.limitations,
+    risk_level: input.risk_level,
+    tool_url: sanitizeToolUrl(input.tool_url),
+    metadata: sanitizeEngineMetadata(input.metadata),
+  };
+  const { data, error } = await supabase
+    .from("build_engine_registry" as never)
+    .insert(payload as never)
+    .select()
+    .single();
+  if (error) throw error;
+  const created = data as unknown as BuildEngine;
+  await logBuildEngineEvent(
+    isDefaultEngineKey(input.engine_key)
+      ? "build_engine_override_created"
+      : "build_engine_custom_created",
+    `Engine ${input.engine_name} creato`,
+    { engine_key: input.engine_key, is_default_override: isDefaultEngineKey(input.engine_key) },
+  );
+  return created;
+}
+
+export async function updateBuildEngine(
+  engineId: string,
+  input: Partial<EngineRegistryInput>,
+): Promise<void> {
+  const patch: Record<string, unknown> = {};
+  if (input.engine_name !== undefined) patch.engine_name = input.engine_name;
+  if (input.engine_type !== undefined) patch.engine_type = input.engine_type;
+  if (input.status !== undefined) patch.status = input.status;
+  if (input.connection_mode !== undefined) patch.connection_mode = input.connection_mode;
+  if (input.best_for !== undefined) patch.best_for = input.best_for;
+  if (input.limitations !== undefined) patch.limitations = input.limitations;
+  if (input.risk_level !== undefined) patch.risk_level = input.risk_level;
+  if (input.tool_url !== undefined) patch.tool_url = sanitizeToolUrl(input.tool_url);
+  if (input.metadata !== undefined) patch.metadata = sanitizeEngineMetadata(input.metadata);
+  const { error } = await supabase
+    .from("build_engine_registry" as never)
+    .update(patch as never)
+    .eq("id", engineId);
+  if (error) throw error;
+  await logBuildEngineEvent("build_engine_updated", `Engine aggiornato`, {
+    engine_id: engineId,
+  });
+}
+
+export async function disableBuildEngine(engineKey: string, brainId?: string | null): Promise<void> {
+  const existing = await getEngineRowByKey(engineKey, brainId ?? null);
+  if (existing) {
+    await updateBuildEngine(existing.id, { status: "disabled" });
+  } else {
+    const def = getBuildEngine(engineKey);
+    if (!def) throw new Error("Engine non trovato");
+    await createCustomBuildEngine({
+      ...def,
+      brain_id: brainId ?? null,
+      status: "disabled",
+      metadata: def.metadata,
+    });
+  }
+  await logBuildEngineEvent("build_engine_disabled", `Engine disabilitato`, {
+    engine_key: engineKey,
+  });
+}
+
+export async function enableBuildEngine(engineKey: string, brainId?: string | null): Promise<void> {
+  const existing = await getEngineRowByKey(engineKey, brainId ?? null);
+  if (existing) {
+    await updateBuildEngine(existing.id, { status: "available" });
+  }
+  await logBuildEngineEvent("build_engine_enabled", `Engine riattivato`, {
+    engine_key: engineKey,
+  });
+}
+
+export async function resetBuildEngineOverride(
+  engineKey: string,
+  brainId?: string | null,
+): Promise<void> {
+  if (!isDefaultEngineKey(engineKey)) {
+    throw new Error("Reset disponibile solo per engine predefiniti");
+  }
+  const existing = await getEngineRowByKey(engineKey, brainId ?? null);
+  if (!existing) return;
+  const { error } = await supabase
+    .from("build_engine_registry" as never)
+    .delete()
+    .eq("id", existing.id);
+  if (error) throw error;
+  await logBuildEngineEvent("build_engine_override_reset", `Override rimosso`, {
+    engine_key: engineKey,
+  });
 }
 
 // ============================================================
@@ -700,7 +946,16 @@ export type BuildEngineEvent =
   | "build_engine_result_review_created"
   | "build_engine_opened_from_company_blueprint"
   | "build_engine_opened_from_company_os"
-  | "build_engine_opened_from_operating_dashboard";
+  | "build_engine_opened_from_operating_dashboard"
+  | "build_engine_custom_created"
+  | "build_engine_override_created"
+  | "build_engine_updated"
+  | "build_engine_disabled"
+  | "build_engine_enabled"
+  | "build_engine_override_reset"
+  | "build_engine_handoff_archived"
+  | "build_engine_router_prefilled_from_company_os"
+  | "build_engine_router_prefilled_from_company_blueprint";
 
 export async function logBuildEngineEvent(
   action: BuildEngineEvent,

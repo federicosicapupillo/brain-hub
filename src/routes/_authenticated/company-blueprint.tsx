@@ -343,7 +343,12 @@ function CompanyBlueprintRoute() {
                 </CardHeader>
               </Card>
 
-              <BlueprintPreview content={currentContent} />
+              <BlueprintPreview
+                content={currentContent}
+                blueprintId={activeRow?.id ?? null}
+                brainId={brainId}
+              />
+
             </>
           ) : (
             <Card>
@@ -378,7 +383,16 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function BlueprintPreview({ content }: { content: BlueprintContent }) {
+function BlueprintPreview({
+  content,
+  blueprintId,
+  brainId,
+}: {
+  content: BlueprintContent;
+  blueprintId: string | null;
+  brainId: string;
+}) {
+
   return (
     <>
       <Section title="Executive Summary">
@@ -499,36 +513,72 @@ function BlueprintPreview({ content }: { content: BlueprintContent }) {
         {content.nextActions.length === 0 ? (
           <p className="text-xs text-muted-foreground">Nessuna azione consigliata.</p>
         ) : (
-          content.nextActions.map((a, i) => (
-            <div key={i} className="rounded border p-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-sm font-semibold">{a.title}</div>
-                <Badge variant="outline">{a.department}</Badge>
-                <Badge variant="outline">priorità {a.priority}</Badge>
-                <Badge variant="outline">rischio {a.risk_level}</Badge>
+          content.nextActions.map((a, i) => {
+            const guess = guessEngineForAction(a.title, a.reason);
+            return (
+              <div key={i} className="rounded border p-2 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-sm font-semibold">{a.title}</div>
+                  <Badge variant="outline">{a.department}</Badge>
+                  <Badge variant="outline">priorità {a.priority}</Badge>
+                  <Badge variant="outline">rischio {a.risk_level}</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground">{a.reason}</div>
+                <div className="pt-1">
+                  <Button asChild size="sm" variant="ghost">
+                    <Link
+                      to="/build-engines"
+                      search={{
+                        brain: brainId || undefined,
+                        source: "company_blueprint",
+                        source_id: blueprintId ?? undefined,
+                        task_type: guess.task_type,
+                        title: a.title,
+                        description: a.reason,
+                        preferred_engine: guess.preferred_engine ?? undefined,
+                      }}
+                      onClick={() => {
+                        void import("@/lib/build-engines").then((m) =>
+                          m.logBuildEngineEvent(
+                            "build_engine_opened_from_company_blueprint",
+                            "Apertura Build Engines da azione Blueprint",
+                            { blueprint_id: blueprintId, action_title: a.title },
+                          ),
+                        );
+                      }}
+                    >
+                      Prepara con Build Engine
+                    </Link>
+                  </Button>
+                </div>
               </div>
-              <div className="text-xs text-muted-foreground">{a.reason}</div>
-            </div>
-          ))
+            );
+          })
         )}
         <div className="pt-2">
           <Button asChild size="sm" variant="outline">
             <Link
               to="/build-engines"
-              search={{}}
+              search={{
+                brain: brainId || undefined,
+                source: "company_blueprint",
+                source_id: blueprintId ?? undefined,
+              }}
               onClick={() => {
                 void import("@/lib/build-engines").then((m) =>
                   m.logBuildEngineEvent(
                     "build_engine_opened_from_company_blueprint",
                     "Apertura Build Engines da Company Blueprint",
+                    { blueprint_id: blueprintId },
                   ),
                 );
               }}
             >
-              Prepara con Build Engine
+              Apri Build Engines
             </Link>
           </Button>
         </div>
+
       </Section>
 
       <Section title="Conclusione">
@@ -538,4 +588,30 @@ function BlueprintPreview({ content }: { content: BlueprintContent }) {
       </Section>
     </>
   );
+}
+
+function guessEngineForAction(
+  title: string,
+  reason: string,
+): { task_type: "new_mvp" | "feature" | "ui_design" | "automation" | "bug_fix" | "documentation" | "analysis"; preferred_engine: string | null } {
+  const t = `${title} ${reason}`.toLowerCase();
+  if (/dashboard|app|mvp|piattaforma|portale/.test(t)) {
+    return { task_type: "new_mvp", preferred_engine: "lovable" };
+  }
+  if (/ui|design|landing|componente|grafica|interfaccia/.test(t)) {
+    return { task_type: "ui_design", preferred_engine: "v0" };
+  }
+  if (/bug|errore|refactor|tecnic[oa]|codice|legacy/.test(t)) {
+    return { task_type: "bug_fix", preferred_engine: "claude_code" };
+  }
+  if (/automa|n8n|workflow|integrazione|webhook|telegram/.test(t)) {
+    return { task_type: "automation", preferred_engine: null };
+  }
+  if (/document|runbook|sop|knowledge|guida/.test(t)) {
+    return { task_type: "documentation", preferred_engine: "manual_developer" };
+  }
+  if (/analisi|review|report|audit/.test(t)) {
+    return { task_type: "analysis", preferred_engine: "claude_code" };
+  }
+  return { task_type: "feature", preferred_engine: null };
 }
