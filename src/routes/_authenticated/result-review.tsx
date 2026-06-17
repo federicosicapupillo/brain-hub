@@ -120,6 +120,13 @@ function ResultReviewRoute() {
       <PageHeader
         title="Result Review"
         subtitle="Rivedi i risultati prodotti da Lovable, Codex, n8n, Browser Bridge e azioni manuali. Decidi cosa è ok, cosa va corretto, cosa è fallito."
+        actions={
+          <MasterSnapshotUpdateButton
+            source="result_review"
+            brainId={brainId}
+            defaultReason="Aggiornamento da Result Review"
+          />
+        }
       />
 
       <div className="flex flex-wrap items-center gap-3">
