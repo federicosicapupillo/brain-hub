@@ -144,6 +144,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "result_review",
       "loop_qa",
       "company_os",
+      "mvp_factory",
     ],
   },
   content_creation: {
@@ -154,8 +155,9 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   roadmap_operativa: {
     label: "Roadmap Operativa",
     priority: "generico",
-    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review", "loop_qa", "company_os"],
+    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review", "loop_qa", "company_os", "mvp_factory"],
   },
+
 };
 
 export type ConsoleConfig = {
