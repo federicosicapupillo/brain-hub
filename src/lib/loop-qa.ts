@@ -3,6 +3,7 @@ import { getN8nRealExecutionWarnings } from "@/lib/n8n-real-execution";
 import { getDriveKnowledgeWarnings } from "@/lib/drive-knowledge";
 import { getCalendarKnowledgeWarnings } from "@/lib/calendar-knowledge";
 import { getGithubOperationalWarnings } from "@/lib/github-operational";
+import { getAgentCenterWarnings } from "@/lib/agent-center";
 
 
 
