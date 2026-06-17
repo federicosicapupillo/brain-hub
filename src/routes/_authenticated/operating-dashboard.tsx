@@ -1240,17 +1240,26 @@ function AgentRunsMini({ brainId }: { brainId: string | null }) {
   const { data } = useQuery({
     queryKey: ["agent-runs-mini", brainId],
     queryFn: async () => {
-      const { getAgentRunSummary, getAgentRunWarnings } = await import("@/lib/agent-runs");
-      const [summary, warnings] = await Promise.all([
+      const { getAgentRunSummary, getAgentRunWarnings, listAgentRuns } = await import("@/lib/agent-runs");
+      const [summary, warnings, runs] = await Promise.all([
         getAgentRunSummary(brainId),
         getAgentRunWarnings(brainId).catch(() => []),
+        listAgentRuns(brainId).catch(() => []),
       ]);
-      return { summary, warnings };
+      const aiReady = runs.filter(
+        (r) => r.ai_handoff_status === "prompt_ready" || r.ai_handoff_status === "prompt_copied",
+      ).length;
+      const aiToReview = runs.filter(
+        (r) => r.ai_handoff_status === "result_received",
+      ).length;
+      return { summary, warnings, aiReady, aiToReview };
     },
   });
   const total = data?.summary.total ?? 0;
   const completed = data?.summary.completed ?? 0;
   const actions = data?.summary.action_created ?? 0;
+  const aiReady = data?.aiReady ?? 0;
+  const aiToReview = data?.aiToReview ?? 0;
   const warnCount = data?.warnings.length ?? 0;
   const tone =
     warnCount > 0
@@ -1269,6 +1278,10 @@ function AgentRunsMini({ brainId }: { brainId: string | null }) {
           <Tile label="Run totali" value={total} />
           <Tile label="Completate" value={completed} />
           <Tile label="Con action" value={actions} tone={actions > 0 ? "amber" : undefined} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Tile label="AI prompt pronti" value={aiReady} tone={aiReady > 0 ? "amber" : undefined} />
+          <Tile label="AI da revisionare" value={aiToReview} tone={aiToReview > 0 ? "amber" : undefined} />
         </div>
         <Button asChild size="sm" variant="outline" className="w-full">
           <Link to="/agent-runs">Apri Run Console <ArrowRight className="ml-1 h-3 w-3" /></Link>
