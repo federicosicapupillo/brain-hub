@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import {
+  AlertTriangle,
   ArrowRight,
   ExternalLink,
   ListChecks,
@@ -55,6 +56,7 @@ import {
 import { READINESS_MATRIX } from "@/lib/automation-readiness";
 import { listToolLinks } from "@/lib/tool-connections";
 import { RISK_TONE } from "@/lib/action-queue";
+import { validateRealExecutionConfig } from "@/lib/n8n-real-execution";
 
 const searchSchema = z.object({ brain: z.string().optional() });
 
@@ -712,6 +714,35 @@ function RealWebhookEditor({
     setSaving(true);
     try {
       const wasEnabled = !!workflow.real_execution_enabled;
+      const validation = validateRealExecutionConfig({
+        enabled,
+        environment: env,
+        testUrl: testUrl || null,
+        prodUrl: prodUrl || null,
+        risk: workflow.risk_level,
+        requiresTelegram: requiresTg,
+      });
+      if (!validation.ok) {
+        toast.error(validation.errors[0] ?? "Configurazione non valida");
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          clipboard_item_id: null,
+          action: "n8n_real_execution_environment_validation_failed",
+          notes: `Validazione fallita: ${workflow.workflow_name}`,
+          metadata: { workflow_id: workflow.id, errors: validation.errors, environment: env },
+        } as never);
+        setSaving(false);
+        return;
+      }
+      if (enabled && env === "production") {
+        const okProd = window.confirm(
+          "Stai abilitando l'esecuzione REALE in PRODUCTION. Ogni run produrrà effetti esterni. Confermi?",
+        );
+        if (!okProd) {
+          setSaving(false);
+          return;
+        }
+      }
       await updateWorkflow(workflow.id, {
         webhook_test_url: testUrl || null,
         webhook_production_url: prodUrl || null,
@@ -738,6 +769,14 @@ function RealWebhookEditor({
     }
   }
 
+  const liveValidation = validateRealExecutionConfig({
+    enabled,
+    environment: env,
+    testUrl: testUrl || null,
+    prodUrl: prodUrl || null,
+    risk: workflow.risk_level,
+    requiresTelegram: requiresTg,
+  });
   const productionWarn = env === "production" && enabled;
   const blockedHigh =
     workflow.risk_level === "high" && enabled && !requiresTg;
@@ -821,13 +860,23 @@ function RealWebhookEditor({
               <ShieldAlert className="h-3 w-3" /> Workflow high-risk senza approvazione Telegram obbligatoria.
             </div>
           )}
+          {liveValidation.errors.map((err) => (
+            <div key={err} className="flex items-center gap-1 text-red-600">
+              <ShieldAlert className="h-3 w-3" /> {err}
+            </div>
+          ))}
+          {liveValidation.warnings.map((w) => (
+            <div key={w} className="flex items-center gap-1 text-amber-600">
+              <AlertTriangle className="h-3 w-3" /> {w}
+            </div>
+          ))}
           {workflow.last_real_execution_at && (
             <div className="text-muted-foreground">
               Ultima esecuzione reale: {new Date(workflow.last_real_execution_at).toLocaleString()}
             </div>
           )}
           <div className="flex justify-end">
-            <Button size="sm" onClick={save} disabled={saving}>
+            <Button size="sm" onClick={save} disabled={saving || (enabled && !liveValidation.ok)}>
               {saving ? "Salvo…" : "Salva webhook reale"}
             </Button>
           </div>
