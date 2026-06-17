@@ -104,7 +104,7 @@ function DriveKnowledgeRoute() {
   const [openManualLink, setOpenManualLink] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkName, setLinkName] = useState("");
-  const [linkConnectionId, setLinkConnectionId] = useState<string>("");
+  const [linkConnectionId, setLinkConnectionId] = useState<string>("__none__");
 
   useEffect(() => {
     void logDriveKnowledgeEvent("drive_connection_opened", "Drive Knowledge aperto");
