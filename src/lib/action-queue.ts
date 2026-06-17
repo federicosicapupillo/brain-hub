@@ -23,7 +23,11 @@ export type ActionType =
   | "code_refactor"
   | "code_test"
   | "code_deploy_check"
-  | "github_issue_draft";
+  | "github_issue_draft"
+  | "agent_recommendation"
+  | "agent_setup"
+  | "agent_review";
+
 
 export type ActionStatus =
   | "suggested"
