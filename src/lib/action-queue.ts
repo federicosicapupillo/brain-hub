@@ -48,6 +48,17 @@ export type ActionSource =
   | "system_suggestion"
   | "google_calendar"
   | "github_operational"
+  | "code_repository"
+  | "agent_center";
+
+  | "project_health_check"
+  | "roadmap_intelligence"
+  | "next_prompt_generator"
+  | "execution_tracking"
+  | "user_manual"
+  | "system_suggestion"
+  | "google_calendar"
+  | "github_operational"
   | "code_repository";
 
 
