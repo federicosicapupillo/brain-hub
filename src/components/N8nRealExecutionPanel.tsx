@@ -189,6 +189,16 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
             </Link>
           </div>
         )}
+        {hmacBlocked && (
+          <div className="rounded border border-red-500/40 bg-red-500/5 p-2 text-red-600">
+            <div className="flex items-center gap-1 font-medium">
+              <ShieldAlert className="h-3 w-3" /> Bloccato: firma HMAC richiesta ma secret "{hmacEnvKey}" non configurato sul server.
+            </div>
+            <Link to="/n8n-workflows" search={{ brain: action.brain_id ?? undefined }} className="underline">
+              Apri n8n Workflows
+            </Link>
+          </div>
+        )}
         {recentlyRan && (
           <div className="flex items-center gap-1 text-amber-600">
             <AlertTriangle className="h-3 w-3" /> Run eseguita meno di 30s fa.
@@ -199,7 +209,7 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
           <Button
             size="sm"
             onClick={run}
-            disabled={running || !enabled || !hasUrl || blocked}
+            disabled={running || !enabled || !hasUrl || blocked || hmacBlocked}
             variant={isHighRisk ? "destructive" : "default"}
           >
             <PlayCircle className="mr-1 h-3 w-3" />
