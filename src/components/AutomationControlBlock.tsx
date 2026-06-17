@@ -110,7 +110,7 @@ export function AutomationControlBlock({ brainId }: { brainId: string }) {
         )}
         <div className="pt-1">
           <Button asChild size="sm" variant="outline" className="w-full">
-            <Link to="/action-queue" search={{}} search={{ brain: brainId }}>
+            <Link to="/action-queue" search={{ brain: brainId }}>
               <Filter className="mr-1 h-3 w-3" /> Apri coda filtrata su questo progetto
             </Link>
           </Button>
