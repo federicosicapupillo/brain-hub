@@ -140,6 +140,11 @@ function DriveKnowledgeRoute() {
     queryFn: () => getDriveKnowledgeSummary(brainFilter),
   });
 
+  const { data: oauthStatus } = useQuery({
+    queryKey: ["drive-knowledge", "oauth-status"],
+    queryFn: () => getGoogleDriveOauthStatus(),
+  });
+
   const { data: organization = [] } = useQuery({
     queryKey: ["drive-knowledge", "organization", brainFilter],
     queryFn: () => suggestDriveOrganization(brainFilter),
