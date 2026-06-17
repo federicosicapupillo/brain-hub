@@ -137,8 +137,8 @@ export const sendTelegramApproval = createServerFn({ method: "POST" })
     }
 
     // Call Telegram API
-    let tgResp: { ok: boolean; result?: { message_id?: number }; description?: string } | null =
-      null;
+    type TgResp = { ok: boolean; result?: { message_id?: number }; description?: string };
+    let tgResp: TgResp | null = null;
     let httpStatus = 0;
     let networkError: string | null = null;
     try {
@@ -148,13 +148,15 @@ export const sendTelegramApproval = createServerFn({ method: "POST" })
         body: JSON.stringify(tgBody),
       });
       httpStatus = r.status;
-      tgResp = (await r.json().catch(() => null)) as typeof tgResp;
+      const parsed = (await r.json().catch(() => null)) as unknown;
+      tgResp = parsed && typeof parsed === "object" ? (parsed as TgResp) : null;
     } catch (e) {
       networkError = e instanceof Error ? e.message : "Errore di rete";
     }
 
-    const ok = !networkError && tgResp?.ok === true;
-    const messageId = ok && tgResp?.result?.message_id ? String(tgResp.result.message_id) : null;
+    const ok = !networkError && tgResp !== null && tgResp.ok === true;
+    const messageId =
+      ok && tgResp && tgResp.result?.message_id ? String(tgResp.result.message_id) : null;
     const errorText = !ok
       ? networkError ?? tgResp?.description ?? `HTTP ${httpStatus}`
       : null;
