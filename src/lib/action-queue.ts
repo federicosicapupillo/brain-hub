@@ -101,6 +101,10 @@ export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
   clean_orphan_logs: "medium",
   open_project_console: "low",
   manual_task: "low",
+  meeting_preparation: "low",
+  meeting_follow_up: "low",
+  calendar_deadline_check: "low",
+  calendar_content_check: "low",
 };
 
 export const STATUS_LABEL: Record<ActionStatus, string> = {
