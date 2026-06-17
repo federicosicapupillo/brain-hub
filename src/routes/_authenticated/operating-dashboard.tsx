@@ -412,6 +412,7 @@ function OperatingDashboardRoute() {
             <TelegramApprovalsMini brainId={brainId} />
             <ResultReviewMini brainId={brainId} />
             <LoopQaMini brainId={brainId} />
+            <CompanyOsMini brainId={brainId} />
 
 
             {/* Roadmap snapshot */}
@@ -856,6 +857,70 @@ function LoopQaMini({ brainId }: { brainId: string | null }) {
         <Button asChild size="sm" variant="outline" className="w-full">
           <Link to="/loop-qa" search={{}}>Apri Loop QA <ArrowRight className="ml-1 h-3 w-3" /></Link>
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CompanyOsMini({ brainId }: { brainId: string | null }) {
+  const { data: summary } = useQuery({
+    queryKey: ["company-os-mini", brainId],
+    queryFn: async () => {
+      const { getCompanyOsSummary } = await import("@/lib/company-os");
+      return getCompanyOsSummary(brainId);
+    },
+  });
+  const configured = !!summary?.configured;
+  const tone = configured
+    ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+    : "bg-amber-500/10 text-amber-600 border-amber-500/30";
+  const onOpen = async () => {
+    const { logCompanyOsEvent } = await import("@/lib/company-os");
+    void logCompanyOsEvent(
+      "company_os_opened_from_operating_dashboard",
+      "Apertura Company OS da Operating Dashboard",
+      { brain_id: brainId },
+    );
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2"><LayoutDashboard className="h-4 w-4" /> Company OS</span>
+          <Badge variant="outline" className={tone}>{configured ? "Configurato" : "Non configurato"}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {configured ? (
+          <>
+            <div className="space-y-1 text-xs">
+              <div><span className="text-muted-foreground">Azienda:</span> <span className="font-medium">{summary?.companyName ?? "—"}</span></div>
+              {summary?.presetLabel && (
+                <div><span className="text-muted-foreground">Preset:</span> <span className="font-medium">{summary.presetLabel}</span></div>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Tile label="Aree attive" value={summary?.activeDepartments ?? 0} />
+              <Tile label="Moduli attivi" value={summary?.preferredModules ?? 0} />
+            </div>
+            {summary?.nextSetupAction && (
+              <div className="rounded border bg-background/40 p-2 text-xs">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Prossima azione consigliata</div>
+                <div className="truncate font-medium">{summary.nextSetupAction.title}</div>
+              </div>
+            )}
+            <Button asChild size="sm" variant="outline" className="w-full" onClick={onOpen}>
+              <Link to="/company-os" search={{}}>Apri Company OS <ArrowRight className="ml-1 h-3 w-3" /></Link>
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">Profilo aziendale non ancora configurato.</p>
+            <Button asChild size="sm" variant="outline" className="w-full" onClick={onOpen}>
+              <Link to="/company-os" search={{}}>Configura Company OS <ArrowRight className="ml-1 h-3 w-3" /></Link>
+            </Button>
+          </>
+        )}
       </CardContent>
     </Card>
   );
