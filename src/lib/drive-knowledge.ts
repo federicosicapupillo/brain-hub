@@ -732,6 +732,47 @@ export async function getDriveKnowledgeWarnings(
         cta,
       });
     }
+    if (s.totalFiles >= 50 && s.knowledgeSourcesCreated > 0 && s.knowledgeSourcesCreated < Math.floor(s.totalFiles / 10)) {
+      out.push({
+        id: "drive-few-knowledge-vs-files",
+        level: "info",
+        title: "Molti file Drive, poche knowledge source",
+        description: `${s.totalFiles} file mappati e solo ${s.knowledgeSourcesCreated} knowledge source. Considera di promuovere più file.`,
+        cta,
+      });
+    }
+    if (s.lastSyncReachedLimit) {
+      out.push({
+        id: "drive-sync-limit-reached",
+        level: "warning",
+        title: "Limite sync Drive raggiunto",
+        description: `Ultimo sync limitato a ${s.lastSyncFileCount ?? "molti"} file. Per Drive molto grandi servirà una sync avanzata.`,
+        cta,
+      });
+    }
+    if (s.lastSyncStatus === "completed_with_warnings" && s.lastSyncWarnings.length > 0 && !s.lastSyncReachedLimit) {
+      out.push({
+        id: "drive-sync-warnings",
+        level: "info",
+        title: "Sync Drive completato con warning",
+        description: s.lastSyncWarnings.slice(0, 2).join(" · ").slice(0, 200),
+        cta,
+      });
+    }
+    if (
+      s.configuredConnections > 0 &&
+      s.lastSyncAt &&
+      s.totalFiles === 0 &&
+      !s.lastSyncFailed
+    ) {
+      out.push({
+        id: "drive-connected-zero-files",
+        level: "warning",
+        title: "Drive collegato ma nessun file mappato",
+        description: "La sync è andata a buon fine ma non risultano file. Verifica i permessi del consenso.",
+        cta,
+      });
+    }
   } catch {
     // non-blocking
   }
