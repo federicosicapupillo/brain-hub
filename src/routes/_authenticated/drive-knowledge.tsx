@@ -1,16 +1,20 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { z } from "zod";
+import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import {
   ExternalLink,
   FolderTree,
   Link2,
+  LogOut,
   Plug,
   Plus,
   RefreshCw,
-  Sparkles,
   ShieldAlert,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,14 +61,21 @@ import {
   startGoogleDriveOAuth,
 } from "@/lib/drive-oauth.functions";
 
+const searchSchema = z.object({
+  oauth: fallback(z.enum(["success", "error"]).optional(), undefined),
+  message: fallback(z.string().optional(), undefined),
+  brain: fallback(z.string().optional(), undefined),
+});
+
 export const Route = createFileRoute("/_authenticated/drive-knowledge")({
+  validateSearch: zodValidator(searchSchema),
   head: () => ({
     meta: [
       { title: "Google Drive Knowledge — Brain Hub" },
       {
         name: "description",
         content:
-          "Mappa documenti Google Drive in modalità read-only e collegali alla Knowledge Map di Brain Hub.",
+          "Mappa documenti Google Drive via OAuth read-only (metadata-only) e collegali alla Knowledge Map di Brain Hub.",
       },
     ],
   }),
@@ -75,11 +86,14 @@ type Brain = { id: string; name: string };
 
 function DriveKnowledgeRoute() {
   const qc = useQueryClient();
-  const [brainId, setBrainId] = useState<string>("");
+  const navigate = useNavigate({ from: "/drive-knowledge" });
+  const routeSearch = Route.useSearch();
+  const [brainId, setBrainId] = useState<string>(routeSearch.brain ?? "");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [mimeFilter, setMimeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
+  const [busyConnectionId, setBusyConnectionId] = useState<string | null>(null);
 
   const [openConnect, setOpenConnect] = useState(false);
   const [connectLabel, setConnectLabel] = useState("Google Drive");
@@ -92,6 +106,22 @@ function DriveKnowledgeRoute() {
   useEffect(() => {
     void logDriveKnowledgeEvent("drive_connection_opened", "Drive Knowledge aperto");
   }, []);
+
+  useEffect(() => {
+    if (!routeSearch.oauth) return;
+    if (routeSearch.oauth === "success") {
+      toast.success("Google Drive collegato correttamente");
+    } else {
+      const msg = routeSearch.message?.slice(0, 200) || "Errore OAuth Google Drive";
+      toast.error(msg);
+    }
+    void qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
+    void navigate({
+      search: (prev) => ({ ...prev, oauth: undefined, message: undefined }),
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeSearch.oauth]);
 
   const { data: brains = [] } = useQuery({
     queryKey: ["drive-knowledge", "brains"],
