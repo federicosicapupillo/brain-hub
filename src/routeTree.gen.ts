@@ -25,6 +25,7 @@ import { Route as AuthenticatedProjectConsoleRouteImport } from './routes/_authe
 import { Route as AuthenticatedProgettiRouteImport } from './routes/_authenticated/progetti'
 import { Route as AuthenticatedOperatingDashboardRouteImport } from './routes/_authenticated/operating-dashboard'
 import { Route as AuthenticatedN8nWorkflowsRouteImport } from './routes/_authenticated/n8n-workflows'
+import { Route as AuthenticatedMvpFactoryRouteImport } from './routes/_authenticated/mvp-factory'
 import { Route as AuthenticatedLoopQaRouteImport } from './routes/_authenticated/loop-qa'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
@@ -141,6 +142,11 @@ const AuthenticatedN8nWorkflowsRoute =
     path: '/n8n-workflows',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedMvpFactoryRoute = AuthenticatedMvpFactoryRouteImport.update({
+  id: '/mvp-factory',
+  path: '/mvp-factory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLoopQaRoute = AuthenticatedLoopQaRouteImport.update({
   id: '/loop-qa',
   path: '/loop-qa',
@@ -317,6 +323,7 @@ export interface FileRoutesByFullPath {
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/loop-qa': typeof AuthenticatedLoopQaRoute
+  '/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
@@ -359,6 +366,7 @@ export interface FileRoutesByTo {
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/loop-qa': typeof AuthenticatedLoopQaRoute
+  '/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
@@ -405,6 +413,7 @@ export interface FileRoutesById {
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/loop-qa': typeof AuthenticatedLoopQaRoute
+  '/_authenticated/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/_authenticated/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/_authenticated/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
   '/_authenticated/progetti': typeof AuthenticatedProgettiRouteWithChildren
@@ -452,6 +461,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/logs'
     | '/loop-qa'
+    | '/mvp-factory'
     | '/n8n-workflows'
     | '/operating-dashboard'
     | '/progetti'
@@ -494,6 +504,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/logs'
     | '/loop-qa'
+    | '/mvp-factory'
     | '/n8n-workflows'
     | '/operating-dashboard'
     | '/progetti'
@@ -539,6 +550,7 @@ export interface FileRouteTypes {
     | '/_authenticated/live'
     | '/_authenticated/logs'
     | '/_authenticated/loop-qa'
+    | '/_authenticated/mvp-factory'
     | '/_authenticated/n8n-workflows'
     | '/_authenticated/operating-dashboard'
     | '/_authenticated/progetti'
@@ -679,6 +691,13 @@ declare module '@tanstack/react-router' {
       path: '/n8n-workflows'
       fullPath: '/n8n-workflows'
       preLoaderRoute: typeof AuthenticatedN8nWorkflowsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/mvp-factory': {
+      id: '/_authenticated/mvp-factory'
+      path: '/mvp-factory'
+      fullPath: '/mvp-factory'
+      preLoaderRoute: typeof AuthenticatedMvpFactoryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/loop-qa': {
@@ -923,6 +942,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedLoopQaRoute: typeof AuthenticatedLoopQaRoute
+  AuthenticatedMvpFactoryRoute: typeof AuthenticatedMvpFactoryRoute
   AuthenticatedN8nWorkflowsRoute: typeof AuthenticatedN8nWorkflowsRoute
   AuthenticatedOperatingDashboardRoute: typeof AuthenticatedOperatingDashboardRoute
   AuthenticatedProgettiRoute: typeof AuthenticatedProgettiRouteWithChildren
@@ -962,6 +982,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedLoopQaRoute: AuthenticatedLoopQaRoute,
+  AuthenticatedMvpFactoryRoute: AuthenticatedMvpFactoryRoute,
   AuthenticatedN8nWorkflowsRoute: AuthenticatedN8nWorkflowsRoute,
   AuthenticatedOperatingDashboardRoute: AuthenticatedOperatingDashboardRoute,
   AuthenticatedProgettiRoute: AuthenticatedProgettiRouteWithChildren,
