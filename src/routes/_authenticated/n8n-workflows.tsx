@@ -876,7 +876,7 @@ function RealWebhookEditor({
             </div>
           )}
           <div className="flex justify-end">
-            <Button size="sm" onClick={save} disabled={saving}>
+            <Button size="sm" onClick={save} disabled={saving || (enabled && !liveValidation.ok)}>
               {saving ? "Salvo…" : "Salva webhook reale"}
             </Button>
           </div>
