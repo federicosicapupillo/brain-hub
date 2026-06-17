@@ -111,7 +111,41 @@ export type AgentRunLog = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  ai_prompt_text?: string | null;
+  ai_result_text?: string | null;
+  ai_provider?: string | null;
+  ai_handoff_status?: AiHandoffStatus | string | null;
+  ai_prompt_copied_at?: string | null;
+  ai_result_received_at?: string | null;
 };
+
+export type AiProvider = "chatgpt" | "claude" | "gemini" | "manual_ai";
+
+export const AI_PROVIDER_LABEL: Record<AiProvider, string> = {
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  gemini: "Gemini",
+  manual_ai: "Manual AI",
+};
+
+export type AiHandoffStatus =
+  | "not_started"
+  | "prompt_ready"
+  | "prompt_copied"
+  | "result_received"
+  | "action_created"
+  | "review_created";
+
+export const AI_HANDOFF_STATUS_LABEL: Record<AiHandoffStatus, string> = {
+  not_started: "Non iniziato",
+  prompt_ready: "Prompt pronto",
+  prompt_copied: "Prompt copiato",
+  result_received: "Risultato ricevuto",
+  action_created: "Action creata",
+  review_created: "Review creata",
+};
+
+
 
 // ============================================================
 // Logging
@@ -931,5 +965,330 @@ export async function getAgentRunWarnings(
     }
   }
 
+  try {
+    const aiW = await getAgentAiHandoffWarnings(brainId ?? null);
+    for (const w of aiW) warnings.push(w);
+  } catch {
+    // non-blocking
+  }
+
+  return warnings;
+}
+
+// ============================================================
+// v3.6 — AI Handoff (manual, no external API)
+// ============================================================
+
+function simpleHash(input: string): string {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = (h * 31 + input.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h).toString(16);
+}
+
+function formatAgentPermissionsForPrompt(agent: Agent): string[] {
+  const lines: string[] = [];
+  lines.push(`- max_risk_level: ${agent.max_risk_level ?? "low"}`);
+  lines.push(`- requires_approval: ${agent.requires_approval ?? true}`);
+  if (Array.isArray(agent.allowed_tools)) {
+    lines.push(`- allowed_tools: ${agent.allowed_tools.join(", ") || "—"}`);
+  }
+  return lines;
+}
+
+export async function buildAgentAiPrompt(
+  runId: string,
+  provider: AiProvider,
+): Promise<{ prompt: string; hash: string }> {
+  const run = await getAgentRun(runId);
+  const agent = await getAgent(run.agent_id);
+  const preview = run.output_json as Partial<AgentRunPreview>;
+  const context = (run.input_context ?? {}) as Record<string, unknown>;
+
+  const lines: string[] = [];
+  lines.push(`# Brain Hub — Agent AI Handoff`);
+  lines.push(`Provider richiesto: ${AI_PROVIDER_LABEL[provider]}`);
+  lines.push("");
+  lines.push(`## Agente`);
+  lines.push(`- nome: ${agent.name}`);
+  lines.push(`- ruolo: ${agent.role}`);
+  lines.push(`- status: ${agent.status}`);
+  lines.push(...formatAgentPermissionsForPrompt(agent));
+  lines.push("");
+  lines.push(`## Obiettivo run`);
+  lines.push(run.objective);
+  lines.push("");
+  lines.push(`## Contesto selezionato`);
+  lines.push("```json");
+  lines.push(JSON.stringify(context, null, 2));
+  lines.push("```");
+  lines.push("");
+  lines.push(`## Output euristico già generato da Brain Hub`);
+  lines.push(preview.summary ?? run.output_summary ?? "(nessun summary)");
+  if (Array.isArray(preview.bullets)) {
+    for (const b of preview.bullets) lines.push(`- ${b}`);
+  }
+  if (preview.suggested_action) {
+    lines.push("");
+    lines.push(`### Action già suggerita (euristica)`);
+    lines.push(`- title: ${preview.suggested_action.title}`);
+    lines.push(`- type: ${preview.suggested_action.action_type}`);
+    lines.push(`- risk: ${preview.suggested_action.risk_level}`);
+    lines.push(`- description: ${preview.suggested_action.description}`);
+  }
+  lines.push("");
+  lines.push(`## Vincoli di sicurezza (OBBLIGATORI)`);
+  lines.push(`- Non inventare dati: usa solo il contesto fornito.`);
+  lines.push(`- Non proporre azioni fuori dai permessi dichiarati sopra.`);
+  lines.push(`- Rispetta il risk level massimo: "${agent.max_risk_level ?? "low"}".`);
+  lines.push(`- Non chiedere accessi non previsti (Drive/Calendar/GitHub/Telegram/n8n).`);
+  lines.push(`- Non suggerire automazioni non approvate dall'utente.`);
+  lines.push(`- Tutte le azioni dovranno passare da Action Queue / Result Review manuali.`);
+  lines.push("");
+  lines.push(`## Formato output richiesto (Markdown con sezioni)`);
+  lines.push(`### summary`);
+  lines.push(`### findings`);
+  lines.push(`### recommended_actions`);
+  lines.push(`### risks`);
+  lines.push(`### missing_information`);
+  lines.push(`### next_step`);
+  lines.push(`### action_queue_candidates`);
+  lines.push("");
+  lines.push(
+    `Rispondi in italiano. Non eseguire azioni: produci solo testo da incollare in Brain Hub.`,
+  );
+
+  const prompt = lines.join("\n");
+  const hash = simpleHash(prompt);
+
+  await updateAgentRun(runId, {
+    ai_prompt_text: prompt,
+    ai_provider: provider,
+    ai_handoff_status: "prompt_ready" as AiHandoffStatus,
+    metadata: {
+      ...(run.metadata ?? {}),
+      ai_prompt_hash: hash,
+      ai_prompt_built_at: new Date().toISOString(),
+    },
+  });
+
+  await logEvent("agent_ai_prompt_built", "Prompt AI agente costruito", {
+    run_id: runId,
+    agent_id: agent.id,
+    provider,
+    prompt_hash: hash,
+  });
+  return { prompt, hash };
+}
+
+export async function copyAgentAiPrompt(runId: string): Promise<void> {
+  const now = new Date().toISOString();
+  await updateAgentRun(runId, {
+    ai_handoff_status: "prompt_copied" as AiHandoffStatus,
+    ai_prompt_copied_at: now,
+  });
+  await logEvent("agent_ai_prompt_copied", "Prompt AI agente copiato", {
+    run_id: runId,
+    copied_at: now,
+  });
+}
+
+export async function saveAgentAiResult(
+  runId: string,
+  resultText: string,
+): Promise<AgentRunLog> {
+  const trimmed = resultText.trim();
+  if (!trimmed) throw new Error("Risultato vuoto");
+  const now = new Date().toISOString();
+  const next = await updateAgentRun(runId, {
+    ai_result_text: trimmed,
+    ai_handoff_status: "result_received" as AiHandoffStatus,
+    ai_result_received_at: now,
+  });
+  await logEvent("agent_ai_result_saved", "Risultato AI agente salvato", {
+    run_id: runId,
+    chars: trimmed.length,
+  });
+  return next;
+}
+
+export async function createActionFromAgentAiResult(
+  runId: string,
+): Promise<AutomationAction> {
+  const run = await getAgentRun(runId);
+  if (!run.ai_result_text) throw new Error("Nessun risultato AI salvato");
+  const agent = await getAgent(run.agent_id);
+  const preview = run.output_json as Partial<AgentRunPreview>;
+  const heuristicRisk = (preview.suggested_action?.risk_level ?? "low") as RiskLevel;
+  const maxRisk = (agent.max_risk_level ?? "low") as RiskLevel;
+  const risk = pickLowerRisk(heuristicRisk, maxRisk);
+  const action_type = (preview.suggested_action?.action_type ??
+    "agent_recommendation") as ActionType;
+
+  const action = await createAction({
+    source: "agent_center",
+    action_type,
+    title: `AI handoff: ${run.objective}`,
+    description: run.ai_result_text.slice(0, 2000),
+    risk_level: risk,
+    priority: "medium",
+    brain_id: run.brain_id,
+    metadata: {
+      agent_run_id: run.id,
+      agent_id: agent.id,
+      ai_provider: run.ai_provider ?? null,
+      ai_handoff_status: "action_created",
+      objective: run.objective,
+    },
+  });
+
+  await updateAgentRun(runId, {
+    suggested_action_id: action.id,
+    ai_handoff_status: "action_created" as AiHandoffStatus,
+    run_status: "action_created" as AgentRunStatus,
+  });
+  await logEvent(
+    "agent_ai_action_created",
+    "Action creata da risultato AI agente",
+    { run_id: runId, action_id: action.id, agent_id: agent.id },
+  );
+  return action;
+}
+
+function pickLowerRisk(a: RiskLevel, b: RiskLevel): RiskLevel {
+  const order: RiskLevel[] = ["low", "medium", "high"];
+  const ia = order.indexOf(a);
+  const ib = order.indexOf(b);
+  if (ia < 0) return b;
+  if (ib < 0) return a;
+  return order[Math.min(ia, ib)];
+}
+
+export async function createReviewFromAgentAiResult(
+  runId: string,
+): Promise<ResultReviewItem> {
+  const run = await getAgentRun(runId);
+  if (!run.ai_result_text) throw new Error("Nessun risultato AI salvato");
+  const agent = await getAgent(run.agent_id);
+  const promptPreview = (run.ai_prompt_text ?? "").slice(0, 500);
+  const promptHash =
+    (run.metadata as Record<string, unknown> | null)?.["ai_prompt_hash"] ??
+    null;
+
+  const review = await createReviewItem({
+    source_type: "agent_run" as ReviewSourceType,
+    source_id: run.id,
+    title: `AI handoff: ${run.objective}`,
+    result_text: run.ai_result_text,
+    brain_id: run.brain_id,
+    risk_level: run.risk_level,
+    metadata: {
+      agent_run_id: run.id,
+      agent_id: agent.id,
+      ai_provider: run.ai_provider ?? null,
+      objective: run.objective,
+      prompt_preview: promptPreview,
+      prompt_hash: promptHash,
+    },
+  });
+
+  await updateAgentRun(runId, {
+    result_review_item_id: review.id,
+    ai_handoff_status: "review_created" as AiHandoffStatus,
+    run_status: "review_created" as AgentRunStatus,
+  });
+  await logEvent(
+    "agent_ai_review_created",
+    "Review creata da risultato AI agente",
+    { run_id: runId, review_id: review.id },
+  );
+  return review;
+}
+
+export async function createNextActionFromAgentAiResult(
+  runId: string,
+): Promise<AutomationAction> {
+  const run = await getAgentRun(runId);
+  if (!run.ai_result_text) throw new Error("Nessun risultato AI salvato");
+  const agent = await getAgent(run.agent_id);
+  const maxRisk = (agent.max_risk_level ?? "low") as RiskLevel;
+  const risk = pickLowerRisk("low" as RiskLevel, maxRisk);
+
+  const action = await createAction({
+    source: "agent_center",
+    action_type: "agent_recommendation" as ActionType,
+    title: `Next step (AI): ${run.objective}`,
+    description:
+      "Prossimo step derivato dal risultato AI dell'agente. Da revisionare manualmente.",
+    risk_level: risk,
+    priority: "medium",
+    brain_id: run.brain_id,
+    metadata: {
+      agent_run_id: run.id,
+      agent_id: agent.id,
+      ai_provider: run.ai_provider ?? null,
+      derived_from: "agent_ai_result",
+      objective: run.objective,
+    },
+  });
+
+  await logEvent(
+    "agent_ai_next_action_created",
+    "Next action creata da risultato AI agente",
+    { run_id: runId, action_id: action.id },
+  );
+  return action;
+}
+
+export async function getAgentAiHandoffWarnings(
+  brainId?: string | null,
+): Promise<AgentRunWarning[]> {
+  const warnings: AgentRunWarning[] = [];
+  const runs = await listAgentRuns(brainId ?? null);
+  for (const r of runs) {
+    const status = r.ai_handoff_status ?? "not_started";
+    if (status === "prompt_copied" && !r.ai_result_text) {
+      warnings.push({
+        id: `aai-copied-no-result-${r.id}`,
+        level: "info",
+        title: "Prompt AI copiato senza risultato",
+        description: `"${r.objective}": prompt copiato ma nessun risultato AI salvato.`,
+        cta: { label: "Apri Run Console", to: "/agent-runs" },
+      });
+    }
+    if (status === "result_received" && !r.result_review_item_id) {
+      warnings.push({
+        id: `aai-result-no-review-${r.id}`,
+        level: "warning",
+        title: "Risultato AI senza review",
+        description: `"${r.objective}": risultato AI salvato ma nessuna Result Review.`,
+        cta: { label: "Apri Run Console", to: "/agent-runs" },
+      });
+    }
+    if (status === "result_received" && !r.suggested_action_id) {
+      warnings.push({
+        id: `aai-result-no-action-${r.id}`,
+        level: "info",
+        title: "Risultato AI senza action",
+        description: `"${r.objective}": risultato AI salvato ma nessuna action creata.`,
+        cta: { label: "Apri Run Console", to: "/agent-runs" },
+      });
+    }
+    const preview = r.output_json as Partial<AgentRunPreview>;
+    if (
+      r.run_status === "completed" &&
+      preview?.suggests_code_handoff &&
+      (!status || status === "not_started")
+    ) {
+      warnings.push({
+        id: `aai-suggest-handoff-${r.id}`,
+        level: "info",
+        title: "Solo output euristico — AI handoff consigliato",
+        description: `"${r.objective}": l'agente suggerisce un AI handoff non ancora avviato.`,
+        cta: { label: "Apri Run Console", to: "/agent-runs" },
+      });
+    }
+  }
   return warnings;
 }

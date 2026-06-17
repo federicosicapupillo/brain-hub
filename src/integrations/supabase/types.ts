@@ -148,6 +148,12 @@ export type Database = {
       agent_run_logs: {
         Row: {
           agent_id: string
+          ai_handoff_status: string | null
+          ai_prompt_copied_at: string | null
+          ai_prompt_text: string | null
+          ai_provider: string | null
+          ai_result_received_at: string | null
+          ai_result_text: string | null
           brain_id: string | null
           code_handoff_id: string | null
           completed_at: string | null
@@ -170,6 +176,12 @@ export type Database = {
         }
         Insert: {
           agent_id: string
+          ai_handoff_status?: string | null
+          ai_prompt_copied_at?: string | null
+          ai_prompt_text?: string | null
+          ai_provider?: string | null
+          ai_result_received_at?: string | null
+          ai_result_text?: string | null
           brain_id?: string | null
           code_handoff_id?: string | null
           completed_at?: string | null
@@ -192,6 +204,12 @@ export type Database = {
         }
         Update: {
           agent_id?: string
+          ai_handoff_status?: string | null
+          ai_prompt_copied_at?: string | null
+          ai_prompt_text?: string | null
+          ai_provider?: string | null
+          ai_result_received_at?: string | null
+          ai_result_text?: string | null
           brain_id?: string | null
           code_handoff_id?: string | null
           completed_at?: string | null
