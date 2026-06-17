@@ -198,6 +198,39 @@ export async function getCalendarKnowledgeWarnings(
         cta,
       });
     }
+    // v3.1 — intelligence warnings (non-blocking)
+    try {
+      const intel = await getCalendarIntelligenceSummary(brainId ?? null);
+      if (intel.upcomingMissingPreparation > 0) {
+        out.push({
+          id: "calendar-missing-preparation",
+          level: "warning",
+          title: `${intel.upcomingMissingPreparation} eventi senza preparazione`,
+          description: "Alcuni eventi prossimi non hanno un'azione preparatoria suggerita.",
+          cta: { label: "Vedi suggerimenti", to: "/calendar-knowledge" },
+        });
+      }
+      if (intel.pastMissingFollowUp > 0) {
+        out.push({
+          id: "calendar-missing-followup",
+          level: "warning",
+          title: `${intel.pastMissingFollowUp} eventi senza follow-up`,
+          description: "Alcuni eventi recenti non hanno un follow-up registrato.",
+          cta: { label: "Apri Action Queue", to: "/action-queue" },
+        });
+      }
+      if (intel.unlinkedEvents >= 10) {
+        out.push({
+          id: "calendar-too-many-unlinked",
+          level: "info",
+          title: `${intel.unlinkedEvents} eventi non collegati a brain/progetto`,
+          description: "Collega gli eventi a brain o progetti per migliorare i suggerimenti.",
+          cta,
+        });
+      }
+    } catch {
+      // non-blocking
+    }
   } catch {
     // non-blocking
   }
