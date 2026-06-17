@@ -24,6 +24,7 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
   const qc = useQueryClient();
   const exec = useServerFn(executeN8nRealWorkflow);
   const review = useServerFn(createReviewFromN8nLog);
+  const hmacStatusFn = useServerFn(getN8nHmacSecretStatus);
   const [running, setRunning] = useState(false);
   const [lastLogId, setLastLogId] = useState<string | null>(null);
   const [lastOk, setLastOk] = useState<boolean | null>(null);
@@ -41,6 +42,16 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
     enabled: !!wf?.id,
     queryFn: () => getRecentN8nRealExecutionsForWorkflow(wf!.id, 3),
   });
+
+  const hmacEnvKey = wf?.hmac_secret_env_key || DEFAULT_HMAC_SECRET_ENV_KEY;
+  const hmacEnabled = !!wf?.hmac_signing_enabled;
+  const { data: hmacStatus } = useQuery({
+    queryKey: ["n8n-hmac-secret-status-panel", hmacEnvKey],
+    enabled: !!wf,
+    queryFn: () => hmacStatusFn({ data: { env_keys: [hmacEnvKey] } }),
+  });
+  const hmacSecretConfigured = !!hmacStatus?.configured?.[hmacEnvKey];
+  const hmacBlocked = hmacEnabled && !hmacSecretConfigured;
 
   const enabled = !!wf?.real_execution_enabled;
   const env = wf?.webhook_environment ?? "test";
