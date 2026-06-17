@@ -705,6 +705,12 @@ function TelegramApprovalsMini({ brainId }: { brainId: string | null }) {
   });
   const summary = summarizeApprovals(requests);
   const recent = requests.slice(0, 4);
+  const toSend = requests.filter((r) => {
+    const d = r.telegram_delivery_status;
+    return !d || d === "not_sent";
+  }).length;
+  const sent = requests.filter((r) => r.telegram_delivery_status === "sent").length;
+  const failed = requests.filter((r) => r.telegram_delivery_status === "failed").length;
   return (
     <Card>
       <CardHeader>
@@ -725,6 +731,11 @@ function TelegramApprovalsMini({ brainId }: { brainId: string | null }) {
           <MiniTile label="High risk" value={summary.high_risk} tone={summary.high_risk > 0 ? "red" : undefined} />
           <MiniTile label="Approvate" value={summary.approved} />
           <MiniTile label="Rifiutate" value={summary.rejected} tone={summary.rejected > 0 ? "red" : undefined} />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <MiniTile label="Da inviare TG" value={toSend} tone={toSend > 0 ? "amber" : undefined} />
+          <MiniTile label="Inviate TG" value={sent} />
+          <MiniTile label="Failed TG" value={failed} tone={failed > 0 ? "red" : undefined} />
         </div>
         {recent.length === 0 ? (
           <div className="rounded border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
