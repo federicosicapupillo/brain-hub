@@ -455,6 +455,18 @@ function ResultReviewProjectBlock({ brainId }: { brainId: string }) {
       return (data ?? []) as Array<{ id: string; title: string; review_status: string; created_at: string }>;
     },
   });
+  const { data: llPending = 0 } = useQuery({
+    queryKey: ["ll-pending-project", brainId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("learning_loop_suggestions" as never)
+        .select("id")
+        .eq("brain_id", brainId)
+        .eq("suggestion_status", "suggested")
+        .limit(200);
+      return (data ?? []).length;
+    },
+  });
   useEffect(() => {
     void supabase.auth.getUser().then(({ data: u }) => {
       if (!u.user) return;
@@ -501,6 +513,15 @@ function ResultReviewProjectBlock({ brainId }: { brainId: string }) {
       ) : (
         <div className="mt-2 text-xs text-muted-foreground">Nessuna review per questo progetto.</div>
       )}
+      <div className="mt-2 flex items-center justify-between rounded border bg-background/40 p-2 text-xs">
+        <div>
+          <span className="font-semibold">{llPending}</span>{" "}
+          <span className="text-muted-foreground">learning suggestions pending</span>
+        </div>
+        <Button asChild size="sm" variant="ghost">
+          <a href={`/result-review?brain=${brainId}`}>Rivedi suggerimenti</a>
+        </Button>
+      </div>
     </div>
   );
 }

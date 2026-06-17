@@ -43,6 +43,7 @@ import {
   markReviewItemNeedsFix,
   summarizeReviews,
 } from "@/lib/result-review";
+import { LearningLoopBox } from "@/components/LearningLoopBox";
 
 export const Route = createFileRoute("/_authenticated/result-review")({
   head: () => ({
@@ -238,6 +239,7 @@ function ResultReviewRoute() {
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                 />
+                <LearningLoopBox review={openItem} />
               </div>
               <DialogFooter className="flex-wrap gap-2">
                 <Button size="sm" onClick={() => handle(() => approveReviewItem(openItem.id), "Approvato")}>
