@@ -7,6 +7,7 @@ import {
 export type ClientOnboardingStepId =
   | "profile"
   | "blueprint"
+  | "documents"
   | "mvp"
   | "engine"
   | "actions"
