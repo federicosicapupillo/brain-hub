@@ -463,7 +463,7 @@ export async function createReviewFromHandoff(id: string): Promise<ResultReviewI
       : null;
 
   const review = await createReviewItem({
-    source_type: "code_engine_handoff" as never,
+    source_type: "code_engine_handoff",
     source_id: h.id,
     title: `Risultato ${ENGINE_LABEL[(h.engine as HandoffEngine)] ?? h.engine}`,
     result_text: h.result_text,
