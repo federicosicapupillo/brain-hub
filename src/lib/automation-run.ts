@@ -430,6 +430,13 @@ const LOG_TITLES: Record<LogEventType, string> = {
   telegram_approval_request_rejected: "Rifiuto Telegram ricevuto",
   telegram_approval_request_cancelled: "Richiesta Telegram annullata",
   telegram_approval_request_failed: "Richiesta Telegram fallita",
+  telegram_connection_created: "Destinazione Telegram creata",
+  telegram_connection_updated: "Destinazione Telegram aggiornata",
+  telegram_connection_disabled: "Destinazione Telegram disabilitata",
+  telegram_approval_send_started: "Invio Telegram avviato",
+  telegram_approval_sent: "Notifica Telegram inviata",
+  telegram_approval_send_failed: "Invio Telegram fallito",
+  telegram_approval_resend_requested: "Reinvio Telegram richiesto",
 };
 
 
