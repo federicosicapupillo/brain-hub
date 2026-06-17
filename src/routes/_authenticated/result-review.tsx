@@ -43,6 +43,7 @@ import {
   markReviewItemNeedsFix,
   summarizeReviews,
 } from "@/lib/result-review";
+import { LearningLoopBox } from "@/components/LearningLoopBox";
 
 export const Route = createFileRoute("/_authenticated/result-review")({
   head: () => ({
