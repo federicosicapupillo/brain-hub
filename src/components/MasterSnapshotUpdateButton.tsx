@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileText } from "lucide-react";
+import { FileText, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -50,6 +51,7 @@ export function MasterSnapshotUpdateButton({
   label = "Aggiorna Master Snapshot",
 }: Props) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState(defaultReason ?? "");
   const [summary, setSummary] = useState("");
@@ -64,6 +66,7 @@ export function MasterSnapshotUpdateButton({
   const [nextStep, setNextStep] = useState(defaultChanges?.next_step ?? "");
   const [sections, setSections] = useState((defaultChanges?.sections_updated ?? []).join("\n"));
   const [busy, setBusy] = useState(false);
+  const [createdDraftId, setCreatedDraftId] = useState<string | null>(null);
 
   async function handleSubmit() {
     if (!reason.trim()) {
@@ -91,10 +94,21 @@ export function MasterSnapshotUpdateButton({
           sections_updated: parseList(sections),
         },
       });
-      toast.success("Proposta creata. Approvala dal Master Snapshot.");
-      setOpen(false);
-      void navigate({ to: "/master-snapshot", search: { draft: draft.id } });
+      if (!draft?.id) {
+        throw new Error("Bozza creata ma id mancante nella risposta");
+      }
+      setCreatedDraftId(draft.id);
+      await qc.invalidateQueries({ queryKey: ["master-snapshots"] });
+      toast.success("Bozza creata correttamente");
+      try {
+        await navigate({ to: "/master-snapshot", search: { draft: draft.id } });
+        setOpen(false);
+      } catch (navErr) {
+        console.error("[MasterSnapshot] navigate failed", navErr);
+        // keep dialog open so the user can use the "Apri bozza" fallback button
+      }
     } catch (e) {
+      console.error("[MasterSnapshot] proposeMasterSnapshotUpdate failed", e);
       const msg = e instanceof Error ? e.message : "Errore sconosciuto";
       toast.error(`Errore: ${msg}`);
     } finally {
@@ -184,12 +198,24 @@ export function MasterSnapshotUpdateButton({
             <Input id="ms-next" value={nextStep} onChange={(e) => setNextStep(e.target.value)} />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-wrap gap-2">
+          {createdDraftId && (
+            <Button asChild variant="secondary" size="sm">
+              <Link
+                to="/master-snapshot"
+                search={{ draft: createdDraftId }}
+                onClick={() => setOpen(false)}
+              >
+                <ExternalLink className="mr-1 h-3 w-3" />
+                Apri bozza
+              </Link>
+            </Button>
+          )}
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
-            Annulla
+            {createdDraftId ? "Chiudi" : "Annulla"}
           </Button>
           <Button onClick={handleSubmit} disabled={busy}>
-            {busy ? "Creazione…" : "Crea proposta"}
+            {busy ? "Creazione…" : createdDraftId ? "Crea un'altra proposta" : "Crea proposta"}
           </Button>
         </DialogFooter>
       </DialogContent>

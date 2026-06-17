@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, CheckCircle2, X, Clock, History } from "lucide-react";
+import { FileText, CheckCircle2, X, Clock, History, ExternalLink } from "lucide-react";
 import { MasterSnapshotUpdateButton } from "@/components/MasterSnapshotUpdateButton";
 import {
   listMasterSnapshots,
@@ -94,6 +94,11 @@ function MasterSnapshotRoute() {
   );
 
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(draftFromUrl ?? null);
+  useEffect(() => {
+    if (draftFromUrl && draftFromUrl !== selectedDraftId) {
+      setSelectedDraftId(draftFromUrl);
+    }
+  }, [draftFromUrl, selectedDraftId]);
   const selectedDraft = useMemo(
     () => drafts.find((d) => d.id === selectedDraftId) ?? drafts[0] ?? null,
     [drafts, selectedDraftId],
@@ -214,23 +219,39 @@ function MasterSnapshotRoute() {
             <div className="space-y-4">
               <div className="grid gap-2 md:grid-cols-2">
                 {drafts.map((d) => (
-                  <button
+                  <div
                     key={d.id}
-                    type="button"
-                    onClick={() => setSelectedDraftId(d.id)}
-                    className={`rounded-md border p-3 text-left transition hover:bg-muted/50 ${
+                    className={`rounded-md border p-3 transition hover:bg-muted/50 ${
                       selectedDraft?.id === d.id ? "border-primary" : ""
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <Badge className={STATUS_TONE.draft_update}>v{d.version_label}</Badge>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(d.created_at).toLocaleString()}
-                      </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDraftId(d.id)}
+                      className="w-full text-left"
+                    >
+                      <div className="flex items-center justify-between">
+                        <Badge className={STATUS_TONE.draft_update}>v{d.version_label}</Badge>
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(d.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-sm font-medium">{d.reason ?? "—"}</div>
+                      <div className="text-xs text-muted-foreground">Sorgente: {d.source}</div>
+                    </button>
+                    <div className="mt-2 flex justify-end">
+                      <Button asChild size="sm" variant="ghost">
+                        <Link
+                          to="/master-snapshot"
+                          search={{ draft: d.id }}
+                          onClick={() => setSelectedDraftId(d.id)}
+                        >
+                          <ExternalLink className="mr-1 h-3 w-3" />
+                          Apri bozza
+                        </Link>
+                      </Button>
                     </div>
-                    <div className="mt-1 text-sm font-medium">{d.reason ?? "—"}</div>
-                    <div className="text-xs text-muted-foreground">Sorgente: {d.source}</div>
-                  </button>
+                  </div>
                 ))}
               </div>
 
