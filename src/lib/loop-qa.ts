@@ -392,6 +392,7 @@ function buildChain(
   reviews: ReviewRow[],
   suggestions: SuggestionRow[],
   knowledge: KnowledgeRow[],
+  telegram: TelegramRow[] = [],
 ): LoopChain {
   const missing: string[] = [];
   const nodes: LoopChainNode[] = [];
