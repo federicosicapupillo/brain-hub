@@ -559,6 +559,9 @@ function LoopQaProjectBlock({ brainId }: { brainId: string }) {
         ) : (
           "Ciclo completo end-to-end."
         )}
+        {summary && summary.counters.incompleteChains > 0 && (
+          <div className="mt-1">Cicli incompleti recenti: <span className="font-medium">{summary.counters.incompleteChains}</span></div>
+        )}
       </div>
       <div className="mt-2">
         <Button asChild size="sm" variant="outline">

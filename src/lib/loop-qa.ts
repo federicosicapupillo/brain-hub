@@ -26,7 +26,8 @@ export type LoopChainNode =
   | { kind: "suggestion"; id: string; title: string; type: string; status: string; created_at: string }
   | { kind: "knowledge"; id: string; title: string; created_at: string }
   | { kind: "automation_action"; id: string; title: string; status: string; created_at: string }
-  | { kind: "next_prompt"; preview: string; created_at: string };
+  | { kind: "next_prompt"; preview: string; created_at: string }
+  | { kind: "telegram"; id: string; status: string; created_at: string };
 
 export type LoopChain = {
   startedFrom: "action" | "review" | "none";
@@ -34,11 +35,23 @@ export type LoopChain = {
   missing: string[];
 };
 
+export type LoopMultiChain = LoopChain & {
+  id: string;
+  title: string;
+  reviewId: string | null;
+  reviewStatus: string | null;
+  suggestionsCount: number;
+  createdObjectKind: "knowledge" | "automation_action" | "next_prompt" | null;
+  stopStep: string | null;
+  createdAt: string;
+};
+
 export type LoopSummary = {
   health: "healthy" | "incomplete" | "warning";
   steps: LoopStep[];
   warnings: LoopWarning[];
   chain: LoopChain;
+  chains: LoopMultiChain[];
   counters: {
     actions: number;
     reviews: number;
@@ -47,6 +60,7 @@ export type LoopSummary = {
     knowledgeNotes: number;
     roadmapUpdateActions: number;
     nextPromptCreated: number;
+    incompleteChains: number;
   };
 };
 
@@ -111,14 +125,24 @@ type KnowledgeRow = {
   created_at: string;
 };
 
+type TelegramRow = {
+  id: string;
+  automation_action_id: string | null;
+  status: string;
+  created_at: string;
+  brain_id: string | null;
+};
+
 export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSummary> {
   const filters: Array<[string, string]> = brainId ? [["brain_id", brainId]] : [];
 
-  const [actions, reviews, suggestions, knowledge] = await Promise.all([
+
+  const [actions, reviews, suggestions, knowledge, telegram] = await Promise.all([
     fetchLatest<ActionRow>("automation_actions", filters, 100),
     fetchLatest<ReviewRow>("result_review_items", filters, 100),
     fetchLatest<SuggestionRow>("learning_loop_suggestions", filters, 100),
     fetchLatest<KnowledgeRow>("knowledge_sources", filters, 100),
+    fetchLatest<TelegramRow>("telegram_approval_requests", filters, 100),
   ]);
 
   const reviewsByStatus = (s: string) => reviews.filter((r) => r.review_status === s);
@@ -279,24 +303,61 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
       cta: { label: "Apri Result Review", to: "/result-review" },
     });
   }
-  const highRiskNoApproval = actions.filter(
+  // High-risk Telegram approval check (v1.9.2): inspect both metadata
+  // and telegram_approval_requests rows linked via automation_action_id.
+  const APPROVED_STATUSES = new Set(["approved", "sent_manually"]);
+  const PENDING_STATUSES = new Set(["prepared", "draft", "requested", "pending"]);
+  const telegramByAction = new Map<string, TelegramRow[]>();
+  for (const t of telegram) {
+    if (!t.automation_action_id) continue;
+    const list = telegramByAction.get(t.automation_action_id) ?? [];
+    list.push(t);
+    telegramByAction.set(t.automation_action_id, list);
+  }
+  const highRiskActions = actions.filter(
     (a) =>
       a.risk_level === "high" &&
-      (a.status === "suggested" || a.status === "pending") &&
-      !(a.metadata as { telegram_approval_id?: string } | null)?.telegram_approval_id,
+      (a.status === "suggested" || a.status === "pending"),
   );
-  if (highRiskNoApproval.length > 0) {
+  let highRiskNoTelegram = 0;
+  let highRiskPendingTelegram = 0;
+  for (const a of highRiskActions) {
+    const meta = a.metadata as { telegram_approval_id?: string } | null;
+    const linked = telegramByAction.get(a.id) ?? [];
+    // latest first (already ordered desc, but be defensive)
+    linked.sort((x, y) => y.created_at.localeCompare(x.created_at));
+    const latest = linked[0];
+    const hasAny = Boolean(meta?.telegram_approval_id) || linked.length > 0;
+    if (!hasAny) {
+      highRiskNoTelegram++;
+    } else if (latest && !APPROVED_STATUSES.has(latest.status)) {
+      // pending / rejected / failed / expired => not yet approved
+      highRiskPendingTelegram++;
+    }
+  }
+  if (highRiskNoTelegram > 0) {
     warnings.push({
       id: "high_risk_no_telegram",
       level: "warning",
-      title: `${highRiskNoApproval.length} action high risk senza approvazione Telegram`,
-      description: "Considera di creare una richiesta di approvazione prima di eseguire.",
+      title: `${highRiskNoTelegram} action high risk senza richiesta Telegram`,
+      description: "Nessuna richiesta di approvazione Telegram trovata per queste action.",
+      cta: { label: "Apri Telegram Approvals", to: "/telegram-approvals" },
+    });
+  }
+  if (highRiskPendingTelegram > 0) {
+    warnings.push({
+      id: "high_risk_pending_telegram",
+      level: "info",
+      title: `${highRiskPendingTelegram} action high risk con approvazione Telegram non ancora approvata`,
+      description: "Richiesta presente ma non approved (potrebbe essere pending, rejected, failed o expired).",
       cta: { label: "Apri Telegram Approvals", to: "/telegram-approvals" },
     });
   }
 
-  // Chain
-  const chain = buildChain(actions, reviews, suggestions, knowledge);
+  // Single chain (legacy) + multi-chain history (v1.9.2)
+  const chain = buildChain(actions, reviews, suggestions, knowledge, telegram);
+  const chains = buildRecentChains(actions, reviews, suggestions, knowledge, telegram, 5);
+  const incompleteChains = chains.filter((c) => c.stopStep !== null).length;
 
   // Health
   const missingSteps = steps.filter((s) => s.status === "missing").length;
@@ -312,6 +373,7 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     steps,
     warnings,
     chain,
+    chains,
     counters: {
       actions: actions.length,
       reviews: reviews.length,
@@ -320,6 +382,7 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
       knowledgeNotes: knowledgeFromLoop.length,
       roadmapUpdateActions: roadmapActions.length,
       nextPromptCreated: nextPromptApplied.length,
+      incompleteChains,
     },
   };
 }
@@ -329,6 +392,7 @@ function buildChain(
   reviews: ReviewRow[],
   suggestions: SuggestionRow[],
   knowledge: KnowledgeRow[],
+  telegram: TelegramRow[] = [],
 ): LoopChain {
   const missing: string[] = [];
   const nodes: LoopChainNode[] = [];
@@ -362,6 +426,17 @@ function buildChain(
       status: originAction.status,
       created_at: originAction.created_at,
     });
+    const linkedTg = telegram
+      .filter((t) => t.automation_action_id === originAction!.id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    if (linkedTg) {
+      nodes.push({
+        kind: "telegram",
+        id: linkedTg.id,
+        status: linkedTg.status,
+        created_at: linkedTg.created_at,
+      });
+    }
   } else if (latestReview.source_type !== "manual") {
     missing.push("Action origine della review");
   }
@@ -418,9 +493,82 @@ function buildChain(
   };
 }
 
+function buildRecentChains(
+  actions: ActionRow[],
+  reviews: ReviewRow[],
+  suggestions: SuggestionRow[],
+  knowledge: KnowledgeRow[],
+  telegram: TelegramRow[],
+  limit: number,
+): LoopMultiChain[] {
+  const out: LoopMultiChain[] = [];
+  const seedReviews = reviews.slice(0, limit);
+  for (const r of seedReviews) {
+    const subset: ReviewRow[] = [r];
+    const chain = buildChain(actions, subset, suggestions, knowledge, telegram);
+    const reviewSuggestions = suggestions.filter((s) => s.result_review_item_id === r.id);
+    const appliedSuggestion = reviewSuggestions.find((s) => s.suggestion_status === "applied");
+    const createdObjectKind: LoopMultiChain["createdObjectKind"] = appliedSuggestion
+      ? appliedSuggestion.applied_object_type === "knowledge_source"
+        ? "knowledge"
+        : appliedSuggestion.applied_object_type === "automation_action"
+          ? "automation_action"
+          : appliedSuggestion.suggestion_type === "next_prompt"
+            ? "next_prompt"
+            : null
+      : null;
+    let stopStep: string | null = null;
+    if (!["approved", "needs_fix", "failed"].includes(r.review_status)) {
+      stopStep = "Review non ancora decisa";
+    } else if (reviewSuggestions.length === 0) {
+      stopStep = "Nessun learning suggestion generato";
+    } else if (!reviewSuggestions.some((s) => s.suggestion_status === "applied" || s.suggestion_status === "accepted")) {
+      stopStep = "Nessun suggerimento accettato o applicato";
+    } else if (!appliedSuggestion) {
+      stopStep = "Suggerimenti accettati ma non applicati";
+    }
+    out.push({
+      ...chain,
+      id: r.id,
+      title: r.title,
+      reviewId: r.id,
+      reviewStatus: r.review_status,
+      suggestionsCount: reviewSuggestions.length,
+      createdObjectKind,
+      stopStep,
+      createdAt: r.created_at,
+    });
+  }
+  // If no reviews, surface a single action-only chain
+  if (out.length === 0 && actions[0]) {
+    const a = actions[0];
+    const chain = buildChain(actions, [], suggestions, knowledge, telegram);
+    out.push({
+      ...chain,
+      id: a.id,
+      title: a.title,
+      reviewId: null,
+      reviewStatus: null,
+      suggestionsCount: 0,
+      createdObjectKind: null,
+      stopStep: "Result Review non ancora creata",
+      createdAt: a.created_at,
+    });
+  }
+  return out;
+}
+
 export async function getLatestLoopChain(brainId?: string | null): Promise<LoopChain> {
   const s = await getLoopQaSummary(brainId);
   return s.chain;
+}
+
+export async function getRecentLoopChains(
+  brainId?: string | null,
+  limit = 5,
+): Promise<LoopMultiChain[]> {
+  const s = await getLoopQaSummary(brainId);
+  return s.chains.slice(0, limit);
 }
 
 export async function validateLoopReadiness(brainId?: string | null): Promise<{
