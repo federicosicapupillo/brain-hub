@@ -325,6 +325,7 @@ function N8nWorkflowsPage() {
                   {w.last_manual_test_status}
                 </div>
               )}
+              <RealWebhookEditor workflow={w} onChanged={() => void refetch()} />
             </div>
           ))}
         </CardContent>
