@@ -55,6 +55,7 @@ import {
 import { READINESS_MATRIX } from "@/lib/automation-readiness";
 import { listToolLinks } from "@/lib/tool-connections";
 import { RISK_TONE } from "@/lib/action-queue";
+import { validateRealExecutionConfig } from "@/lib/n8n-real-execution";
 
 const searchSchema = z.object({ brain: z.string().optional() });
 
