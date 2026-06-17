@@ -880,6 +880,70 @@ function RealWebhookEditor({
               Richiede approvazione Telegram
             </label>
           </div>
+
+          {/* ============= Firma HMAC (v2.9) ============= */}
+          <div className="rounded border border-border/60 bg-background/40 p-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="font-medium text-foreground">Firma HMAC</div>
+              <Badge
+                variant="outline"
+                className={
+                  hmacEnabled
+                    ? secretConfigured
+                      ? "border-emerald-500/40 text-emerald-600"
+                      : "border-red-500/40 text-red-600"
+                    : "border-slate-500/40 text-slate-600"
+                }
+              >
+                {hmacEnabled ? (secretConfigured ? "ON · secret OK" : "ON · secret mancante") : "OFF"}
+              </Badge>
+            </div>
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={hmacEnabled}
+                onChange={(e) => setHmacEnabled(e.target.checked)}
+              />
+              Richiedi firma HMAC sulle chiamate webhook
+            </label>
+            <label className="space-y-1 block">
+              <div className="text-muted-foreground">Env key del secret</div>
+              <Input
+                value={hmacEnvKey}
+                onChange={(e) => setHmacEnvKey(e.target.value)}
+                placeholder={DEFAULT_HMAC_SECRET_ENV_KEY}
+              />
+              <div className="text-muted-foreground">
+                Il valore del secret NON viene salvato in database né mostrato. Impostalo come
+                variabile d'ambiente sul server.
+              </div>
+            </label>
+            <div className="text-[11px]">
+              Stato secret server:{" "}
+              {secretConfigured ? (
+                <span className="text-emerald-600">configurato</span>
+              ) : (
+                <span className="text-red-600">mancante</span>
+              )}
+            </div>
+            {hmacEnabled && !secretConfigured && (
+              <div className="flex items-center gap-1 text-red-600">
+                <ShieldAlert className="h-3 w-3" /> HMAC richiesto ma secret "{hmacEnvKey}" non
+                configurato: l'esecuzione sarà bloccata.
+              </div>
+            )}
+            {enabled && env === "production" && !hmacEnabled && (
+              <div className="flex items-center gap-1 text-amber-600">
+                <AlertTriangle className="h-3 w-3" /> Production attivo senza firma HMAC: considera
+                di abilitarla.
+              </div>
+            )}
+            {enabled && !hmacEnabled && (
+              <div className="flex items-center gap-1 text-amber-600">
+                <AlertTriangle className="h-3 w-3" /> Esecuzione reale abilitata senza firma HMAC.
+              </div>
+            )}
+          </div>
           {productionWarn && (
             <div className="flex items-center gap-1 text-amber-600">
               <ShieldAlert className="h-3 w-3" /> Production attivo: ogni esecuzione produrrà effetti reali.
