@@ -243,7 +243,22 @@ export async function getClientOnboardingSummary(
   brainId?: string | null,
 ): Promise<ClientOnboardingSummary> {
   const home = await getCompanyHomeSummary(brainId);
-  const steps = buildSteps(home);
+  let cal: CalendarStepInput = {
+    connections: 0,
+    hasNeverSynced: false,
+    lastSyncFailed: false,
+  };
+  try {
+    const cs = await getCalendarKnowledgeSummary(brainId ?? null);
+    cal = {
+      connections: cs.connections,
+      hasNeverSynced: cs.hasNeverSynced,
+      lastSyncFailed: cs.lastSyncFailed,
+    };
+  } catch {
+    // calendar non disponibile: lasciamo stato 'todo'
+  }
+  const steps = buildSteps(home, cal);
   return {
     brainId: home.brainId,
     companyName: home.companyName,
