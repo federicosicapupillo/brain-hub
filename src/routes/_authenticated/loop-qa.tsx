@@ -75,6 +75,16 @@ function LoopQaRoute() {
     queryFn: () => getLoopQaSummary(brainId),
   });
 
+  const hmacWarningsFn = useServerFn(getN8nHmacWarnings);
+  const { data: hmacExtra } = useQuery({
+    queryKey: ["loop-qa-hmac-warnings", brainId],
+    queryFn: () => hmacWarningsFn({ data: { brain_id: brainId } }),
+  });
+  const mergedWarnings: LoopWarning[] = [
+    ...(summary?.warnings ?? []),
+    ...((hmacExtra?.warnings ?? []) as LoopWarning[]),
+  ];
+
   const openSection = (to: string, label: string) => {
     void logLoopQaEvent("loop_qa_related_section_opened", `Apertura sezione: ${label}`, { to });
     navigate({ to: to as "/action-queue", search: {} as never });
