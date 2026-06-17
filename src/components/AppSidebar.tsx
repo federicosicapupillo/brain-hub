@@ -57,6 +57,7 @@ const items = [
   { title: "Tool Connections", url: "/tool-connections", icon: Plug },
   { title: "Runbooks", url: "/runbooks", icon: BookMarked },
   { title: "Telegram Approvals", url: "/telegram-approvals", icon: Send },
+  { title: "Result Review", url: "/result-review", icon: CheckSquare },
   { title: "Knowledge Map", url: "/knowledge-map", icon: BookOpen },
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },

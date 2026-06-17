@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowRight,
+  CheckCircle2,
   ExternalLink,
   Gauge,
   Layers,
@@ -409,6 +410,7 @@ function OperatingDashboardRoute() {
             <AutomationReadinessMini />
             <N8nControlledExecutionMini brainId={brainId} />
             <TelegramApprovalsMini brainId={brainId} />
+            <ResultReviewMini brainId={brainId} />
 
 
             {/* Roadmap snapshot */}
@@ -744,5 +746,51 @@ function MiniTile({ label, value, tone }: { label: string; value: number; tone?:
       <div className="text-base font-semibold">{value}</div>
       <div className="text-[10px] uppercase tracking-wide">{label}</div>
     </div>
+  );
+}
+
+function ResultReviewMini({ brainId }: { brainId: string | null }) {
+  const { data: items = [] } = useQuery({
+    queryKey: ["result-review-mini", brainId],
+    queryFn: async () => {
+      let q = supabase
+        .from("result_review_items" as never)
+        .select("id,title,review_status,created_at,brain_id")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (brainId) q = q.eq("brain_id", brainId);
+      const { data } = await q;
+      return (data ?? []) as Array<{ id: string; title: string; review_status: string; created_at: string }>;
+    },
+  });
+  const pending = items.filter((i) => i.review_status === "pending_review").length;
+  const needsFix = items.filter((i) => i.review_status === "needs_fix").length;
+  const last = items[0];
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4" /> Result Review</span>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/result-review" search={{}}>Apri <ArrowRight className="ml-1 h-3 w-3" /></Link>
+          </Button>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <Tile label="Da rivedere" value={pending} tone={pending > 0 ? "amber" : undefined} />
+          <Tile label="Da correggere" value={needsFix} tone={needsFix > 0 ? "red" : undefined} />
+          <Tile label="Totali" value={items.length} />
+        </div>
+        {last ? (
+          <div className="rounded border bg-background/40 p-2 text-xs">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Ultimo risultato</div>
+            <div className="truncate font-medium">{last.title}</div>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">Nessuna review.</p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
