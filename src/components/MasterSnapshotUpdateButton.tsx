@@ -198,12 +198,24 @@ export function MasterSnapshotUpdateButton({
             <Input id="ms-next" value={nextStep} onChange={(e) => setNextStep(e.target.value)} />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-wrap gap-2">
+          {createdDraftId && (
+            <Button asChild variant="secondary" size="sm">
+              <Link
+                to="/master-snapshot"
+                search={{ draft: createdDraftId }}
+                onClick={() => setOpen(false)}
+              >
+                <ExternalLink className="mr-1 h-3 w-3" />
+                Apri bozza
+              </Link>
+            </Button>
+          )}
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
-            Annulla
+            {createdDraftId ? "Chiudi" : "Annulla"}
           </Button>
           <Button onClick={handleSubmit} disabled={busy}>
-            {busy ? "Creazione…" : "Crea proposta"}
+            {busy ? "Creazione…" : createdDraftId ? "Crea un'altra proposta" : "Crea proposta"}
           </Button>
         </DialogFooter>
       </DialogContent>
