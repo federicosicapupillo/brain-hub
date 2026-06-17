@@ -83,6 +83,7 @@ import {
   simulateReject,
 } from "@/lib/telegram-approvals";
 import { ResultReviewBox } from "@/components/ResultReviewBox";
+import { TelegramSendControls } from "@/components/TelegramSendControls";
 
 async function logEvent(action: LogEventType, notes: string, metadata: Record<string, unknown>) {
   const { data: u } = await supabase.auth.getUser();
