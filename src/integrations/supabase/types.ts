@@ -895,6 +895,71 @@ export type Database = {
           },
         ]
       }
+      learning_loop_suggestions: {
+        Row: {
+          applied_object_id: string | null
+          applied_object_type: string | null
+          brain_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json
+          project_id: string | null
+          result_review_item_id: string
+          risk_level: string | null
+          suggested_payload: Json
+          suggestion_status: string
+          suggestion_type: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          applied_object_id?: string | null
+          applied_object_type?: string | null
+          brain_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          result_review_item_id: string
+          risk_level?: string | null
+          suggested_payload?: Json
+          suggestion_status?: string
+          suggestion_type: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          applied_object_id?: string | null
+          applied_object_type?: string | null
+          brain_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          project_id?: string | null
+          result_review_item_id?: string
+          risk_level?: string | null
+          suggested_payload?: Json
+          suggestion_status?: string
+          suggestion_type?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_loop_suggestions_result_review_item_id_fkey"
+            columns: ["result_review_item_id"]
+            isOneToOne: false
+            referencedRelation: "result_review_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       live_events: {
         Row: {
           brain_id: string | null
