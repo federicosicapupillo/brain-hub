@@ -41,6 +41,7 @@ import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
 import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
 import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
+import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
 import { Route as AuthenticatedBuildEnginesRouteImport } from './routes/_authenticated/build-engines'
 import { Route as AuthenticatedAutomationReadinessRouteImport } from './routes/_authenticated/automation-readiness'
