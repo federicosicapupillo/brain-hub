@@ -942,7 +942,9 @@ export type MvpFactoryEvent =
   | "mvp_opened_from_company_os"
   | "mvp_opened_from_company_blueprint"
   | "mvp_opened_from_operating_dashboard"
-  | "mvp_opened_from_project_console";
+  | "mvp_opened_from_project_console"
+  | "mvp_factory_block_viewed";
+
 
 export async function logMvpFactoryEvent(
   action: MvpFactoryEvent,
