@@ -590,6 +590,12 @@ const LOG_TITLES: Record<LogEventType, string> = {
   agent_run_archived: "Run agente archiviata",
   agent_run_context_built: "Contesto run agente costruito",
   agent_run_warning_generated: "Warning run agente generato",
+  agent_ai_prompt_built: "Prompt AI agente costruito",
+  agent_ai_prompt_copied: "Prompt AI agente copiato",
+  agent_ai_result_saved: "Risultato AI agente salvato",
+  agent_ai_action_created: "Action creata da risultato AI agente",
+  agent_ai_review_created: "Review creata da risultato AI agente",
+  agent_ai_next_action_created: "Next action creata da risultato AI agente",
 };
 
 
