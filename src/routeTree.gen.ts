@@ -41,7 +41,6 @@ import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
 import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
 import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
-import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
 import { Route as AuthenticatedBuildEnginesRouteImport } from './routes/_authenticated/build-engines'
 import { Route as AuthenticatedAutomationReadinessRouteImport } from './routes/_authenticated/automation-readiness'
@@ -147,6 +146,11 @@ const AuthenticatedN8nWorkflowsRoute =
 const AuthenticatedMvpFactoryRoute = AuthenticatedMvpFactoryRouteImport.update({
   id: '/mvp-factory',
   path: '/mvp-factory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCompanyHomeRoute = AuthenticatedCompanyHomeRouteImport.update({
+  id: '/company-home',
+  path: '/company-home',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedLoopQaRoute = AuthenticatedLoopQaRouteImport.update({
