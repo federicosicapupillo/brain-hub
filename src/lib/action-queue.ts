@@ -82,6 +82,10 @@ export const ACTION_TYPE_LABEL: Record<ActionType, string> = {
   clean_orphan_logs: "Pulisci log scollegati",
   open_project_console: "Apri Project Console",
   manual_task: "Task manuale",
+  meeting_preparation: "Preparare riunione",
+  meeting_follow_up: "Follow-up dopo riunione",
+  calendar_deadline_check: "Verifica scadenza calendario",
+  calendar_content_check: "Verifica contenuto calendario",
 };
 
 export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
