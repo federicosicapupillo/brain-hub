@@ -91,7 +91,7 @@ function DriveKnowledgeRoute() {
   const qc = useQueryClient();
   const navigate = useNavigate({ from: "/drive-knowledge" });
   const routeSearch = Route.useSearch();
-  const [brainId, setBrainId] = useState<string>(routeSearch.brain ?? "");
+  const [brainId, setBrainId] = useState<string>(routeSearch.brain ?? "__all__");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [mimeFilter, setMimeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -104,7 +104,7 @@ function DriveKnowledgeRoute() {
   const [openManualLink, setOpenManualLink] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
   const [linkName, setLinkName] = useState("");
-  const [linkConnectionId, setLinkConnectionId] = useState<string>("");
+  const [linkConnectionId, setLinkConnectionId] = useState<string>("__none__");
 
   useEffect(() => {
     void logDriveKnowledgeEvent("drive_connection_opened", "Drive Knowledge aperto");
@@ -138,7 +138,7 @@ function DriveKnowledgeRoute() {
     },
   });
 
-  const brainFilter = brainId || null;
+  const brainFilter = brainId && brainId !== "__all__" ? brainId : null;
 
   const { data: connections = [], isLoading: loadingConnections } = useQuery({
     queryKey: ["drive-knowledge", "connections", brainFilter],
@@ -212,7 +212,7 @@ function DriveKnowledgeRoute() {
         url: linkUrl,
         name: linkName || undefined,
         brainId: brainFilter,
-        connectionId: linkConnectionId || null,
+        connectionId: linkConnectionId && linkConnectionId !== "__none__" ? linkConnectionId : null,
       });
       toast.success("Link Drive importato");
       setOpenManualLink(false);
@@ -348,7 +348,7 @@ function DriveKnowledgeRoute() {
               <SelectValue placeholder="Tutti i progetti/cervelli" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tutti</SelectItem>
+              <SelectItem value="__all__">Tutti</SelectItem>
               {brains.map((b) => (
                 <SelectItem key={b.id} value={b.id}>
                   {b.name}
@@ -691,7 +691,7 @@ function DriveKnowledgeRoute() {
                   <SelectValue placeholder="Nessuna connessione" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nessuna</SelectItem>
+                  <SelectItem value="__none__">Nessuna</SelectItem>
                   {connections.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.label}
