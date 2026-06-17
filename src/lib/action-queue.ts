@@ -95,6 +95,12 @@ export const ACTION_TYPE_LABEL: Record<ActionType, string> = {
   meeting_follow_up: "Follow-up dopo riunione",
   calendar_deadline_check: "Verifica scadenza calendario",
   calendar_content_check: "Verifica contenuto calendario",
+  code_review: "Code review",
+  code_fix: "Code fix",
+  code_refactor: "Refactor codice",
+  code_test: "Test codice",
+  code_deploy_check: "Verifica deployment",
+  github_issue_draft: "Bozza GitHub issue",
 };
 
 export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
@@ -114,6 +120,12 @@ export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
   meeting_follow_up: "low",
   calendar_deadline_check: "low",
   calendar_content_check: "low",
+  code_review: "low",
+  code_fix: "medium",
+  code_refactor: "medium",
+  code_test: "low",
+  code_deploy_check: "medium",
+  github_issue_draft: "low",
 };
 
 export const STATUS_LABEL: Record<ActionStatus, string> = {
@@ -133,6 +145,7 @@ export const SOURCE_LABEL: Record<ActionSource, string> = {
   next_prompt_generator: "Next Prompt Generator",
   execution_tracking: "Execution Tracking",
   user_manual: "Manuale",
+
   system_suggestion: "Sistema",
   google_calendar: "Google Calendar",
 };
