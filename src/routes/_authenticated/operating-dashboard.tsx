@@ -552,6 +552,7 @@ function OperatingDashboardRoute() {
             <div className="space-y-4">
               <ToolConnectionsBlock brainId={brainId} />
               <KnowledgeMapBlock brainId={brainId} />
+              <CalendarUpcomingPreview brainId={brainId} compact />
             </div>
           </div>
         </>
