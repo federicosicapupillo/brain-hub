@@ -550,12 +550,32 @@ function CompanyDashboard({ profile, onEdit }: { profile: CompanyOsProfile; onEd
             <Button asChild size="sm" variant="outline">
               <Link
                 to="/build-engines"
-                search={{}}
+                search={{
+                  brain: profile.brain_id ?? undefined,
+                  source: "company_os",
+                  source_id: profile.id,
+                  task_type: "new_mvp",
+                  title: `Sviluppo strumenti operativi per ${profile.company_name}`,
+                  description: [
+                    profile.main_goal ? `Obiettivo: ${profile.main_goal}.` : "",
+                    departmentsActive.length
+                      ? `Aree attive: ${departmentsActive.join(", ")}.`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined,
+                }}
                 onClick={() => {
+                  void logCompanyOsEvent(
+                    "company_os_tool_recommendation_opened" as never,
+                    "Apertura Build Engines da Company OS",
+                    { profile_id: profile.id },
+                  );
                   void import("@/lib/build-engines").then((m) =>
                     m.logBuildEngineEvent(
                       "build_engine_opened_from_company_os",
                       "Apertura Build Engines da Company OS",
+                      { profile_id: profile.id },
                     ),
                   );
                 }}
@@ -564,8 +584,14 @@ function CompanyDashboard({ profile, onEdit }: { profile: CompanyOsProfile; onEd
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline">
-              <Link to="/build-engines" search={{}}>Apri Build Engines</Link>
+              <Link
+                to="/build-engines"
+                search={{ brain: profile.brain_id ?? undefined }}
+              >
+                Apri Build Engines
+              </Link>
             </Button>
+
           </CardContent>
         </Card>
       </div>
