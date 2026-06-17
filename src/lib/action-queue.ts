@@ -137,7 +137,11 @@ export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
   code_test: "low",
   code_deploy_check: "medium",
   github_issue_draft: "low",
+  agent_recommendation: "low",
+  agent_setup: "low",
+  agent_review: "low",
 };
+
 
 export const STATUS_LABEL: Record<ActionStatus, string> = {
   suggested: "Suggerita",
