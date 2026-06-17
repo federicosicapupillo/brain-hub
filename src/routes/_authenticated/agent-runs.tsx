@@ -521,3 +521,226 @@ function RunRow({
     </div>
   );
 }
+
+function AiHandoffCard({
+  run,
+  onRunUpdated,
+}: {
+  run: AgentRunLog;
+  onRunUpdated: (r: AgentRunLog) => void;
+}) {
+  const [provider, setProvider] = useState<AiProvider>(
+    (run.ai_provider as AiProvider | null) ?? "chatgpt",
+  );
+  const [promptText, setPromptText] = useState<string>(run.ai_prompt_text ?? "");
+  const [resultText, setResultText] = useState<string>(run.ai_result_text ?? "");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setPromptText(run.ai_prompt_text ?? "");
+    setResultText(run.ai_result_text ?? "");
+    if (run.ai_provider) setProvider(run.ai_provider as AiProvider);
+  }, [run.id, run.ai_prompt_text, run.ai_result_text, run.ai_provider]);
+
+  const status =
+    (run.ai_handoff_status as AiHandoffStatus | null) ?? "not_started";
+
+  async function refresh() {
+    const { getAgentRun } = await import("@/lib/agent-runs");
+    const fresh = await getAgentRun(run.id);
+    onRunUpdated(fresh);
+  }
+
+  async function handleBuild() {
+    setBusy(true);
+    try {
+      const { prompt } = await buildAgentAiPrompt(run.id, provider);
+      setPromptText(prompt);
+      await refresh();
+      toast.success("Prompt AI generato");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore prompt");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!promptText) {
+      toast.error("Genera prima il prompt");
+      return;
+    }
+    setBusy(true);
+    try {
+      await navigator.clipboard.writeText(promptText);
+      await copyAgentAiPrompt(run.id);
+      await refresh();
+      toast.success("Prompt copiato");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore copia");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSaveResult() {
+    if (!resultText.trim()) {
+      toast.error("Incolla un risultato AI");
+      return;
+    }
+    setBusy(true);
+    try {
+      await saveAgentAiResult(run.id, resultText);
+      await refresh();
+      toast.success("Risultato AI salvato");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore salvataggio");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAction() {
+    setBusy(true);
+    try {
+      await createActionFromAgentAiResult(run.id);
+      await refresh();
+      toast.success("Action creata");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore action");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleReview() {
+    setBusy(true);
+    try {
+      await createReviewFromAgentAiResult(run.id);
+      await refresh();
+      toast.success("Result Review creata");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore review");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleNext() {
+    setBusy(true);
+    try {
+      await createNextActionFromAgentAiResult(run.id);
+      await refresh();
+      toast.success("Next action creata");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore next");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2">
+            <Sparkles className="h-4 w-4" /> AI Handoff (manuale)
+          </span>
+          <Badge variant="outline">{AI_HANDOFF_STATUS_LABEL[status]}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid gap-2 md:grid-cols-[200px_1fr] items-center">
+          <Label>Provider AI</Label>
+          <Select
+            value={provider}
+            onValueChange={(v) => setProvider(v as AiProvider)}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(AI_PROVIDER_LABEL) as AiProvider[]).map((p) => (
+                <SelectItem key={p} value={p}>
+                  {AI_PROVIDER_LABEL[p]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={handleBuild} disabled={busy}>
+            <Sparkles className="mr-1 h-4 w-4" /> Genera prompt AI
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleCopy}
+            disabled={busy || !promptText}
+          >
+            <Copy className="mr-1 h-4 w-4" /> Copia prompt
+          </Button>
+        </div>
+
+        {promptText && (
+          <div className="space-y-1">
+            <Label className="text-xs">Preview prompt</Label>
+            <Textarea
+              readOnly
+              rows={10}
+              value={promptText}
+              className="font-mono text-xs"
+            />
+          </div>
+        )}
+
+        <div className="space-y-1 pt-2 border-t">
+          <Label className="text-xs flex items-center gap-1">
+            <ClipboardPaste className="h-3 w-3" /> Incolla risultato AI
+          </Label>
+          <Textarea
+            rows={8}
+            value={resultText}
+            onChange={(e) => setResultText(e.target.value)}
+            placeholder="Incolla qui il testo prodotto da ChatGPT / Claude / Gemini…"
+          />
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button size="sm" onClick={handleSaveResult} disabled={busy}>
+              <Save className="mr-1 h-4 w-4" /> Salva risultato
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAction}
+              disabled={busy || !run.ai_result_text}
+            >
+              Crea action dal risultato
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleReview}
+              disabled={busy || !run.ai_result_text}
+            >
+              Crea Result Review
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleNext}
+              disabled={busy || !run.ai_result_text}
+            >
+              <ArrowRight className="mr-1 h-4 w-4" /> Crea Next Action
+            </Button>
+          </div>
+        </div>
+
+        <p className="text-[11px] text-muted-foreground">
+          Nessuna API AI chiamata. Brain Hub prepara solo il prompt — usi
+          l'AI esterna manualmente e incolli il risultato qui.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
