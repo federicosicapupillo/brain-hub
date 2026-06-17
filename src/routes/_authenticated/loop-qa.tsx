@@ -25,6 +25,7 @@ import {
   LoopStep,
   LoopWarning,
   LoopChainNode,
+  LoopMultiChain,
   getLoopQaSummary,
   logLoopQaEvent,
 } from "@/lib/loop-qa";
