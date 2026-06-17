@@ -29,6 +29,7 @@ import {
   Cpu,
   Home,
   FileText,
+  Compass,
 } from "lucide-react";
 import {
   Sidebar,
