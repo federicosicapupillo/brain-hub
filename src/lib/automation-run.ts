@@ -375,7 +375,15 @@ export type LogEventType =
   | "agent_template_created"
   | "agent_safety_warning"
   | "agent_action_created"
-  | "agent_center_viewed";
+  | "agent_center_viewed"
+  | "code_handoff_created"
+  | "code_handoff_prompt_copied"
+  | "code_handoff_sent_manually"
+  | "code_handoff_result_saved"
+  | "code_handoff_review_created"
+  | "code_handoff_next_action_created"
+  | "codex_handoff_created"
+  | "claude_code_handoff_created";
 
 
 
