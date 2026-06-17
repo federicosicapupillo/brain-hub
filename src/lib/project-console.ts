@@ -24,7 +24,8 @@ export type BlockId =
   | "runbooks"
   | "tool_connections"
   | "knowledge_map"
-  | "result_review";
+  | "result_review"
+  | "loop_qa";
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
@@ -51,6 +52,7 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "tool_connections", label: "Tool Connections", hint: "Tool collegati al progetto e stato collegamento" },
   { id: "knowledge_map", label: "Knowledge Map", hint: "Materiali, file, link e fonti collegate al progetto" },
   { id: "result_review", label: "Result Review", hint: "Risultati da rivedere, approvati, da correggere, falliti" },
+  { id: "loop_qa", label: "Loop QA", hint: "Validazione end-to-end del ciclo operativo Brain Hub" },
 ];
 
 export const PRIORITIES = [
@@ -87,6 +89,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "tool_connections",
       "knowledge_map",
       "result_review",
+      "loop_qa",
     ],
   },
   immobiliare: {
@@ -129,6 +132,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "tool_connections",
       "knowledge_map",
       "result_review",
+      "loop_qa",
     ],
   },
   content_creation: {
@@ -139,7 +143,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   roadmap_operativa: {
     label: "Roadmap Operativa",
     priority: "generico",
-    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review"],
+    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review", "loop_qa"],
   },
 };
 
