@@ -26,7 +26,9 @@ export type BlockId =
   | "knowledge_map"
   | "result_review"
   | "loop_qa"
-  | "company_os";
+  | "company_os"
+  | "mvp_factory";
+
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
@@ -55,7 +57,9 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "result_review", label: "Result Review", hint: "Risultati da rivedere, approvati, da correggere, falliti" },
   { id: "loop_qa", label: "Loop QA", hint: "Validazione end-to-end del ciclo operativo Brain Hub" },
   { id: "company_os", label: "Company OS", hint: "Profilo azienda, aree operative e moduli consigliati." },
+  { id: "mvp_factory", label: "MVP Factory", hint: "MVP attivi, ultimo MVP, engine consigliato." },
 ];
+
 
 export const PRIORITIES = [
   "sviluppo_app",
@@ -92,8 +96,10 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "knowledge_map",
       "result_review",
       "loop_qa",
+      "mvp_factory",
     ],
   },
+
   immobiliare: {
     label: "Immobiliare",
     priority: "immobiliare",
@@ -111,13 +117,15 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   marketing: {
     label: "Marketing / Comunicazione",
     priority: "marketing",
-    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections", "knowledge_map", "result_review", "company_os"],
+    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections", "knowledge_map", "result_review", "company_os", "mvp_factory"],
   },
+
   lead_generation: {
     label: "Lead Generation",
     priority: "lead_generation",
-    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita", "tool_connections", "knowledge_map", "company_os"],
+    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita", "tool_connections", "knowledge_map", "company_os", "mvp_factory"],
   },
+
   ai_automation: {
     label: "AI Automation",
     priority: "automazione",
@@ -136,6 +144,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "result_review",
       "loop_qa",
       "company_os",
+      "mvp_factory",
     ],
   },
   content_creation: {
@@ -146,8 +155,9 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   roadmap_operativa: {
     label: "Roadmap Operativa",
     priority: "generico",
-    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review", "loop_qa", "company_os"],
+    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review", "loop_qa", "company_os", "mvp_factory"],
   },
+
 };
 
 export type ConsoleConfig = {

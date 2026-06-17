@@ -399,6 +399,10 @@ function BlockPreview({ id, brainId }: { id: BlockId; brainId: string }) {
   if (id === "company_os") {
     return <CompanyOsProjectBlock brainId={brainId} />;
   }
+  if (id === "mvp_factory") {
+    return <MvpFactoryProjectBlock brainId={brainId} />;
+  }
+
   return (
     <div className="rounded-md border border-border/60 bg-card/40 p-3">
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -649,6 +653,57 @@ function CompanyOsProjectBlock({ brainId }: { brainId: string }) {
           <p className="text-muted-foreground">Profilo aziendale non ancora configurato.</p>
           <Button asChild size="sm" variant="outline" onClick={onOpen}>
             <a href="/company-os">Configura Company OS</a>
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MvpFactoryProjectBlock({ brainId }: { brainId: string }) {
+  const { data: projects = [] } = useQuery({
+    queryKey: ["mvp-factory-project-block", brainId],
+    enabled: !!brainId,
+    queryFn: async () => {
+      const { listMvpProjects } = await import("@/lib/mvp-factory");
+      return listMvpProjects({ brain_id: brainId || undefined });
+    },
+  });
+  const active = projects.filter((p) => p.status !== "archived").length;
+  const last = projects[0];
+  const onOpen = async () => {
+    const { logMvpFactoryEvent } = await import("@/lib/mvp-factory");
+    void logMvpFactoryEvent(
+      "mvp_factory_block_viewed",
+      "MVP Factory aperta da Project Console",
+      { brain_id: brainId },
+    );
+  };
+  return (
+    <div className="rounded-md border border-border/60 bg-card/40 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-sm font-semibold">MVP Factory</div>
+        <Badge variant="outline">{active} attivi</Badge>
+      </div>
+      {last ? (
+        <div className="space-y-2 text-xs">
+          <div className="rounded border bg-background/40 p-2">
+            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Ultimo MVP</div>
+            <div className="truncate font-medium">{last.title}</div>
+            <div className="mt-1 text-[10px] text-muted-foreground">
+              Stato: {last.status}
+              {last.recommended_engine ? ` · Engine: ${last.recommended_engine}` : ""}
+            </div>
+          </div>
+          <Button asChild size="sm" variant="outline" onClick={onOpen}>
+            <a href="/mvp-factory">Apri MVP Factory</a>
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2 text-xs">
+          <p className="text-muted-foreground">Nessun MVP creato per questo brain.</p>
+          <Button asChild size="sm" variant="outline" onClick={onOpen}>
+            <a href="/mvp-factory">Apri MVP Factory</a>
           </Button>
         </div>
       )}

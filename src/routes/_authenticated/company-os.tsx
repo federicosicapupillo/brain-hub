@@ -592,6 +592,42 @@ function CompanyDashboard({ profile, onEdit }: { profile: CompanyOsProfile; onEd
                 Apri Build Engines
               </Link>
             </Button>
+            <Button asChild size="sm">
+              <Link
+                to="/mvp-factory"
+                search={{
+                  brain: profile.brain_id ?? undefined,
+                  source: "company_os",
+                  source_id: profile.id,
+                  title: `MVP per ${profile.company_name}`,
+                  description: [
+                    profile.main_goal ? `Obiettivo: ${profile.main_goal}.` : "",
+                    departmentsActive.length
+                      ? `Aree attive: ${departmentsActive.join(", ")}.`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || undefined,
+                }}
+                onClick={() => {
+                  void import("@/lib/mvp-factory").then((m) =>
+                    m.logMvpFactoryEvent(
+                      "mvp_opened_from_company_os",
+                      "Apertura MVP Factory da Company OS",
+                      { profile_id: profile.id, brain_id: profile.brain_id ?? null },
+                    ),
+                  );
+                }}
+              >
+                Crea MVP aziendale
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/mvp-factory" search={{ brain: profile.brain_id ?? undefined }}>
+                Apri MVP Factory
+              </Link>
+            </Button>
+
 
           </CardContent>
         </Card>
