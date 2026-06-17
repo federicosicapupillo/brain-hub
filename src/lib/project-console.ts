@@ -26,7 +26,9 @@ export type BlockId =
   | "knowledge_map"
   | "result_review"
   | "loop_qa"
-  | "company_os";
+  | "company_os"
+  | "mvp_factory";
+
 
 export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "roadmap", label: "Roadmap", hint: "Tappe e milestone" },
