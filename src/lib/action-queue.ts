@@ -125,6 +125,7 @@ export const SOURCE_LABEL: Record<ActionSource, string> = {
   execution_tracking: "Execution Tracking",
   user_manual: "Manuale",
   system_suggestion: "Sistema",
+  google_calendar: "Google Calendar",
 };
 
 export const RISK_TONE: Record<RiskLevel, string> = {
