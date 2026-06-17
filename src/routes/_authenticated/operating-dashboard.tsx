@@ -323,6 +323,11 @@ function OperatingDashboardRoute() {
           <>
             <Badge variant="outline" className="text-[10px]">v1.0</Badge>
             <Button asChild size="sm" variant="outline">
+              <Link to="/company-home">
+                Apri Home Azienda <ArrowRight className="ml-1 h-3 w-3" />
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
               <Link to="/project-console">
                 Apri Project Console <ArrowRight className="ml-1 h-3 w-3" />
               </Link>
