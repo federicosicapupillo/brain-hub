@@ -134,12 +134,12 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   content_creation: {
     label: "Content Creation",
     priority: "contenuti_social",
-    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections", "knowledge_map"],
+    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections", "knowledge_map", "result_review"],
   },
   roadmap_operativa: {
     label: "Roadmap Operativa",
     priority: "generico",
-    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks"],
+    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review"],
   },
 };
 
