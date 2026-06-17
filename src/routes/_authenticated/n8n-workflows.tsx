@@ -711,7 +711,19 @@ function RealWebhookEditor({
   const [env, setEnv] = useState<string>(workflow.webhook_environment ?? "test");
   const [enabled, setEnabled] = useState<boolean>(!!workflow.real_execution_enabled);
   const [requiresTg, setRequiresTg] = useState<boolean>(workflow.requires_telegram_approval !== false);
+  const [hmacEnabled, setHmacEnabled] = useState<boolean>(!!workflow.hmac_signing_enabled);
+  const [hmacEnvKey, setHmacEnvKey] = useState<string>(
+    workflow.hmac_secret_env_key || DEFAULT_HMAC_SECRET_ENV_KEY,
+  );
   const [saving, setSaving] = useState(false);
+
+  const hmacStatusFn = useServerFn(getN8nHmacSecretStatus);
+  const { data: hmacStatus } = useQuery({
+    queryKey: ["n8n-hmac-secret-status", hmacEnvKey],
+    queryFn: () => hmacStatusFn({ data: { env_keys: [hmacEnvKey] } }),
+    enabled: !!hmacEnvKey,
+  });
+  const secretConfigured = !!hmacStatus?.configured?.[hmacEnvKey];
 
   async function save() {
     setSaving(true);
