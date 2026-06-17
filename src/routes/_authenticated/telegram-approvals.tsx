@@ -185,6 +185,8 @@ function TelegramApprovalsRoute() {
         </div>
       )}
 
+      <TelegramSettingsSection brainId={brainId} />
+
       <div className="grid grid-cols-2 gap-2 md:grid-cols-7">
         <Tile label="Totale" value={summary.total} />
         <Tile label="Pending" value={summary.pending} tone={summary.pending > 0 ? "amber" : undefined} />
