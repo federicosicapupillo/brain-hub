@@ -1429,17 +1429,24 @@ export type Database = {
           id: string
           last_manual_test_at: string | null
           last_manual_test_status: string | null
+          last_real_execution_at: string | null
+          last_real_execution_status: string | null
           linked_action_types: Json
           metadata: Json
           notes: string | null
           project_id: string | null
+          real_execution_enabled: boolean
+          requires_telegram_approval: boolean
           risk_level: string
           status: string
           tool_link_id: string | null
           updated_at: string
           user_id: string
           verification_method: string | null
+          webhook_environment: string
           webhook_method: string
+          webhook_production_url: string | null
+          webhook_test_url: string | null
           webhook_url: string | null
           workflow_description: string | null
           workflow_name: string
@@ -1453,17 +1460,24 @@ export type Database = {
           id?: string
           last_manual_test_at?: string | null
           last_manual_test_status?: string | null
+          last_real_execution_at?: string | null
+          last_real_execution_status?: string | null
           linked_action_types?: Json
           metadata?: Json
           notes?: string | null
           project_id?: string | null
+          real_execution_enabled?: boolean
+          requires_telegram_approval?: boolean
           risk_level?: string
           status?: string
           tool_link_id?: string | null
           updated_at?: string
           user_id: string
           verification_method?: string | null
+          webhook_environment?: string
           webhook_method?: string
+          webhook_production_url?: string | null
+          webhook_test_url?: string | null
           webhook_url?: string | null
           workflow_description?: string | null
           workflow_name: string
@@ -1477,17 +1491,24 @@ export type Database = {
           id?: string
           last_manual_test_at?: string | null
           last_manual_test_status?: string | null
+          last_real_execution_at?: string | null
+          last_real_execution_status?: string | null
           linked_action_types?: Json
           metadata?: Json
           notes?: string | null
           project_id?: string | null
+          real_execution_enabled?: boolean
+          requires_telegram_approval?: boolean
           risk_level?: string
           status?: string
           tool_link_id?: string | null
           updated_at?: string
           user_id?: string
           verification_method?: string | null
+          webhook_environment?: string
           webhook_method?: string
+          webhook_production_url?: string | null
+          webhook_test_url?: string | null
           webhook_url?: string | null
           workflow_description?: string | null
           workflow_name?: string
