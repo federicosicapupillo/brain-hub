@@ -491,9 +491,19 @@ export function getCompanyHomeCards(s: CompanyHomeSummary): SimpleHomeCard[] {
       id: "knowledge",
       title: "Documenti e conoscenza",
       metric: `${s.knowledgeCount} documenti`,
-      hint: s.knowledgeCount > 0 ? "Base di conoscenza attiva" : "Nessun documento caricato",
-      cta: { label: "Apri documenti", to: "/knowledge-map" },
-      tone: s.knowledgeCount > 0 ? "ok" : "muted",
+      hint:
+        s.driveConnections > 0
+          ? `Drive: ${s.driveFilesMapped} file mappati · ${s.driveKnowledgeCount} knowledge`
+          : s.knowledgeCount > 0
+            ? "Base di conoscenza attiva · Drive non collegato"
+            : "Nessun documento caricato · Drive non collegato",
+      cta: { label: "Apri documenti", to: "/drive-knowledge" },
+      tone:
+        s.driveStatus === "knowledge_ready" || s.knowledgeCount > 0
+          ? "ok"
+          : s.driveStatus === "mapped" || s.driveStatus === "configured"
+            ? "muted"
+            : "muted",
     },
   ];
 }
