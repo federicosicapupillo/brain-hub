@@ -1,15 +1,22 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, PlayCircle, ShieldAlert, FileCheck2 } from "lucide-react";
+import { AlertTriangle, PlayCircle, ShieldAlert, FileCheck2, History } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { listWorkflowsForActionType, type N8nWorkflow } from "@/lib/n8n-workflows";
 import { executeN8nRealWorkflow, createReviewFromN8nLog } from "@/lib/n8n-real-execution.functions";
+import {
+  getRecentN8nRealExecutionsForWorkflow,
+  logN8nRealExecutionEvent,
+  type N8nRealLogRow,
+} from "@/lib/n8n-real-execution";
 import type { AutomationAction } from "@/lib/action-queue";
+
+const DUPLICATE_WINDOW_MS = 30_000;
 
 export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) {
   const qc = useQueryClient();
@@ -26,27 +33,47 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
   });
 
   const wf: N8nWorkflow | undefined = workflows.find((w) => w.real_execution_enabled) ?? workflows[0];
+
+  const { data: recentLogs = [] } = useQuery<N8nRealLogRow[]>({
+    queryKey: ["n8n-real-recent-logs", wf?.id, action.id, lastLogId],
+    enabled: !!wf?.id,
+    queryFn: () => getRecentN8nRealExecutionsForWorkflow(wf!.id, 3),
+  });
+
   const enabled = !!wf?.real_execution_enabled;
-  const hasUrl =
-    !!wf &&
-    !!(
-      (wf.webhook_environment === "production" ? wf.webhook_production_url : wf.webhook_test_url) ??
-      wf.webhook_url
-    );
+  const env = wf?.webhook_environment ?? "test";
+  const targetUrl =
+    wf && (env === "production" ? wf.webhook_production_url : wf.webhook_test_url) || wf?.webhook_url || null;
+  const hasUrl = !!targetUrl;
   const isHighRisk = (action.risk_level ?? wf?.risk_level ?? "").toLowerCase() === "high";
   const requiresApproval = !!wf?.requires_telegram_approval || isHighRisk;
   const approved =
     (action.metadata as Record<string, unknown> | null)?.telegram_approval_status === "approved";
   const blocked = requiresApproval && !approved;
 
+  const lastReal = recentLogs[0];
+  const recentlyRan =
+    lastReal && Date.now() - new Date(lastReal.created_at).getTime() < DUPLICATE_WINDOW_MS;
+
   async function run() {
-    if (!wf) return;
+    if (!wf || running) return;
     if (
       !window.confirm(
         "Stai per chiamare un workflow n8n reale. Questa azione può produrre effetti esterni. Confermi?",
       )
     )
       return;
+    if (recentlyRan) {
+      const okDup = window.confirm(
+        "Hai già eseguito questo workflow da poco. Vuoi continuare?",
+      );
+      if (!okDup) return;
+      void logN8nRealExecutionEvent(
+        "n8n_real_execution_duplicate_run_confirmed",
+        `Run reale duplicata confermata per ${wf.workflow_name}`,
+        { workflow_id: wf.id, action_id: action.id },
+      );
+    }
     setRunning(true);
     try {
       const res = await exec({
@@ -58,6 +85,7 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
       if (res.ok) toast.success(`Workflow eseguito (HTTP ${res.http_status})`);
       else toast.error(`Esecuzione fallita: ${res.error_text ?? `HTTP ${res.http_status}`}`);
       void qc.invalidateQueries({ queryKey: ["n8n-workflows-for-action-type"] });
+      void qc.invalidateQueries({ queryKey: ["n8n-real-recent-logs"] });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Errore";
       toast.error(msg);
@@ -66,10 +94,9 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
     }
   }
 
-  async function makeReview() {
-    if (!lastLogId) return;
+  async function makeReview(logId: string) {
     try {
-      const res = await review({ data: { log_id: lastLogId } });
+      const res = await review({ data: { log_id: logId } });
       toast.success("Result Review creata");
       void qc.invalidateQueries({ queryKey: ["result-reviews"] });
       return res;
@@ -77,6 +104,17 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
       toast.error(e instanceof Error ? e.message : "Errore");
     }
   }
+
+  useEffect(() => {
+    if (!enabled) return;
+    if (!hasUrl) {
+      void logN8nRealExecutionEvent(
+        "n8n_real_execution_environment_validation_failed",
+        `URL ambiente ${env} mancante per ${wf?.workflow_name ?? "workflow"}`,
+        { workflow_id: wf?.id, environment: env },
+      );
+    }
+  }, [enabled, hasUrl, env, wf?.id, wf?.workflow_name]);
 
   if (!wf) return null;
 
@@ -90,7 +128,7 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
       <CardContent className="space-y-2 text-xs">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium">{wf.workflow_name}</span>
-          <Badge variant="outline">{wf.webhook_environment ?? "test"}</Badge>
+          <Badge variant="outline">{env}</Badge>
           <Badge variant="outline">{(action.risk_level ?? wf.risk_level).toUpperCase()}</Badge>
           {wf.last_real_execution_status && (
             <Badge
@@ -113,7 +151,7 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
         )}
         {enabled && !hasUrl && (
           <div className="flex items-center gap-1 text-amber-600">
-            <AlertTriangle className="h-3 w-3" /> Webhook URL mancante per l'ambiente selezionato.
+            <AlertTriangle className="h-3 w-3" /> Webhook URL mancante per l'ambiente "{env}".
           </div>
         )}
         {blocked && (
@@ -124,6 +162,11 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
             <Link to="/telegram-approvals" className="underline">
               Apri Telegram Approval
             </Link>
+          </div>
+        )}
+        {recentlyRan && (
+          <div className="flex items-center gap-1 text-amber-600">
+            <AlertTriangle className="h-3 w-3" /> Run eseguita meno di 30s fa.
           </div>
         )}
 
@@ -138,7 +181,7 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
             {running ? "Esecuzione…" : "Esegui reale n8n"}
           </Button>
           {lastLogId && (
-            <Button size="sm" variant="outline" onClick={makeReview}>
+            <Button size="sm" variant="outline" onClick={() => makeReview(lastLogId)}>
               <FileCheck2 className="mr-1 h-3 w-3" /> Crea Result Review
             </Button>
           )}
@@ -150,9 +193,60 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
           </div>
         )}
 
-        {wf.webhook_environment === "production" && (
+        {env === "production" && (
           <div className="flex items-center gap-1 text-amber-600">
             <AlertTriangle className="h-3 w-3" /> Ambiente production attivo.
+          </div>
+        )}
+
+        {recentLogs.length > 0 && (
+          <div className="rounded border border-border/50 bg-background/30 p-2">
+            <div className="mb-1 flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+              <History className="h-3 w-3" /> Ultimi log reali
+            </div>
+            <ul className="space-y-1 text-[11px]">
+              {recentLogs.map((log) => {
+                const duration =
+                  (log.metadata as { duration_ms?: number } | null)?.duration_ms ?? null;
+                return (
+                  <li
+                    key={log.id}
+                    className="flex flex-wrap items-center gap-2 border-t border-border/30 pt-1 first:border-t-0 first:pt-0"
+                  >
+                    <Badge
+                      variant="outline"
+                      className={
+                        log.success
+                          ? "border-emerald-500/40 text-emerald-600"
+                          : "border-red-500/40 text-red-600"
+                      }
+                    >
+                      {log.success ? "ok" : "fail"}
+                    </Badge>
+                    <span>HTTP {log.response_status ?? "?"}</span>
+                    {duration !== null && <span>{duration}ms</span>}
+                    <span className="text-muted-foreground">
+                      {new Date(log.created_at).toLocaleString()}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto h-6 px-2 text-[11px]"
+                      onClick={() => {
+                        void logN8nRealExecutionEvent(
+                          "n8n_real_execution_recent_log_opened",
+                          `Log reale aperto: ${log.id}`,
+                          { log_id: log.id, workflow_id: wf.id },
+                        );
+                        void makeReview(log.id);
+                      }}
+                    >
+                      <FileCheck2 className="mr-1 h-3 w-3" /> Crea review
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
       </CardContent>
