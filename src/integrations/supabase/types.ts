@@ -1211,6 +1211,87 @@ export type Database = {
           },
         ]
       }
+      mvp_build_projects: {
+        Row: {
+          brain_id: string | null
+          build_engine_handoff_id: string | null
+          company_blueprint_id: string | null
+          company_os_profile_id: string | null
+          created_at: string
+          data_model: Json
+          id: string
+          idea_summary: string
+          integrations: Json
+          main_problem: string | null
+          metadata: Json
+          mvp_scope: Json
+          recommended_engine: string | null
+          risks: Json
+          roadmap: Json
+          screens: Json
+          status: string
+          success_criteria: Json
+          target_users: string[]
+          title: string
+          updated_at: string
+          user_id: string
+          user_roles: Json
+          value_proposition: string | null
+        }
+        Insert: {
+          brain_id?: string | null
+          build_engine_handoff_id?: string | null
+          company_blueprint_id?: string | null
+          company_os_profile_id?: string | null
+          created_at?: string
+          data_model?: Json
+          id?: string
+          idea_summary: string
+          integrations?: Json
+          main_problem?: string | null
+          metadata?: Json
+          mvp_scope?: Json
+          recommended_engine?: string | null
+          risks?: Json
+          roadmap?: Json
+          screens?: Json
+          status?: string
+          success_criteria?: Json
+          target_users?: string[]
+          title: string
+          updated_at?: string
+          user_id: string
+          user_roles?: Json
+          value_proposition?: string | null
+        }
+        Update: {
+          brain_id?: string | null
+          build_engine_handoff_id?: string | null
+          company_blueprint_id?: string | null
+          company_os_profile_id?: string | null
+          created_at?: string
+          data_model?: Json
+          id?: string
+          idea_summary?: string
+          integrations?: Json
+          main_problem?: string | null
+          metadata?: Json
+          mvp_scope?: Json
+          recommended_engine?: string | null
+          risks?: Json
+          roadmap?: Json
+          screens?: Json
+          status?: string
+          success_criteria?: Json
+          target_users?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+          user_roles?: Json
+          value_proposition?: string | null
+        }
+        Relationships: []
+      }
       n8n_execution_logs: {
         Row: {
           automation_action_id: string | null
