@@ -745,6 +745,7 @@ function OauthStatusBanner({
   hasError,
   errorMessage,
   anyConnected,
+  anyConnectionExists,
   lastSyncAt,
   lastSyncFileCount,
   lastSyncReachedLimit,
@@ -756,6 +757,7 @@ function OauthStatusBanner({
   hasError: boolean;
   errorMessage?: string;
   anyConnected: boolean;
+  anyConnectionExists: boolean;
   lastSyncAt?: string | null;
   lastSyncFileCount?: number | null;
   lastSyncReachedLimit?: boolean;
@@ -765,6 +767,7 @@ function OauthStatusBanner({
   let title: string;
   let body: string;
   let tone: "ok" | "warn" | "info" | "err";
+
   if (hasError) {
     title = "Errore OAuth";
     body = errorMessage?.slice(0, 200) || "Il consenso OAuth non è andato a buon fine. Riprova.";
@@ -772,17 +775,28 @@ function OauthStatusBanner({
   } else if (!configured) {
     title = "OAuth non configurato";
     body =
-      "Google OAuth non configurato. Aggiungi i secrets server-side (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URL) per abilitare il collegamento reale. Nel frattempo puoi importare link Drive manualmente.";
+      "Brain Hub è predisposto per Google Drive, ma manca la configurazione Google OAuth server-side. Aggiungi GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_OAUTH_REDIRECT_URL per abilitare il collegamento reale. Nel frattempo puoi importare link Drive manualmente.";
     tone = "warn";
   } else if (anyConnected) {
-    title = "Google Drive collegato";
-    body = `Scope attivo: ${scope ?? "drive.metadata.readonly"}. Solo metadata, nessun contenuto file scaricato.`;
-    tone = lastSyncStatus === "completed_with_warnings" || lastSyncReachedLimit ? "warn" : "ok";
+    if (lastSyncAt) {
+      title = "Google Drive collegato e sincronizzato";
+      body = `Scope attivo: ${scope ?? "drive.metadata.readonly"}. Solo metadata, nessun contenuto file scaricato.`;
+      tone = lastSyncStatus === "completed_with_warnings" || lastSyncReachedLimit ? "warn" : "ok";
+    } else {
+      title = "Google Drive collegato";
+      body = `Account collegato ma metadata non ancora sincronizzati. Clicca "Sincronizza metadata" per leggere l'elenco file/cartelle. Scope: ${scope ?? "drive.metadata.readonly"}.`;
+      tone = "info";
+    }
+  } else if (anyConnectionExists) {
+    title = "Pronto per autorizzazione";
+    body = `Connessione creata ma l'account Google Drive non è ancora autorizzato. Clicca "Autorizza Google Drive" per completare il consenso read-only (scope ${scope ?? "drive.metadata.readonly"}).`;
+    tone = "info";
   } else {
     title = "Pronto per il collegamento";
-    body = `OAuth server-side configurato. Crea una connessione e premi "Autorizza Google Drive" (scope ${scope ?? "drive.metadata.readonly"}).`;
+    body = `OAuth server-side configurato. Crea una connessione con "Collega Google Drive" e poi premi "Autorizza Google Drive" (scope ${scope ?? "drive.metadata.readonly"}).`;
     tone = "info";
   }
+
   const toneClass =
     tone === "ok"
       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100"
@@ -793,10 +807,10 @@ function OauthStatusBanner({
           : "border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-100";
 
   const statusLabel: Record<string, string> = {
-    completed: "completed",
-    completed_with_warnings: "completed with warnings",
-    failed: "failed",
-    never: "mai eseguita",
+    completed: "completato",
+    completed_with_warnings: "completato con warning",
+    failed: "fallito",
+    never: "mai eseguito",
   };
   const showSync = anyConnected && lastSyncAt;
 
@@ -818,6 +832,43 @@ function OauthStatusBanner({
           {lastSyncWarnings && lastSyncWarnings.length > 0 && (
             <p className="opacity-80">⚠ {lastSyncWarnings.slice(0, 2).join(" · ").slice(0, 240)}</p>
           )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function HowToConnectBox({ configured }: { configured: boolean }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center gap-2">
+          <Plug className="h-4 w-4" /> Come collegare Google Drive
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-xs text-muted-foreground">
+        <ol className="list-decimal pl-4 space-y-1.5">
+          <li className={configured ? "text-emerald-600 dark:text-emerald-400 font-medium" : ""}>
+            Configura secrets Google server-side (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URL).
+            {!configured && (
+              <span className="block text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">
+                ⚠ Manca questa configurazione.
+              </span>
+            )}
+          </li>
+          <li>Inserisci il redirect URL in Google Cloud Console.</li>
+          <li>Torna in Brain Hub.</li>
+          <li>Clicca "Collega Google Drive" per creare una connessione.</li>
+          <li>Clicca "Autorizza Google Drive" e approva il consenso read-only da Google.</li>
+          <li>Brain Hub sincronizza solo metadata (id, nome, mimeType, webViewLink) — nessun contenuto file.</li>
+        </ol>
+        <div className="border-t pt-2 mt-2 space-y-1">
+          <p className="text-[11px]">
+            <strong>Non devi incollare un link Drive per collegare l'account.</strong> Il link manuale serve solo per mappare singoli file/cartelle senza OAuth.
+          </p>
+          <p className="text-[11px]">
+            <strong>Brain Hub non scarica contenuti, non modifica e non cancella file.</strong> Legge solo metadata. I token OAuth non vengono mai salvati nel database.
+          </p>
         </div>
       </CardContent>
     </Card>
