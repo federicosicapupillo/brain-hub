@@ -431,6 +431,7 @@ function OperatingDashboardRoute() {
             <ResultReviewMini brainId={brainId} />
             <LoopQaMini brainId={brainId} />
             <AgentCenterMini brainId={brainId} />
+            <CodeHandoffsMini brainId={brainId} />
             <CompanyOsMini brainId={brainId} />
             <BuildEnginesMini brainId={brainId} />
             <MvpFactoryMini brainId={brainId} />
