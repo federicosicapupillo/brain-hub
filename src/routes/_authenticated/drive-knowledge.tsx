@@ -348,7 +348,7 @@ function DriveKnowledgeRoute() {
               <SelectValue placeholder="Tutti i progetti/cervelli" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Tutti</SelectItem>
+              <SelectItem value="__all__">Tutti</SelectItem>
               {brains.map((b) => (
                 <SelectItem key={b.id} value={b.id}>
                   {b.name}
