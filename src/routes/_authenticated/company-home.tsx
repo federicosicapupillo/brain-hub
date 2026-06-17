@@ -1,10 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   ArrowRight,
   CheckCircle2,
@@ -27,12 +34,18 @@ import {
   getCompanyProgressSteps,
   getCompanySimpleHealth,
   getCompanyHomeCards,
+  listCompanyHomeOptions,
   logCompanyHomeEvent,
   type SimpleHomeCard,
   type SimpleProgressStep,
 } from "@/lib/company-simple-home";
 
+type CompanyHomeSearch = { brain?: string };
+
 export const Route = createFileRoute("/_authenticated/company-home")({
+  validateSearch: (s: Record<string, unknown>): CompanyHomeSearch => ({
+    brain: typeof s.brain === "string" ? s.brain : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Home Azienda — Brain Hub" },
@@ -75,14 +88,60 @@ function stepIcon(status: SimpleProgressStep["status"]) {
 }
 
 function CompanyHomeRoute() {
+  const { brain: brainParam } = useSearch({ from: "/_authenticated/company-home" });
+  const navigate = useNavigate({ from: "/_authenticated/company-home" });
+
+  const { data: options } = useQuery({
+    queryKey: ["company-home-options"],
+    queryFn: () => listCompanyHomeOptions(),
+  });
+
   const { data: summary, isLoading } = useQuery({
-    queryKey: ["company-home-summary"],
-    queryFn: () => getCompanyHomeSummary(),
+    queryKey: ["company-home-summary", brainParam ?? null],
+    queryFn: () => getCompanyHomeSummary(brainParam ?? null),
   });
 
   useEffect(() => {
-    void logCompanyHomeEvent("company_home_viewed", "Home Azienda aperta");
-  }, []);
+    void logCompanyHomeEvent("company_home_viewed", "Home Azienda aperta", {
+      brain: brainParam ?? null,
+    });
+  }, [brainParam]);
+
+  const brainId = summary?.brainId ?? brainParam ?? null;
+  const linkSearch = { brain: brainId ?? undefined };
+
+  // Empty state: nessun brain disponibile
+  if (!isLoading && (!options || options.length === 0)) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6 p-6">
+        <PageHeader title="Home Azienda" subtitle="Inizia configurando la tua azienda" />
+        <Card>
+          <CardContent className="space-y-4 p-8 text-center">
+            <Building2 className="mx-auto h-10 w-10 text-muted-foreground" />
+            <h2 className="text-xl font-semibold">Configura la tua prima azienda</h2>
+            <p className="mx-auto max-w-md text-sm text-muted-foreground">
+              Per iniziare, crea il profilo aziendale: da lì Brain Hub potrà generare piano
+              operativo, MVP, azioni e risultati da controllare.
+            </p>
+            <Button
+              asChild
+              size="lg"
+              onClick={() =>
+                void logCompanyHomeEvent(
+                  "company_home_empty_state_opened",
+                  "Empty state aperto verso Company OS",
+                )
+              }
+            >
+              <Link to="/company-os" search={{}}>
+                Configura Company OS <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading || !summary) {
     return (
@@ -112,15 +171,21 @@ function CompanyHomeRoute() {
         ? "bg-amber-500/15 text-amber-700 dark:text-amber-300"
         : "bg-muted text-muted-foreground";
 
+  const headerTitle =
+    summary.companyName ??
+    options?.find((o) => o.brainId === brainId)?.brainName ??
+    "Home Azienda";
+
   return (
     <div className="mx-auto max-w-5xl space-y-8 p-6">
       <PageHeader
-        title={summary.companyName ?? "Home Azienda"}
+        title={headerTitle}
         subtitle="Una vista semplice del tuo sistema operativo aziendale"
         actions={
           <Button asChild size="sm" variant="ghost">
             <Link
               to="/operating-dashboard"
+              search={linkSearch}
               onClick={() =>
                 void logCompanyHomeEvent(
                   "company_home_expert_mode_opened",
@@ -134,6 +199,55 @@ function CompanyHomeRoute() {
           </Button>
         }
       />
+
+      {/* Selettore azienda/brain */}
+      {options && options.length > 0 && (
+        <Card>
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex-1">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                Azienda
+              </div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                Scegli l'azienda da visualizzare in questa home.
+              </div>
+            </div>
+            <div className="w-full sm:w-72">
+              <Select
+                value={brainId ?? undefined}
+                onValueChange={(v) => {
+                  void logCompanyHomeEvent(
+                    "company_home_brain_selected",
+                    "Brain selezionato dalla Home Azienda",
+                    { brain: v },
+                  );
+                  void navigate({
+                    to: "/company-home",
+                    search: { brain: v },
+                    replace: true,
+                  });
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona azienda…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {options.map((o) => (
+                    <SelectItem key={o.brainId} value={o.brainId}>
+                      <span className="flex items-center gap-2">
+                        <span>{o.companyName ?? o.brainName}</span>
+                        <Badge variant="outline" className="text-[10px]">
+                          {o.hasProfile ? "Configurata" : "Da configurare"}
+                        </Badge>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Hero: stato generale + prossima azione */}
       <Card className="overflow-hidden">
@@ -160,11 +274,11 @@ function CompanyHomeRoute() {
               void logCompanyHomeEvent(
                 "company_home_next_action_clicked",
                 `Next action: ${next.key}`,
-                { key: next.key, to: next.cta.to },
+                { key: next.key, to: next.cta.to, brain: brainId },
               )
             }
           >
-            <Link to={next.cta.to}>
+            <Link to={next.cta.to} search={linkSearch}>
               {next.cta.label} <ArrowRight className="ml-2 h-4 w-4" />
             </Link>
           </Button>
@@ -191,7 +305,7 @@ function CompanyHomeRoute() {
                   </div>
                 </div>
                 <Button asChild size="sm" variant="ghost">
-                  <Link to={step.cta.to}>
+                  <Link to={step.cta.to} search={linkSearch}>
                     {step.cta.label} <ArrowRight className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
@@ -225,11 +339,11 @@ function CompanyHomeRoute() {
                     void logCompanyHomeEvent(
                       "company_home_card_opened",
                       `Card aperta: ${card.id}`,
-                      { card: card.id, to: card.cta.to },
+                      { card: card.id, to: card.cta.to, brain: brainId },
                     )
                   }
                 >
-                  <Link to={card.cta.to}>
+                  <Link to={card.cta.to} search={linkSearch}>
                     {card.cta.label} <ArrowRight className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>
@@ -258,7 +372,7 @@ function CompanyHomeRoute() {
               </ul>
             )}
             <Button asChild size="sm" variant="outline" className="w-full">
-              <Link to="/loop-qa">
+              <Link to="/loop-qa" search={linkSearch}>
                 Controlla stato <ArrowRight className="ml-1 h-3 w-3" />
               </Link>
             </Button>
@@ -269,6 +383,7 @@ function CompanyHomeRoute() {
       <div className="pt-2 text-center">
         <Link
           to="/operating-dashboard"
+          search={linkSearch}
           className="text-xs text-muted-foreground underline-offset-2 hover:underline"
           onClick={() =>
             void logCompanyHomeEvent(

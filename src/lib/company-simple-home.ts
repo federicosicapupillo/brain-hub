@@ -62,7 +62,86 @@ export type CompanyHomeEvent =
   | "company_home_viewed"
   | "company_home_next_action_clicked"
   | "company_home_card_opened"
-  | "company_home_expert_mode_opened";
+  | "company_home_expert_mode_opened"
+  | "company_home_brain_selected"
+  | "company_home_empty_state_opened";
+
+export type CompanyHomeOption = {
+  brainId: string;
+  brainName: string;
+  companyName: string | null;
+  hasProfile: boolean;
+  updatedAt: string | null;
+};
+
+type BrainRow = { id: string; name: string | null; updated_at: string | null };
+type ProfileRow = {
+  brain_id: string;
+  company_name: string | null;
+  updated_at: string | null;
+};
+
+export async function listCompanyHomeOptions(): Promise<CompanyHomeOption[]> {
+  const [brainsRes, profilesRes] = await Promise.all([
+    supabase
+      .from("brains")
+      .select("id,name,updated_at")
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("company_os_profiles")
+      .select("brain_id,company_name,updated_at"),
+  ]);
+  const brains = (brainsRes.data ?? []) as BrainRow[];
+  const profiles = (profilesRes.data ?? []) as ProfileRow[];
+  const byBrain = new Map<string, ProfileRow>();
+  for (const p of profiles) byBrain.set(p.brain_id, p);
+
+  const opts: CompanyHomeOption[] = brains.map((b) => {
+    const p = byBrain.get(b.id);
+    return {
+      brainId: b.id,
+      brainName: b.name ?? "Brain",
+      companyName: p?.company_name ?? null,
+      hasProfile: !!p,
+      updatedAt: p?.updated_at ?? b.updated_at,
+    };
+  });
+  opts.sort((a, b) => {
+    if (a.hasProfile !== b.hasProfile) return a.hasProfile ? -1 : 1;
+    return (b.updatedAt ?? "").localeCompare(a.updatedAt ?? "");
+  });
+  return opts;
+}
+
+export async function resolveCompanyHomeBrain(
+  searchBrain?: string | null,
+): Promise<string | null> {
+  return resolveBrainId(searchBrain ?? null);
+}
+
+export function friendlyStatusLabel(raw: string | null | undefined): string {
+  if (!raw) return "Da configurare";
+  const s = String(raw).toLowerCase();
+  if (["done", "completed", "ok", "applied", "approved", "ready", "connected"].includes(s))
+    return "Completato";
+  if (
+    [
+      "pending",
+      "awaiting_approval",
+      "draft",
+      "proposed",
+      "needs_review",
+      "in_progress",
+      "running",
+      "generated",
+    ].includes(s)
+  )
+    return "In lavorazione";
+  if (["needs_fix", "rejected", "failed", "error", "blocked"].includes(s))
+    return "Da controllare";
+  if (["missing", "not_configured", "disconnected"].includes(s)) return "Da configurare";
+  return "In lavorazione";
+}
 
 async function resolveBrainId(brainId?: string | null): Promise<string | null> {
   if (brainId) return brainId;
