@@ -51,6 +51,11 @@ import {
   suggestDriveOrganization,
   syncDriveMetadata,
 } from "@/lib/drive-knowledge";
+import {
+  disconnectGoogleDrive,
+  getGoogleDriveOauthStatus,
+  startGoogleDriveOAuth,
+} from "@/lib/drive-oauth.functions";
 
 export const Route = createFileRoute("/_authenticated/drive-knowledge")({
   head: () => ({
