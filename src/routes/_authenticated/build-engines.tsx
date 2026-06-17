@@ -252,6 +252,13 @@ function BuildEnginesPage() {
       <PageHeader
         title="Build Engines"
         subtitle="Scegli il motore migliore per ogni task. Routing manuale e controllato."
+        actions={
+          <MasterSnapshotUpdateButton
+            source="build_engine_handoff"
+            brainId={brainId}
+            defaultReason="Aggiornamento da Build Engine Handoff"
+          />
+        }
       />
 
       <Card>
