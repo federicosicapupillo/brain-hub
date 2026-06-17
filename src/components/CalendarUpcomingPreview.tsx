@@ -129,6 +129,22 @@ export function CalendarUpcomingPreview({
             ))}
           </ul>
         )}
+        {intel && intel.upcomingMissingPreparation > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded border border-amber-500/40 bg-amber-500/5 p-2">
+            <AlertTriangle className="h-3 w-3 text-amber-600" />
+            <span className="text-amber-700">
+              Preparazione mancante ({intel.upcomingMissingPreparation})
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto h-6 px-2 text-[11px]"
+              onClick={handleQuickPrep}
+            >
+              + Crea azione
+            </Button>
+          </div>
+        )}
         <Button asChild size="sm" variant="outline" className="w-full">
           <Link to="/calendar-knowledge" search={{ brain: brainId ?? undefined }}>
             Apri Calendar <ArrowRight className="ml-1 h-3 w-3" />
