@@ -429,6 +429,7 @@ function OperatingDashboardRoute() {
             <TelegramApprovalsMini brainId={brainId} />
             <ResultReviewMini brainId={brainId} />
             <LoopQaMini brainId={brainId} />
+            <AgentCenterMini brainId={brainId} />
             <CompanyOsMini brainId={brainId} />
             <BuildEnginesMini brainId={brainId} />
             <MvpFactoryMini brainId={brainId} />
