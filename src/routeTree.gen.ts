@@ -26,6 +26,7 @@ import { Route as AuthenticatedProgettiRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedOperatingDashboardRouteImport } from './routes/_authenticated/operating-dashboard'
 import { Route as AuthenticatedN8nWorkflowsRouteImport } from './routes/_authenticated/n8n-workflows'
 import { Route as AuthenticatedMvpFactoryRouteImport } from './routes/_authenticated/mvp-factory'
+import { Route as AuthenticatedMasterSnapshotRouteImport } from './routes/_authenticated/master-snapshot'
 import { Route as AuthenticatedLoopQaRouteImport } from './routes/_authenticated/loop-qa'
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
@@ -148,6 +149,12 @@ const AuthenticatedMvpFactoryRoute = AuthenticatedMvpFactoryRouteImport.update({
   path: '/mvp-factory',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedMasterSnapshotRoute =
+  AuthenticatedMasterSnapshotRouteImport.update({
+    id: '/master-snapshot',
+    path: '/master-snapshot',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedLoopQaRoute = AuthenticatedLoopQaRouteImport.update({
   id: '/loop-qa',
   path: '/loop-qa',
@@ -331,6 +338,7 @@ export interface FileRoutesByFullPath {
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/loop-qa': typeof AuthenticatedLoopQaRoute
+  '/master-snapshot': typeof AuthenticatedMasterSnapshotRoute
   '/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
@@ -375,6 +383,7 @@ export interface FileRoutesByTo {
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
   '/loop-qa': typeof AuthenticatedLoopQaRoute
+  '/master-snapshot': typeof AuthenticatedMasterSnapshotRoute
   '/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
@@ -423,6 +432,7 @@ export interface FileRoutesById {
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
   '/_authenticated/loop-qa': typeof AuthenticatedLoopQaRoute
+  '/_authenticated/master-snapshot': typeof AuthenticatedMasterSnapshotRoute
   '/_authenticated/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/_authenticated/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/_authenticated/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
@@ -472,6 +482,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/logs'
     | '/loop-qa'
+    | '/master-snapshot'
     | '/mvp-factory'
     | '/n8n-workflows'
     | '/operating-dashboard'
@@ -516,6 +527,7 @@ export interface FileRouteTypes {
     | '/live'
     | '/logs'
     | '/loop-qa'
+    | '/master-snapshot'
     | '/mvp-factory'
     | '/n8n-workflows'
     | '/operating-dashboard'
@@ -563,6 +575,7 @@ export interface FileRouteTypes {
     | '/_authenticated/live'
     | '/_authenticated/logs'
     | '/_authenticated/loop-qa'
+    | '/_authenticated/master-snapshot'
     | '/_authenticated/mvp-factory'
     | '/_authenticated/n8n-workflows'
     | '/_authenticated/operating-dashboard'
@@ -711,6 +724,13 @@ declare module '@tanstack/react-router' {
       path: '/mvp-factory'
       fullPath: '/mvp-factory'
       preLoaderRoute: typeof AuthenticatedMvpFactoryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/master-snapshot': {
+      id: '/_authenticated/master-snapshot'
+      path: '/master-snapshot'
+      fullPath: '/master-snapshot'
+      preLoaderRoute: typeof AuthenticatedMasterSnapshotRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/loop-qa': {
@@ -963,6 +983,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
   AuthenticatedLoopQaRoute: typeof AuthenticatedLoopQaRoute
+  AuthenticatedMasterSnapshotRoute: typeof AuthenticatedMasterSnapshotRoute
   AuthenticatedMvpFactoryRoute: typeof AuthenticatedMvpFactoryRoute
   AuthenticatedN8nWorkflowsRoute: typeof AuthenticatedN8nWorkflowsRoute
   AuthenticatedOperatingDashboardRoute: typeof AuthenticatedOperatingDashboardRoute
@@ -1004,6 +1025,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,
   AuthenticatedLoopQaRoute: AuthenticatedLoopQaRoute,
+  AuthenticatedMasterSnapshotRoute: AuthenticatedMasterSnapshotRoute,
   AuthenticatedMvpFactoryRoute: AuthenticatedMvpFactoryRoute,
   AuthenticatedN8nWorkflowsRoute: AuthenticatedN8nWorkflowsRoute,
   AuthenticatedOperatingDashboardRoute: AuthenticatedOperatingDashboardRoute,
