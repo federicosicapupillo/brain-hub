@@ -624,7 +624,11 @@ export async function getLoopWarnings(brainId?: string | null): Promise<LoopWarn
 }
 
 export async function logLoopQaEvent(
-  action: "loop_qa_viewed" | "loop_qa_warning_opened" | "loop_qa_related_section_opened",
+  action:
+    | "loop_qa_viewed"
+    | "loop_qa_warning_opened"
+    | "loop_qa_related_section_opened"
+    | "drive_warning_opened_from_loop_qa",
   notes: string,
   metadata: Record<string, unknown> = {},
 ) {
