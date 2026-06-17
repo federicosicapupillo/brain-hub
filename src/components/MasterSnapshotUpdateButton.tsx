@@ -94,10 +94,21 @@ export function MasterSnapshotUpdateButton({
           sections_updated: parseList(sections),
         },
       });
-      toast.success("Proposta creata. Approvala dal Master Snapshot.");
-      setOpen(false);
-      void navigate({ to: "/master-snapshot", search: { draft: draft.id } });
+      if (!draft?.id) {
+        throw new Error("Bozza creata ma id mancante nella risposta");
+      }
+      setCreatedDraftId(draft.id);
+      await qc.invalidateQueries({ queryKey: ["master-snapshots"] });
+      toast.success("Bozza creata correttamente");
+      try {
+        await navigate({ to: "/master-snapshot", search: { draft: draft.id } });
+        setOpen(false);
+      } catch (navErr) {
+        console.error("[MasterSnapshot] navigate failed", navErr);
+        // keep dialog open so the user can use the "Apri bozza" fallback button
+      }
     } catch (e) {
+      console.error("[MasterSnapshot] proposeMasterSnapshotUpdate failed", e);
       const msg = e instanceof Error ? e.message : "Errore sconosciuto";
       toast.error(`Errore: ${msg}`);
     } finally {
