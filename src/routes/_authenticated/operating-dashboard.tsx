@@ -54,6 +54,10 @@ import {
   summarizeApprovals,
 } from "@/lib/telegram-approvals";
 import { isTelegramDeliveryStale } from "@/lib/telegram-connections";
+import {
+  getN8nRealExecutionSummary,
+  logN8nRealExecutionEvent,
+} from "@/lib/n8n-real-execution";
 
 export const Route = createFileRoute("/_authenticated/operating-dashboard")({
   head: () => ({
