@@ -583,6 +583,15 @@ function CompanyOsProjectBlock({ brainId }: { brainId: string }) {
       return getCompanyOsSummary(brainId || null);
     },
   });
+  const { data: latestBlueprint } = useQuery({
+    queryKey: ["company-blueprint-latest-pc", brainId],
+    enabled: !!brainId,
+    queryFn: async () => {
+      if (!brainId) return null;
+      const { getLatestBlueprint } = await import("@/lib/company-blueprint");
+      return getLatestBlueprint(brainId);
+    },
+  });
   const configured = !!summary?.configured;
   const tone = configured
     ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
