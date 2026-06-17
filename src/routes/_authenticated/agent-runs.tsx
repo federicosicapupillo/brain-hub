@@ -433,6 +433,16 @@ function AgentRunsPage() {
         </Card>
       )}
 
+      {currentRun && (
+        <AiHandoffCard
+          run={currentRun}
+          onRunUpdated={(r) => {
+            setCurrentRun(r);
+            void invalidate();
+          }}
+        />
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
