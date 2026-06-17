@@ -589,3 +589,29 @@ function BlueprintPreview({
     </>
   );
 }
+
+function guessEngineForAction(
+  title: string,
+  reason: string,
+): { task_type: "new_mvp" | "feature" | "ui_design" | "automation" | "bug_fix" | "documentation" | "analysis"; preferred_engine: string | null } {
+  const t = `${title} ${reason}`.toLowerCase();
+  if (/dashboard|app|mvp|piattaforma|portale/.test(t)) {
+    return { task_type: "new_mvp", preferred_engine: "lovable" };
+  }
+  if (/ui|design|landing|componente|grafica|interfaccia/.test(t)) {
+    return { task_type: "ui_design", preferred_engine: "v0" };
+  }
+  if (/bug|errore|refactor|tecnic[oa]|codice|legacy/.test(t)) {
+    return { task_type: "bug_fix", preferred_engine: "claude_code" };
+  }
+  if (/automa|n8n|workflow|integrazione|webhook|telegram/.test(t)) {
+    return { task_type: "automation", preferred_engine: null };
+  }
+  if (/document|runbook|sop|knowledge|guida/.test(t)) {
+    return { task_type: "documentation", preferred_engine: "manual_developer" };
+  }
+  if (/analisi|review|report|audit/.test(t)) {
+    return { task_type: "analysis", preferred_engine: "claude_code" };
+  }
+  return { task_type: "feature", preferred_engine: null };
+}
