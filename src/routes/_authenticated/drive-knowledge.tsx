@@ -120,7 +120,7 @@ function DriveKnowledgeRoute() {
     }
     void qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
     void navigate({
-      search: (prev) => ({ ...prev, oauth: undefined, message: undefined }),
+      search: (prev: DriveKnowledgeSearch) => ({ ...prev, oauth: undefined, message: undefined }),
       replace: true,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
