@@ -330,11 +330,15 @@ function ChainNodeRow({ node }: { node: LoopChainNode }) {
             ? "Knowledge note"
             : node.kind === "automation_action"
               ? "Action (loop)"
-              : "Next prompt";
+              : node.kind === "telegram"
+                ? "Telegram"
+                : "Next prompt";
   const title =
     node.kind === "next_prompt"
       ? (node.preview.slice(0, 80) || "Prompt generato")
-      : (node as { title?: string }).title ?? "—";
+      : node.kind === "telegram"
+        ? `Approval ${node.id.slice(0, 6)}`
+        : (node as { title?: string }).title ?? "—";
   const status = "status" in node ? (node as { status?: string }).status : undefined;
   return (
     <div className="flex items-center gap-2 rounded border bg-background/40 p-2 text-xs">
@@ -349,6 +353,78 @@ function ChainNodeRow({ node }: { node: LoopChainNode }) {
       )}
       <div className="shrink-0 text-muted-foreground">
         {new Date(node.created_at).toLocaleDateString()}
+      </div>
+    </div>
+  );
+}
+
+function ChainCard({
+  chain,
+  onOpen,
+}: {
+  chain: LoopMultiChain;
+  onOpen: (to: string, label: string) => void;
+}) {
+  const createdLabel =
+    chain.createdObjectKind === "knowledge"
+      ? "Knowledge note"
+      : chain.createdObjectKind === "automation_action"
+        ? "Action"
+        : chain.createdObjectKind === "next_prompt"
+          ? "Next prompt"
+          : null;
+  const hasTelegram = chain.nodes.some((n) => n.kind === "telegram");
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1 truncate text-sm font-medium">{chain.title || "Ciclo"}</div>
+        {chain.reviewStatus && (
+          <Badge variant="outline" className="shrink-0">
+            review: {chain.reviewStatus}
+          </Badge>
+        )}
+        <Badge variant="outline" className="shrink-0">
+          {chain.suggestionsCount} sugg.
+        </Badge>
+        {createdLabel && (
+          <Badge variant="outline" className="shrink-0">
+            → {createdLabel}
+          </Badge>
+        )}
+        <div className="shrink-0 text-xs text-muted-foreground">
+          {new Date(chain.createdAt).toLocaleString()}
+        </div>
+      </div>
+      <div className="space-y-1">
+        {chain.nodes.map((n, i) => (
+          <ChainNodeRow key={i} node={n} />
+        ))}
+      </div>
+      {chain.stopStep && (
+        <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs">
+          <span className="font-medium text-amber-700">Si è fermato qui:</span>{" "}
+          <span className="text-amber-700/90">{chain.stopStep}</span>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1">
+        {chain.reviewId && (
+          <Button size="sm" variant="ghost" onClick={() => onOpen("/result-review", "Result Review")}>
+            Apri Result Review
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" onClick={() => onOpen("/action-queue", "Action Queue")}>
+          Action Queue
+        </Button>
+        {chain.createdObjectKind === "knowledge" && (
+          <Button size="sm" variant="ghost" onClick={() => onOpen("/knowledge-map", "Knowledge Map")}>
+            Knowledge Map
+          </Button>
+        )}
+        {hasTelegram && (
+          <Button size="sm" variant="ghost" onClick={() => onOpen("/telegram-approvals", "Telegram Approvals")}>
+            Telegram Approvals
+          </Button>
+        )}
       </div>
     </div>
   );
