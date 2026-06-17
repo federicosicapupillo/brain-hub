@@ -859,6 +859,16 @@ function RealWebhookEditor({
               <ShieldAlert className="h-3 w-3" /> Workflow high-risk senza approvazione Telegram obbligatoria.
             </div>
           )}
+          {liveValidation.errors.map((err) => (
+            <div key={err} className="flex items-center gap-1 text-red-600">
+              <ShieldAlert className="h-3 w-3" /> {err}
+            </div>
+          ))}
+          {liveValidation.warnings.map((w) => (
+            <div key={w} className="flex items-center gap-1 text-amber-600">
+              <AlertTriangle className="h-3 w-3" /> {w}
+            </div>
+          ))}
           {workflow.last_real_execution_at && (
             <div className="text-muted-foreground">
               Ultima esecuzione reale: {new Date(workflow.last_real_execution_at).toLocaleString()}
