@@ -161,6 +161,11 @@ function CalendarKnowledgePage() {
       }),
   });
 
+  const { data: suggestions = [], refetch: refetchSuggestions } = useQuery({
+    queryKey: ["calendar-suggestions", effectiveBrain],
+    queryFn: () => getCalendarActionSuggestions(effectiveBrain),
+  });
+
   const calendarNames = useMemo(() => {
     const set = new Set<string>();
     for (const e of events) if (e.calendar_name) set.add(e.calendar_name);
