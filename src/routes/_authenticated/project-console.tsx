@@ -583,6 +583,15 @@ function CompanyOsProjectBlock({ brainId }: { brainId: string }) {
       return getCompanyOsSummary(brainId || null);
     },
   });
+  const { data: latestBlueprint } = useQuery({
+    queryKey: ["company-blueprint-latest-pc", brainId],
+    enabled: !!brainId,
+    queryFn: async () => {
+      if (!brainId) return null;
+      const { getLatestBlueprint } = await import("@/lib/company-blueprint");
+      return getLatestBlueprint(brainId);
+    },
+  });
   const configured = !!summary?.configured;
   const tone = configured
     ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
@@ -623,6 +632,14 @@ function CompanyOsProjectBlock({ brainId }: { brainId: string }) {
               <div className="truncate font-medium">{summary.nextSetupAction.title}</div>
             </div>
           )}
+          <div className="rounded border bg-background/40 p-2 text-[11px]">
+            <div className="flex items-center justify-between gap-2">
+              <span><span className="text-muted-foreground">Blueprint:</span> <span className="font-medium">{latestBlueprint ? "Presente" : "Assente"}</span></span>
+              <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px]">
+                <a href="/company-blueprint">Apri Company Blueprint</a>
+              </Button>
+            </div>
+          </div>
           <Button asChild size="sm" variant="outline" onClick={onOpen}>
             <a href="/company-os">Apri Company OS</a>
           </Button>
