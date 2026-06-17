@@ -332,7 +332,12 @@ export type LogEventType =
   | "n8n_real_execution_succeeded"
   | "n8n_real_execution_failed"
   | "n8n_real_execution_blocked_missing_approval"
-  | "n8n_real_execution_review_created";
+  | "n8n_real_execution_review_created"
+  | "n8n_real_execution_dashboard_viewed"
+  | "n8n_real_execution_warning_opened"
+  | "n8n_real_execution_environment_validation_failed"
+  | "n8n_real_execution_duplicate_run_confirmed"
+  | "n8n_real_execution_recent_log_opened";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
