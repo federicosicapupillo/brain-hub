@@ -118,7 +118,7 @@ export const executeN8nRealWorkflow = createServerFn({ method: "POST" })
     const { data: wfRaw, error: wfErr } = await supabase
       .from("n8n_workflow_registry" as never)
       .select(
-        "id,user_id,workflow_name,webhook_url,webhook_method,webhook_test_url,webhook_production_url,webhook_environment,real_execution_enabled,requires_telegram_approval,risk_level,status,brain_id,project_id",
+        "id,user_id,workflow_name,webhook_url,webhook_method,webhook_test_url,webhook_production_url,webhook_environment,real_execution_enabled,requires_telegram_approval,risk_level,status,brain_id,project_id,hmac_signing_enabled,hmac_secret_env_key",
       )
       .eq("id", data.workflow_id)
       .eq("user_id", userId)
