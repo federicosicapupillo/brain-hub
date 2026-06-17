@@ -212,7 +212,7 @@ function DriveKnowledgeRoute() {
         url: linkUrl,
         name: linkName || undefined,
         brainId: brainFilter,
-        connectionId: linkConnectionId || null,
+        connectionId: linkConnectionId && linkConnectionId !== "__none__" ? linkConnectionId : null,
       });
       toast.success("Link Drive importato");
       setOpenManualLink(false);
