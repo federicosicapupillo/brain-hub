@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { getDriveKnowledgeSummary } from "@/lib/drive-knowledge";
 
 export type SimpleStepStatus = "done" | "todo" | "warning";
 
