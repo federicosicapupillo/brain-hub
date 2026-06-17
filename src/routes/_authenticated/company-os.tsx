@@ -567,7 +567,8 @@ function CompanyDashboard({ profile, onEdit }: { profile: CompanyOsProfile; onEd
                 }}
                 onClick={() => {
                   void logCompanyOsEvent(
-                    "company_os_tool_recommendation_opened" as never,
+                    "company_os_tool_recommendation_opened",
+
                     "Apertura Build Engines da Company OS",
                     { profile_id: profile.id },
                   );
