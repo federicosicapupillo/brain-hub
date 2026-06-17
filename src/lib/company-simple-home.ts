@@ -45,6 +45,11 @@ export type CompanyHomeSummary = {
   toolsMissing: number;
   knowledgeCount: number;
   handoffsActive: number;
+  driveConnections: number;
+  driveConfigured: number;
+  driveFilesMapped: number;
+  driveKnowledgeCount: number;
+  driveStatus: "not_configured" | "configured" | "mapped" | "knowledge_ready";
 };
 
 export type CompanyHomeNextAction = {
