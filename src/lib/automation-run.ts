@@ -355,7 +355,19 @@ export type LogEventType =
   | "calendar_action_created"
   | "calendar_suggestion_ignored"
   | "calendar_followup_suggested"
-  | "calendar_preparation_suggested";
+  | "calendar_preparation_suggested"
+  | "github_repository_added"
+  | "github_repository_updated"
+  | "github_repository_archived"
+  | "code_file_mapped"
+  | "code_action_suggested"
+  | "code_action_created"
+  | "codex_prompt_built"
+  | "claude_code_prompt_built"
+  | "github_issue_draft_built"
+  | "github_operational_review_created";
+
+
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
