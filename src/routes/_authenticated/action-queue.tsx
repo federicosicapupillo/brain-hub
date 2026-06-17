@@ -736,6 +736,8 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
         </div>
       )}
       <TelegramApprovalBox action={a} />
+      <N8nRealExecutionPanel action={a} />
+
       <ResultReviewBox
         sourceType="automation_action"
         sourceId={a.id}
