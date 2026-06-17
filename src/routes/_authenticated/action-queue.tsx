@@ -401,6 +401,12 @@ function ActionQueueRoute() {
       <PageHeader
         title="Automation Control · Action Queue"
         subtitle="Coda azioni operative approvabili. Niente è eseguito automaticamente."
+        actions={
+          <MasterSnapshotUpdateButton
+            source="action_queue"
+            defaultReason="Aggiornamento da Action Queue"
+          />
+        }
       />
 
       {/* Summary */}
