@@ -805,7 +805,14 @@ function AgentDetailDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col-reverse sm:flex-row gap-2">
+          {agent?.id && (
+            <Button asChild variant="default" className="sm:mr-auto">
+              <Link to="/agent-runs" search={{ agent: agent.id, brain: agent.brain_id ?? undefined }}>
+                Lancia run manuale
+              </Link>
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Chiudi
           </Button>

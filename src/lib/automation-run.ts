@@ -383,7 +383,16 @@ export type LogEventType =
   | "code_handoff_review_created"
   | "code_handoff_next_action_created"
   | "codex_handoff_created"
-  | "claude_code_handoff_created";
+  | "claude_code_handoff_created"
+  | "agent_run_created"
+  | "agent_run_preview_generated"
+  | "agent_run_completed"
+  | "agent_run_action_created"
+  | "agent_run_review_created"
+  | "agent_run_code_handoff_created"
+  | "agent_run_archived"
+  | "agent_run_context_built"
+  | "agent_run_warning_generated";
 
 
 
@@ -566,7 +575,15 @@ const LOG_TITLES: Record<LogEventType, string> = {
   code_handoff_next_action_created: "Next action creata da handoff",
   codex_handoff_created: "Handoff Codex preparato",
   claude_code_handoff_created: "Handoff Claude Code preparato",
-
+  agent_run_created: "Run agente creata",
+  agent_run_preview_generated: "Preview run agente generata",
+  agent_run_completed: "Run agente completata",
+  agent_run_action_created: "Action creata da run agente",
+  agent_run_review_created: "Review creata da run agente",
+  agent_run_code_handoff_created: "Code Handoff creato da run agente",
+  agent_run_archived: "Run agente archiviata",
+  agent_run_context_built: "Contesto run agente costruito",
+  agent_run_warning_generated: "Warning run agente generato",
 };
 
 
