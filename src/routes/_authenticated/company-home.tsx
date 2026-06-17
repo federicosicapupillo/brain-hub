@@ -394,6 +394,9 @@ function CompanyHomeRoute() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Calendar preview */}
+        <CalendarUpcomingPreview brainId={brainId} compact />
       </div>
 
       <div className="pt-2 text-center">
