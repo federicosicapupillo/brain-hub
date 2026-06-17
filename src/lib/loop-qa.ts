@@ -374,6 +374,22 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
+  // Drive Knowledge warnings (v2.8)
+  try {
+    const driveWarnings = await getDriveKnowledgeWarnings(brainId ?? null);
+    for (const w of driveWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
 
 
   // Single chain (legacy) + multi-chain history (v1.9.2)
