@@ -712,6 +712,35 @@ function RealWebhookEditor({
     setSaving(true);
     try {
       const wasEnabled = !!workflow.real_execution_enabled;
+      const validation = validateRealExecutionConfig({
+        enabled,
+        environment: env,
+        testUrl: testUrl || null,
+        prodUrl: prodUrl || null,
+        risk: workflow.risk_level,
+        requiresTelegram: requiresTg,
+      });
+      if (!validation.ok) {
+        toast.error(validation.errors[0] ?? "Configurazione non valida");
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          clipboard_item_id: null,
+          action: "n8n_real_execution_environment_validation_failed",
+          notes: `Validazione fallita: ${workflow.workflow_name}`,
+          metadata: { workflow_id: workflow.id, errors: validation.errors, environment: env },
+        } as never);
+        setSaving(false);
+        return;
+      }
+      if (enabled && env === "production") {
+        const okProd = window.confirm(
+          "Stai abilitando l'esecuzione REALE in PRODUCTION. Ogni run produrrà effetti esterni. Confermi?",
+        );
+        if (!okProd) {
+          setSaving(false);
+          return;
+        }
+      }
       await updateWorkflow(workflow.id, {
         webhook_test_url: testUrl || null,
         webhook_production_url: prodUrl || null,
