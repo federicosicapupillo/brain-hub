@@ -195,7 +195,7 @@ export async function getCompanyHomeSummary(
   };
   if (!resolved) return empty;
 
-  const [profile, blueprint, mvps, actions, results, suggestions, tools, knowledge, handoffs] =
+  const [profile, blueprint, mvps, actions, results, suggestions, tools, knowledge, handoffs, drive] =
     await Promise.all([
       supabase
         .from("company_os_profiles")
@@ -236,6 +236,7 @@ export async function getCompanyHomeSummary(
         .from("build_engine_handoffs")
         .select("id,handoff_status")
         .eq("brain_id", resolved),
+      getDriveKnowledgeSummary(resolved).catch(() => null),
     ]);
 
   const actionRows = (actions.data ?? []) as Array<{ status: string; risk_level: string }>;
