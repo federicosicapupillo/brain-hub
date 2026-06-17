@@ -870,6 +870,15 @@ function CompanyOsMini({ brainId }: { brainId: string | null }) {
       return getCompanyOsSummary(brainId);
     },
   });
+  const { data: latestBlueprint } = useQuery({
+    queryKey: ["company-blueprint-latest-mini", brainId],
+    enabled: !!brainId,
+    queryFn: async () => {
+      if (!brainId) return null;
+      const { getLatestBlueprint } = await import("@/lib/company-blueprint");
+      return getLatestBlueprint(brainId);
+    },
+  });
   const configured = !!summary?.configured;
   const tone = configured
     ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
