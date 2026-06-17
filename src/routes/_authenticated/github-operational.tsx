@@ -96,8 +96,9 @@ function GithubOperationalPage() {
     <div className="container mx-auto p-6 space-y-6">
       <PageHeader
         title="GitHub / Codex Operational"
-        description="Connettore manual-first. Nessun commit, push o PR automatici."
+        subtitle="Connettore manual-first. Nessun commit, push o PR automatici."
       />
+
 
       <Card>
         <CardHeader>
