@@ -99,8 +99,30 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
       ctaTo: "/company-blueprint",
     },
     {
-      id: "mvp",
+      id: "documents",
       order: 3,
+      title: "Collega documenti e conoscenza",
+      description:
+        s.driveStatus === "knowledge_ready"
+          ? `Drive collegato: ${s.driveFilesMapped} file mappati e ${s.driveKnowledgeCount} knowledge create.`
+          : s.driveStatus === "mapped"
+            ? `Drive collegato: ${s.driveFilesMapped} file mappati. Crea knowledge per usarli nel sistema.`
+            : s.driveStatus === "configured"
+              ? "Drive configurato ma nessun file ancora mappato. Importa un link per iniziare."
+              : "Collega Google Drive (read-only) o importa link manuali per mappare i documenti aziendali.",
+      output: "Drive Knowledge Map",
+      status:
+        s.driveStatus === "knowledge_ready"
+          ? "done"
+          : s.driveStatus === "mapped"
+            ? "warning"
+            : "todo",
+      ctaLabel: "Collega documenti",
+      ctaTo: "/drive-knowledge",
+    },
+    {
+      id: "mvp",
+      order: 4,
       title: "Crea il primo progetto o MVP",
       description:
         "Trasforma una priorità aziendale in una specifica MVP pronta da costruire.",
@@ -111,7 +133,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "engine",
-      order: 4,
+      order: 5,
       title: "Scegli il motore di sviluppo",
       description:
         "Brain Hub suggerisce se usare Lovable, Codex, Claude Code o un altro motore.",
@@ -122,7 +144,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "actions",
-      order: 5,
+      order: 6,
       title: "Approva le prime azioni",
       description:
         "Controlla cosa Brain Hub propone prima di far partire qualsiasi attività.",
@@ -133,7 +155,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "results",
-      order: 6,
+      order: 7,
       title: "Controlla i risultati",
       description:
         "Ogni risultato viene verificato prima di diventare parte del sistema.",
@@ -144,7 +166,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "improvements",
-      order: 7,
+      order: 8,
       title: "Applica i miglioramenti",
       description:
         "Brain Hub trasforma i risultati approvati in nuovi suggerimenti e prossimi passi.",
@@ -155,7 +177,7 @@ function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
     },
     {
       id: "system",
-      order: 8,
+      order: 9,
       title: "Verifica il ciclo operativo",
       description:
         "Controlla se il lavoro si è fermato o se il sistema è completo.",
