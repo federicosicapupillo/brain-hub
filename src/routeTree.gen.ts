@@ -38,6 +38,7 @@ import { Route as AuthenticatedGuidaRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authenticated/github-sync'
 import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authenticated/github-coverage'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
+import { Route as AuthenticatedDriveKnowledgeRouteImport } from './routes/_authenticated/drive-knowledge'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
 import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
@@ -215,6 +216,12 @@ const AuthenticatedFontiRoute = AuthenticatedFontiRouteImport.update({
   path: '/fonti',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedDriveKnowledgeRoute =
+  AuthenticatedDriveKnowledgeRouteImport.update({
+    id: '/drive-knowledge',
+    path: '/drive-knowledge',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedConnettoriRoute = AuthenticatedConnettoriRouteImport.update({
   id: '/connettori',
   path: '/connettori',
@@ -335,6 +342,7 @@ export interface FileRoutesByFullPath {
   '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
+  '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
@@ -382,6 +390,7 @@ export interface FileRoutesByTo {
   '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
+  '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
@@ -431,6 +440,7 @@ export interface FileRoutesById {
   '/_authenticated/company-home': typeof AuthenticatedCompanyHomeRoute
   '/_authenticated/company-os': typeof AuthenticatedCompanyOsRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
+  '/_authenticated/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
   '/_authenticated/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/_authenticated/github-sync': typeof AuthenticatedGithubSyncRoute
@@ -482,6 +492,7 @@ export interface FileRouteTypes {
     | '/company-home'
     | '/company-os'
     | '/connettori'
+    | '/drive-knowledge'
     | '/fonti'
     | '/github-coverage'
     | '/github-sync'
@@ -529,6 +540,7 @@ export interface FileRouteTypes {
     | '/company-home'
     | '/company-os'
     | '/connettori'
+    | '/drive-knowledge'
     | '/fonti'
     | '/github-coverage'
     | '/github-sync'
@@ -577,6 +589,7 @@ export interface FileRouteTypes {
     | '/_authenticated/company-home'
     | '/_authenticated/company-os'
     | '/_authenticated/connettori'
+    | '/_authenticated/drive-knowledge'
     | '/_authenticated/fonti'
     | '/_authenticated/github-coverage'
     | '/_authenticated/github-sync'
@@ -823,6 +836,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFontiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/drive-knowledge': {
+      id: '/_authenticated/drive-knowledge'
+      path: '/drive-knowledge'
+      fullPath: '/drive-knowledge'
+      preLoaderRoute: typeof AuthenticatedDriveKnowledgeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/connettori': {
       id: '/_authenticated/connettori'
       path: '/connettori'
@@ -993,6 +1013,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCompanyHomeRoute: typeof AuthenticatedCompanyHomeRoute
   AuthenticatedCompanyOsRoute: typeof AuthenticatedCompanyOsRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
+  AuthenticatedDriveKnowledgeRoute: typeof AuthenticatedDriveKnowledgeRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
   AuthenticatedGithubCoverageRoute: typeof AuthenticatedGithubCoverageRoute
   AuthenticatedGithubSyncRoute: typeof AuthenticatedGithubSyncRoute
@@ -1036,6 +1057,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCompanyHomeRoute: AuthenticatedCompanyHomeRoute,
   AuthenticatedCompanyOsRoute: AuthenticatedCompanyOsRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
+  AuthenticatedDriveKnowledgeRoute: AuthenticatedDriveKnowledgeRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
   AuthenticatedGithubCoverageRoute: AuthenticatedGithubCoverageRoute,
   AuthenticatedGithubSyncRoute: AuthenticatedGithubSyncRoute,
