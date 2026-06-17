@@ -398,7 +398,7 @@ export async function createRecommendedActionsForProfile(
       reason: `Suggerito da Company OS per reparto ${r.department}`,
     } as Record<string, unknown>,
   }));
-  const { error } = await supabase.from("automation_actions").insert(rows);
+  const { error } = await supabase.from("automation_actions").insert(rows as never);
   if (error) return 0;
   return rows.length;
 }
