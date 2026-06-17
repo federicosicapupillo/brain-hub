@@ -455,6 +455,18 @@ function ResultReviewProjectBlock({ brainId }: { brainId: string }) {
       return (data ?? []) as Array<{ id: string; title: string; review_status: string; created_at: string }>;
     },
   });
+  const { data: llPending = 0 } = useQuery({
+    queryKey: ["ll-pending-project", brainId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("learning_loop_suggestions" as never)
+        .select("id")
+        .eq("brain_id", brainId)
+        .eq("suggestion_status", "suggested")
+        .limit(200);
+      return (data ?? []).length;
+    },
+  });
   useEffect(() => {
     void supabase.auth.getUser().then(({ data: u }) => {
       if (!u.user) return;
