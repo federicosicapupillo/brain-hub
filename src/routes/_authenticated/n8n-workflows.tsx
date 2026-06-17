@@ -57,6 +57,9 @@ import { READINESS_MATRIX } from "@/lib/automation-readiness";
 import { listToolLinks } from "@/lib/tool-connections";
 import { RISK_TONE } from "@/lib/action-queue";
 import { validateRealExecutionConfig } from "@/lib/n8n-real-execution";
+import { useServerFn } from "@tanstack/react-start";
+import { getN8nHmacSecretStatus } from "@/lib/n8n-hmac.functions";
+import { DEFAULT_HMAC_SECRET_ENV_KEY } from "@/lib/n8n-hmac";
 
 const searchSchema = z.object({ brain: z.string().optional() });
 
