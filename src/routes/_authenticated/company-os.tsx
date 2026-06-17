@@ -547,6 +547,25 @@ function CompanyDashboard({ profile, onEdit }: { profile: CompanyOsProfile; onEd
             <Button asChild size="sm" variant="outline">
               <Link to="/company-blueprint" search={{}}>Apri Blueprint</Link>
             </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link
+                to="/build-engines"
+                search={{}}
+                onClick={() => {
+                  void import("@/lib/build-engines").then((m) =>
+                    m.logBuildEngineEvent(
+                      "build_engine_opened_from_company_os",
+                      "Apertura Build Engines da Company OS",
+                    ),
+                  );
+                }}
+              >
+                Scegli motore di sviluppo
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/build-engines" search={{}}>Apri Build Engines</Link>
+            </Button>
           </CardContent>
         </Card>
       </div>
