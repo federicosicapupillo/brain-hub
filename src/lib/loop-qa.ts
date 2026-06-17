@@ -493,9 +493,82 @@ function buildChain(
   };
 }
 
+function buildRecentChains(
+  actions: ActionRow[],
+  reviews: ReviewRow[],
+  suggestions: SuggestionRow[],
+  knowledge: KnowledgeRow[],
+  telegram: TelegramRow[],
+  limit: number,
+): LoopMultiChain[] {
+  const out: LoopMultiChain[] = [];
+  const seedReviews = reviews.slice(0, limit);
+  for (const r of seedReviews) {
+    const subset: ReviewRow[] = [r];
+    const chain = buildChain(actions, subset, suggestions, knowledge, telegram);
+    const reviewSuggestions = suggestions.filter((s) => s.result_review_item_id === r.id);
+    const appliedSuggestion = reviewSuggestions.find((s) => s.suggestion_status === "applied");
+    const createdObjectKind: LoopMultiChain["createdObjectKind"] = appliedSuggestion
+      ? appliedSuggestion.applied_object_type === "knowledge_source"
+        ? "knowledge"
+        : appliedSuggestion.applied_object_type === "automation_action"
+          ? "automation_action"
+          : appliedSuggestion.suggestion_type === "next_prompt"
+            ? "next_prompt"
+            : null
+      : null;
+    let stopStep: string | null = null;
+    if (!["approved", "needs_fix", "failed"].includes(r.review_status)) {
+      stopStep = "Review non ancora decisa";
+    } else if (reviewSuggestions.length === 0) {
+      stopStep = "Nessun learning suggestion generato";
+    } else if (!reviewSuggestions.some((s) => s.suggestion_status === "applied" || s.suggestion_status === "accepted")) {
+      stopStep = "Nessun suggerimento accettato o applicato";
+    } else if (!appliedSuggestion) {
+      stopStep = "Suggerimenti accettati ma non applicati";
+    }
+    out.push({
+      ...chain,
+      id: r.id,
+      title: r.title,
+      reviewId: r.id,
+      reviewStatus: r.review_status,
+      suggestionsCount: reviewSuggestions.length,
+      createdObjectKind,
+      stopStep,
+      createdAt: r.created_at,
+    });
+  }
+  // If no reviews, surface a single action-only chain
+  if (out.length === 0 && actions[0]) {
+    const a = actions[0];
+    const chain = buildChain(actions, [], suggestions, knowledge, telegram);
+    out.push({
+      ...chain,
+      id: a.id,
+      title: a.title,
+      reviewId: null,
+      reviewStatus: null,
+      suggestionsCount: 0,
+      createdObjectKind: null,
+      stopStep: "Result Review non ancora creata",
+      createdAt: a.created_at,
+    });
+  }
+  return out;
+}
+
 export async function getLatestLoopChain(brainId?: string | null): Promise<LoopChain> {
   const s = await getLoopQaSummary(brainId);
   return s.chain;
+}
+
+export async function getRecentLoopChains(
+  brainId?: string | null,
+  limit = 5,
+): Promise<LoopMultiChain[]> {
+  const s = await getLoopQaSummary(brainId);
+  return s.chains.slice(0, limit);
 }
 
 export async function validateLoopReadiness(brainId?: string | null): Promise<{
