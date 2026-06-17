@@ -3,11 +3,13 @@ import {
   getCompanyHomeSummary,
   type CompanyHomeSummary,
 } from "@/lib/company-simple-home";
+import { getCalendarKnowledgeSummary } from "@/lib/calendar-knowledge";
 
 export type ClientOnboardingStepId =
   | "profile"
   | "blueprint"
   | "documents"
+  | "calendar"
   | "mvp"
   | "engine"
   | "actions"
