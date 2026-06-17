@@ -9,6 +9,8 @@ import { AlertTriangle, PlayCircle, ShieldAlert, FileCheck2, History } from "luc
 import { Link } from "@tanstack/react-router";
 import { listWorkflowsForActionType, type N8nWorkflow } from "@/lib/n8n-workflows";
 import { executeN8nRealWorkflow, createReviewFromN8nLog } from "@/lib/n8n-real-execution.functions";
+import { getN8nHmacSecretStatus } from "@/lib/n8n-hmac.functions";
+import { DEFAULT_HMAC_SECRET_ENV_KEY } from "@/lib/n8n-hmac";
 import {
   getRecentN8nRealExecutionsForWorkflow,
   logN8nRealExecutionEvent,
