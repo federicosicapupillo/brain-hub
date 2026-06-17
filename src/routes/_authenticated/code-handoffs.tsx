@@ -177,9 +177,9 @@ function CodeHandoffsPage() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Code Handoffs — Codex / Claude Code"
-        description="Console manuale per preparare prompt operativi, salvare risultati e creare Result Review. Nessun commit, push o PR automatico."
-        icon={Bot}
+        subtitle="Console manuale per preparare prompt operativi, salvare risultati e creare Result Review. Nessun commit, push o PR automatico."
       />
+
 
       <Card>
         <CardHeader>

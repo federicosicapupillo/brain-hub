@@ -44,6 +44,7 @@ import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
 import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
 import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
+import { Route as AuthenticatedCodeHandoffsRouteImport } from './routes/_authenticated/code-handoffs'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
 import { Route as AuthenticatedClientOnboardingRouteImport } from './routes/_authenticated/client-onboarding'
 import { Route as AuthenticatedCalendarKnowledgeRouteImport } from './routes/_authenticated/calendar-knowledge'
@@ -255,6 +256,12 @@ const AuthenticatedCompanyBlueprintRoute =
     path: '/company-blueprint',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCodeHandoffsRoute =
+  AuthenticatedCodeHandoffsRouteImport.update({
+    id: '/code-handoffs',
+    path: '/code-handoffs',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedClipboardAiRoute =
   AuthenticatedClipboardAiRouteImport.update({
     id: '/clipboard-ai',
@@ -375,6 +382,7 @@ export interface FileRoutesByFullPath {
   '/calendar-knowledge': typeof AuthenticatedCalendarKnowledgeRoute
   '/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
+  '/code-handoffs': typeof AuthenticatedCodeHandoffsRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
@@ -428,6 +436,7 @@ export interface FileRoutesByTo {
   '/calendar-knowledge': typeof AuthenticatedCalendarKnowledgeRoute
   '/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
+  '/code-handoffs': typeof AuthenticatedCodeHandoffsRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
@@ -483,6 +492,7 @@ export interface FileRoutesById {
   '/_authenticated/calendar-knowledge': typeof AuthenticatedCalendarKnowledgeRoute
   '/_authenticated/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
+  '/_authenticated/code-handoffs': typeof AuthenticatedCodeHandoffsRoute
   '/_authenticated/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/_authenticated/company-home': typeof AuthenticatedCompanyHomeRoute
   '/_authenticated/company-os': typeof AuthenticatedCompanyOsRoute
@@ -540,6 +550,7 @@ export interface FileRouteTypes {
     | '/calendar-knowledge'
     | '/client-onboarding'
     | '/clipboard-ai'
+    | '/code-handoffs'
     | '/company-blueprint'
     | '/company-home'
     | '/company-os'
@@ -593,6 +604,7 @@ export interface FileRouteTypes {
     | '/calendar-knowledge'
     | '/client-onboarding'
     | '/clipboard-ai'
+    | '/code-handoffs'
     | '/company-blueprint'
     | '/company-home'
     | '/company-os'
@@ -647,6 +659,7 @@ export interface FileRouteTypes {
     | '/_authenticated/calendar-knowledge'
     | '/_authenticated/client-onboarding'
     | '/_authenticated/clipboard-ai'
+    | '/_authenticated/code-handoffs'
     | '/_authenticated/company-blueprint'
     | '/_authenticated/company-home'
     | '/_authenticated/company-os'
@@ -945,6 +958,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanyBlueprintRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/code-handoffs': {
+      id: '/_authenticated/code-handoffs'
+      path: '/code-handoffs'
+      fullPath: '/code-handoffs'
+      preLoaderRoute: typeof AuthenticatedCodeHandoffsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/clipboard-ai': {
       id: '/_authenticated/clipboard-ai'
       path: '/clipboard-ai'
@@ -1113,6 +1133,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCalendarKnowledgeRoute: typeof AuthenticatedCalendarKnowledgeRoute
   AuthenticatedClientOnboardingRoute: typeof AuthenticatedClientOnboardingRoute
   AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
+  AuthenticatedCodeHandoffsRoute: typeof AuthenticatedCodeHandoffsRoute
   AuthenticatedCompanyBlueprintRoute: typeof AuthenticatedCompanyBlueprintRoute
   AuthenticatedCompanyHomeRoute: typeof AuthenticatedCompanyHomeRoute
   AuthenticatedCompanyOsRoute: typeof AuthenticatedCompanyOsRoute
@@ -1160,6 +1181,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCalendarKnowledgeRoute: AuthenticatedCalendarKnowledgeRoute,
   AuthenticatedClientOnboardingRoute: AuthenticatedClientOnboardingRoute,
   AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
+  AuthenticatedCodeHandoffsRoute: AuthenticatedCodeHandoffsRoute,
   AuthenticatedCompanyBlueprintRoute: AuthenticatedCompanyBlueprintRoute,
   AuthenticatedCompanyHomeRoute: AuthenticatedCompanyHomeRoute,
   AuthenticatedCompanyOsRoute: AuthenticatedCompanyOsRoute,
