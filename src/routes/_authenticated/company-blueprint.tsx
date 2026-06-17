@@ -383,7 +383,16 @@ function Row({ k, v }: { k: string; v: string }) {
   );
 }
 
-function BlueprintPreview({ content }: { content: BlueprintContent }) {
+function BlueprintPreview({
+  content,
+  blueprintId,
+  brainId,
+}: {
+  content: BlueprintContent;
+  blueprintId: string | null;
+  brainId: string;
+}) {
+
   return (
     <>
       <Section title="Executive Summary">
