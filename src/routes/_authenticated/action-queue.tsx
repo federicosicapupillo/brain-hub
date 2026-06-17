@@ -1187,6 +1187,17 @@ function N8nControlledExecutionBox({
         </details>
       )}
 
+      {(lastLive ?? lastDry) && (
+        <ResultReviewBox
+          sourceType="n8n_execution_log"
+          sourceId={(lastLive ?? lastDry)!.id}
+          title="Review risultato n8n"
+          createdEvent="result_review_created_from_n8n"
+          openedEvent="result_review_opened_from_n8n"
+          compact
+        />
+      )}
+
       {/* High risk confirmation */}
       <Dialog open={confirmHighOpen} onOpenChange={setConfirmHighOpen}>
         <DialogContent>
