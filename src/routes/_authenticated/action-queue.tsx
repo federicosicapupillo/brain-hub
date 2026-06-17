@@ -525,6 +525,9 @@ function ActionQueueRoute() {
             </DialogDescription>
           </DialogHeader>
           {openDetail && <ActionDetail a={openDetail} brainName={brains.find((b) => b.id === openDetail.brain_id)?.name} />}
+          {openDetail && isCodeActionType(openDetail.action_type) && (
+            <CodexHandoffBox action={openDetail} onClose={() => setOpenDetailId(null)} />
+          )}
           <DialogFooter className="flex flex-wrap gap-2">
             {openDetail && (
               <>
