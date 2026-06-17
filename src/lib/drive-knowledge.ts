@@ -114,7 +114,10 @@ export type DriveKnowledgeEvent =
   | "google_drive_disconnected"
   | "google_drive_metadata_sync_started"
   | "google_drive_metadata_sync_completed"
-  | "google_drive_metadata_sync_failed";
+  | "google_drive_metadata_sync_failed"
+  | "google_drive_metadata_sync_limited"
+  | "google_drive_metadata_sync_warning"
+  | "google_drive_metadata_sync_file_count_updated";
 
 // ------------------------------------------------------------
 // Logging
