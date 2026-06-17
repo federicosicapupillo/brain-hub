@@ -39,6 +39,7 @@ import {
   type SimpleHomeCard,
   type SimpleProgressStep,
 } from "@/lib/company-simple-home";
+import { CalendarUpcomingPreview } from "@/components/CalendarUpcomingPreview";
 
 type CompanyHomeSearch = { brain?: string };
 
