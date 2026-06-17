@@ -466,6 +466,11 @@ const LOG_TITLES: Record<LogEventType, string> = {
   n8n_real_execution_failed: "Esecuzione reale n8n fallita",
   n8n_real_execution_blocked_missing_approval: "Esecuzione reale n8n bloccata: manca approvazione Telegram",
   n8n_real_execution_review_created: "Result Review creata da esecuzione reale n8n",
+  n8n_real_execution_dashboard_viewed: "Tile esecuzione reale n8n visualizzata",
+  n8n_real_execution_warning_opened: "Warning esecuzione reale n8n aperto",
+  n8n_real_execution_environment_validation_failed: "Validazione ambiente/URL n8n fallita",
+  n8n_real_execution_duplicate_run_confirmed: "Run reale duplicata confermata manualmente",
+  n8n_real_execution_recent_log_opened: "Log esecuzione reale n8n aperto",
 };
 
 
