@@ -45,6 +45,7 @@ import {
 
 const items = [
   { title: "Home Azienda", url: "/company-home", icon: Home },
+  { title: "Master Snapshot", url: "/master-snapshot", icon: FileText },
   { title: "Company OS", url: "/company-os", icon: Building2 },
   { title: "Company Blueprint", url: "/company-blueprint", icon: BookMarked },
   { title: "Build Engines", url: "/build-engines", icon: Cpu },
