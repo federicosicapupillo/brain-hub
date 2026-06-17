@@ -695,6 +695,50 @@ function SuggestionRow({
           </SelectContent>
         </Select>
       </div>
+      {createdActionId && (
+        <div className="flex flex-wrap gap-1.5 pt-1 border-t mt-2">
+          <span className="text-[11px] text-muted-foreground self-center mr-1">
+            Codex / Claude Code handoff:
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const { createCodeEngineHandoffFromAction } = await import(
+                  "@/lib/code-engine-handoff"
+                );
+                await createCodeEngineHandoffFromAction(createdActionId, "codex");
+                toast.success("Handoff Codex creato");
+              } catch (e) {
+                toast.error((e as Error).message);
+              }
+            }}
+          >
+            Prepara con Codex
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const { createCodeEngineHandoffFromAction } = await import(
+                  "@/lib/code-engine-handoff"
+                );
+                await createCodeEngineHandoffFromAction(createdActionId, "claude_code");
+                toast.success("Handoff Claude Code creato");
+              } catch (e) {
+                toast.error((e as Error).message);
+              }
+            }}
+          >
+            Prepara con Claude Code
+          </Button>
+          <Button asChild size="sm" variant="ghost">
+            <Link to="/code-handoffs">Apri Code Handoffs</Link>
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
