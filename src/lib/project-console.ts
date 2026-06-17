@@ -132,6 +132,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "tool_connections",
       "knowledge_map",
       "result_review",
+      "loop_qa",
     ],
   },
   content_creation: {
