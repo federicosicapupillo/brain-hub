@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -6,11 +6,13 @@ import {
   ExternalLink,
   FolderTree,
   Link2,
+  LogOut,
   Plug,
   Plus,
   RefreshCw,
-  Sparkles,
   ShieldAlert,
+  ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -57,14 +59,26 @@ import {
   startGoogleDriveOAuth,
 } from "@/lib/drive-oauth.functions";
 
+type DriveKnowledgeSearch = {
+  oauth?: "success" | "error";
+  message?: string;
+  brain?: string;
+};
+
 export const Route = createFileRoute("/_authenticated/drive-knowledge")({
+  validateSearch: (s: Record<string, unknown>): DriveKnowledgeSearch => ({
+    oauth:
+      s.oauth === "success" || s.oauth === "error" ? (s.oauth as "success" | "error") : undefined,
+    message: typeof s.message === "string" ? s.message : undefined,
+    brain: typeof s.brain === "string" ? s.brain : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Google Drive Knowledge — Brain Hub" },
       {
         name: "description",
         content:
-          "Mappa documenti Google Drive in modalità read-only e collegali alla Knowledge Map di Brain Hub.",
+          "Mappa documenti Google Drive via OAuth read-only (metadata-only) e collegali alla Knowledge Map di Brain Hub.",
       },
     ],
   }),
@@ -75,11 +89,14 @@ type Brain = { id: string; name: string };
 
 function DriveKnowledgeRoute() {
   const qc = useQueryClient();
-  const [brainId, setBrainId] = useState<string>("");
+  const navigate = useNavigate({ from: "/drive-knowledge" });
+  const routeSearch = Route.useSearch();
+  const [brainId, setBrainId] = useState<string>(routeSearch.brain ?? "");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [mimeFilter, setMimeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
+  const [busyConnectionId, setBusyConnectionId] = useState<string | null>(null);
 
   const [openConnect, setOpenConnect] = useState(false);
   const [connectLabel, setConnectLabel] = useState("Google Drive");
@@ -92,6 +109,22 @@ function DriveKnowledgeRoute() {
   useEffect(() => {
     void logDriveKnowledgeEvent("drive_connection_opened", "Drive Knowledge aperto");
   }, []);
+
+  useEffect(() => {
+    if (!routeSearch.oauth) return;
+    if (routeSearch.oauth === "success") {
+      toast.success("Google Drive collegato correttamente");
+    } else {
+      const msg = routeSearch.message?.slice(0, 200) || "Errore OAuth Google Drive";
+      toast.error(msg);
+    }
+    void qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
+    void navigate({
+      search: (prev: DriveKnowledgeSearch) => ({ ...prev, oauth: undefined, message: undefined }),
+      replace: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [routeSearch.oauth]);
 
   const { data: brains = [] } = useQuery({
     queryKey: ["drive-knowledge", "brains"],
@@ -194,54 +227,64 @@ function DriveKnowledgeRoute() {
   }
 
   async function handleSync(connection: DriveConnection) {
-    const res = await syncDriveMetadata(connection.id);
-    if (res.ok) {
-      toast.success("Sync metadata Drive completato");
-    } else if (res.authUrl) {
-      void logDriveKnowledgeEvent(
-        "google_drive_oauth_started",
-        "Redirect a Google per consenso (metadata.readonly)",
-        { connection_id: connection.id },
-      );
-      toast.info("Reindirizzamento a Google per consenso read-only…");
-      window.location.href = res.authUrl;
-      return;
-    } else {
-      toast.error(res.reason ?? "Sync metadata fallito");
+    if (busyConnectionId) return;
+    setBusyConnectionId(connection.id);
+    try {
+      const res = await syncDriveMetadata(connection.id);
+      if (res.ok) {
+        toast.success("Sync metadata Drive completato");
+      } else if (res.authUrl) {
+        toast.info("Reindirizzamento a Google per consenso read-only…");
+        window.location.href = res.authUrl;
+        return;
+      } else {
+        toast.error(res.reason ?? "Sync metadata fallito");
+      }
+      await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
+    } finally {
+      setBusyConnectionId(null);
     }
-    await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
   }
 
   async function handleAuthorize(connection: DriveConnection) {
-    const res = await startGoogleDriveOAuth({
-      data: { connectionId: connection.id, returnTo: "/drive-knowledge?oauth=success" },
-    });
-    if (res.ok) {
-      void logDriveKnowledgeEvent(
-        "google_drive_oauth_started",
-        "Avvio OAuth Google Drive",
-        { connection_id: connection.id },
+    if (busyConnectionId) return;
+    if (!oauthStatus?.configured) {
+      toast.error(
+        "Google OAuth non configurato. Aggiungi GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_OAUTH_REDIRECT_URL server-side.",
       );
-      window.location.href = res.authUrl;
-    } else {
-      toast.error(res.reason);
+      return;
+    }
+    setBusyConnectionId(connection.id);
+    try {
+      const res = await startGoogleDriveOAuth({
+        data: { connectionId: connection.id, returnTo: "/drive-knowledge?oauth=success" },
+      });
+      if (res.ok) {
+        window.location.href = res.authUrl;
+      } else {
+        toast.error(res.reason);
+      }
+    } finally {
+      setBusyConnectionId(null);
     }
   }
 
   async function handleDisconnect(connection: DriveConnection) {
-    const res = await disconnectGoogleDrive({ data: { connectionId: connection.id } });
-    if (res.ok) {
-      void logDriveKnowledgeEvent(
-        "google_drive_disconnected",
-        "Connessione Drive disconnessa",
-        { connection_id: connection.id },
-      );
-      toast.success("Drive disconnesso");
-      await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
-    } else {
-      toast.error(res.reason ?? "Disconnessione fallita");
+    if (busyConnectionId) return;
+    setBusyConnectionId(connection.id);
+    try {
+      const res = await disconnectGoogleDrive({ data: { connectionId: connection.id } });
+      if (res.ok) {
+        toast.success("Drive disconnesso. I file su Google Drive non sono stati toccati.");
+        await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
+      } else {
+        toast.error(res.reason ?? "Disconnessione fallita");
+      }
+    } finally {
+      setBusyConnectionId(null);
     }
   }
+
 
   async function handleCreateKnowledge(file: DriveFile) {
     const targetBrain = file.brain_id ?? brainFilter ?? brains[0]?.id ?? null;
@@ -264,11 +307,11 @@ function DriveKnowledgeRoute() {
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       <PageHeader
         title="Google Drive Knowledge"
-        subtitle="Mappa documenti Drive in modalità read-only e collegali alla Knowledge Map"
+        subtitle="OAuth read-only · metadata-only. Brain Hub non scarica contenuti, non modifica e non cancella nulla."
         actions={
           <>
             <Badge variant="outline" className="text-[10px]">
-              v2.8 read-only
+              v2.8.1 OAuth read-only
             </Badge>
             <Button asChild size="sm" variant="outline">
               <Link to="/knowledge-map">Knowledge Map</Link>
@@ -279,6 +322,15 @@ function DriveKnowledgeRoute() {
           </>
         }
       />
+
+      <OauthStatusBanner
+        configured={oauthStatus?.configured ?? false}
+        scope={oauthStatus?.scope}
+        hasError={routeSearch.oauth === "error"}
+        errorMessage={routeSearch.message}
+        anyConnected={connections.some((c) => c.connection_status === "connected")}
+      />
+
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3 p-4">
@@ -331,45 +383,83 @@ function DriveKnowledgeRoute() {
             <p className="text-sm text-muted-foreground">Caricamento…</p>
           ) : connections.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nessuna connessione Drive. Usa "Collega Google Drive" per creare un placeholder
-              sicuro: l'OAuth reale non è ancora configurato in questa versione, ma puoi
-              importare link manualmente.
+              Nessuna connessione Drive. Usa "Collega Google Drive" per creare un connettore,
+              poi "Autorizza" per completare l'OAuth read-only. In alternativa puoi importare
+              link Drive manualmente.
             </p>
           ) : (
             <ul className="divide-y">
-              {connections.map((c) => (
-                <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{c.label}</span>
-                      <Badge
-                        className={
-                          DRIVE_CONNECTION_STATUS_TONE[c.connection_status] ??
-                          "bg-muted text-muted-foreground border-border"
-                        }
+              {connections.map((c) => {
+                const isConnected = c.connection_status === "connected";
+                const isBusy = busyConnectionId === c.id;
+                return (
+                  <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{c.label}</span>
+                        <Badge
+                          className={
+                            DRIVE_CONNECTION_STATUS_TONE[c.connection_status] ??
+                            "bg-muted text-muted-foreground border-border"
+                          }
+                        >
+                          {DRIVE_CONNECTION_STATUS_LABEL[c.connection_status] ?? c.connection_status}
+                        </Badge>
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {c.last_sync_at
+                          ? `Ultimo sync: ${new Date(c.last_sync_at).toLocaleString()}`
+                          : "Mai sincronizzata"}
+                        {c.root_folder_name ? ` · Root: ${c.root_folder_name}` : ""}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {!isConnected ? (
+                        <Button
+                          size="sm"
+                          variant="default"
+                          disabled={isBusy || !(oauthStatus?.configured)}
+                          onClick={() => handleAuthorize(c)}
+                          title={
+                            oauthStatus?.configured
+                              ? "Avvia consenso OAuth read-only"
+                              : "Google OAuth non configurato server-side"
+                          }
+                        >
+                          <ShieldCheck className="mr-1 h-3 w-3" /> Autorizza Google Drive
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={isBusy}
+                          onClick={() => {
+                            if (window.confirm("Disconnettere questa connessione Drive? I file Drive non vengono toccati.")) {
+                              void handleDisconnect(c);
+                            }
+                          }}
+                        >
+                          <LogOut className="mr-1 h-3 w-3" /> Disconnetti
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isBusy}
+                        onClick={() => handleSync(c)}
                       >
-                        {DRIVE_CONNECTION_STATUS_LABEL[c.connection_status] ?? c.connection_status}
-                      </Badge>
+                        <RefreshCw className="mr-1 h-3 w-3" /> Sincronizza metadata
+                      </Button>
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {c.last_sync_at
-                        ? `Ultimo sync: ${new Date(c.last_sync_at).toLocaleString()}`
-                        : "Mai sincronizzata"}
-                      {c.root_folder_name ? ` · Root: ${c.root_folder_name}` : ""}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handleSync(c)}>
-                      <RefreshCw className="mr-1 h-3 w-3" /> Sincronizza metadata
-                    </Button>
-                  </div>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
           <p className="text-[11px] text-muted-foreground">
-            Sicurezza: Brain Hub non modifica, non sposta e non cancella file su Google Drive.
-            Nessun contenuto file viene scaricato in v2.8.
+            Brain Hub legge solo metadata dei file (scope <code>drive.metadata.readonly</code>).
+            Non scarica contenuti, non modifica file, non cancella nulla. I token OAuth non
+            vengono mai salvati nel database.
           </p>
         </CardContent>
       </Card>
@@ -515,9 +605,10 @@ function DriveKnowledgeRoute() {
         <CardContent className="flex items-start gap-2 p-4 text-[11px] text-muted-foreground">
           <ShieldAlert className="mt-0.5 h-3 w-3" />
           <p>
-            Brain Hub v2.8 è read-only: nessun file viene creato, spostato o cancellato su Google
-            Drive. I token OAuth, se mai configurati, restano server-side e non sono mai esposti
-            al frontend.
+            Brain Hub v2.8.1 è read-only e usa lo scope <code>drive.metadata.readonly</code>:
+            legge solo metadata (id, nome, mimeType, modifiedTime, webViewLink). Nessun contenuto
+            file viene scaricato; nessun file viene creato, spostato o cancellato su Google Drive.
+            I token OAuth non vengono mai salvati nel database né mostrati al frontend.
           </p>
         </CardContent>
       </Card>
@@ -528,9 +619,9 @@ function DriveKnowledgeRoute() {
           <DialogHeader>
             <DialogTitle>Collega Google Drive</DialogTitle>
             <DialogDescription>
-              OAuth Google non è ancora configurato in questa versione. Creiamo un connettore
-              placeholder sicuro: potrai importare link Drive manualmente e mapparli alle
-              knowledge source.
+              Crea un connettore Drive. Dopo la creazione, usa "Autorizza Google Drive" per
+              completare l'OAuth read-only (scope <code>drive.metadata.readonly</code>). In
+              alternativa puoi sempre importare link Drive manualmente.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -634,6 +725,61 @@ function SummaryTile({
           {value}
         </div>
         {hint && <div className="text-[11px] text-muted-foreground">{hint}</div>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function OauthStatusBanner({
+  configured,
+  scope,
+  hasError,
+  errorMessage,
+  anyConnected,
+}: {
+  configured: boolean;
+  scope?: string;
+  hasError: boolean;
+  errorMessage?: string;
+  anyConnected: boolean;
+}) {
+  let title: string;
+  let body: string;
+  let tone: "ok" | "warn" | "info" | "err";
+  if (hasError) {
+    title = "Errore OAuth";
+    body = errorMessage?.slice(0, 200) || "Il consenso OAuth non è andato a buon fine. Riprova.";
+    tone = "err";
+  } else if (!configured) {
+    title = "OAuth non configurato";
+    body =
+      "Google OAuth non configurato. Aggiungi i secrets server-side (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URL) per abilitare il collegamento reale. Nel frattempo puoi importare link Drive manualmente.";
+    tone = "warn";
+  } else if (anyConnected) {
+    title = "Google Drive collegato";
+    body = `Scope attivo: ${scope ?? "drive.metadata.readonly"}. Solo metadata, nessun contenuto file scaricato.`;
+    tone = "ok";
+  } else {
+    title = "Pronto per il collegamento";
+    body = `OAuth server-side configurato. Crea una connessione e premi "Autorizza Google Drive" (scope ${scope ?? "drive.metadata.readonly"}).`;
+    tone = "info";
+  }
+  const toneClass =
+    tone === "ok"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100"
+      : tone === "err"
+        ? "border-destructive/40 bg-destructive/10 text-destructive"
+        : tone === "warn"
+          ? "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100"
+          : "border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-100";
+  return (
+    <Card className={toneClass}>
+      <CardContent className="flex items-start gap-2 p-4 text-xs">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="space-y-1">
+          <div className="font-medium">{title}</div>
+          <p>{body}</p>
+        </div>
       </CardContent>
     </Card>
   );
