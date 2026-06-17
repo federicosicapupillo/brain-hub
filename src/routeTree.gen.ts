@@ -38,6 +38,7 @@ import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authe
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
+import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
 import { Route as AuthenticatedAutomationReadinessRouteImport } from './routes/_authenticated/automation-readiness'
 import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_authenticated/automation-control'
@@ -208,6 +209,12 @@ const AuthenticatedCompanyOsRoute = AuthenticatedCompanyOsRouteImport.update({
   path: '/company-os',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCompanyBlueprintRoute =
+  AuthenticatedCompanyBlueprintRouteImport.update({
+    id: '/company-blueprint',
+    path: '/company-blueprint',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedClipboardAiRoute =
   AuthenticatedClipboardAiRouteImport.update({
     id: '/clipboard-ai',
@@ -288,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
+  '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -329,6 +337,7 @@ export interface FileRoutesByTo {
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
+  '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -372,6 +381,7 @@ export interface FileRoutesById {
   '/_authenticated/automation-control': typeof AuthenticatedAutomationControlRoute
   '/_authenticated/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
+  '/_authenticated/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/_authenticated/company-os': typeof AuthenticatedCompanyOsRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
@@ -417,6 +427,7 @@ export interface FileRouteTypes {
     | '/automation-control'
     | '/automation-readiness'
     | '/clipboard-ai'
+    | '/company-blueprint'
     | '/company-os'
     | '/connettori'
     | '/fonti'
@@ -458,6 +469,7 @@ export interface FileRouteTypes {
     | '/automation-control'
     | '/automation-readiness'
     | '/clipboard-ai'
+    | '/company-blueprint'
     | '/company-os'
     | '/connettori'
     | '/fonti'
@@ -500,6 +512,7 @@ export interface FileRouteTypes {
     | '/_authenticated/automation-control'
     | '/_authenticated/automation-readiness'
     | '/_authenticated/clipboard-ai'
+    | '/_authenticated/company-blueprint'
     | '/_authenticated/company-os'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
@@ -746,6 +759,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanyOsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/company-blueprint': {
+      id: '/_authenticated/company-blueprint'
+      path: '/company-blueprint'
+      fullPath: '/company-blueprint'
+      preLoaderRoute: typeof AuthenticatedCompanyBlueprintRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/clipboard-ai': {
       id: '/_authenticated/clipboard-ai'
       path: '/clipboard-ai'
@@ -868,6 +888,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAutomationControlRoute: typeof AuthenticatedAutomationControlRoute
   AuthenticatedAutomationReadinessRoute: typeof AuthenticatedAutomationReadinessRoute
   AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
+  AuthenticatedCompanyBlueprintRoute: typeof AuthenticatedCompanyBlueprintRoute
   AuthenticatedCompanyOsRoute: typeof AuthenticatedCompanyOsRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
@@ -905,6 +926,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAutomationControlRoute: AuthenticatedAutomationControlRoute,
   AuthenticatedAutomationReadinessRoute: AuthenticatedAutomationReadinessRoute,
   AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
+  AuthenticatedCompanyBlueprintRoute: AuthenticatedCompanyBlueprintRoute,
   AuthenticatedCompanyOsRoute: AuthenticatedCompanyOsRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
