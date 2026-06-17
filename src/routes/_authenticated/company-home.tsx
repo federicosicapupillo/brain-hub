@@ -421,3 +421,67 @@ function CompanyHomeRoute() {
     </div>
   );
 }
+
+function AgentiAiBlock({
+  brainId,
+  linkSearch,
+}: {
+  brainId: string | null;
+  linkSearch: { brain?: string };
+}) {
+  const { data } = useQuery({
+    queryKey: ["company-home-agents", brainId],
+    queryFn: async () => {
+      const { getAgentCenterSummary } = await import("@/lib/agent-center");
+      return getAgentCenterSummary(brainId);
+    },
+  });
+  const total = data?.total ?? 0;
+  const active = data?.active ?? 0;
+  const recommended = data?.recommendedNext?.name ?? null;
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base">Agenti AI</CardTitle>
+          <Sparkles className="h-4 w-4 text-muted-foreground" />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">Ruoli configurati</div>
+            <div className="text-lg font-semibold">{total}</div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">Assistenti attivi</div>
+            <div className="text-lg font-semibold">{active}</div>
+          </div>
+          <div className="rounded-md border p-3">
+            <div className="text-xs text-muted-foreground">Prossimo consigliato</div>
+            <div className="truncate text-sm font-medium">{recommended ?? "—"}</div>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Assistenti AI interni con permessi controllati e nessuna esecuzione autonoma.
+        </p>
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="w-full"
+          onClick={() => {
+            void import("@/lib/agent-center").then(({ logAgentCenterEvent }) =>
+              logAgentCenterEvent("agent_center_viewed", "Apertura da Home Azienda", { brain: brainId }),
+            );
+          }}
+        >
+          <Link to="/agent-center" search={linkSearch}>
+            Configura agenti <ArrowRight className="ml-1 h-3 w-3" />
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
