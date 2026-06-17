@@ -54,7 +54,16 @@ export type ClientOnboardingEvent =
   | "client_onboarding_expert_mode_opened"
   | "drive_opened_from_client_onboarding";
 
-function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
+type CalendarStepInput = {
+  connections: number;
+  hasNeverSynced: boolean;
+  lastSyncFailed: boolean;
+};
+
+function buildSteps(
+  s: CompanyHomeSummary,
+  cal: CalendarStepInput,
+): ClientOnboardingStep[] {
   const profileDone = s.hasProfile;
   const blueprintDone = s.hasBlueprint;
   const mvpDone = s.mvpCount > 0;
