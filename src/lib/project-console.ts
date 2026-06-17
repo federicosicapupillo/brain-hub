@@ -57,7 +57,9 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "result_review", label: "Result Review", hint: "Risultati da rivedere, approvati, da correggere, falliti" },
   { id: "loop_qa", label: "Loop QA", hint: "Validazione end-to-end del ciclo operativo Brain Hub" },
   { id: "company_os", label: "Company OS", hint: "Profilo azienda, aree operative e moduli consigliati." },
+  { id: "mvp_factory", label: "MVP Factory", hint: "MVP attivi, ultimo MVP, engine consigliato." },
 ];
+
 
 export const PRIORITIES = [
   "sviluppo_app",
