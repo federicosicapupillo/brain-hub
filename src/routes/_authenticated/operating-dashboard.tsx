@@ -412,6 +412,7 @@ function OperatingDashboardRoute() {
             <TelegramApprovalsMini brainId={brainId} />
             <ResultReviewMini brainId={brainId} />
             <LoopQaMini brainId={brainId} />
+            <CompanyOsMini brainId={brainId} />
 
 
             {/* Roadmap snapshot */}
