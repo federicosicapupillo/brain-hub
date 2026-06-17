@@ -53,6 +53,7 @@ import {
   listApprovalRequests,
   summarizeApprovals,
 } from "@/lib/telegram-approvals";
+import { isTelegramDeliveryStale } from "@/lib/telegram-connections";
 
 export const Route = createFileRoute("/_authenticated/operating-dashboard")({
   head: () => ({
@@ -711,6 +712,12 @@ function TelegramApprovalsMini({ brainId }: { brainId: string | null }) {
   }).length;
   const sent = requests.filter((r) => r.telegram_delivery_status === "sent").length;
   const failed = requests.filter((r) => r.telegram_delivery_status === "failed").length;
+  const stale = requests.filter((r) =>
+    isTelegramDeliveryStale({
+      telegram_delivery_status: r.telegram_delivery_status,
+      updated_at: r.updated_at,
+    }),
+  ).length;
   return (
     <Card>
       <CardHeader>
@@ -732,10 +739,11 @@ function TelegramApprovalsMini({ brainId }: { brainId: string | null }) {
           <MiniTile label="Approvate" value={summary.approved} />
           <MiniTile label="Rifiutate" value={summary.rejected} tone={summary.rejected > 0 ? "red" : undefined} />
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-2">
           <MiniTile label="Da inviare TG" value={toSend} tone={toSend > 0 ? "amber" : undefined} />
           <MiniTile label="Inviate TG" value={sent} />
           <MiniTile label="Failed TG" value={failed} tone={failed > 0 ? "red" : undefined} />
+          <MiniTile label="Sending stale" value={stale} tone={stale > 0 ? "amber" : undefined} />
         </div>
         {recent.length === 0 ? (
           <div className="rounded border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">

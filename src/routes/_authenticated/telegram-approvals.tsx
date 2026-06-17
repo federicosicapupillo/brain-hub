@@ -47,7 +47,7 @@ import {
 } from "@/lib/telegram-approvals";
 import { listToolLinks, normalizeStatus } from "@/lib/tool-connections";
 import { RISK_TONE } from "@/lib/action-queue";
-import { TelegramSettingsSection } from "@/components/TelegramSettingsSection";
+import { TelegramSettingsSection, TelegramDiagnosticsCard } from "@/components/TelegramSettingsSection";
 import { TelegramSendControls } from "@/components/TelegramSendControls";
 
 export const Route = createFileRoute("/_authenticated/telegram-approvals")({
@@ -186,6 +186,7 @@ function TelegramApprovalsRoute() {
       )}
 
       <TelegramSettingsSection brainId={brainId} />
+      <TelegramDiagnosticsCard brainId={brainId} />
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-7">
         <Tile label="Totale" value={summary.total} />
@@ -440,7 +441,7 @@ function ApprovalDetail({
         <div className="mb-2 text-[10px] uppercase tracking-wide text-sky-700">
           Invio reale su Telegram
         </div>
-        <TelegramSendControls request={req} onChanged={() => onChanged(req)} />
+        <TelegramSendControls request={req} onChanged={() => onChanged(req)} showHistory />
       </div>
 
       <div className="flex flex-wrap gap-2">

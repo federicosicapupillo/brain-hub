@@ -1,20 +1,37 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Plus, ShieldAlert, Trash2 } from "lucide-react";
+import { Activity, CheckCircle2, Plus, ShieldAlert, Trash2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   createTelegramConnection,
   deleteTelegramConnection,
+  isTelegramDeliveryStale,
   listTelegramConnections,
+  logDiagnosticsOpened,
   updateTelegramConnection,
   type TelegramConnection,
 } from "@/lib/telegram-connections";
 import { checkTelegramTokenConfig } from "@/lib/telegram-send.functions";
+
+const RISK_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "low", label: "low" },
+  { value: "medium", label: "medium" },
+  { value: "high", label: "high" },
+];
+const TYPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "action_queue", label: "action_queue" },
+  { value: "n8n_execution", label: "n8n" },
+  { value: "manual_action", label: "manual" },
+  { value: "social_post_publish", label: "social" },
+  { value: "email_send", label: "email" },
+];
 
 export function TelegramSettingsSection({ brainId }: { brainId: string | null }) {
   const qc = useQueryClient();
@@ -30,10 +47,16 @@ export function TelegramSettingsSection({ brainId }: { brainId: string | null })
   const [label, setLabel] = useState("");
   const [chatId, setChatId] = useState("");
   const [defaultFor, setDefaultFor] = useState(false);
+  const [riskLevels, setRiskLevels] = useState<string[]>([]);
+  const [approvalTypes, setApprovalTypes] = useState<string[]>([]);
 
   const tokenConfigured = !!tokenStatus?.configured;
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["telegram-connections", brainId] });
+
+  function toggleArr(arr: string[], v: string): string[] {
+    return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
+  }
 
   async function handleAdd() {
     if (!label.trim() || !chatId.trim()) {
@@ -46,8 +69,12 @@ export function TelegramSettingsSection({ brainId }: { brainId: string | null })
         chat_id: chatId,
         brain_id: brainId,
         default_for_approvals: defaultFor,
+        risk_levels: riskLevels.length ? riskLevels : null,
+        approval_types: approvalTypes.length ? approvalTypes : null,
       });
       toast.success("Destinazione Telegram creata");
+      setRiskLevels([]);
+      setApprovalTypes([]);
       setLabel("");
       setChatId("");
       setDefaultFor(false);
@@ -155,6 +182,20 @@ export function TelegramSettingsSection({ brainId }: { brainId: string | null })
                       <span className="text-[10px] text-muted-foreground">globale</span>
                     )}
                   </div>
+                  {(c.risk_levels?.length || c.approval_types?.length) ? (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(c.risk_levels ?? []).map((r) => (
+                        <Badge key={`r-${r}`} variant="outline" className="text-[9px]">
+                          risk: {r}
+                        </Badge>
+                      ))}
+                      {(c.approval_types ?? []).map((t) => (
+                        <Badge key={`t-${t}`} variant="outline" className="text-[9px]">
+                          type: {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {!c.default_for_approvals && c.is_enabled && (
@@ -204,6 +245,45 @@ export function TelegramSettingsSection({ brainId }: { brainId: string | null })
               />
               Imposta come default per approvazioni
             </label>
+            <div className="space-y-1">
+              <Label className="text-[10px] text-muted-foreground">
+                Filtri opzionali (vuoti = nessun filtro)
+              </Label>
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">Rischio:</span>
+                {RISK_OPTIONS.map((o) => (
+                  <button
+                    type="button"
+                    key={o.value}
+                    onClick={() => setRiskLevels((p) => toggleArr(p, o.value))}
+                    className={`rounded border px-2 py-0.5 text-[10px] ${
+                      riskLevels.includes(o.value)
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                <span className="text-[10px] text-muted-foreground">Tipo:</span>
+                {TYPE_OPTIONS.map((o) => (
+                  <button
+                    type="button"
+                    key={o.value}
+                    onClick={() => setApprovalTypes((p) => toggleArr(p, o.value))}
+                    className={`rounded border px-2 py-0.5 text-[10px] ${
+                      approvalTypes.includes(o.value)
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground"
+                    }`}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex gap-2">
               <Button size="sm" onClick={handleAdd}>
                 Salva

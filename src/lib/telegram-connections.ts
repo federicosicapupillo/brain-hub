@@ -9,10 +9,72 @@ export type TelegramConnection = {
   chat_id: string;
   is_enabled: boolean;
   default_for_approvals: boolean;
+  risk_levels: string[] | null;
+  approval_types: string[] | null;
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 };
+
+export type TelegramDeliveryAttempt = {
+  id: string;
+  user_id: string;
+  brain_id: string | null;
+  approval_request_id: string;
+  connection_id: string | null;
+  delivery_status: string;
+  telegram_message_id: string | null;
+  telegram_chat_id: string | null;
+  error_text: string | null;
+  receipt_json: Record<string, unknown> | null;
+  attempt_number: number;
+  created_at: string;
+};
+
+export const STALE_SENDING_MS = 5 * 60 * 1000;
+
+export function getTelegramDeliveryAge(
+  req: { telegram_delivery_status?: string | null; updated_at?: string | null },
+): number | null {
+  if (!req.updated_at) return null;
+  const t = Date.parse(req.updated_at);
+  if (Number.isNaN(t)) return null;
+  return Date.now() - t;
+}
+
+export function isTelegramDeliveryStale(
+  req: { telegram_delivery_status?: string | null; updated_at?: string | null },
+): boolean {
+  if (req.telegram_delivery_status !== "sending") return false;
+  const age = getTelegramDeliveryAge(req);
+  return age !== null && age > STALE_SENDING_MS;
+}
+
+const SENSITIVE_KEYS = [
+  "token",
+  "api_key",
+  "secret",
+  "authorization",
+  "bearer",
+  "password",
+  "webhook_secret",
+];
+
+function sanitize(obj: unknown): unknown {
+  if (obj == null || typeof obj !== "object") return obj;
+  if (Array.isArray(obj)) return obj.map((x) => sanitize(x));
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    const lower = k.toLowerCase();
+    if (SENSITIVE_KEYS.some((s) => lower.includes(s))) out[k] = "[REDACTED]";
+    else out[k] = sanitize(v);
+  }
+  return out;
+}
+
+export function sanitizeForLog(value: unknown): unknown {
+  return sanitize(value);
+}
 
 export type DeliveryStatus = "not_sent" | "sending" | "sent" | "failed";
 
@@ -65,6 +127,8 @@ export async function createTelegramConnection(input: {
   chat_id: string;
   brain_id?: string | null;
   default_for_approvals?: boolean;
+  risk_levels?: string[] | null;
+  approval_types?: string[] | null;
 }): Promise<TelegramConnection> {
   const { data: u } = await supabase.auth.getUser();
   if (!u.user) throw new Error("Non autenticato");
@@ -77,6 +141,8 @@ export async function createTelegramConnection(input: {
       brain_id: input.brain_id ?? null,
       default_for_approvals: !!input.default_for_approvals,
       is_enabled: true,
+      risk_levels: input.risk_levels ?? null,
+      approval_types: input.approval_types ?? null,
     } as never)
     .select("*")
     .single();
@@ -91,7 +157,18 @@ export async function createTelegramConnection(input: {
 
 export async function updateTelegramConnection(
   id: string,
-  patch: Partial<Pick<TelegramConnection, "label" | "chat_id" | "is_enabled" | "default_for_approvals" | "brain_id">>,
+  patch: Partial<
+    Pick<
+      TelegramConnection,
+      | "label"
+      | "chat_id"
+      | "is_enabled"
+      | "default_for_approvals"
+      | "brain_id"
+      | "risk_levels"
+      | "approval_types"
+    >
+  >,
 ): Promise<void> {
   const { error } = await supabase
     .from("telegram_connection_settings" as never)
@@ -100,7 +177,7 @@ export async function updateTelegramConnection(
   if (error) throw new Error(error.message);
   await logEvent("telegram_connection_updated" as LogEventType, "Telegram destination updated", {
     connection_id: id,
-    patch,
+    patch: sanitize(patch) as Record<string, unknown>,
   });
   if (patch.is_enabled === false) {
     await logEvent(

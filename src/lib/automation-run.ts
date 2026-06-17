@@ -320,7 +320,12 @@ export type LogEventType =
   | "telegram_approval_send_started"
   | "telegram_approval_sent"
   | "telegram_approval_send_failed"
-  | "telegram_approval_resend_requested";
+  | "telegram_approval_resend_requested"
+  | "telegram_delivery_stale_detected"
+  | "telegram_delivery_unblocked"
+  | "telegram_delivery_retry_started"
+  | "telegram_delivery_attempt_logged"
+  | "telegram_connection_diagnostics_opened";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
@@ -437,6 +442,11 @@ const LOG_TITLES: Record<LogEventType, string> = {
   telegram_approval_sent: "Notifica Telegram inviata",
   telegram_approval_send_failed: "Invio Telegram fallito",
   telegram_approval_resend_requested: "Reinvio Telegram richiesto",
+  telegram_delivery_stale_detected: "Invio Telegram sospeso rilevato",
+  telegram_delivery_unblocked: "Invio Telegram sbloccato",
+  telegram_delivery_retry_started: "Retry invio Telegram avviato",
+  telegram_delivery_attempt_logged: "Tentativo invio Telegram registrato",
+  telegram_connection_diagnostics_opened: "Diagnostica Telegram aperta",
 };
 
 

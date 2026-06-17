@@ -2238,6 +2238,7 @@ export type Database = {
       }
       telegram_connection_settings: {
         Row: {
+          approval_types: string[] | null
           brain_id: string | null
           chat_id: string
           created_at: string
@@ -2246,10 +2247,12 @@ export type Database = {
           is_enabled: boolean
           label: string
           metadata: Json
+          risk_levels: string[] | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          approval_types?: string[] | null
           brain_id?: string | null
           chat_id: string
           created_at?: string
@@ -2258,10 +2261,12 @@ export type Database = {
           is_enabled?: boolean
           label: string
           metadata?: Json
+          risk_levels?: string[] | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          approval_types?: string[] | null
           brain_id?: string | null
           chat_id?: string
           created_at?: string
@@ -2270,7 +2275,53 @@ export type Database = {
           is_enabled?: boolean
           label?: string
           metadata?: Json
+          risk_levels?: string[] | null
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      telegram_delivery_attempts: {
+        Row: {
+          approval_request_id: string
+          attempt_number: number
+          brain_id: string | null
+          connection_id: string | null
+          created_at: string
+          delivery_status: string
+          error_text: string | null
+          id: string
+          receipt_json: Json | null
+          telegram_chat_id: string | null
+          telegram_message_id: string | null
+          user_id: string
+        }
+        Insert: {
+          approval_request_id: string
+          attempt_number?: number
+          brain_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          delivery_status: string
+          error_text?: string | null
+          id?: string
+          receipt_json?: Json | null
+          telegram_chat_id?: string | null
+          telegram_message_id?: string | null
+          user_id: string
+        }
+        Update: {
+          approval_request_id?: string
+          attempt_number?: number
+          brain_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          delivery_status?: string
+          error_text?: string | null
+          id?: string
+          receipt_json?: Json | null
+          telegram_chat_id?: string | null
+          telegram_message_id?: string | null
           user_id?: string
         }
         Relationships: []
