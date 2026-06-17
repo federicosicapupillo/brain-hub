@@ -325,7 +325,10 @@ function N8nWorkflowsPage() {
                   {w.last_manual_test_status}
                 </div>
               )}
-              <RealWebhookEditor workflow={w} onChanged={() => void refetch()} />
+              <RealWebhookEditor
+                workflow={w}
+                onChanged={() => void qc.invalidateQueries({ queryKey: ["n8n-workflows"] })}
+              />
             </div>
           ))}
         </CardContent>
