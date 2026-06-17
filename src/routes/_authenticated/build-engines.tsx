@@ -444,7 +444,7 @@ function HandoffRow({ handoff }: { handoff: BuildEngineHandoff }) {
         source: "system_suggestion",
         action_type: "manual_task",
         title: `Build Engine → ${engine?.engine_name ?? handoff.engine_key}: ${handoff.title}`,
-        description: handoff.description ?? null,
+        description: handoff.description ?? undefined,
         risk_level: (handoff.risk_level as RiskLevel) ?? "medium",
         priority: "medium",
         brain_id: handoff.brain_id ?? null,
