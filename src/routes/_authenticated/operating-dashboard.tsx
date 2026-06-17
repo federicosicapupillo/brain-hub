@@ -424,6 +424,7 @@ function OperatingDashboardRoute() {
             <RunbooksBlock brainId={brainId} />
             <AutomationReadinessMini />
             <N8nControlledExecutionMini brainId={brainId} />
+            <N8nRealExecutionMini brainId={brainId} />
             <TelegramApprovalsMini brainId={brainId} />
             <ResultReviewMini brainId={brainId} />
             <LoopQaMini brainId={brainId} />
