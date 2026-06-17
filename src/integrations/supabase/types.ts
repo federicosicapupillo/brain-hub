@@ -14,6 +14,137 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_permission_matrix: {
+        Row: {
+          agent_id: string
+          brain_id: string | null
+          created_at: string
+          id: string
+          is_enabled: boolean
+          metadata: Json
+          permission_level: string
+          requires_approval: boolean
+          risk_level: string
+          tool_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          brain_id?: string | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          metadata?: Json
+          permission_level?: string
+          requires_approval?: boolean
+          risk_level?: string
+          tool_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          brain_id?: string | null
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          metadata?: Json
+          permission_level?: string
+          requires_approval?: boolean
+          risk_level?: string
+          tool_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_permission_matrix_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agent_registry"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_registry: {
+        Row: {
+          agent_key: string
+          allowed_sources: string[]
+          allowed_tools: string[]
+          brain_id: string | null
+          can_call_external_apis: boolean
+          can_create_actions: boolean
+          can_execute_tools: boolean
+          can_modify_external_data: boolean
+          can_send_telegram: boolean
+          can_trigger_n8n: boolean
+          created_at: string
+          description: string | null
+          id: string
+          max_risk_level: string
+          metadata: Json
+          name: string
+          operating_mode: string
+          output_targets: string[]
+          requires_approval: boolean
+          role: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_key: string
+          allowed_sources?: string[]
+          allowed_tools?: string[]
+          brain_id?: string | null
+          can_call_external_apis?: boolean
+          can_create_actions?: boolean
+          can_execute_tools?: boolean
+          can_modify_external_data?: boolean
+          can_send_telegram?: boolean
+          can_trigger_n8n?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          max_risk_level?: string
+          metadata?: Json
+          name: string
+          operating_mode?: string
+          output_targets?: string[]
+          requires_approval?: boolean
+          role: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_key?: string
+          allowed_sources?: string[]
+          allowed_tools?: string[]
+          brain_id?: string | null
+          can_call_external_apis?: boolean
+          can_create_actions?: boolean
+          can_execute_tools?: boolean
+          can_modify_external_data?: boolean
+          can_send_telegram?: boolean
+          can_trigger_n8n?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          max_risk_level?: string
+          metadata?: Json
+          name?: string
+          operating_mode?: string
+          output_targets?: string[]
+          requires_approval?: boolean
+          role?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           brain_id: string | null

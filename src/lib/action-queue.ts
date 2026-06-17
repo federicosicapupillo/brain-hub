@@ -23,7 +23,11 @@ export type ActionType =
   | "code_refactor"
   | "code_test"
   | "code_deploy_check"
-  | "github_issue_draft";
+  | "github_issue_draft"
+  | "agent_recommendation"
+  | "agent_setup"
+  | "agent_review";
+
 
 export type ActionStatus =
   | "suggested"
@@ -44,7 +48,10 @@ export type ActionSource =
   | "system_suggestion"
   | "google_calendar"
   | "github_operational"
-  | "code_repository";
+  | "code_repository"
+  | "agent_center";
+
+
 
 
 
@@ -101,7 +108,11 @@ export const ACTION_TYPE_LABEL: Record<ActionType, string> = {
   code_test: "Test codice",
   code_deploy_check: "Verifica deployment",
   github_issue_draft: "Bozza GitHub issue",
+  agent_recommendation: "Raccomandazione agente",
+  agent_setup: "Setup agente",
+  agent_review: "Review agente",
 };
+
 
 export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
   generate_fix_prompt: "medium",
@@ -126,7 +137,11 @@ export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
   code_test: "low",
   code_deploy_check: "medium",
   github_issue_draft: "low",
+  agent_recommendation: "low",
+  agent_setup: "low",
+  agent_review: "low",
 };
+
 
 export const STATUS_LABEL: Record<ActionStatus, string> = {
   suggested: "Suggerita",
@@ -150,7 +165,9 @@ export const SOURCE_LABEL: Record<ActionSource, string> = {
   google_calendar: "Google Calendar",
   github_operational: "GitHub Operational",
   code_repository: "Repository codice",
+  agent_center: "Agent Center",
 };
+
 
 
 export const RISK_TONE: Record<RiskLevel, string> = {
