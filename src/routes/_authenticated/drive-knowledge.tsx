@@ -91,7 +91,7 @@ function DriveKnowledgeRoute() {
   const qc = useQueryClient();
   const navigate = useNavigate({ from: "/drive-knowledge" });
   const routeSearch = Route.useSearch();
-  const [brainId, setBrainId] = useState<string>(routeSearch.brain ?? "");
+  const [brainId, setBrainId] = useState<string>(routeSearch.brain ?? "__all__");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [mimeFilter, setMimeFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
