@@ -132,8 +132,30 @@ function buildSteps(
       ctaTo: "/drive-knowledge",
     },
     {
-      id: "mvp",
+      id: "calendar",
       order: 4,
+      title: "Collega Google Calendar",
+      description:
+        cal.connections === 0
+          ? "Collega Google Calendar (read-only) per mappare riunioni e scadenze nel sistema."
+          : cal.hasNeverSynced
+            ? "Calendar configurato ma mai sincronizzato. Avvia il primo sync per popolare la mappa eventi."
+            : cal.lastSyncFailed
+              ? "L'ultima sincronizzazione Calendar è fallita. Riprova dal pannello Calendar."
+              : "Google Calendar collegato e sincronizzato. Brain Hub non crea, modifica o cancella eventi.",
+      output: "Calendar Map",
+      status:
+        cal.connections === 0
+          ? "todo"
+          : cal.hasNeverSynced || cal.lastSyncFailed
+            ? "warning"
+            : "done",
+      ctaLabel: "Collega calendario",
+      ctaTo: "/calendar-knowledge",
+    },
+    {
+      id: "mvp",
+      order: 5,
       title: "Crea il primo progetto o MVP",
       description:
         "Trasforma una priorità aziendale in una specifica MVP pronta da costruire.",
