@@ -303,24 +303,61 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
       cta: { label: "Apri Result Review", to: "/result-review" },
     });
   }
-  const highRiskNoApproval = actions.filter(
+  // High-risk Telegram approval check (v1.9.2): inspect both metadata
+  // and telegram_approval_requests rows linked via automation_action_id.
+  const APPROVED_STATUSES = new Set(["approved", "sent_manually"]);
+  const PENDING_STATUSES = new Set(["prepared", "draft", "requested", "pending"]);
+  const telegramByAction = new Map<string, TelegramRow[]>();
+  for (const t of telegram) {
+    if (!t.automation_action_id) continue;
+    const list = telegramByAction.get(t.automation_action_id) ?? [];
+    list.push(t);
+    telegramByAction.set(t.automation_action_id, list);
+  }
+  const highRiskActions = actions.filter(
     (a) =>
       a.risk_level === "high" &&
-      (a.status === "suggested" || a.status === "pending") &&
-      !(a.metadata as { telegram_approval_id?: string } | null)?.telegram_approval_id,
+      (a.status === "suggested" || a.status === "pending"),
   );
-  if (highRiskNoApproval.length > 0) {
+  let highRiskNoTelegram = 0;
+  let highRiskPendingTelegram = 0;
+  for (const a of highRiskActions) {
+    const meta = a.metadata as { telegram_approval_id?: string } | null;
+    const linked = telegramByAction.get(a.id) ?? [];
+    // latest first (already ordered desc, but be defensive)
+    linked.sort((x, y) => y.created_at.localeCompare(x.created_at));
+    const latest = linked[0];
+    const hasAny = Boolean(meta?.telegram_approval_id) || linked.length > 0;
+    if (!hasAny) {
+      highRiskNoTelegram++;
+    } else if (latest && !APPROVED_STATUSES.has(latest.status)) {
+      // pending / rejected / failed / expired => not yet approved
+      highRiskPendingTelegram++;
+    }
+  }
+  if (highRiskNoTelegram > 0) {
     warnings.push({
       id: "high_risk_no_telegram",
       level: "warning",
-      title: `${highRiskNoApproval.length} action high risk senza approvazione Telegram`,
-      description: "Considera di creare una richiesta di approvazione prima di eseguire.",
+      title: `${highRiskNoTelegram} action high risk senza richiesta Telegram`,
+      description: "Nessuna richiesta di approvazione Telegram trovata per queste action.",
+      cta: { label: "Apri Telegram Approvals", to: "/telegram-approvals" },
+    });
+  }
+  if (highRiskPendingTelegram > 0) {
+    warnings.push({
+      id: "high_risk_pending_telegram",
+      level: "info",
+      title: `${highRiskPendingTelegram} action high risk con approvazione Telegram non ancora approvata`,
+      description: "Richiesta presente ma non approved (potrebbe essere pending, rejected, failed o expired).",
       cta: { label: "Apri Telegram Approvals", to: "/telegram-approvals" },
     });
   }
 
-  // Chain
-  const chain = buildChain(actions, reviews, suggestions, knowledge);
+  // Single chain (legacy) + multi-chain history (v1.9.2)
+  const chain = buildChain(actions, reviews, suggestions, knowledge, telegram);
+  const chains = buildRecentChains(actions, reviews, suggestions, knowledge, telegram, 5);
+  const incompleteChains = chains.filter((c) => c.stopStep !== null).length;
 
   // Health
   const missingSteps = steps.filter((s) => s.status === "missing").length;
@@ -336,6 +373,7 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     steps,
     warnings,
     chain,
+    chains,
     counters: {
       actions: actions.length,
       reviews: reviews.length,
