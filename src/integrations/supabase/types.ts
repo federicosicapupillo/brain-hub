@@ -886,6 +886,122 @@ export type Database = {
           },
         ]
       }
+      drive_connection_settings: {
+        Row: {
+          brain_id: string | null
+          connection_status: string
+          created_at: string
+          id: string
+          label: string
+          last_sync_at: string | null
+          metadata: Json
+          provider: string
+          root_folder_id: string | null
+          root_folder_name: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          connection_status?: string
+          created_at?: string
+          id?: string
+          label: string
+          last_sync_at?: string | null
+          metadata?: Json
+          provider?: string
+          root_folder_id?: string | null
+          root_folder_name?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          connection_status?: string
+          created_at?: string
+          id?: string
+          label?: string
+          last_sync_at?: string | null
+          metadata?: Json
+          provider?: string
+          root_folder_id?: string | null
+          root_folder_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      drive_file_map: {
+        Row: {
+          brain_id: string | null
+          category: string | null
+          connection_id: string | null
+          created_at: string
+          google_file_id: string | null
+          icon_url: string | null
+          id: string
+          metadata: Json
+          mime_type: string | null
+          modified_time: string | null
+          name: string
+          parent_google_file_id: string | null
+          path: string | null
+          size_bytes: number | null
+          status: string
+          updated_at: string
+          user_id: string
+          web_url: string | null
+        }
+        Insert: {
+          brain_id?: string | null
+          category?: string | null
+          connection_id?: string | null
+          created_at?: string
+          google_file_id?: string | null
+          icon_url?: string | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          modified_time?: string | null
+          name: string
+          parent_google_file_id?: string | null
+          path?: string | null
+          size_bytes?: number | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          web_url?: string | null
+        }
+        Update: {
+          brain_id?: string | null
+          category?: string | null
+          connection_id?: string | null
+          created_at?: string
+          google_file_id?: string | null
+          icon_url?: string | null
+          id?: string
+          metadata?: Json
+          mime_type?: string | null
+          modified_time?: string | null
+          name?: string
+          parent_google_file_id?: string | null
+          path?: string | null
+          size_bytes?: number | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          web_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drive_file_map_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "drive_connection_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_jobs: {
         Row: {
           brain_id: string
