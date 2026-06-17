@@ -227,54 +227,64 @@ function DriveKnowledgeRoute() {
   }
 
   async function handleSync(connection: DriveConnection) {
-    const res = await syncDriveMetadata(connection.id);
-    if (res.ok) {
-      toast.success("Sync metadata Drive completato");
-    } else if (res.authUrl) {
-      void logDriveKnowledgeEvent(
-        "google_drive_oauth_started",
-        "Redirect a Google per consenso (metadata.readonly)",
-        { connection_id: connection.id },
-      );
-      toast.info("Reindirizzamento a Google per consenso read-only…");
-      window.location.href = res.authUrl;
-      return;
-    } else {
-      toast.error(res.reason ?? "Sync metadata fallito");
+    if (busyConnectionId) return;
+    setBusyConnectionId(connection.id);
+    try {
+      const res = await syncDriveMetadata(connection.id);
+      if (res.ok) {
+        toast.success("Sync metadata Drive completato");
+      } else if (res.authUrl) {
+        toast.info("Reindirizzamento a Google per consenso read-only…");
+        window.location.href = res.authUrl;
+        return;
+      } else {
+        toast.error(res.reason ?? "Sync metadata fallito");
+      }
+      await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
+    } finally {
+      setBusyConnectionId(null);
     }
-    await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
   }
 
   async function handleAuthorize(connection: DriveConnection) {
-    const res = await startGoogleDriveOAuth({
-      data: { connectionId: connection.id, returnTo: "/drive-knowledge?oauth=success" },
-    });
-    if (res.ok) {
-      void logDriveKnowledgeEvent(
-        "google_drive_oauth_started",
-        "Avvio OAuth Google Drive",
-        { connection_id: connection.id },
+    if (busyConnectionId) return;
+    if (!oauthStatus?.configured) {
+      toast.error(
+        "Google OAuth non configurato. Aggiungi GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e GOOGLE_OAUTH_REDIRECT_URL server-side.",
       );
-      window.location.href = res.authUrl;
-    } else {
-      toast.error(res.reason);
+      return;
+    }
+    setBusyConnectionId(connection.id);
+    try {
+      const res = await startGoogleDriveOAuth({
+        data: { connectionId: connection.id, returnTo: "/drive-knowledge?oauth=success" },
+      });
+      if (res.ok) {
+        window.location.href = res.authUrl;
+      } else {
+        toast.error(res.reason);
+      }
+    } finally {
+      setBusyConnectionId(null);
     }
   }
 
   async function handleDisconnect(connection: DriveConnection) {
-    const res = await disconnectGoogleDrive({ data: { connectionId: connection.id } });
-    if (res.ok) {
-      void logDriveKnowledgeEvent(
-        "google_drive_disconnected",
-        "Connessione Drive disconnessa",
-        { connection_id: connection.id },
-      );
-      toast.success("Drive disconnesso");
-      await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
-    } else {
-      toast.error(res.reason ?? "Disconnessione fallita");
+    if (busyConnectionId) return;
+    setBusyConnectionId(connection.id);
+    try {
+      const res = await disconnectGoogleDrive({ data: { connectionId: connection.id } });
+      if (res.ok) {
+        toast.success("Drive disconnesso. I file su Google Drive non sono stati toccati.");
+        await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
+      } else {
+        toast.error(res.reason ?? "Disconnessione fallita");
+      }
+    } finally {
+      setBusyConnectionId(null);
     }
   }
+
 
   async function handleCreateKnowledge(file: DriveFile) {
     const targetBrain = file.brain_id ?? brainFilter ?? brains[0]?.id ?? null;
