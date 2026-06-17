@@ -946,7 +946,16 @@ export type BuildEngineEvent =
   | "build_engine_result_review_created"
   | "build_engine_opened_from_company_blueprint"
   | "build_engine_opened_from_company_os"
-  | "build_engine_opened_from_operating_dashboard";
+  | "build_engine_opened_from_operating_dashboard"
+  | "build_engine_custom_created"
+  | "build_engine_override_created"
+  | "build_engine_updated"
+  | "build_engine_disabled"
+  | "build_engine_enabled"
+  | "build_engine_override_reset"
+  | "build_engine_handoff_archived"
+  | "build_engine_router_prefilled_from_company_os"
+  | "build_engine_router_prefilled_from_company_blueprint";
 
 export async function logBuildEngineEvent(
   action: BuildEngineEvent,
