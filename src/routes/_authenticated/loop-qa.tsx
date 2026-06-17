@@ -165,10 +165,10 @@ function LoopQaRoute() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {summary.warnings.length === 0 ? (
+                {mergedWarnings.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nessun warning rilevato.</p>
                 ) : (
-                  summary.warnings.map((w) => (
+                  mergedWarnings.map((w) => (
                     <WarningRow
                       key={w.id}
                       w={w}
