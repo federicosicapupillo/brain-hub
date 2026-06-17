@@ -758,6 +758,7 @@ function RealWebhookEditor({
           return;
         }
       }
+      const wasHmac = !!workflow.hmac_signing_enabled;
       await updateWorkflow(workflow.id, {
         webhook_test_url: testUrl || null,
         webhook_production_url: prodUrl || null,
@@ -765,6 +766,8 @@ function RealWebhookEditor({
         webhook_environment: env,
         real_execution_enabled: enabled,
         requires_telegram_approval: requiresTg,
+        hmac_signing_enabled: hmacEnabled,
+        hmac_secret_env_key: hmacEnvKey || DEFAULT_HMAC_SECRET_ENV_KEY,
       } as Partial<N8nWorkflow>);
       if (wasEnabled !== enabled) {
         await supabase.from("clipboard_execution_logs").insert({
@@ -773,6 +776,18 @@ function RealWebhookEditor({
           action: enabled ? "n8n_real_execution_enabled" : "n8n_real_execution_disabled",
           notes: `Esecuzione reale ${enabled ? "abilitata" : "disabilitata"}: ${workflow.workflow_name}`,
           metadata: { workflow_id: workflow.id },
+        } as never);
+      }
+      if (wasHmac !== hmacEnabled) {
+        await supabase.from("clipboard_execution_logs").insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          clipboard_item_id: null,
+          action: hmacEnabled ? "n8n_hmac_enabled" : "n8n_hmac_disabled",
+          notes: `Firma HMAC ${hmacEnabled ? "abilitata" : "disabilitata"}: ${workflow.workflow_name}`,
+          metadata: {
+            workflow_id: workflow.id,
+            env_key: hmacEnvKey || DEFAULT_HMAC_SECRET_ENV_KEY,
+          },
         } as never);
       }
       toast.success("Webhook reale aggiornato");
