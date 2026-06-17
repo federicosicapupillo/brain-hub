@@ -727,6 +727,12 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
         </div>
       )}
       <TelegramApprovalBox action={a} />
+      <ResultReviewBox
+        sourceType="automation_action"
+        sourceId={a.id}
+        createdEvent="result_review_created_from_action_queue"
+        openedEvent="result_review_opened_from_action_queue"
+      />
       {readiness && (
         <div className="rounded border border-border/60 bg-background/40 p-2 text-xs">
           <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
