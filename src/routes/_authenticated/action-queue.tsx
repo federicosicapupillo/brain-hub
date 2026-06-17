@@ -1339,6 +1339,9 @@ function TelegramApprovalBox({ action }: { action: AutomationAction }) {
               {latest.message_preview}
             </pre>
           )}
+          <div className="rounded border border-sky-500/30 bg-sky-500/5 p-2">
+            <TelegramSendControls request={latest} compact />
+          </div>
           {["draft", "ready_to_send", "sent", "pending_response"].includes(latest.status) && (
             <div className="flex flex-wrap items-center gap-1">
               <Button
