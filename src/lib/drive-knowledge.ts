@@ -107,7 +107,14 @@ export type DriveKnowledgeEvent =
   | "drive_file_mapped"
   | "drive_knowledge_source_created"
   | "drive_organization_suggested"
-  | "drive_connection_opened";
+  | "drive_connection_opened"
+  | "google_drive_oauth_started"
+  | "google_drive_oauth_completed"
+  | "google_drive_oauth_failed"
+  | "google_drive_disconnected"
+  | "google_drive_metadata_sync_started"
+  | "google_drive_metadata_sync_completed"
+  | "google_drive_metadata_sync_failed";
 
 // ------------------------------------------------------------
 // Logging
