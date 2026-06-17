@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/sidebar";
 
 const items = [
+  { title: "Company OS", url: "/company-os", icon: Building2 },
   { title: "Live", url: "/live", icon: Activity },
   { title: "Connettori", url: "/connettori", icon: Plug },
   { title: "Strumenti Progetti", url: "/strumenti-progetti", icon: PlugZap },
