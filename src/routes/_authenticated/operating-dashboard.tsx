@@ -23,6 +23,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ExternalLink,
+  Cpu,
   Gauge,
   Layers,
   LayoutDashboard,
@@ -431,6 +432,7 @@ function OperatingDashboardRoute() {
             <ResultReviewMini brainId={brainId} />
             <LoopQaMini brainId={brainId} />
             <AgentCenterMini brainId={brainId} />
+            <CodeHandoffsMini brainId={brainId} />
             <CompanyOsMini brainId={brainId} />
             <BuildEnginesMini brainId={brainId} />
             <MvpFactoryMini brainId={brainId} />
@@ -1176,6 +1178,56 @@ function AgentCenterMini({ brainId }: { brainId: string | null }) {
           }}
         >
           <Link to="/agent-center" search={{}}>Apri Agent Center <ArrowRight className="ml-1 h-3 w-3" /></Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CodeHandoffsMini({ brainId }: { brainId: string | null }) {
+  const { data } = useQuery({
+    queryKey: ["code-handoffs-mini", brainId],
+    queryFn: async () => {
+      const { getCodeEngineHandoffSummary, getCodeEngineHandoffWarnings, ENGINE_LABEL } =
+        await import("@/lib/code-engine-handoff");
+      const [summary, warnings] = await Promise.all([
+        getCodeEngineHandoffSummary(brainId),
+        getCodeEngineHandoffWarnings(brainId).catch(() => []),
+      ]);
+      return { summary, warnings, ENGINE_LABEL };
+    },
+  });
+  const open = data?.summary.open ?? 0;
+  const awaitingReview = data?.summary.awaitingReview ?? 0;
+  const warnCount = data?.warnings.length ?? 0;
+  const lastEngine = data?.summary.lastEngine ?? null;
+  const lastLabel =
+    lastEngine && data?.ENGINE_LABEL
+      ? data.ENGINE_LABEL[lastEngine as keyof typeof data.ENGINE_LABEL] ?? String(lastEngine)
+      : "—";
+  const tone =
+    warnCount > 0
+      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+      : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2"><Cpu className="h-4 w-4" /> Code Handoffs</span>
+          <Badge variant="outline" className={tone}>{warnCount > 0 ? `${warnCount} warn` : "OK"}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <Tile label="Aperti" value={open} tone={open > 0 ? "amber" : undefined} />
+          <Tile label="Da review" value={awaitingReview} tone={awaitingReview > 0 ? "amber" : undefined} />
+          <div className="rounded border px-2 py-1.5">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Ultimo engine</div>
+            <div className="text-xs font-medium truncate">{lastLabel}</div>
+          </div>
+        </div>
+        <Button asChild size="sm" variant="outline" className="w-full">
+          <Link to="/code-handoffs">Apri Code Handoffs <ArrowRight className="ml-1 h-3 w-3" /></Link>
         </Button>
       </CardContent>
     </Card>

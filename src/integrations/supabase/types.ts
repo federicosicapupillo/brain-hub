@@ -941,6 +941,78 @@ export type Database = {
           },
         ]
       }
+      code_engine_handoffs: {
+        Row: {
+          action_id: string | null
+          brain_id: string | null
+          copied_at: string | null
+          created_at: string
+          engine: string
+          handoff_status: string
+          id: string
+          metadata: Json
+          next_action_id: string | null
+          project_id: string | null
+          prompt_context: Json
+          prompt_text: string
+          repository_id: string | null
+          result_metadata: Json
+          result_received_at: string | null
+          result_review_item_id: string | null
+          result_text: string | null
+          reviewed_at: string | null
+          sent_manually_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_id?: string | null
+          brain_id?: string | null
+          copied_at?: string | null
+          created_at?: string
+          engine: string
+          handoff_status?: string
+          id?: string
+          metadata?: Json
+          next_action_id?: string | null
+          project_id?: string | null
+          prompt_context?: Json
+          prompt_text: string
+          repository_id?: string | null
+          result_metadata?: Json
+          result_received_at?: string | null
+          result_review_item_id?: string | null
+          result_text?: string | null
+          reviewed_at?: string | null
+          sent_manually_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_id?: string | null
+          brain_id?: string | null
+          copied_at?: string | null
+          created_at?: string
+          engine?: string
+          handoff_status?: string
+          id?: string
+          metadata?: Json
+          next_action_id?: string | null
+          project_id?: string | null
+          prompt_context?: Json
+          prompt_text?: string
+          repository_id?: string | null
+          result_metadata?: Json
+          result_received_at?: string | null
+          result_review_item_id?: string | null
+          result_text?: string | null
+          reviewed_at?: string | null
+          sent_manually_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       code_file_map: {
         Row: {
           area: string | null

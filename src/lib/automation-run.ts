@@ -375,7 +375,15 @@ export type LogEventType =
   | "agent_template_created"
   | "agent_safety_warning"
   | "agent_action_created"
-  | "agent_center_viewed";
+  | "agent_center_viewed"
+  | "code_handoff_created"
+  | "code_handoff_prompt_copied"
+  | "code_handoff_sent_manually"
+  | "code_handoff_result_saved"
+  | "code_handoff_review_created"
+  | "code_handoff_next_action_created"
+  | "codex_handoff_created"
+  | "claude_code_handoff_created";
 
 
 
@@ -550,6 +558,14 @@ const LOG_TITLES: Record<LogEventType, string> = {
   agent_safety_warning: "Warning sicurezza agente",
   agent_action_created: "Azione creata da agente",
   agent_center_viewed: "Agent Center visualizzato",
+  code_handoff_created: "Code Engine handoff creato",
+  code_handoff_prompt_copied: "Prompt handoff copiato",
+  code_handoff_sent_manually: "Handoff segnato come inviato",
+  code_handoff_result_saved: "Risultato handoff salvato",
+  code_handoff_review_created: "Result Review creata da handoff",
+  code_handoff_next_action_created: "Next action creata da handoff",
+  codex_handoff_created: "Handoff Codex preparato",
+  claude_code_handoff_created: "Handoff Claude Code preparato",
 
 };
 

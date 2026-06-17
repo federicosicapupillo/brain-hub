@@ -4,6 +4,7 @@ import { getDriveKnowledgeWarnings } from "@/lib/drive-knowledge";
 import { getCalendarKnowledgeWarnings } from "@/lib/calendar-knowledge";
 import { getGithubOperationalWarnings } from "@/lib/github-operational";
 import { getAgentCenterWarnings } from "@/lib/agent-center";
+import { getCodeEngineHandoffWarnings } from "@/lib/code-engine-handoff";
 
 
 
@@ -430,6 +431,22 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
   try {
     const acWarnings = await getAgentCenterWarnings(brainId ?? null);
     for (const w of acWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
+  // Code Engine handoff warnings (v3.4)
+  try {
+    const cehWarnings = await getCodeEngineHandoffWarnings(brainId ?? null);
+    for (const w of cehWarnings) {
       warnings.push({
         id: w.id,
         level: w.level,
