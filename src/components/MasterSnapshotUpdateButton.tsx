@@ -51,6 +51,7 @@ export function MasterSnapshotUpdateButton({
   label = "Aggiorna Master Snapshot",
 }: Props) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState(defaultReason ?? "");
   const [summary, setSummary] = useState("");
@@ -65,6 +66,7 @@ export function MasterSnapshotUpdateButton({
   const [nextStep, setNextStep] = useState(defaultChanges?.next_step ?? "");
   const [sections, setSections] = useState((defaultChanges?.sections_updated ?? []).join("\n"));
   const [busy, setBusy] = useState(false);
+  const [createdDraftId, setCreatedDraftId] = useState<string | null>(null);
 
   async function handleSubmit() {
     if (!reason.trim()) {
