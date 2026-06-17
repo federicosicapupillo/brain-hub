@@ -48,7 +48,7 @@ import {
   ListChecks,
   ExternalLink,
   GitBranch,
-  Bot,
+  
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/code-handoffs")({
