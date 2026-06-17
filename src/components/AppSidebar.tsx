@@ -30,6 +30,7 @@ import {
   Home,
   FileText,
   Compass,
+  Play,
 } from "lucide-react";
 import {
   Sidebar,
@@ -60,6 +61,7 @@ const items = [
   { title: "GitHub Operational", url: "/github-operational", icon: GitBranch },
   { title: "Agent Center", url: "/agent-center", icon: ShieldCheck },
   { title: "Code Handoffs", url: "/code-handoffs", icon: Bot },
+  { title: "Agent Run Console", url: "/agent-runs", icon: Play },
 
   { title: "Health Check", url: "/health-check", icon: Stethoscope },
   { title: "Clipboard AI", url: "/clipboard-ai", icon: Clipboard },

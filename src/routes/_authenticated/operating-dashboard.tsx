@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowRight,
+  Bot,
   CheckCircle2,
   ExternalLink,
   Cpu,
@@ -432,6 +433,7 @@ function OperatingDashboardRoute() {
             <ResultReviewMini brainId={brainId} />
             <LoopQaMini brainId={brainId} />
             <AgentCenterMini brainId={brainId} />
+            <AgentRunsMini brainId={brainId} />
             <CodeHandoffsMini brainId={brainId} />
             <CompanyOsMini brainId={brainId} />
             <BuildEnginesMini brainId={brainId} />
@@ -1228,6 +1230,48 @@ function CodeHandoffsMini({ brainId }: { brainId: string | null }) {
         </div>
         <Button asChild size="sm" variant="outline" className="w-full">
           <Link to="/code-handoffs">Apri Code Handoffs <ArrowRight className="ml-1 h-3 w-3" /></Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AgentRunsMini({ brainId }: { brainId: string | null }) {
+  const { data } = useQuery({
+    queryKey: ["agent-runs-mini", brainId],
+    queryFn: async () => {
+      const { getAgentRunSummary, getAgentRunWarnings } = await import("@/lib/agent-runs");
+      const [summary, warnings] = await Promise.all([
+        getAgentRunSummary(brainId),
+        getAgentRunWarnings(brainId).catch(() => []),
+      ]);
+      return { summary, warnings };
+    },
+  });
+  const total = data?.summary.total ?? 0;
+  const completed = data?.summary.completed ?? 0;
+  const actions = data?.summary.action_created ?? 0;
+  const warnCount = data?.warnings.length ?? 0;
+  const tone =
+    warnCount > 0
+      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+      : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2"><Bot className="h-4 w-4" /> Agent Runs</span>
+          <Badge variant="outline" className={tone}>{warnCount > 0 ? `${warnCount} warn` : "OK"}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <Tile label="Run totali" value={total} />
+          <Tile label="Completate" value={completed} />
+          <Tile label="Con action" value={actions} tone={actions > 0 ? "amber" : undefined} />
+        </div>
+        <Button asChild size="sm" variant="outline" className="w-full">
+          <Link to="/agent-runs">Apri Run Console <ArrowRight className="ml-1 h-3 w-3" /></Link>
         </Button>
       </CardContent>
     </Card>

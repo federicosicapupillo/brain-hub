@@ -466,21 +466,28 @@ function AgentiAiBlock({
         <p className="text-xs text-muted-foreground">
           Assistenti AI interni con permessi controllati e nessuna esecuzione autonoma.
         </p>
-        <Button
-          asChild
-          size="sm"
-          variant="outline"
-          className="w-full"
-          onClick={() => {
-            void import("@/lib/agent-center").then(({ logAgentCenterEvent }) =>
-              logAgentCenterEvent("agent_center_viewed", "Apertura da Home Azienda", { brain: brainId }),
-            );
-          }}
-        >
-          <Link to="/agent-center" search={linkSearch}>
-            Configura agenti <ArrowRight className="ml-1 h-3 w-3" />
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              void import("@/lib/agent-center").then(({ logAgentCenterEvent }) =>
+                logAgentCenterEvent("agent_center_viewed", "Apertura da Home Azienda", { brain: brainId }),
+              );
+            }}
+          >
+            <Link to="/agent-center" search={linkSearch}>
+              Configura agenti <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
+          </Button>
+          <Button asChild size="sm" className="flex-1">
+            <Link to="/agent-runs" search={linkSearch}>
+              Lancia agente <ArrowRight className="ml-1 h-3 w-3" />
+            </Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

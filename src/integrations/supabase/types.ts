@@ -145,6 +145,75 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_run_logs: {
+        Row: {
+          agent_id: string
+          brain_id: string | null
+          code_handoff_id: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          input_context: Json
+          metadata: Json
+          objective: string
+          output_json: Json
+          output_summary: string | null
+          requires_approval: boolean
+          result_review_item_id: string | null
+          risk_level: string
+          run_mode: string
+          run_status: string
+          started_at: string | null
+          suggested_action_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          brain_id?: string | null
+          code_handoff_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          input_context?: Json
+          metadata?: Json
+          objective: string
+          output_json?: Json
+          output_summary?: string | null
+          requires_approval?: boolean
+          result_review_item_id?: string | null
+          risk_level?: string
+          run_mode?: string
+          run_status?: string
+          started_at?: string | null
+          suggested_action_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          brain_id?: string | null
+          code_handoff_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          input_context?: Json
+          metadata?: Json
+          objective?: string
+          output_json?: Json
+          output_summary?: string | null
+          requires_approval?: boolean
+          result_review_item_id?: string | null
+          risk_level?: string
+          run_mode?: string
+          run_status?: string
+          started_at?: string | null
+          suggested_action_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           brain_id: string | null
