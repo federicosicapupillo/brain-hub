@@ -489,6 +489,125 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_connection_settings: {
+        Row: {
+          brain_id: string | null
+          connection_status: string
+          created_at: string
+          id: string
+          label: string
+          last_sync_at: string | null
+          metadata: Json
+          provider: string
+          scopes: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          connection_status?: string
+          created_at?: string
+          id?: string
+          label: string
+          last_sync_at?: string | null
+          metadata?: Json
+          provider?: string
+          scopes?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          connection_status?: string
+          created_at?: string
+          id?: string
+          label?: string
+          last_sync_at?: string | null
+          metadata?: Json
+          provider?: string
+          scopes?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      calendar_event_map: {
+        Row: {
+          attendees_count: number | null
+          brain_id: string | null
+          calendar_name: string | null
+          connection_id: string | null
+          created_at: string
+          description: string | null
+          end_at: string | null
+          event_type: string | null
+          google_calendar_id: string | null
+          google_event_id: string | null
+          hangout_link: string | null
+          html_link: string | null
+          id: string
+          location: string | null
+          metadata: Json
+          start_at: string | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attendees_count?: number | null
+          brain_id?: string | null
+          calendar_name?: string | null
+          connection_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          event_type?: string | null
+          google_calendar_id?: string | null
+          google_event_id?: string | null
+          hangout_link?: string | null
+          html_link?: string | null
+          id?: string
+          location?: string | null
+          metadata?: Json
+          start_at?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attendees_count?: number | null
+          brain_id?: string | null
+          calendar_name?: string | null
+          connection_id?: string | null
+          created_at?: string
+          description?: string | null
+          end_at?: string | null
+          event_type?: string | null
+          google_calendar_id?: string | null
+          google_event_id?: string | null
+          hangout_link?: string | null
+          html_link?: string | null
+          id?: string
+          location?: string | null
+          metadata?: Json
+          start_at?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_map_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_connection_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clipboard_execution_logs: {
         Row: {
           action: string
@@ -998,6 +1117,53 @@ export type Database = {
             columns: ["connection_id"]
             isOneToOne: false
             referencedRelation: "drive_connection_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      google_calendar_oauth_states: {
+        Row: {
+          brain_id: string | null
+          connection_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          redirect_to: string | null
+          scopes: string[]
+          state_token: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_to?: string | null
+          scopes?: string[]
+          state_token: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_to?: string | null
+          scopes?: string[]
+          state_token?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_calendar_oauth_states_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_connection_settings"
             referencedColumns: ["id"]
           },
         ]
