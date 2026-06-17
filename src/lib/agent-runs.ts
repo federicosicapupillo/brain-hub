@@ -965,6 +965,13 @@ export async function getAgentRunWarnings(
     }
   }
 
+  try {
+    const aiW = await getAgentAiHandoffWarnings(brainId ?? null);
+    for (const w of aiW) warnings.push(w);
+  } catch {
+    // non-blocking
+  }
+
   return warnings;
 }
 
