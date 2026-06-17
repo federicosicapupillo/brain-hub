@@ -376,12 +376,12 @@ function GitHubCoveragePage() {
                     )}
                   </Button>
                   <Button size="sm" variant="secondary" asChild>
-                    <Link to="/github-sync">
+                    <Link to="/github-sync" search={{}}>
                       <ShieldCheck className="mr-2 h-4 w-4" />GitHub Sync
                     </Link>
                   </Button>
                   <Button size="sm" variant="secondary" asChild>
-                    <Link to="/archivio">
+                    <Link to="/archivio" search={{}}>
                       <Archive className="mr-2 h-4 w-4" />Archivio
                     </Link>
                   </Button>

@@ -101,7 +101,7 @@ function RunbooksRoute() {
       toast.success(`Runbook avviato: ${actions.length} step in Action Queue`, {
         action: {
           label: "Apri Action Queue",
-          onClick: () => void navigate({ to: "/action-queue" }),
+          onClick: () => void navigate({ to: "/action-queue", search: {} }),
         },
       });
       qc.invalidateQueries({ queryKey: ["runbook-instances"] });
@@ -239,7 +239,7 @@ function RunbooksRoute() {
                   </div>
                   <div className="flex shrink-0 gap-1">
                     <Button asChild size="sm" variant="outline">
-                      <Link to="/action-queue">Apri coda</Link>
+                      <Link to="/action-queue" search={{}}>Apri coda</Link>
                     </Button>
                     {(i.status === "active" || i.status === "in_progress" || i.status === "waiting_approval" || i.status === "blocked") && (
                       <Button size="sm" variant="ghost" onClick={() => handleCancel(i)}>

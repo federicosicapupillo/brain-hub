@@ -204,7 +204,7 @@ function N8nWorkflowsPage() {
             {n8nToolConnected ? "n8n collegato" : "n8n non collegato"}
           </Badge>
           <Button asChild variant="outline" size="sm">
-            <Link to="/tool-connections" search={{ brain: brainId }}>
+            <Link to="/tool-connections" search={{}} search={{ brain: brainId }}>
               Tool Connections <ArrowRight className="ml-1 h-3 w-3" />
             </Link>
           </Button>
@@ -212,7 +212,7 @@ function N8nWorkflowsPage() {
             <Link to="/automation-readiness">Automation Readiness</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link to="/action-queue">Action Queue</Link>
+            <Link to="/action-queue" search={{}}>Action Queue</Link>
           </Button>
           <div className="ml-auto">
             <Button onClick={() => openCreate()} disabled={!brainId}>
@@ -231,7 +231,7 @@ function N8nWorkflowsPage() {
               essere eseguiti finché non aggiungerai n8n in Tool Connections.
             </span>
             <Button asChild size="sm" variant="outline" className="ml-auto">
-              <Link to="/tool-connections" search={{ brain: brainId }}>
+              <Link to="/tool-connections" search={{}} search={{ brain: brainId }}>
                 Aggiungi n8n
               </Link>
             </Button>

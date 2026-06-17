@@ -112,7 +112,7 @@ export function ProjectHealthCheck({ brainId }: { brainId: string }) {
         {
           action: {
             label: "Apri Action Queue",
-            onClick: () => void navigate({ to: "/action-queue" }),
+            onClick: () => void navigate({ to: "/action-queue", search: {} }),
           },
         },
       );

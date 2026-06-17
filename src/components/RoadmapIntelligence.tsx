@@ -406,7 +406,7 @@ export function RoadmapIntelligence({ brainId: brainIdProp }: { brainId?: string
         {
           action: {
             label: "Apri Action Queue",
-            onClick: () => void navigate({ to: "/action-queue" }),
+            onClick: () => void navigate({ to: "/action-queue", search: {} }),
           },
         },
       );
@@ -436,7 +436,7 @@ export function RoadmapIntelligence({ brainId: brainIdProp }: { brainId?: string
         {
           action: {
             label: "Apri Action Queue",
-            onClick: () => void navigate({ to: "/action-queue" }),
+            onClick: () => void navigate({ to: "/action-queue", search: {} }),
           },
         },
       );

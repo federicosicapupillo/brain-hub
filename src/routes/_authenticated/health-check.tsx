@@ -296,12 +296,12 @@ function HealthCheckPage() {
       />
 
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="outline" asChild><Link to="/progetti"><FolderKanban className="mr-2 h-4 w-4" />Progetti</Link></Button>
-        <Button size="sm" variant="outline" asChild><Link to="/archivio"><Archive className="mr-2 h-4 w-4" />Archivio</Link></Button>
-        <Button size="sm" variant="outline" asChild><Link to="/prossime-azioni"><ListChecks className="mr-2 h-4 w-4" />Prossime Azioni</Link></Button>
-        <Button size="sm" variant="outline" asChild><Link to="/github-coverage"><ShieldCheck className="mr-2 h-4 w-4" />GitHub Coverage</Link></Button>
-        <Button size="sm" variant="outline" asChild><Link to="/github-sync"><GitBranch className="mr-2 h-4 w-4" />GitHub Sync</Link></Button>
-        <Button size="sm" variant="default" asChild><Link to="/importa"><Inbox className="mr-2 h-4 w-4" />Importa</Link></Button>
+        <Button size="sm" variant="outline" asChild><Link to="/progetti" search={{}}><FolderKanban className="mr-2 h-4 w-4" />Progetti</Link></Button>
+        <Button size="sm" variant="outline" asChild><Link to="/archivio" search={{}}><Archive className="mr-2 h-4 w-4" />Archivio</Link></Button>
+        <Button size="sm" variant="outline" asChild><Link to="/prossime-azioni" search={{}}><ListChecks className="mr-2 h-4 w-4" />Prossime Azioni</Link></Button>
+        <Button size="sm" variant="outline" asChild><Link to="/github-coverage" search={{}}><ShieldCheck className="mr-2 h-4 w-4" />GitHub Coverage</Link></Button>
+        <Button size="sm" variant="outline" asChild><Link to="/github-sync" search={{}}><GitBranch className="mr-2 h-4 w-4" />GitHub Sync</Link></Button>
+        <Button size="sm" variant="default" asChild><Link to="/importa" search={{}}><Inbox className="mr-2 h-4 w-4" />Importa</Link></Button>
       </div>
 
       {isLoading || !model ? (
@@ -407,7 +407,7 @@ function HealthCheckPage() {
                           <Link to="/progetti/$brainId" params={{ brainId: r.brain.id }}>Apri</Link>
                         </Button>
                         <Button size="sm" variant="outline" asChild>
-                          <Link to="/prossime-azioni">Prossime azioni</Link>
+                          <Link to="/prossime-azioni" search={{}}>Prossime azioni</Link>
                         </Button>
                       </div>
                     </CardContent>
@@ -432,8 +432,8 @@ function HealthCheckPage() {
                       </div>
                       <div className="flex flex-wrap gap-1">
                         <Button size="sm" variant="outline" asChild><Link to="/progetti/$brainId" params={{ brainId: r.brain.id }}>Apri</Link></Button>
-                        <Button size="sm" variant="outline" asChild><Link to="/prossime-azioni">Prossime azioni</Link></Button>
-                        <Button size="sm" variant="outline" asChild><Link to="/importa">Importa</Link></Button>
+                        <Button size="sm" variant="outline" asChild><Link to="/prossime-azioni" search={{}}>Prossime azioni</Link></Button>
+                        <Button size="sm" variant="outline" asChild><Link to="/importa" search={{}}>Importa</Link></Button>
                       </div>
                     </CardContent>
                   </Card>

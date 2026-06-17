@@ -201,13 +201,13 @@ function GitHubSyncPage() {
           <Link to="/strumenti-progetti"><PlugZap className="mr-2 h-4 w-4" />Strumenti Progetti</Link>
         </Button>
         <Button asChild variant="outline" size="sm">
-          <Link to="/archivio"><Archive className="mr-2 h-4 w-4" />Apri Archivio</Link>
+          <Link to="/archivio" search={{}}><Archive className="mr-2 h-4 w-4" />Apri Archivio</Link>
         </Button>
         <Button asChild variant="outline" size="sm">
-          <Link to="/importa"><Inbox className="mr-2 h-4 w-4" />Importa contenuto</Link>
+          <Link to="/importa" search={{}}><Inbox className="mr-2 h-4 w-4" />Importa contenuto</Link>
         </Button>
         <Button asChild variant="outline" size="sm">
-          <Link to="/prossime-azioni"><ListChecks className="mr-2 h-4 w-4" />Prossime Azioni</Link>
+          <Link to="/prossime-azioni" search={{}}><ListChecks className="mr-2 h-4 w-4" />Prossime Azioni</Link>
         </Button>
       </div>
 

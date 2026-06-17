@@ -377,7 +377,7 @@ function ArchivioPage() {
               brainMap={brainMap}
             />
             <Button asChild variant="outline" size="sm">
-              <Link to="/importa"><Inbox className="h-4 w-4 mr-1" /> Vai a Importa</Link>
+              <Link to="/importa" search={{}}><Inbox className="h-4 w-4 mr-1" /> Vai a Importa</Link>
             </Button>
           </div>
         }
@@ -451,7 +451,7 @@ function ArchivioPage() {
               Nessun contenuto ancora. Usa Importa per aggiungere il primo file, prompt, task o appunto strategico.
             </div>
             <Button asChild>
-              <Link to="/importa">Vai a Importa</Link>
+              <Link to="/importa" search={{}}>Vai a Importa</Link>
             </Button>
           </CardContent>
         </Card>

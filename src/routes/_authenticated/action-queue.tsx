@@ -388,7 +388,7 @@ function ActionQueueRoute() {
     } else if (a.source === "execution_tracking" || a.source === "next_prompt_generator") {
       void navigate({ to: "/automation-control" });
     } else {
-      void navigate({ to: "/action-queue" });
+      void navigate({ to: "/action-queue", search: {} });
     }
   }
 

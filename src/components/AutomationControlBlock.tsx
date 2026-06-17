@@ -50,7 +50,7 @@ export function AutomationControlBlock({ brainId }: { brainId: string }) {
             <Badge variant="outline" className="text-[10px]">Action Queue</Badge>
           </span>
           <Button asChild size="sm" variant="outline">
-            <Link to="/action-queue">
+            <Link to="/action-queue" search={{}}>
               Apri <ArrowRight className="ml-1 h-3 w-3" />
             </Link>
           </Button>
@@ -110,7 +110,7 @@ export function AutomationControlBlock({ brainId }: { brainId: string }) {
         )}
         <div className="pt-1">
           <Button asChild size="sm" variant="outline" className="w-full">
-            <Link to="/action-queue" search={{ brain: brainId }}>
+            <Link to="/action-queue" search={{}} search={{ brain: brainId }}>
               <Filter className="mr-1 h-3 w-3" /> Apri coda filtrata su questo progetto
             </Link>
           </Button>
