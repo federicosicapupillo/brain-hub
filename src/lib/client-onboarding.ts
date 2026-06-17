@@ -49,7 +49,8 @@ export type ClientOnboardingEvent =
   | "client_onboarding_step_opened"
   | "client_onboarding_next_step_clicked"
   | "client_onboarding_home_opened"
-  | "client_onboarding_expert_mode_opened";
+  | "client_onboarding_expert_mode_opened"
+  | "drive_opened_from_client_onboarding";
 
 function buildSteps(s: CompanyHomeSummary): ClientOnboardingStep[] {
   const profileDone = s.hasProfile;
