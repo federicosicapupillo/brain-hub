@@ -111,12 +111,12 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   marketing: {
     label: "Marketing / Comunicazione",
     priority: "marketing",
-    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections", "knowledge_map", "result_review"],
+    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections", "knowledge_map", "result_review", "company_os"],
   },
   lead_generation: {
     label: "Lead Generation",
     priority: "lead_generation",
-    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita", "tool_connections", "knowledge_map"],
+    blocks: ["lead_contatti", "kpi", "checklist_operative", "prossimo_step_consigliato", "log_attivita", "tool_connections", "knowledge_map", "company_os"],
   },
   ai_automation: {
     label: "AI Automation",
@@ -135,17 +135,18 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "knowledge_map",
       "result_review",
       "loop_qa",
+      "company_os",
     ],
   },
   content_creation: {
     label: "Content Creation",
     priority: "contenuti_social",
-    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections", "knowledge_map", "result_review"],
+    blocks: ["file_documenti", "checklist_operative", "note_progetto", "kpi", "tool_connections", "knowledge_map", "result_review", "company_os"],
   },
   roadmap_operativa: {
     label: "Roadmap Operativa",
     priority: "generico",
-    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review", "loop_qa"],
+    blocks: ["roadmap", "tasks", "prossimo_step_consigliato", "roadmap_intelligence", "problemi_da_risolvere", "project_health_check", "automation_control", "runbooks", "result_review", "loop_qa", "company_os"],
   },
 };
 
