@@ -329,6 +329,11 @@ function DriveKnowledgeRoute() {
         hasError={routeSearch.oauth === "error"}
         errorMessage={routeSearch.message}
         anyConnected={connections.some((c) => c.connection_status === "connected")}
+        lastSyncAt={summary?.lastSyncAt ?? null}
+        lastSyncFileCount={summary?.lastSyncFileCount ?? null}
+        lastSyncReachedLimit={summary?.lastSyncReachedLimit ?? false}
+        lastSyncStatus={summary?.lastSyncStatus ?? "never"}
+        lastSyncWarnings={summary?.lastSyncWarnings ?? []}
       />
 
 
