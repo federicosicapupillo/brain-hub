@@ -1464,3 +1464,50 @@ function N8nTelegramApprovalHint({
     </div>
   );
 }
+
+const CODE_ACTION_TYPES: ActionType[] = [
+  "code_review",
+  "code_fix",
+  "code_refactor",
+  "code_test",
+  "code_deploy_check",
+  "github_issue_draft",
+];
+
+function isCodeActionType(t: ActionType): boolean {
+  return CODE_ACTION_TYPES.includes(t);
+}
+
+function CodexHandoffBox({ action, onClose }: { action: AutomationAction; onClose: () => void }) {
+  const navigate = useNavigate();
+  const handle = async (engine: "codex" | "claude_code") => {
+    try {
+      const { createCodeEngineHandoffFromAction } = await import("@/lib/code-engine-handoff");
+      await createCodeEngineHandoffFromAction(action.id, engine);
+      toast.success(engine === "codex" ? "Prompt Codex preparato" : "Prompt Claude Code preparato");
+      onClose();
+      void navigate({ to: "/code-handoffs" });
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+  return (
+    <div className="rounded border border-indigo-500/30 bg-indigo-500/5 p-3 text-xs space-y-2">
+      <div className="font-semibold">Codex / Claude Code Handoff</div>
+      <div className="text-muted-foreground">
+        Prepara un prompt manuale. Nessun commit, push o PR.
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={() => void handle("codex")}>
+          Prepara prompt Codex
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => void handle("claude_code")}>
+          Prepara prompt Claude Code
+        </Button>
+        <Button asChild size="sm" variant="ghost">
+          <Link to="/code-handoffs">Apri handoff</Link>
+        </Button>
+      </div>
+    </div>
+  );
+}
