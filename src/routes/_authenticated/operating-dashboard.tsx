@@ -30,6 +30,7 @@ import {
   Play,
   Send,
   ShieldAlert,
+  ShieldCheck,
   Sparkles,
   Wrench,
 } from "lucide-react";
