@@ -1128,3 +1128,55 @@ function MvpFactoryMini({ brainId }: { brainId: string | null }) {
     </Card>
   );
 }
+
+function AgentCenterMini({ brainId }: { brainId: string | null }) {
+  const { data } = useQuery({
+    queryKey: ["agent-center-mini", brainId],
+    queryFn: async () => {
+      const { getAgentCenterSummary, getAgentCenterWarnings } = await import("@/lib/agent-center");
+      const [summary, warnings] = await Promise.all([
+        getAgentCenterSummary(brainId),
+        getAgentCenterWarnings(brainId).catch(() => []),
+      ]);
+      return { summary, warnings };
+    },
+  });
+  const total = data?.summary.total ?? 0;
+  const draft = data?.summary.draft ?? 0;
+  const active = data?.summary.active ?? 0;
+  const warnCount = data?.warnings.length ?? 0;
+  const tone =
+    warnCount > 0
+      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+      : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" /> Agent Center</span>
+          <Badge variant="outline" className={tone}>{warnCount > 0 ? `${warnCount} warn` : "OK"}</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <Tile label="Totali" value={total} />
+          <Tile label="Draft" value={draft} tone={draft > 0 ? "amber" : undefined} />
+          <Tile label="Active" value={active} />
+        </div>
+        <Button
+          asChild
+          size="sm"
+          variant="outline"
+          className="w-full"
+          onClick={() => {
+            void import("@/lib/agent-center").then(({ logAgentCenterEvent }) =>
+              logAgentCenterEvent("agent_center_viewed", "Apertura da Operating Dashboard", { brain: brainId }),
+            );
+          }}
+        >
+          <Link to="/agent-center" search={{}}>Apri Agent Center <ArrowRight className="ml-1 h-3 w-3" /></Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
