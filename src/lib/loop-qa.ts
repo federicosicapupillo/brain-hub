@@ -125,9 +125,6 @@ type KnowledgeRow = {
   created_at: string;
 };
 
-export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSummary> {
-  const filters: Array<[string, string]> = brainId ? [["brain_id", brainId]] : [];
-
 type TelegramRow = {
   id: string;
   automation_action_id: string | null;
@@ -138,6 +135,7 @@ type TelegramRow = {
 
 export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSummary> {
   const filters: Array<[string, string]> = brainId ? [["brain_id", brainId]] : [];
+
 
   const [actions, reviews, suggestions, knowledge, telegram] = await Promise.all([
     fetchLatest<ActionRow>("automation_actions", filters, 100),
