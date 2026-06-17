@@ -114,7 +114,10 @@ export type DriveKnowledgeEvent =
   | "google_drive_disconnected"
   | "google_drive_metadata_sync_started"
   | "google_drive_metadata_sync_completed"
-  | "google_drive_metadata_sync_failed";
+  | "google_drive_metadata_sync_failed"
+  | "google_drive_metadata_sync_limited"
+  | "google_drive_metadata_sync_warning"
+  | "google_drive_metadata_sync_file_count_updated";
 
 // ------------------------------------------------------------
 // Logging
@@ -578,6 +581,12 @@ export async function suggestDriveOrganization(
 // Dashboard / Loop QA helpers
 // ------------------------------------------------------------
 
+export type DriveSyncStatus =
+  | "never"
+  | "completed"
+  | "completed_with_warnings"
+  | "failed";
+
 export type DriveKnowledgeSummary = {
   connections: number;
   configuredConnections: number;
@@ -587,6 +596,10 @@ export type DriveKnowledgeSummary = {
   hasNeverSynced: boolean;
   lastSyncAt: string | null;
   lastSyncFailed: boolean;
+  lastSyncFileCount: number | null;
+  lastSyncReachedLimit: boolean;
+  lastSyncWarnings: string[];
+  lastSyncStatus: DriveSyncStatus;
 };
 
 export async function getDriveKnowledgeSummary(
@@ -607,6 +620,35 @@ export async function getDriveKnowledgeSummary(
     .sort()
     .at(-1) ?? null;
 
+  // Aggregate latest sync metadata across configured connections.
+  let lastSyncFileCount: number | null = null;
+  let lastSyncReachedLimit = false;
+  let lastSyncWarnings: string[] = [];
+  let lastSyncStatus: DriveSyncStatus = "never";
+  let latestTs = 0;
+  for (const c of configured) {
+    const m = (c.metadata ?? {}) as Record<string, unknown>;
+    const completedAt =
+      typeof m.last_sync_completed_at === "string" ? m.last_sync_completed_at : null;
+    const ts = completedAt ? new Date(completedAt).getTime() : 0;
+    if (ts >= latestTs) {
+      latestTs = ts;
+      lastSyncFileCount =
+        typeof m.last_sync_file_count === "number" ? m.last_sync_file_count : lastSyncFileCount;
+      lastSyncReachedLimit = m.last_sync_reached_limit === true;
+      const w = m.last_sync_warnings;
+      lastSyncWarnings = Array.isArray(w)
+        ? w.filter((x): x is string => typeof x === "string")
+        : [];
+      const st = m.last_sync_status;
+      if (st === "completed" || st === "completed_with_warnings" || st === "failed") {
+        lastSyncStatus = st;
+      } else if (completedAt) {
+        lastSyncStatus = "completed";
+      }
+    }
+  }
+
   // Check most recent sync log for last failure
   let lastSyncFailed = false;
   try {
@@ -622,6 +664,7 @@ export async function getDriveKnowledgeSummary(
   } catch {
     // non-blocking
   }
+  if (lastSyncFailed) lastSyncStatus = "failed";
 
   return {
     connections: connections.length,
@@ -632,6 +675,10 @@ export async function getDriveKnowledgeSummary(
     hasNeverSynced: configured.length > 0 && lastSync === null,
     lastSyncAt: lastSync,
     lastSyncFailed,
+    lastSyncFileCount,
+    lastSyncReachedLimit,
+    lastSyncWarnings,
+    lastSyncStatus,
   };
 }
 
@@ -682,6 +729,47 @@ export async function getDriveKnowledgeWarnings(
         level: "info",
         title: "File Drive mappati senza knowledge source",
         description: `${s.totalFiles} file mappati ma nessuna knowledge source ancora creata.`,
+        cta,
+      });
+    }
+    if (s.totalFiles >= 50 && s.knowledgeSourcesCreated > 0 && s.knowledgeSourcesCreated < Math.floor(s.totalFiles / 10)) {
+      out.push({
+        id: "drive-few-knowledge-vs-files",
+        level: "info",
+        title: "Molti file Drive, poche knowledge source",
+        description: `${s.totalFiles} file mappati e solo ${s.knowledgeSourcesCreated} knowledge source. Considera di promuovere più file.`,
+        cta,
+      });
+    }
+    if (s.lastSyncReachedLimit) {
+      out.push({
+        id: "drive-sync-limit-reached",
+        level: "warning",
+        title: "Limite sync Drive raggiunto",
+        description: `Ultimo sync limitato a ${s.lastSyncFileCount ?? "molti"} file. Per Drive molto grandi servirà una sync avanzata.`,
+        cta,
+      });
+    }
+    if (s.lastSyncStatus === "completed_with_warnings" && s.lastSyncWarnings.length > 0 && !s.lastSyncReachedLimit) {
+      out.push({
+        id: "drive-sync-warnings",
+        level: "info",
+        title: "Sync Drive completato con warning",
+        description: s.lastSyncWarnings.slice(0, 2).join(" · ").slice(0, 200),
+        cta,
+      });
+    }
+    if (
+      s.configuredConnections > 0 &&
+      s.lastSyncAt &&
+      s.totalFiles === 0 &&
+      !s.lastSyncFailed
+    ) {
+      out.push({
+        id: "drive-connected-zero-files",
+        level: "warning",
+        title: "Drive collegato ma nessun file mappato",
+        description: "La sync è andata a buon fine ma non risultano file. Verifica i permessi del consenso.",
         cta,
       });
     }

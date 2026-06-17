@@ -329,6 +329,11 @@ function DriveKnowledgeRoute() {
         hasError={routeSearch.oauth === "error"}
         errorMessage={routeSearch.message}
         anyConnected={connections.some((c) => c.connection_status === "connected")}
+        lastSyncAt={summary?.lastSyncAt ?? null}
+        lastSyncFileCount={summary?.lastSyncFileCount ?? null}
+        lastSyncReachedLimit={summary?.lastSyncReachedLimit ?? false}
+        lastSyncStatus={summary?.lastSyncStatus ?? "never"}
+        lastSyncWarnings={summary?.lastSyncWarnings ?? []}
       />
 
 
@@ -736,12 +741,22 @@ function OauthStatusBanner({
   hasError,
   errorMessage,
   anyConnected,
+  lastSyncAt,
+  lastSyncFileCount,
+  lastSyncReachedLimit,
+  lastSyncStatus,
+  lastSyncWarnings,
 }: {
   configured: boolean;
   scope?: string;
   hasError: boolean;
   errorMessage?: string;
   anyConnected: boolean;
+  lastSyncAt?: string | null;
+  lastSyncFileCount?: number | null;
+  lastSyncReachedLimit?: boolean;
+  lastSyncStatus?: "never" | "completed" | "completed_with_warnings" | "failed";
+  lastSyncWarnings?: string[];
 }) {
   let title: string;
   let body: string;
@@ -758,7 +773,7 @@ function OauthStatusBanner({
   } else if (anyConnected) {
     title = "Google Drive collegato";
     body = `Scope attivo: ${scope ?? "drive.metadata.readonly"}. Solo metadata, nessun contenuto file scaricato.`;
-    tone = "ok";
+    tone = lastSyncStatus === "completed_with_warnings" || lastSyncReachedLimit ? "warn" : "ok";
   } else {
     title = "Pronto per il collegamento";
     body = `OAuth server-side configurato. Crea una connessione e premi "Autorizza Google Drive" (scope ${scope ?? "drive.metadata.readonly"}).`;
@@ -772,6 +787,15 @@ function OauthStatusBanner({
         : tone === "warn"
           ? "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100"
           : "border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-100";
+
+  const statusLabel: Record<string, string> = {
+    completed: "completed",
+    completed_with_warnings: "completed with warnings",
+    failed: "failed",
+    never: "mai eseguita",
+  };
+  const showSync = anyConnected && lastSyncAt;
+
   return (
     <Card className={toneClass}>
       <CardContent className="flex items-start gap-2 p-4 text-xs">
@@ -779,6 +803,17 @@ function OauthStatusBanner({
         <div className="space-y-1">
           <div className="font-medium">{title}</div>
           <p>{body}</p>
+          {showSync && (
+            <p className="opacity-80">
+              Ultimo sync: {new Date(lastSyncAt!).toLocaleString()}
+              {typeof lastSyncFileCount === "number" ? ` · ${lastSyncFileCount} file` : ""}
+              {` · stato: ${statusLabel[lastSyncStatus ?? "completed"]}`}
+              {lastSyncReachedLimit ? " · limite raggiunto" : ""}
+            </p>
+          )}
+          {lastSyncWarnings && lastSyncWarnings.length > 0 && (
+            <p className="opacity-80">⚠ {lastSyncWarnings.slice(0, 2).join(" · ").slice(0, 240)}</p>
+          )}
         </div>
       </CardContent>
     </Card>
