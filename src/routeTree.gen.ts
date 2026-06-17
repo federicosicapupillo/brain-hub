@@ -54,6 +54,7 @@ import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_au
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
 import { Route as AuthenticatedAllineamentoRouteImport } from './routes/_authenticated/allineamento'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
+import { Route as AuthenticatedAgentRunsRouteImport } from './routes/_authenticated/agent-runs'
 import { Route as AuthenticatedAgentCenterRouteImport } from './routes/_authenticated/agent-center'
 import { Route as AuthenticatedActionQueueRouteImport } from './routes/_authenticated/action-queue'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
@@ -314,6 +315,11 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAgentRunsRoute = AuthenticatedAgentRunsRouteImport.update({
+  id: '/agent-runs',
+  path: '/agent-runs',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAgentCenterRoute =
   AuthenticatedAgentCenterRouteImport.update({
     id: '/agent-center',
@@ -373,6 +379,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/action-queue': typeof AuthenticatedActionQueueRoute
   '/agent-center': typeof AuthenticatedAgentCenterRoute
+  '/agent-runs': typeof AuthenticatedAgentRunsRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
@@ -427,6 +434,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/action-queue': typeof AuthenticatedActionQueueRoute
   '/agent-center': typeof AuthenticatedAgentCenterRoute
+  '/agent-runs': typeof AuthenticatedAgentRunsRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
@@ -483,6 +491,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/action-queue': typeof AuthenticatedActionQueueRoute
   '/_authenticated/agent-center': typeof AuthenticatedAgentCenterRoute
+  '/_authenticated/agent-runs': typeof AuthenticatedAgentRunsRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/allineamento': typeof AuthenticatedAllineamentoRoute
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
@@ -541,6 +550,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/action-queue'
     | '/agent-center'
+    | '/agent-runs'
     | '/agents'
     | '/allineamento'
     | '/archivio'
@@ -595,6 +605,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/action-queue'
     | '/agent-center'
+    | '/agent-runs'
     | '/agents'
     | '/allineamento'
     | '/archivio'
@@ -650,6 +661,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/action-queue'
     | '/_authenticated/agent-center'
+    | '/_authenticated/agent-runs'
     | '/_authenticated/agents'
     | '/_authenticated/allineamento'
     | '/_authenticated/archivio'
@@ -1028,6 +1040,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/agent-runs': {
+      id: '/_authenticated/agent-runs'
+      path: '/agent-runs'
+      fullPath: '/agent-runs'
+      preLoaderRoute: typeof AuthenticatedAgentRunsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/agent-center': {
       id: '/_authenticated/agent-center'
       path: '/agent-center'
@@ -1124,6 +1143,7 @@ const AuthenticatedProgettiRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedActionQueueRoute: typeof AuthenticatedActionQueueRoute
   AuthenticatedAgentCenterRoute: typeof AuthenticatedAgentCenterRoute
+  AuthenticatedAgentRunsRoute: typeof AuthenticatedAgentRunsRoute
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAllineamentoRoute: typeof AuthenticatedAllineamentoRoute
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
@@ -1172,6 +1192,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedActionQueueRoute: AuthenticatedActionQueueRoute,
   AuthenticatedAgentCenterRoute: AuthenticatedAgentCenterRoute,
+  AuthenticatedAgentRunsRoute: AuthenticatedAgentRunsRoute,
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAllineamentoRoute: AuthenticatedAllineamentoRoute,
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
