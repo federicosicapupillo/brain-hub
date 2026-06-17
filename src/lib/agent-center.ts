@@ -631,7 +631,8 @@ export async function createAgentSuggestedAction(input: {
     source: "agent_center",
     action_type: input.action_type,
     title: input.title,
-    description: input.description ?? null,
+    description: input.description ?? undefined,
+
     priority: "medium",
     brain_id: input.brain_id ?? input.agent.brain_id ?? null,
     project_id: input.project_id ?? null,
