@@ -39,6 +39,7 @@ import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authe
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
+import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
 import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
 import { Route as AuthenticatedBuildEnginesRouteImport } from './routes/_authenticated/build-engines'
@@ -216,6 +217,12 @@ const AuthenticatedCompanyOsRoute = AuthenticatedCompanyOsRouteImport.update({
   path: '/company-os',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedCompanyHomeRoute =
+  AuthenticatedCompanyHomeRouteImport.update({
+    id: '/company-home',
+    path: '/company-home',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCompanyBlueprintRoute =
   AuthenticatedCompanyBlueprintRouteImport.update({
     id: '/company-blueprint',
@@ -310,6 +317,7 @@ export interface FileRoutesByFullPath {
   '/build-engines': typeof AuthenticatedBuildEnginesRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
+  '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -354,6 +362,7 @@ export interface FileRoutesByTo {
   '/build-engines': typeof AuthenticatedBuildEnginesRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
+  '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -400,6 +409,7 @@ export interface FileRoutesById {
   '/_authenticated/build-engines': typeof AuthenticatedBuildEnginesRoute
   '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/_authenticated/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
+  '/_authenticated/company-home': typeof AuthenticatedCompanyHomeRoute
   '/_authenticated/company-os': typeof AuthenticatedCompanyOsRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
@@ -448,6 +458,7 @@ export interface FileRouteTypes {
     | '/build-engines'
     | '/clipboard-ai'
     | '/company-blueprint'
+    | '/company-home'
     | '/company-os'
     | '/connettori'
     | '/fonti'
@@ -492,6 +503,7 @@ export interface FileRouteTypes {
     | '/build-engines'
     | '/clipboard-ai'
     | '/company-blueprint'
+    | '/company-home'
     | '/company-os'
     | '/connettori'
     | '/fonti'
@@ -537,6 +549,7 @@ export interface FileRouteTypes {
     | '/_authenticated/build-engines'
     | '/_authenticated/clipboard-ai'
     | '/_authenticated/company-blueprint'
+    | '/_authenticated/company-home'
     | '/_authenticated/company-os'
     | '/_authenticated/connettori'
     | '/_authenticated/fonti'
@@ -791,6 +804,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCompanyOsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/company-home': {
+      id: '/_authenticated/company-home'
+      path: '/company-home'
+      fullPath: '/company-home'
+      preLoaderRoute: typeof AuthenticatedCompanyHomeRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/company-blueprint': {
       id: '/_authenticated/company-blueprint'
       path: '/company-blueprint'
@@ -929,6 +949,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedBuildEnginesRoute: typeof AuthenticatedBuildEnginesRoute
   AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
   AuthenticatedCompanyBlueprintRoute: typeof AuthenticatedCompanyBlueprintRoute
+  AuthenticatedCompanyHomeRoute: typeof AuthenticatedCompanyHomeRoute
   AuthenticatedCompanyOsRoute: typeof AuthenticatedCompanyOsRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
@@ -969,6 +990,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedBuildEnginesRoute: AuthenticatedBuildEnginesRoute,
   AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
   AuthenticatedCompanyBlueprintRoute: AuthenticatedCompanyBlueprintRoute,
+  AuthenticatedCompanyHomeRoute: AuthenticatedCompanyHomeRoute,
   AuthenticatedCompanyOsRoute: AuthenticatedCompanyOsRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,

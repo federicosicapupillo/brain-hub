@@ -27,6 +27,7 @@ import {
   Send,
   Building2,
   Cpu,
+  Home,
 } from "lucide-react";
 import {
   Sidebar,
