@@ -343,7 +343,12 @@ function CompanyBlueprintRoute() {
                 </CardHeader>
               </Card>
 
-              <BlueprintPreview content={currentContent} />
+              <BlueprintPreview
+                content={currentContent}
+                blueprintId={activeRow?.id ?? null}
+                brainId={brainId}
+              />
+
             </>
           ) : (
             <Card>
