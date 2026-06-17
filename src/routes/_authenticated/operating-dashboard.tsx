@@ -918,6 +918,15 @@ function CompanyOsMini({ brainId }: { brainId: string | null }) {
                 <div className="truncate font-medium">{summary.nextSetupAction.title}</div>
               </div>
             )}
+            <div className="rounded border bg-background/40 p-2 text-xs">
+              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Ultimo blueprint</div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="truncate font-medium">{latestBlueprint ? "Presente" : "Assente"}</span>
+                <Button asChild size="sm" variant="ghost" className="h-6 px-2 text-[11px]">
+                  <Link to="/company-blueprint" search={{}}>Apri Blueprint</Link>
+                </Button>
+              </div>
+            </div>
             <Button asChild size="sm" variant="outline" className="w-full" onClick={onOpen}>
               <Link to="/company-os" search={{}}>Apri Company OS <ArrowRight className="ml-1 h-3 w-3" /></Link>
             </Button>
