@@ -555,7 +555,7 @@ function BlueprintPreview({
             );
           })
         )}
-        <div className="pt-2">
+        <div className="flex flex-wrap gap-2 pt-2">
           <Button asChild size="sm" variant="outline">
             <Link
               to="/build-engines"
@@ -577,7 +577,40 @@ function BlueprintPreview({
               Apri Build Engines
             </Link>
           </Button>
+          <Button asChild size="sm">
+            <Link
+              to="/mvp-factory"
+              search={{
+                brain: brainId || undefined,
+                source: "company_blueprint",
+                source_id: blueprintId ?? undefined,
+                title: content.snapshot?.companyName
+                  ? `MVP da Blueprint — ${content.snapshot.companyName}`
+                  : "MVP da Company Blueprint",
+                description:
+                  content.nextActions?.slice(0, 3).map((a) => a.title).join(" · ") ||
+                  undefined,
+              }}
+              onClick={() => {
+                void import("@/lib/mvp-factory").then((m) =>
+                  m.logMvpFactoryEvent(
+                    "mvp_opened_from_company_blueprint",
+                    "Apertura MVP Factory da Company Blueprint",
+                    { blueprint_id: blueprintId, brain_id: brainId || null },
+                  ),
+                );
+              }}
+            >
+              Trasforma in MVP
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/mvp-factory" search={{ brain: brainId || undefined }}>
+              Apri MVP Factory
+            </Link>
+          </Button>
         </div>
+
 
       </Section>
 
