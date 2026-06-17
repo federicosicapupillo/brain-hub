@@ -40,6 +40,7 @@ import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
 import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
+import { Route as AuthenticatedBuildEnginesRouteImport } from './routes/_authenticated/build-engines'
 import { Route as AuthenticatedAutomationReadinessRouteImport } from './routes/_authenticated/automation-readiness'
 import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_authenticated/automation-control'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
@@ -221,6 +222,12 @@ const AuthenticatedClipboardAiRoute =
     path: '/clipboard-ai',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBuildEnginesRoute =
+  AuthenticatedBuildEnginesRouteImport.update({
+    id: '/build-engines',
+    path: '/build-engines',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAutomationReadinessRoute =
   AuthenticatedAutomationReadinessRouteImport.update({
     id: '/automation-readiness',
@@ -294,6 +301,7 @@ export interface FileRoutesByFullPath {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
+  '/build-engines': typeof AuthenticatedBuildEnginesRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
@@ -336,6 +344,7 @@ export interface FileRoutesByTo {
   '/archivio': typeof AuthenticatedArchivioRoute
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
+  '/build-engines': typeof AuthenticatedBuildEnginesRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
@@ -380,6 +389,7 @@ export interface FileRoutesById {
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
   '/_authenticated/automation-control': typeof AuthenticatedAutomationControlRoute
   '/_authenticated/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
+  '/_authenticated/build-engines': typeof AuthenticatedBuildEnginesRoute
   '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/_authenticated/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/_authenticated/company-os': typeof AuthenticatedCompanyOsRoute
@@ -426,6 +436,7 @@ export interface FileRouteTypes {
     | '/archivio'
     | '/automation-control'
     | '/automation-readiness'
+    | '/build-engines'
     | '/clipboard-ai'
     | '/company-blueprint'
     | '/company-os'
@@ -468,6 +479,7 @@ export interface FileRouteTypes {
     | '/archivio'
     | '/automation-control'
     | '/automation-readiness'
+    | '/build-engines'
     | '/clipboard-ai'
     | '/company-blueprint'
     | '/company-os'
@@ -511,6 +523,7 @@ export interface FileRouteTypes {
     | '/_authenticated/archivio'
     | '/_authenticated/automation-control'
     | '/_authenticated/automation-readiness'
+    | '/_authenticated/build-engines'
     | '/_authenticated/clipboard-ai'
     | '/_authenticated/company-blueprint'
     | '/_authenticated/company-os'
@@ -773,6 +786,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClipboardAiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/build-engines': {
+      id: '/_authenticated/build-engines'
+      path: '/build-engines'
+      fullPath: '/build-engines'
+      preLoaderRoute: typeof AuthenticatedBuildEnginesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/automation-readiness': {
       id: '/_authenticated/automation-readiness'
       path: '/automation-readiness'
@@ -887,6 +907,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
   AuthenticatedAutomationControlRoute: typeof AuthenticatedAutomationControlRoute
   AuthenticatedAutomationReadinessRoute: typeof AuthenticatedAutomationReadinessRoute
+  AuthenticatedBuildEnginesRoute: typeof AuthenticatedBuildEnginesRoute
   AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
   AuthenticatedCompanyBlueprintRoute: typeof AuthenticatedCompanyBlueprintRoute
   AuthenticatedCompanyOsRoute: typeof AuthenticatedCompanyOsRoute
@@ -925,6 +946,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
   AuthenticatedAutomationControlRoute: AuthenticatedAutomationControlRoute,
   AuthenticatedAutomationReadinessRoute: AuthenticatedAutomationReadinessRoute,
+  AuthenticatedBuildEnginesRoute: AuthenticatedBuildEnginesRoute,
   AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
   AuthenticatedCompanyBlueprintRoute: AuthenticatedCompanyBlueprintRoute,
   AuthenticatedCompanyOsRoute: AuthenticatedCompanyOsRoute,
