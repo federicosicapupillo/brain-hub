@@ -103,7 +103,6 @@ type ActionRow = {
   risk_level: string;
   status: string;
   metadata: Record<string, unknown> | null;
-  telegram_approval_status: string | null;
   source: string | null;
 };
 
@@ -143,7 +142,7 @@ export const executeN8nRealWorkflow = createServerFn({ method: "POST" })
       const { data: aRaw, error: aErr } = await supabase
         .from("automation_actions" as never)
         .select(
-          "id,user_id,brain_id,project_id,action_type,title,description,risk_level,status,metadata,telegram_approval_status,source",
+          "id,user_id,brain_id,project_id,action_type,title,description,risk_level,status,metadata,source",
         )
         .eq("id", data.action_id)
         .eq("user_id", userId)
@@ -159,7 +158,8 @@ export const executeN8nRealWorkflow = createServerFn({ method: "POST" })
     if (needsTelegram) {
       let approved = false;
       if (action) {
-        approved = action.telegram_approval_status === "approved";
+        const metaStatus = (action.metadata as Record<string, unknown> | null)?.telegram_approval_status;
+        approved = metaStatus === "approved";
         if (!approved) {
           const { data: appr } = await supabase
             .from("telegram_approval_requests" as never)
