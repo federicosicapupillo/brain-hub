@@ -2,14 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // ============================================================
-// Brain Hub v2.8 — Google Drive metadata sync (server fn)
+// Brain Hub v2.8.1 — Google Drive metadata sync (server fn)
 // ============================================================
-// In v2.8 OAuth Google Drive is NOT configured: this server fn returns a
-// clear, sanitized failure so the UI can show "OAuth non configurato"
-// without faking a sync. The structure is ready for real OAuth in a
-// future version (token refresh, scope check, metadata fetch).
+// In v2.8.1 we DO NOT persist OAuth tokens. Re-sync = re-OAuth.
+// This function returns an authUrl for the UI to redirect the user
+// through the consent screen (usually silent if already granted),
+// after which the public callback route performs the actual
+// metadata-only sync server-side and forgets the access token.
 //
-// HARD CONTRAINTS:
+// HARD CONSTRAINTS:
 //   - Never download file content.
 //   - Never write/modify/delete on Google Drive.
 //   - Never log tokens or secrets.
@@ -17,23 +18,17 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type SyncGoogleDriveMetadataInput = {
   connectionId: string;
+  returnTo?: string | null;
 };
 
 export type SyncGoogleDriveMetadataResult = {
   ok: boolean;
   reason?: string;
+  authUrl?: string;
   filesProcessed?: number;
   filesAdded?: number;
   filesUpdated?: number;
 };
-
-function isOauthConfigured(): boolean {
-  // Placeholder check: real OAuth would verify GOOGLE_OAUTH_CLIENT_ID /
-  // refresh token storage. Until those are added we always report false.
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  return Boolean(clientId && clientSecret);
-}
 
 export const syncGoogleDriveMetadata = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -41,15 +36,23 @@ export const syncGoogleDriveMetadata = createServerFn({ method: "POST" })
     if (!data || typeof data.connectionId !== "string" || !data.connectionId) {
       throw new Error("connectionId richiesto");
     }
-    return { connectionId: data.connectionId };
+    return {
+      connectionId: data.connectionId,
+      returnTo:
+        typeof data.returnTo === "string" && data.returnTo.startsWith("/")
+          ? data.returnTo
+          : null,
+    };
   })
   .handler(async ({ data, context }): Promise<SyncGoogleDriveMetadataResult> => {
     const { supabase, userId } = context;
+    const { getGoogleOauthConfig, buildGoogleAuthUrl, DRIVE_OAUTH_SCOPE } =
+      await import("@/lib/drive-oauth.server");
 
-    // Verify the connection belongs to the calling user (RLS will also enforce).
+    // Verify connection ownership (RLS also enforces).
     const { data: connRow, error: connErr } = await supabase
       .from("drive_connection_settings")
-      .select("id, user_id, connection_status")
+      .select("id, user_id, brain_id")
       .eq("id", data.connectionId)
       .maybeSingle();
     if (connErr) {
@@ -58,19 +61,45 @@ export const syncGoogleDriveMetadata = createServerFn({ method: "POST" })
     if (!connRow || (connRow as { user_id: string }).user_id !== userId) {
       return { ok: false, reason: "Connessione non trovata" };
     }
+    const conn = connRow as {
+      id: string;
+      user_id: string;
+      brain_id: string | null;
+    };
 
-    if (!isOauthConfigured()) {
+    if (!getGoogleOauthConfig()) {
       return {
         ok: false,
         reason:
-          "Google OAuth non configurato. Usa l'import manuale di link Drive oppure attiva OAuth in una versione successiva.",
+          "Google OAuth non configurato. Usa l'import manuale di link Drive oppure configura GOOGLE_CLIENT_ID/SECRET.",
       };
     }
 
-    // Future: fetch via Drive API v3 (metadata only, fields whitelist).
-    // For now, signal that real sync is not yet implemented.
+    // Mint a fresh state and return an authUrl. The UI redirects there;
+    // Google bounces to /api/public/drive-oauth/callback which performs
+    // the actual sync server-side and forgets the access token.
+    const stateToken = crypto.randomUUID() + "." + crypto.randomUUID();
+    const { error: stateErr } = await supabase
+      .from("google_drive_oauth_states")
+      .insert({
+        state_token: stateToken,
+        user_id: userId,
+        connection_id: conn.id,
+        brain_id: conn.brain_id,
+        redirect_to: data.returnTo,
+        scopes: [DRIVE_OAUTH_SCOPE],
+      } as never);
+    if (stateErr) {
+      return { ok: false, reason: "Impossibile creare state OAuth" };
+    }
+    const authUrl = buildGoogleAuthUrl(stateToken);
+    if (!authUrl) {
+      return { ok: false, reason: "Configurazione OAuth incompleta" };
+    }
     return {
       ok: false,
-      reason: "Sync metadata Drive non ancora implementato (v2.8 read-only placeholder).",
+      authUrl,
+      reason:
+        "Per sincronizzare i metadata Brain Hub ti reindirizza a Google (read-only). I token non vengono memorizzati.",
     };
   });

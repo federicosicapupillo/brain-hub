@@ -51,6 +51,11 @@ import {
   suggestDriveOrganization,
   syncDriveMetadata,
 } from "@/lib/drive-knowledge";
+import {
+  disconnectGoogleDrive,
+  getGoogleDriveOauthStatus,
+  startGoogleDriveOAuth,
+} from "@/lib/drive-oauth.functions";
 
 export const Route = createFileRoute("/_authenticated/drive-knowledge")({
   head: () => ({
@@ -135,6 +140,11 @@ function DriveKnowledgeRoute() {
     queryFn: () => getDriveKnowledgeSummary(brainFilter),
   });
 
+  const { data: oauthStatus } = useQuery({
+    queryKey: ["drive-knowledge", "oauth-status"],
+    queryFn: () => getGoogleDriveOauthStatus(),
+  });
+
   const { data: organization = [] } = useQuery({
     queryKey: ["drive-knowledge", "organization", brainFilter],
     queryFn: () => suggestDriveOrganization(brainFilter),
@@ -187,10 +197,50 @@ function DriveKnowledgeRoute() {
     const res = await syncDriveMetadata(connection.id);
     if (res.ok) {
       toast.success("Sync metadata Drive completato");
+    } else if (res.authUrl) {
+      void logDriveKnowledgeEvent(
+        "google_drive_oauth_started",
+        "Redirect a Google per consenso (metadata.readonly)",
+        { connection_id: connection.id },
+      );
+      toast.info("Reindirizzamento a Google per consenso read-only…");
+      window.location.href = res.authUrl;
+      return;
     } else {
       toast.error(res.reason ?? "Sync metadata fallito");
     }
     await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
+  }
+
+  async function handleAuthorize(connection: DriveConnection) {
+    const res = await startGoogleDriveOAuth({
+      data: { connectionId: connection.id, returnTo: "/drive-knowledge?oauth=success" },
+    });
+    if (res.ok) {
+      void logDriveKnowledgeEvent(
+        "google_drive_oauth_started",
+        "Avvio OAuth Google Drive",
+        { connection_id: connection.id },
+      );
+      window.location.href = res.authUrl;
+    } else {
+      toast.error(res.reason);
+    }
+  }
+
+  async function handleDisconnect(connection: DriveConnection) {
+    const res = await disconnectGoogleDrive({ data: { connectionId: connection.id } });
+    if (res.ok) {
+      void logDriveKnowledgeEvent(
+        "google_drive_disconnected",
+        "Connessione Drive disconnessa",
+        { connection_id: connection.id },
+      );
+      toast.success("Drive disconnesso");
+      await qc.invalidateQueries({ queryKey: ["drive-knowledge"] });
+    } else {
+      toast.error(res.reason ?? "Disconnessione fallita");
+    }
   }
 
   async function handleCreateKnowledge(file: DriveFile) {

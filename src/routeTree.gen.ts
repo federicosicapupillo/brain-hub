@@ -57,6 +57,7 @@ import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/publ
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 import { Route as AuthenticatedImportaPromptStoriciRouteImport } from './routes/_authenticated/importa.prompt-storici'
+import { Route as ApiPublicDriveOauthCallbackRouteImport } from './routes/api/public/drive-oauth/callback'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -325,6 +326,12 @@ const AuthenticatedImportaPromptStoriciRoute =
     path: '/prompt-storici',
     getParentRoute: () => AuthenticatedImportaRoute,
   } as any)
+const ApiPublicDriveOauthCallbackRoute =
+  ApiPublicDriveOauthCallbackRouteImport.update({
+    id: '/api/public/drive-oauth/callback',
+    path: '/api/public/drive-oauth/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -374,6 +381,7 @@ export interface FileRoutesByFullPath {
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/importa/': typeof AuthenticatedImportaIndexRoute
+  '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -422,6 +430,7 @@ export interface FileRoutesByTo {
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/importa': typeof AuthenticatedImportaIndexRoute
+  '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -473,6 +482,7 @@ export interface FileRoutesById {
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
+  '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -524,6 +534,7 @@ export interface FileRouteTypes {
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/importa/'
+    | '/api/public/drive-oauth/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -572,6 +583,7 @@ export interface FileRouteTypes {
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/importa'
+    | '/api/public/drive-oauth/callback'
   id:
     | '__root__'
     | '/_authenticated'
@@ -622,6 +634,7 @@ export interface FileRouteTypes {
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/_authenticated/importa/'
+    | '/api/public/drive-oauth/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -629,6 +642,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
+  ApiPublicDriveOauthCallbackRoute: typeof ApiPublicDriveOauthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -969,6 +983,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportaPromptStoriciRouteImport
       parentRoute: typeof AuthenticatedImportaRoute
     }
+    '/api/public/drive-oauth/callback': {
+      id: '/api/public/drive-oauth/callback'
+      path: '/api/public/drive-oauth/callback'
+      fullPath: '/api/public/drive-oauth/callback'
+      preLoaderRoute: typeof ApiPublicDriveOauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -1095,6 +1116,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
+  ApiPublicDriveOauthCallbackRoute: ApiPublicDriveOauthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -107,7 +107,14 @@ export type DriveKnowledgeEvent =
   | "drive_file_mapped"
   | "drive_knowledge_source_created"
   | "drive_organization_suggested"
-  | "drive_connection_opened";
+  | "drive_connection_opened"
+  | "google_drive_oauth_started"
+  | "google_drive_oauth_completed"
+  | "google_drive_oauth_failed"
+  | "google_drive_disconnected"
+  | "google_drive_metadata_sync_started"
+  | "google_drive_metadata_sync_completed"
+  | "google_drive_metadata_sync_failed";
 
 // ------------------------------------------------------------
 // Logging
@@ -383,6 +390,7 @@ export async function importManualDriveLink(
 export type DriveSyncResult = {
   ok: boolean;
   reason?: string;
+  authUrl?: string;
   filesProcessed?: number;
   filesAdded?: number;
   filesUpdated?: number;
@@ -391,23 +399,24 @@ export type DriveSyncResult = {
 };
 
 /**
- * Calls the server function syncGoogleDriveMetadata. In v2.8 OAuth is not yet
- * configured, so the server fn returns ok:false with a clear reason. The UI
- * uses the result to surface "OAuth non configurato" and keep manual link
- * import as the supported flow.
+ * v2.8.1: tokens are not persisted. When OAuth is configured the server fn
+ * returns an authUrl; the UI must redirect to it. The public OAuth callback
+ * runs the actual metadata-only sync and forgets the access token.
  */
 export async function syncDriveMetadata(connectionId: string): Promise<DriveSyncResult> {
   const startedAt = new Date().toISOString();
-  await logDriveKnowledgeEvent("drive_metadata_sync_started", "Sync metadata avviato", {
+  await logDriveKnowledgeEvent("google_drive_metadata_sync_started", "Sync metadata avviato", {
     connection_id: connectionId,
   });
   try {
     const { syncGoogleDriveMetadata } = await import("@/lib/drive-knowledge.functions");
-    const res = await syncGoogleDriveMetadata({ data: { connectionId } });
+    const res = await syncGoogleDriveMetadata({
+      data: { connectionId, returnTo: "/drive-knowledge?oauth=success" },
+    });
     const finishedAt = new Date().toISOString();
     if (res.ok) {
       await logDriveKnowledgeEvent(
-        "drive_metadata_sync_completed",
+        "google_drive_metadata_sync_completed",
         "Sync metadata completato",
         { connection_id: connectionId, files_processed: res.filesProcessed ?? 0 },
       );
@@ -415,9 +424,9 @@ export async function syncDriveMetadata(connectionId: string): Promise<DriveSync
         lastSyncAt: finishedAt,
         connectionStatus: "connected",
       });
-    } else {
+    } else if (!res.authUrl) {
       await logDriveKnowledgeEvent(
-        "drive_metadata_sync_failed",
+        "google_drive_metadata_sync_failed",
         res.reason ?? "Sync metadata fallito",
         { connection_id: connectionId, reason: res.reason ?? null },
       );
@@ -426,7 +435,7 @@ export async function syncDriveMetadata(connectionId: string): Promise<DriveSync
   } catch (err) {
     const finishedAt = new Date().toISOString();
     const reason = err instanceof Error ? err.message : "Errore sconosciuto";
-    await logDriveKnowledgeEvent("drive_metadata_sync_failed", reason, {
+    await logDriveKnowledgeEvent("google_drive_metadata_sync_failed", reason, {
       connection_id: connectionId,
     });
     return { ok: false, reason, startedAt, finishedAt };
