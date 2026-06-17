@@ -148,11 +148,6 @@ const AuthenticatedMvpFactoryRoute = AuthenticatedMvpFactoryRouteImport.update({
   path: '/mvp-factory',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedCompanyHomeRoute = AuthenticatedCompanyHomeRouteImport.update({
-  id: '/company-home',
-  path: '/company-home',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedLoopQaRoute = AuthenticatedLoopQaRouteImport.update({
   id: '/loop-qa',
   path: '/loop-qa',
