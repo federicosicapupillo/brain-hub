@@ -365,7 +365,18 @@ export type LogEventType =
   | "codex_prompt_built"
   | "claude_code_prompt_built"
   | "github_issue_draft_built"
-  | "github_operational_review_created";
+  | "github_operational_review_created"
+  | "agent_created"
+  | "agent_updated"
+  | "agent_archived"
+  | "agent_activated"
+  | "agent_paused"
+  | "agent_permission_updated"
+  | "agent_template_created"
+  | "agent_safety_warning"
+  | "agent_action_created"
+  | "agent_center_viewed";
+
 
 
 
