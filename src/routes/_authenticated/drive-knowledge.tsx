@@ -401,7 +401,8 @@ function DriveKnowledgeRoute() {
               {connections.map((c) => {
                 const isConnected = c.connection_status === "connected";
                 const isBusy = busyConnectionId === c.id;
-                const needsAuth = configured && !isConnected;
+                const oauthConfigured = oauthStatus?.configured ?? false;
+                const needsAuth = oauthConfigured && !isConnected;
                 return (
                   <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <div className="min-w-0">
@@ -430,10 +431,10 @@ function DriveKnowledgeRoute() {
                         <Button
                           size="sm"
                           variant={needsAuth ? "default" : "outline"}
-                          disabled={isBusy || !configured}
+                          disabled={isBusy || !oauthConfigured}
                           onClick={() => handleAuthorize(c)}
                           title={
-                            configured
+                            oauthConfigured
                               ? "Avvia consenso OAuth read-only"
                               : "Google OAuth non configurato server-side"
                           }
