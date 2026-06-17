@@ -441,3 +441,66 @@ function useEmptyStateLabel(id: BlockId): string {
       return "Nessun dato disponibile";
   }
 }
+
+function ResultReviewProjectBlock({ brainId }: { brainId: string }) {
+  const { data: items = [] } = useQuery({
+    queryKey: ["result-review-project-block", brainId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("result_review_items" as never)
+        .select("id,title,review_status,created_at,brain_id")
+        .eq("brain_id", brainId)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      return (data ?? []) as Array<{ id: string; title: string; review_status: string; created_at: string }>;
+    },
+  });
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data: u }) => {
+      if (!u.user) return;
+      void supabase.from("clipboard_execution_logs").insert({
+        user_id: u.user.id,
+        clipboard_item_id: null,
+        action: "result_review_block_viewed_in_project_console",
+        notes: `Result Review block visualizzato (brain ${brainId})`,
+        metadata: { brain_id: brainId },
+      } as never);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [brainId]);
+  const pending = items.filter((i) => i.review_status === "pending_review").length;
+  const needsFix = items.filter((i) => i.review_status === "needs_fix").length;
+  const last = items[0];
+  return (
+    <div className="rounded-md border border-border/60 bg-card/40 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-sm font-semibold">Result Review</div>
+        <Button asChild size="sm" variant="outline">
+          <a href={`/result-review?brain=${brainId}`}>Apri Result Review</a>
+        </Button>
+      </div>
+      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+        <div className="rounded border p-2">
+          <div className="font-semibold">{pending}</div>
+          <div className="text-[10px] text-muted-foreground">Da rivedere</div>
+        </div>
+        <div className="rounded border p-2">
+          <div className="font-semibold">{needsFix}</div>
+          <div className="text-[10px] text-muted-foreground">Da correggere</div>
+        </div>
+        <div className="rounded border p-2">
+          <div className="font-semibold">{items.length}</div>
+          <div className="text-[10px] text-muted-foreground">Totali</div>
+        </div>
+      </div>
+      {last ? (
+        <div className="mt-2 rounded border bg-background/40 p-2 text-xs">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Ultimo risultato</div>
+          <div className="truncate font-medium">{last.title}</div>
+        </div>
+      ) : (
+        <div className="mt-2 text-xs text-muted-foreground">Nessuna review per questo progetto.</div>
+      )}
+    </div>
+  );
+}
