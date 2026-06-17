@@ -426,6 +426,17 @@ function buildChain(
       status: originAction.status,
       created_at: originAction.created_at,
     });
+    const linkedTg = telegram
+      .filter((t) => t.automation_action_id === originAction!.id)
+      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    if (linkedTg) {
+      nodes.push({
+        kind: "telegram",
+        id: linkedTg.id,
+        status: linkedTg.status,
+        created_at: linkedTg.created_at,
+      });
+    }
   } else if (latestReview.source_type !== "manual") {
     missing.push("Action origine della review");
   }
