@@ -9,10 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarClock, CalendarDays } from "lucide-react";
+import { AlertTriangle, ArrowRight, CalendarClock, CalendarDays } from "lucide-react";
+import { toast } from "sonner";
 import {
   getCalendarKnowledgeSummary,
   listUpcomingCalendarEvents,
+  getCalendarIntelligenceSummary,
+  createSuggestedActionsFromCalendarEvent,
 } from "@/lib/calendar-knowledge";
 
 function fmtWhen(iso: string | null): string {
