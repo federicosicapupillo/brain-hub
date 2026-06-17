@@ -53,6 +53,7 @@ import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_au
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
 import { Route as AuthenticatedAllineamentoRouteImport } from './routes/_authenticated/allineamento'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
+import { Route as AuthenticatedAgentCenterRouteImport } from './routes/_authenticated/agent-center'
 import { Route as AuthenticatedActionQueueRouteImport } from './routes/_authenticated/action-queue'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
 import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
@@ -306,6 +307,12 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAgentCenterRoute =
+  AuthenticatedAgentCenterRouteImport.update({
+    id: '/agent-center',
+    path: '/agent-center',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedActionQueueRoute =
   AuthenticatedActionQueueRouteImport.update({
     id: '/action-queue',
@@ -358,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/auth': typeof AuthRoute
   '/action-queue': typeof AuthenticatedActionQueueRoute
+  '/agent-center': typeof AuthenticatedAgentCenterRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
@@ -410,6 +418,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/action-queue': typeof AuthenticatedActionQueueRoute
+  '/agent-center': typeof AuthenticatedAgentCenterRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
   '/archivio': typeof AuthenticatedArchivioRoute
@@ -464,6 +473,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/action-queue': typeof AuthenticatedActionQueueRoute
+  '/_authenticated/agent-center': typeof AuthenticatedAgentCenterRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/allineamento': typeof AuthenticatedAllineamentoRoute
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
@@ -520,6 +530,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/action-queue'
+    | '/agent-center'
     | '/agents'
     | '/allineamento'
     | '/archivio'
@@ -572,6 +583,7 @@ export interface FileRouteTypes {
   to:
     | '/auth'
     | '/action-queue'
+    | '/agent-center'
     | '/agents'
     | '/allineamento'
     | '/archivio'
@@ -625,6 +637,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/action-queue'
+    | '/_authenticated/agent-center'
     | '/_authenticated/agents'
     | '/_authenticated/allineamento'
     | '/_authenticated/archivio'
@@ -995,6 +1008,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/agent-center': {
+      id: '/_authenticated/agent-center'
+      path: '/agent-center'
+      fullPath: '/agent-center'
+      preLoaderRoute: typeof AuthenticatedAgentCenterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/action-queue': {
       id: '/_authenticated/action-queue'
       path: '/action-queue'
@@ -1083,6 +1103,7 @@ const AuthenticatedProgettiRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedActionQueueRoute: typeof AuthenticatedActionQueueRoute
+  AuthenticatedAgentCenterRoute: typeof AuthenticatedAgentCenterRoute
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAllineamentoRoute: typeof AuthenticatedAllineamentoRoute
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
@@ -1129,6 +1150,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedActionQueueRoute: AuthenticatedActionQueueRoute,
+  AuthenticatedAgentCenterRoute: AuthenticatedAgentCenterRoute,
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAllineamentoRoute: AuthenticatedAllineamentoRoute,
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
