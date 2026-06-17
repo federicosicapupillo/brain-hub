@@ -108,7 +108,9 @@ const SOURCE_BADGE: Record<ActionSource, string> = {
   google_calendar: "Da Google Calendar",
   github_operational: "Da GitHub Operational",
   code_repository: "Da Repository",
+  agent_center: "Da Agent Center",
 };
+
 
 
 export const Route = createFileRoute("/_authenticated/action-queue")({
