@@ -297,11 +297,11 @@ function DriveKnowledgeRoute() {
     <div className="mx-auto max-w-6xl space-y-6 p-6">
       <PageHeader
         title="Google Drive Knowledge"
-        subtitle="Mappa documenti Drive in modalità read-only e collegali alla Knowledge Map"
+        subtitle="OAuth read-only · metadata-only. Brain Hub non scarica contenuti, non modifica e non cancella nulla."
         actions={
           <>
             <Badge variant="outline" className="text-[10px]">
-              v2.8 read-only
+              v2.8.1 OAuth read-only
             </Badge>
             <Button asChild size="sm" variant="outline">
               <Link to="/knowledge-map">Knowledge Map</Link>
@@ -312,6 +312,15 @@ function DriveKnowledgeRoute() {
           </>
         }
       />
+
+      <OauthStatusBanner
+        configured={oauthStatus?.configured ?? false}
+        scope={oauthStatus?.scope}
+        hasError={routeSearch.oauth === "error"}
+        errorMessage={routeSearch.message}
+        anyConnected={connections.some((c) => c.connection_status === "connected")}
+      />
+
 
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3 p-4">
