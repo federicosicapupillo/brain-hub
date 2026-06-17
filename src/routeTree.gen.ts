@@ -43,6 +43,7 @@ import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
 import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
+import { Route as AuthenticatedClientOnboardingRouteImport } from './routes/_authenticated/client-onboarding'
 import { Route as AuthenticatedBuildEnginesRouteImport } from './routes/_authenticated/build-engines'
 import { Route as AuthenticatedAutomationReadinessRouteImport } from './routes/_authenticated/automation-readiness'
 import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_authenticated/automation-control'
@@ -242,6 +243,12 @@ const AuthenticatedClipboardAiRoute =
     path: '/clipboard-ai',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedClientOnboardingRoute =
+  AuthenticatedClientOnboardingRouteImport.update({
+    id: '/client-onboarding',
+    path: '/client-onboarding',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedBuildEnginesRoute =
   AuthenticatedBuildEnginesRouteImport.update({
     id: '/build-engines',
@@ -322,6 +329,7 @@ export interface FileRoutesByFullPath {
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/build-engines': typeof AuthenticatedBuildEnginesRoute
+  '/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-home': typeof AuthenticatedCompanyHomeRoute
@@ -368,6 +376,7 @@ export interface FileRoutesByTo {
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/build-engines': typeof AuthenticatedBuildEnginesRoute
+  '/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-home': typeof AuthenticatedCompanyHomeRoute
@@ -416,6 +425,7 @@ export interface FileRoutesById {
   '/_authenticated/automation-control': typeof AuthenticatedAutomationControlRoute
   '/_authenticated/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
   '/_authenticated/build-engines': typeof AuthenticatedBuildEnginesRoute
+  '/_authenticated/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/_authenticated/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/_authenticated/company-home': typeof AuthenticatedCompanyHomeRoute
@@ -466,6 +476,7 @@ export interface FileRouteTypes {
     | '/automation-control'
     | '/automation-readiness'
     | '/build-engines'
+    | '/client-onboarding'
     | '/clipboard-ai'
     | '/company-blueprint'
     | '/company-home'
@@ -512,6 +523,7 @@ export interface FileRouteTypes {
     | '/automation-control'
     | '/automation-readiness'
     | '/build-engines'
+    | '/client-onboarding'
     | '/clipboard-ai'
     | '/company-blueprint'
     | '/company-home'
@@ -559,6 +571,7 @@ export interface FileRouteTypes {
     | '/_authenticated/automation-control'
     | '/_authenticated/automation-readiness'
     | '/_authenticated/build-engines'
+    | '/_authenticated/client-onboarding'
     | '/_authenticated/clipboard-ai'
     | '/_authenticated/company-blueprint'
     | '/_authenticated/company-home'
@@ -845,6 +858,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClipboardAiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/client-onboarding': {
+      id: '/_authenticated/client-onboarding'
+      path: '/client-onboarding'
+      fullPath: '/client-onboarding'
+      preLoaderRoute: typeof AuthenticatedClientOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/build-engines': {
       id: '/_authenticated/build-engines'
       path: '/build-engines'
@@ -967,6 +987,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAutomationControlRoute: typeof AuthenticatedAutomationControlRoute
   AuthenticatedAutomationReadinessRoute: typeof AuthenticatedAutomationReadinessRoute
   AuthenticatedBuildEnginesRoute: typeof AuthenticatedBuildEnginesRoute
+  AuthenticatedClientOnboardingRoute: typeof AuthenticatedClientOnboardingRoute
   AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
   AuthenticatedCompanyBlueprintRoute: typeof AuthenticatedCompanyBlueprintRoute
   AuthenticatedCompanyHomeRoute: typeof AuthenticatedCompanyHomeRoute
@@ -1009,6 +1030,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAutomationControlRoute: AuthenticatedAutomationControlRoute,
   AuthenticatedAutomationReadinessRoute: AuthenticatedAutomationReadinessRoute,
   AuthenticatedBuildEnginesRoute: AuthenticatedBuildEnginesRoute,
+  AuthenticatedClientOnboardingRoute: AuthenticatedClientOnboardingRoute,
   AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
   AuthenticatedCompanyBlueprintRoute: AuthenticatedCompanyBlueprintRoute,
   AuthenticatedCompanyHomeRoute: AuthenticatedCompanyHomeRoute,
