@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
+import { MasterSnapshotUpdateButton } from "@/components/MasterSnapshotUpdateButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -120,6 +121,13 @@ function ResultReviewRoute() {
       <PageHeader
         title="Result Review"
         subtitle="Rivedi i risultati prodotti da Lovable, Codex, n8n, Browser Bridge e azioni manuali. Decidi cosa è ok, cosa va corretto, cosa è fallito."
+        actions={
+          <MasterSnapshotUpdateButton
+            source="result_review"
+            brainId={brainId}
+            defaultReason="Aggiornamento da Result Review"
+          />
+        }
       />
 
       <div className="flex flex-wrap items-center gap-3">

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
+import { MasterSnapshotUpdateButton } from "@/components/MasterSnapshotUpdateButton";
 import { RoadmapIntelligence } from "@/components/RoadmapIntelligence";
 import { ProjectHealthCheck } from "@/components/ProjectHealthCheck";
 import { AutomationControlBlock } from "@/components/AutomationControlBlock";
@@ -192,6 +193,13 @@ function ProjectConsoleRoute() {
       <PageHeader
         title="Configurable Project Console"
         subtitle="Configura cosa vedere per ogni progetto. Ogni cervello può avere una dashboard diversa."
+        actions={
+          <MasterSnapshotUpdateButton
+            source="project_console"
+            brainId={brainId}
+            defaultReason="Aggiornamento da Project Console"
+          />
+        }
       />
 
       <Card>
