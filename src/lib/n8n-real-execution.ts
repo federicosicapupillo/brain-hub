@@ -72,7 +72,7 @@ async function fetchWorkflows(brainId?: string | null): Promise<N8nRealWorkflowR
   let q = supabase
     .from("n8n_workflow_registry" as never)
     .select(
-      "id,workflow_name,brain_id,risk_level,webhook_environment,webhook_test_url,webhook_production_url,webhook_url,real_execution_enabled,requires_telegram_approval,last_real_execution_at,last_real_execution_status",
+      "id,workflow_name,brain_id,risk_level,webhook_environment,webhook_test_url,webhook_production_url,webhook_url,real_execution_enabled,requires_telegram_approval,last_real_execution_at,last_real_execution_status,hmac_signing_enabled,hmac_secret_env_key",
     )
     .order("last_real_execution_at", { ascending: false, nullsFirst: false });
   if (brainId) q = q.eq("brain_id", brainId);
