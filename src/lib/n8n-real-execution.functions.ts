@@ -91,6 +91,8 @@ type WorkflowRow = {
   status: string;
   brain_id: string | null;
   project_id: string | null;
+  hmac_signing_enabled: boolean | null;
+  hmac_secret_env_key: string | null;
 };
 
 type ActionRow = {
