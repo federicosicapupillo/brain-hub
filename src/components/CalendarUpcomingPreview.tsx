@@ -54,6 +54,29 @@ export function CalendarUpcomingPreview({
       }),
   });
 
+  const { data: intel, refetch: refetchIntel } = useQuery({
+    queryKey: ["calendar-intel", brainId ?? null],
+    queryFn: () => getCalendarIntelligenceSummary(brainId ?? null),
+  });
+
+  async function handleQuickPrep() {
+    const next = events.find(
+      (e) => e.start_at && new Date(e.start_at).getTime() > Date.now(),
+    );
+    if (!next) return;
+    try {
+      const res = await createSuggestedActionsFromCalendarEvent(next.id, {
+        suggestionType: "preparation",
+      });
+      toast.success(
+        res.duplicate ? "Action già presente in Action Queue" : "Action creata in Action Queue",
+      );
+      await refetchIntel();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Errore");
+    }
+  }
+
   const isConfigured = (summary?.connections ?? 0) > 0;
 
   return (
