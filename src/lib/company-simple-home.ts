@@ -70,7 +70,8 @@ export type CompanyHomeEvent =
   | "company_home_card_opened"
   | "company_home_expert_mode_opened"
   | "company_home_brain_selected"
-  | "company_home_empty_state_opened";
+  | "company_home_empty_state_opened"
+  | "drive_opened_from_company_home";
 
 export type CompanyHomeOption = {
   brainId: string;
