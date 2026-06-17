@@ -729,3 +729,58 @@ function SummaryTile({
     </Card>
   );
 }
+
+function OauthStatusBanner({
+  configured,
+  scope,
+  hasError,
+  errorMessage,
+  anyConnected,
+}: {
+  configured: boolean;
+  scope?: string;
+  hasError: boolean;
+  errorMessage?: string;
+  anyConnected: boolean;
+}) {
+  let title: string;
+  let body: string;
+  let tone: "ok" | "warn" | "info" | "err";
+  if (hasError) {
+    title = "Errore OAuth";
+    body = errorMessage?.slice(0, 200) || "Il consenso OAuth non è andato a buon fine. Riprova.";
+    tone = "err";
+  } else if (!configured) {
+    title = "OAuth non configurato";
+    body =
+      "Google OAuth non configurato. Aggiungi i secrets server-side (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_OAUTH_REDIRECT_URL) per abilitare il collegamento reale. Nel frattempo puoi importare link Drive manualmente.";
+    tone = "warn";
+  } else if (anyConnected) {
+    title = "Google Drive collegato";
+    body = `Scope attivo: ${scope ?? "drive.metadata.readonly"}. Solo metadata, nessun contenuto file scaricato.`;
+    tone = "ok";
+  } else {
+    title = "Pronto per il collegamento";
+    body = `OAuth server-side configurato. Crea una connessione e premi "Autorizza Google Drive" (scope ${scope ?? "drive.metadata.readonly"}).`;
+    tone = "info";
+  }
+  const toneClass =
+    tone === "ok"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100"
+      : tone === "err"
+        ? "border-destructive/40 bg-destructive/10 text-destructive"
+        : tone === "warn"
+          ? "border-amber-500/40 bg-amber-500/10 text-amber-900 dark:text-amber-100"
+          : "border-sky-500/40 bg-sky-500/10 text-sky-900 dark:text-sky-100";
+  return (
+    <Card className={toneClass}>
+      <CardContent className="flex items-start gap-2 p-4 text-xs">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        <div className="space-y-1">
+          <div className="font-medium">{title}</div>
+          <p>{body}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
