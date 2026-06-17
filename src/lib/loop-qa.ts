@@ -409,6 +409,23 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
+  // GitHub operational warnings (v3.2)
+  try {
+    const ghWarnings = await getGithubOperationalWarnings(brainId ?? null);
+    for (const w of ghWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
+
 
 
 
