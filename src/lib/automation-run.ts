@@ -392,7 +392,13 @@ export type LogEventType =
   | "agent_run_code_handoff_created"
   | "agent_run_archived"
   | "agent_run_context_built"
-  | "agent_run_warning_generated";
+  | "agent_run_warning_generated"
+  | "agent_ai_prompt_built"
+  | "agent_ai_prompt_copied"
+  | "agent_ai_result_saved"
+  | "agent_ai_action_created"
+  | "agent_ai_review_created"
+  | "agent_ai_next_action_created";
 
 
 
