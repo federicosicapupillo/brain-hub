@@ -502,6 +502,11 @@ const LOG_TITLES: Record<LogEventType, string> = {
   google_calendar_sync_completed: "Sync Google Calendar completato",
   google_calendar_sync_failed: "Sync Google Calendar fallito",
   google_calendar_action_created: "Action creata da evento Calendar",
+  calendar_suggestion_generated: "Suggerimento calendario generato",
+  calendar_action_created: "Action creata da suggerimento Calendar",
+  calendar_suggestion_ignored: "Suggerimento calendario ignorato",
+  calendar_followup_suggested: "Follow-up calendario suggerito",
+  calendar_preparation_suggested: "Preparazione calendario suggerita",
 };
 
 
