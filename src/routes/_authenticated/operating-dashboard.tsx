@@ -414,6 +414,8 @@ function OperatingDashboardRoute() {
             <LoopQaMini brainId={brainId} />
             <CompanyOsMini brainId={brainId} />
             <BuildEnginesMini brainId={brainId} />
+            <MvpFactoryMini brainId={brainId} />
+
 
 
             {/* Roadmap snapshot */}
