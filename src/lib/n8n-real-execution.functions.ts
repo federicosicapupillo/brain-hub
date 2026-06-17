@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { buildN8nSignedHeaders, getN8nHmacConfig } from "@/lib/n8n-hmac";
 
 const SENSITIVE_KEYS = [
   "password",
