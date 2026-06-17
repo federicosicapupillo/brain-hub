@@ -236,11 +236,11 @@ export async function logRetryStarted(approvalId: string) {
   );
 }
 
-export async function logStaleDetected(approvalId: string) {
+export async function logStaleDetected(approvalId: string, ageMs: number = 0) {
   await logEvent(
     "telegram_delivery_stale_detected" as LogEventType,
     "Telegram delivery stale detected",
-    { approval_id: approvalId },
+    { approval_id: approvalId, age_ms: ageMs },
   );
 }
 
@@ -256,12 +256,13 @@ export async function listDeliveryAttempts(approvalId: string): Promise<Telegram
   const { data, error } = await supabase
     .from("telegram_delivery_attempts" as never)
     .select("*")
-    .eq("approval_id", approvalId)
+    .eq("approval_request_id", approvalId)
     .order("attempt_number", { ascending: false })
     .limit(20);
   if (error) return [];
   return (data ?? []) as unknown as TelegramDeliveryAttempt[];
 }
+
 
 export async function markTelegramDeliveryFailedManual(
   approvalId: string,
