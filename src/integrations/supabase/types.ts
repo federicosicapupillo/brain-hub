@@ -1589,6 +1589,10 @@ export type Database = {
           created_at: string
           expected_input_schema: Json | null
           expected_output_schema: Json | null
+          hmac_last_verified_at: string | null
+          hmac_secret_env_key: string | null
+          hmac_signing_enabled: boolean
+          hmac_status: string | null
           id: string
           last_manual_test_at: string | null
           last_manual_test_status: string | null
@@ -1620,6 +1624,10 @@ export type Database = {
           created_at?: string
           expected_input_schema?: Json | null
           expected_output_schema?: Json | null
+          hmac_last_verified_at?: string | null
+          hmac_secret_env_key?: string | null
+          hmac_signing_enabled?: boolean
+          hmac_status?: string | null
           id?: string
           last_manual_test_at?: string | null
           last_manual_test_status?: string | null
@@ -1651,6 +1659,10 @@ export type Database = {
           created_at?: string
           expected_input_schema?: Json | null
           expected_output_schema?: Json | null
+          hmac_last_verified_at?: string | null
+          hmac_secret_env_key?: string | null
+          hmac_signing_enabled?: boolean
+          hmac_status?: string | null
           id?: string
           last_manual_test_at?: string | null
           last_manual_test_status?: string | null
