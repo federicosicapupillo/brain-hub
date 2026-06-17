@@ -321,7 +321,7 @@ export const executeN8nRealWorkflow = createServerFn({ method: "POST" })
       http_status: httpStatus,
       duration_ms: durationMs,
       error_text: errorText,
-      response_preview: responseSummary,
+      response_preview: responseSummary ? JSON.stringify(responseSummary).slice(0, 2000) : null,
     };
   });
 
