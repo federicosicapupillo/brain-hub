@@ -409,7 +409,67 @@ export type CompanyOsEvent =
   | "company_os_profile_updated"
   | "company_os_recommended_actions_created"
   | "company_os_tool_recommendation_opened"
-  | "company_os_dashboard_opened";
+  | "company_os_dashboard_opened"
+  | "company_os_opened_from_operating_dashboard"
+  | "company_os_opened_from_project_console"
+  | "company_os_opened_from_loop_qa";
+
+export type CompanyOsSummary = {
+  configured: boolean;
+  profile: CompanyOsProfile | null;
+  companyName: string | null;
+  preset: string | null;
+  presetLabel: string | null;
+  activeDepartments: number;
+  preferredModules: number;
+  nextSetupAction: { title: string; description: string } | null;
+};
+
+export async function getCompanyOsSummary(brainId?: string | null): Promise<CompanyOsSummary> {
+  let profile: CompanyOsProfile | null = null;
+  if (brainId) {
+    profile = await getCompanyProfile(brainId);
+  } else {
+    const all = await listCompanyProfiles();
+    profile = all[0] ?? null;
+  }
+  if (!profile) {
+    return {
+      configured: false,
+      profile: null,
+      companyName: null,
+      preset: null,
+      presetLabel: null,
+      activeDepartments: 0,
+      preferredModules: 0,
+      nextSetupAction: null,
+    };
+  }
+  const presetLabel = PRESETS.find((p) => p.id === profile!.preset)?.label ?? null;
+  const recs = getRecommendedActions(profile.active_departments as Department[]);
+  const nextSetupAction = recs[0]
+    ? { title: recs[0].title, description: recs[0].description }
+    : null;
+  return {
+    configured: true,
+    profile,
+    companyName: profile.company_name,
+    preset: profile.preset,
+    presetLabel,
+    activeDepartments: profile.active_departments.length,
+    preferredModules: profile.preferred_modules.length,
+    nextSetupAction,
+  };
+}
+
+export async function getCompanyOsSetupStatus(brainId?: string | null): Promise<{ configured: boolean }> {
+  if (brainId) {
+    const p = await getCompanyProfile(brainId);
+    return { configured: !!p };
+  }
+  const all = await listCompanyProfiles();
+  return { configured: all.length > 0 };
+}
 
 export async function logCompanyOsEvent(
   action: CompanyOsEvent,
