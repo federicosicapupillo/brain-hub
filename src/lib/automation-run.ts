@@ -337,7 +337,12 @@ export type LogEventType =
   | "n8n_real_execution_warning_opened"
   | "n8n_real_execution_environment_validation_failed"
   | "n8n_real_execution_duplicate_run_confirmed"
-  | "n8n_real_execution_recent_log_opened";
+  | "n8n_real_execution_recent_log_opened"
+  | "n8n_hmac_enabled"
+  | "n8n_hmac_disabled"
+  | "n8n_hmac_secret_missing"
+  | "n8n_hmac_signature_attached"
+  | "n8n_hmac_execution_blocked";
 
 
 const LOG_TITLES: Record<LogEventType, string> = {
