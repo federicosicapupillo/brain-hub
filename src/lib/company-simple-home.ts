@@ -284,6 +284,18 @@ export async function getCompanyHomeSummary(
     handoffsActive: handoffRows.filter((h) =>
       ["ready", "sent", "in_progress"].includes(h.handoff_status),
     ).length,
+    driveConnections: drive?.connections ?? 0,
+    driveConfigured: drive?.configuredConnections ?? 0,
+    driveFilesMapped: drive?.totalFiles ?? 0,
+    driveKnowledgeCount: drive?.knowledgeSourcesCreated ?? 0,
+    driveStatus:
+      !drive || drive.connections === 0
+        ? "not_configured"
+        : drive.knowledgeSourcesCreated > 0
+          ? "knowledge_ready"
+          : drive.totalFiles > 0
+            ? "mapped"
+            : "configured",
   };
 }
 
