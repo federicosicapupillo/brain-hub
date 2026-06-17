@@ -411,6 +411,7 @@ function OperatingDashboardRoute() {
             <N8nControlledExecutionMini brainId={brainId} />
             <TelegramApprovalsMini brainId={brainId} />
             <ResultReviewMini brainId={brainId} />
+            <LoopQaMini brainId={brainId} />
 
 
             {/* Roadmap snapshot */}
