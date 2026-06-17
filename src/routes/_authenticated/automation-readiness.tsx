@@ -317,7 +317,7 @@ function AutomationReadinessPage() {
               )}
               {detail.required_tool && (
                 <Button asChild size="sm" variant="outline">
-                  <Link to="/tool-connections">
+                  <Link to="/tool-connections" search={{}}>
                     Apri Tool Connections <ArrowRight className="ml-1 h-3 w-3" />
                   </Link>
                 </Button>

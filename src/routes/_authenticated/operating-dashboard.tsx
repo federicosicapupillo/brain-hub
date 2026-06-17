@@ -656,7 +656,7 @@ function N8nControlledExecutionMini({ brainId }: { brainId: string | null }) {
             <Send className="h-4 w-4" /> n8n Controlled Execution
           </span>
           <Button asChild size="sm" variant="outline">
-            <Link to="/action-queue">
+            <Link to="/action-queue" search={{}}>
               Apri Action Queue <ArrowRight className="ml-1 h-3 w-3" />
             </Link>
           </Button>

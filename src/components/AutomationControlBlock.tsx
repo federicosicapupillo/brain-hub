@@ -50,7 +50,7 @@ export function AutomationControlBlock({ brainId }: { brainId: string }) {
             <Badge variant="outline" className="text-[10px]">Action Queue</Badge>
           </span>
           <Button asChild size="sm" variant="outline">
-            <Link to="/action-queue">
+            <Link to="/action-queue" search={{}}>
               Apri <ArrowRight className="ml-1 h-3 w-3" />
             </Link>
           </Button>

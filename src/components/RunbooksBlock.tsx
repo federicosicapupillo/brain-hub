@@ -83,7 +83,7 @@ export function RunbooksBlock({ brainId }: { brainId: string }) {
     try {
       await startRunbook({ template_key: suggestion.key, brain_id: brainId });
       toast.success("Runbook avviato", {
-        action: { label: "Apri Action Queue", onClick: () => void navigate({ to: "/action-queue" }) },
+        action: { label: "Apri Action Queue", onClick: () => void navigate({ to: "/action-queue", search: {} }) },
       });
       qc.invalidateQueries({ queryKey: ["runbook-instances-block"] });
       qc.invalidateQueries({ queryKey: ["action-queue-block"] });

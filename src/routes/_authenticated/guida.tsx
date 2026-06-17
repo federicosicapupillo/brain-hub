@@ -36,19 +36,19 @@ function GuidaPage() {
 
       {/* Pulsanti rapidi */}
       <div className="flex flex-wrap gap-2">
-        <Link to="/prossime-azioni">
+        <Link to="/prossime-azioni" search={{}}>
           <Button variant="default" className="bg-gradient-primary text-primary-foreground">
             <ListChecks className="mr-2 h-4 w-4" />
             Vai a Prossime Azioni
           </Button>
         </Link>
-        <Link to="/importa">
+        <Link to="/importa" search={{}}>
           <Button variant="outline">
             <Inbox className="mr-2 h-4 w-4" />
             Importa nuovo contenuto
           </Button>
         </Link>
-        <Link to="/archivio">
+        <Link to="/archivio" search={{}}>
           <Button variant="outline">
             <Archive className="mr-2 h-4 w-4" />
             Apri Archivio

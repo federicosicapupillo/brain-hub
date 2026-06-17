@@ -212,7 +212,7 @@ function N8nWorkflowsPage() {
             <Link to="/automation-readiness">Automation Readiness</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link to="/action-queue">Action Queue</Link>
+            <Link to="/action-queue" search={{}}>Action Queue</Link>
           </Button>
           <div className="ml-auto">
             <Button onClick={() => openCreate()} disabled={!brainId}>
