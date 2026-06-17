@@ -519,7 +519,18 @@ const LOG_TITLES: Record<LogEventType, string> = {
   calendar_suggestion_ignored: "Suggerimento calendario ignorato",
   calendar_followup_suggested: "Follow-up calendario suggerito",
   calendar_preparation_suggested: "Preparazione calendario suggerita",
+  github_repository_added: "Repository GitHub aggiunto",
+  github_repository_updated: "Repository GitHub aggiornato",
+  github_repository_archived: "Repository GitHub archiviato",
+  code_file_mapped: "File codice mappato",
+  code_action_suggested: "Azione codice suggerita",
+  code_action_created: "Azione codice creata",
+  codex_prompt_built: "Prompt Codex preparato",
+  claude_code_prompt_built: "Prompt Claude Code preparato",
+  github_issue_draft_built: "Bozza GitHub issue preparata",
+  github_operational_review_created: "Result Review creata da GitHub Operational",
 };
+
 
 
 export type PreviousStateSnapshot = {
