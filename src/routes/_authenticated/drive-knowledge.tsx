@@ -691,7 +691,7 @@ function DriveKnowledgeRoute() {
                   <SelectValue placeholder="Nessuna connessione" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nessuna</SelectItem>
+                  <SelectItem value="__none__">Nessuna</SelectItem>
                   {connections.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
                       {c.label}
