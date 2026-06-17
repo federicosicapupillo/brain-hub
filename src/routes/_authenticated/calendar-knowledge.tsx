@@ -33,9 +33,13 @@ import {
   listUpcomingCalendarEvents,
   createActionFromCalendarEvent,
   logCalendarEvent,
+  getCalendarActionSuggestions,
+  createSuggestedActionsFromCalendarEvent,
+  ignoreCalendarSuggestion,
   type CalendarConnection,
   type CalendarEvent,
   type CalendarActionSuggestion,
+  type CalendarActionSuggestionItem,
 } from "@/lib/calendar-knowledge";
 import {
   getGoogleCalendarOauthStatus,
