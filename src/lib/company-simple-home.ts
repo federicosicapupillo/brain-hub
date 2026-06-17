@@ -187,6 +187,11 @@ export async function getCompanyHomeSummary(
     toolsMissing: 0,
     knowledgeCount: 0,
     handoffsActive: 0,
+    driveConnections: 0,
+    driveConfigured: 0,
+    driveFilesMapped: 0,
+    driveKnowledgeCount: 0,
+    driveStatus: "not_configured",
   };
   if (!resolved) return empty;
 
