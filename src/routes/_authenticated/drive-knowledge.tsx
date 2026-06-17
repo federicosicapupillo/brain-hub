@@ -138,7 +138,7 @@ function DriveKnowledgeRoute() {
     },
   });
 
-  const brainFilter = brainId || null;
+  const brainFilter = brainId && brainId !== "__all__" ? brainId : null;
 
   const { data: connections = [], isLoading: loadingConnections } = useQuery({
     queryKey: ["drive-knowledge", "connections", brainFilter],
