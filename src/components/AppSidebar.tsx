@@ -26,6 +26,7 @@ import {
   BookMarked,
   Send,
   Building2,
+  Cpu,
 } from "lucide-react";
 import {
   Sidebar,
