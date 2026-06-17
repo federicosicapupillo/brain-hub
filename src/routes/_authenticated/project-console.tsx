@@ -513,6 +513,15 @@ function ResultReviewProjectBlock({ brainId }: { brainId: string }) {
       ) : (
         <div className="mt-2 text-xs text-muted-foreground">Nessuna review per questo progetto.</div>
       )}
+      <div className="mt-2 flex items-center justify-between rounded border bg-background/40 p-2 text-xs">
+        <div>
+          <span className="font-semibold">{llPending}</span>{" "}
+          <span className="text-muted-foreground">learning suggestions pending</span>
+        </div>
+        <Button asChild size="sm" variant="ghost">
+          <a href={`/result-review?brain=${brainId}`}>Rivedi suggerimenti</a>
+        </Button>
+      </div>
     </div>
   );
 }
