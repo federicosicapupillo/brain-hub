@@ -4,7 +4,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { DEFAULT_HMAC_SECRET_ENV_KEY, hasHmacSecret } from "@/lib/n8n-hmac";
+import { DEFAULT_HMAC_SECRET_ENV_KEY } from "@/lib/n8n-hmac";
+import { hasHmacSecret } from "@/lib/n8n-hmac.server";
 
 const inputSchema = z.object({
   env_keys: z.array(z.string().min(1).max(256)).max(20).optional(),
