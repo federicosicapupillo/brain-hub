@@ -35,7 +35,8 @@ export function N8nRealExecutionPanel({ action }: { action: AutomationAction }) 
     );
   const isHighRisk = (action.risk_level ?? wf?.risk_level ?? "").toLowerCase() === "high";
   const requiresApproval = !!wf?.requires_telegram_approval || isHighRisk;
-  const approved = action.telegram_approval_status === "approved";
+  const approved =
+    (action.metadata as Record<string, unknown> | null)?.telegram_approval_status === "approved";
   const blocked = requiresApproval && !approved;
 
   async function run() {
