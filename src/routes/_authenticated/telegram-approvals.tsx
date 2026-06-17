@@ -47,6 +47,8 @@ import {
 } from "@/lib/telegram-approvals";
 import { listToolLinks, normalizeStatus } from "@/lib/tool-connections";
 import { RISK_TONE } from "@/lib/action-queue";
+import { TelegramSettingsSection } from "@/components/TelegramSettingsSection";
+import { TelegramSendControls } from "@/components/TelegramSendControls";
 
 export const Route = createFileRoute("/_authenticated/telegram-approvals")({
   head: () => ({
