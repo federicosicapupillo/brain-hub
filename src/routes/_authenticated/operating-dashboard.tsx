@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import {
   ArrowRight,
+  CheckCircle2,
   ExternalLink,
   Gauge,
   Layers,
