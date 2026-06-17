@@ -766,6 +766,24 @@ function ResultReviewMini({ brainId }: { brainId: string | null }) {
   const pending = items.filter((i) => i.review_status === "pending_review").length;
   const needsFix = items.filter((i) => i.review_status === "needs_fix").length;
   const last = items[0];
+
+  const { data: llSummary } = useQuery({
+    queryKey: ["ll-summary-mini", brainId],
+    queryFn: async () => {
+      let q = supabase
+        .from("learning_loop_suggestions" as never)
+        .select("suggestion_status")
+        .limit(500);
+      if (brainId) q = q.eq("brain_id", brainId);
+      const { data } = await q;
+      const rows = (data ?? []) as Array<{ suggestion_status: string }>;
+      return {
+        suggested: rows.filter((r) => r.suggestion_status === "suggested").length,
+        applied: rows.filter((r) => r.suggestion_status === "applied").length,
+      };
+    },
+  });
+
   return (
     <Card>
       <CardHeader>
@@ -781,6 +799,10 @@ function ResultReviewMini({ brainId }: { brainId: string | null }) {
           <Tile label="Da rivedere" value={pending} tone={pending > 0 ? "amber" : undefined} />
           <Tile label="Da correggere" value={needsFix} tone={needsFix > 0 ? "red" : undefined} />
           <Tile label="Totali" value={items.length} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Tile label="Learning suggeriti" value={llSummary?.suggested ?? 0} tone={(llSummary?.suggested ?? 0) > 0 ? "amber" : undefined} />
+          <Tile label="Learning applicati" value={llSummary?.applied ?? 0} />
         </div>
         {last ? (
           <div className="rounded border bg-background/40 p-2 text-xs">
