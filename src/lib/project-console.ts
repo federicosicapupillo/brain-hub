@@ -96,8 +96,10 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
       "knowledge_map",
       "result_review",
       "loop_qa",
+      "mvp_factory",
     ],
   },
+
   immobiliare: {
     label: "Immobiliare",
     priority: "immobiliare",
