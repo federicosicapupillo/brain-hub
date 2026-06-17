@@ -23,6 +23,7 @@ import {
   ArrowRight,
   CheckCircle2,
   ExternalLink,
+  Cpu,
   Gauge,
   Layers,
   LayoutDashboard,
