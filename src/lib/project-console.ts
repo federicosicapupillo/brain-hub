@@ -106,7 +106,7 @@ export const PRESETS: Record<string, { label: string; blocks: BlockId[]; priorit
   marketing: {
     label: "Marketing / Comunicazione",
     priority: "marketing",
-    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections", "knowledge_map"],
+    blocks: ["kpi", "checklist_operative", "file_documenti", "note_progetto", "log_attivita", "tool_connections", "knowledge_map", "result_review"],
   },
   lead_generation: {
     label: "Lead Generation",
