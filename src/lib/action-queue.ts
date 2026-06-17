@@ -148,7 +148,10 @@ export const SOURCE_LABEL: Record<ActionSource, string> = {
 
   system_suggestion: "Sistema",
   google_calendar: "Google Calendar",
+  github_operational: "GitHub Operational",
+  code_repository: "Repository codice",
 };
+
 
 export const RISK_TONE: Record<RiskLevel, string> = {
   low: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
