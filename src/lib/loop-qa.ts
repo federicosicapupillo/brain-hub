@@ -426,6 +426,22 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
+  // Agent Center warnings (v3.3)
+  try {
+    const acWarnings = await getAgentCenterWarnings(brainId ?? null);
+    for (const w of acWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
 
 
 
