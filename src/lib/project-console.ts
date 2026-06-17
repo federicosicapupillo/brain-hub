@@ -52,6 +52,7 @@ export const ALL_BLOCKS: { id: BlockId; label: string; hint: string }[] = [
   { id: "tool_connections", label: "Tool Connections", hint: "Tool collegati al progetto e stato collegamento" },
   { id: "knowledge_map", label: "Knowledge Map", hint: "Materiali, file, link e fonti collegate al progetto" },
   { id: "result_review", label: "Result Review", hint: "Risultati da rivedere, approvati, da correggere, falliti" },
+  { id: "loop_qa", label: "Loop QA", hint: "Validazione end-to-end del ciclo operativo Brain Hub" },
 ];
 
 export const PRIORITIES = [
