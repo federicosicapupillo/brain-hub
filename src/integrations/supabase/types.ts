@@ -1211,6 +1211,77 @@ export type Database = {
           },
         ]
       }
+      master_snapshot_versions: {
+        Row: {
+          approved_at: string | null
+          brain_id: string | null
+          changes: Json
+          created_at: string
+          id: string
+          markdown_content: string
+          metadata: Json
+          previous_version_id: string | null
+          reason: string | null
+          rejected_at: string | null
+          source: string
+          source_id: string | null
+          summary: string | null
+          title: string
+          updated_at: string
+          user_id: string
+          version_label: string
+          version_status: string
+        }
+        Insert: {
+          approved_at?: string | null
+          brain_id?: string | null
+          changes?: Json
+          created_at?: string
+          id?: string
+          markdown_content: string
+          metadata?: Json
+          previous_version_id?: string | null
+          reason?: string | null
+          rejected_at?: string | null
+          source?: string
+          source_id?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          user_id: string
+          version_label: string
+          version_status?: string
+        }
+        Update: {
+          approved_at?: string | null
+          brain_id?: string | null
+          changes?: Json
+          created_at?: string
+          id?: string
+          markdown_content?: string
+          metadata?: Json
+          previous_version_id?: string | null
+          reason?: string | null
+          rejected_at?: string | null
+          source?: string
+          source_id?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          version_label?: string
+          version_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_snapshot_versions_previous_version_id_fkey"
+            columns: ["previous_version_id"]
+            isOneToOne: false
+            referencedRelation: "master_snapshot_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mvp_build_projects: {
         Row: {
           brain_id: string | null
