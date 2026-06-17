@@ -443,6 +443,22 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
+  // Code Engine handoff warnings (v3.4)
+  try {
+    const cehWarnings = await getCodeEngineHandoffWarnings(brainId ?? null);
+    for (const w of cehWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
 
 
 
