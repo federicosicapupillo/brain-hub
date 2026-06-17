@@ -584,9 +584,10 @@ function BlueprintPreview({
                 brain: brainId || undefined,
                 source: "company_blueprint",
                 source_id: blueprintId ?? undefined,
-                title: content.snapshot?.companyName
-                  ? `MVP da Blueprint — ${content.snapshot.companyName}`
+                title: content.executiveSummary?.companyName
+                  ? `MVP da Blueprint — ${content.executiveSummary.companyName}`
                   : "MVP da Company Blueprint",
+
                 description:
                   content.nextActions?.slice(0, 3).map((a) => a.title).join(" · ") ||
                   undefined,
