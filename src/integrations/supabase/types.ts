@@ -1002,6 +1002,53 @@ export type Database = {
           },
         ]
       }
+      google_drive_oauth_states: {
+        Row: {
+          brain_id: string | null
+          connection_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          redirect_to: string | null
+          scopes: string[]
+          state_token: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_to?: string | null
+          scopes?: string[]
+          state_token: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          connection_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_to?: string | null
+          scopes?: string[]
+          state_token?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_drive_oauth_states_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "drive_connection_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_jobs: {
         Row: {
           brain_id: string
