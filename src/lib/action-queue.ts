@@ -108,7 +108,11 @@ export const ACTION_TYPE_LABEL: Record<ActionType, string> = {
   code_test: "Test codice",
   code_deploy_check: "Verifica deployment",
   github_issue_draft: "Bozza GitHub issue",
+  agent_recommendation: "Raccomandazione agente",
+  agent_setup: "Setup agente",
+  agent_review: "Review agente",
 };
+
 
 export const ACTION_TYPE_RISK: Record<ActionType, RiskLevel> = {
   generate_fix_prompt: "medium",
