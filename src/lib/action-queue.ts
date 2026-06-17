@@ -17,7 +17,13 @@ export type ActionType =
   | "meeting_preparation"
   | "meeting_follow_up"
   | "calendar_deadline_check"
-  | "calendar_content_check";
+  | "calendar_content_check"
+  | "code_review"
+  | "code_fix"
+  | "code_refactor"
+  | "code_test"
+  | "code_deploy_check"
+  | "github_issue_draft";
 
 export type ActionStatus =
   | "suggested"
@@ -36,7 +42,10 @@ export type ActionSource =
   | "execution_tracking"
   | "user_manual"
   | "system_suggestion"
-  | "google_calendar";
+  | "google_calendar"
+  | "github_operational"
+  | "code_repository";
+
 
 
 export type RiskLevel = "low" | "medium" | "high";
