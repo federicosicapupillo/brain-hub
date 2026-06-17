@@ -181,6 +181,34 @@ function N8nWorkflowsPage() {
         subtitle="Registra e organizza i workflow n8n. Nessuna esecuzione automatica — solo preparazione."
       />
 
+      <Card className="border-sky-500/30">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">Come verificare HMAC in n8n</CardTitle>
+        </CardHeader>
+        <CardContent className="text-xs text-muted-foreground space-y-1">
+          <p>
+            Brain Hub firma il payload outbound per i workflow con HMAC abilitato. Verifica così la
+            request nel tuo workflow n8n:
+          </p>
+          <ol className="list-decimal pl-5 space-y-1">
+            <li>Leggi gli header <code>X-BrainHub-Signature</code> e <code>X-BrainHub-Timestamp</code>.</li>
+            <li>
+              Calcola HMAC SHA-256 su <code>timestamp + "." + JSON.stringify(payload)</code> usando
+              lo stesso secret della env var (default <code>{DEFAULT_HMAC_SECRET_ENV_KEY}</code>).
+            </li>
+            <li>
+              Confronta in modo time-safe con <code>sha256=&lt;digest_hex&gt;</code> ricevuto
+              nell'header.
+            </li>
+            <li>
+              Rifiuta richieste con timestamp più vecchi di ~5 minuti per prevenire replay.
+            </li>
+          </ol>
+          <p>Il secret non transita mai nel payload né nei log di Brain Hub.</p>
+        </CardContent>
+      </Card>
+
+
       <Card>
         <CardContent className="flex flex-wrap items-center gap-3 pt-6">
           <div className="min-w-[220px]">
