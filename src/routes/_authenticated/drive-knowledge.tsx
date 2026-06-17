@@ -401,6 +401,7 @@ function DriveKnowledgeRoute() {
               {connections.map((c) => {
                 const isConnected = c.connection_status === "connected";
                 const isBusy = busyConnectionId === c.id;
+                const needsAuth = configured && !isConnected;
                 return (
                   <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <div className="min-w-0">
@@ -418,7 +419,9 @@ function DriveKnowledgeRoute() {
                       <div className="text-[11px] text-muted-foreground">
                         {c.last_sync_at
                           ? `Ultimo sync: ${new Date(c.last_sync_at).toLocaleString()}`
-                          : "Mai sincronizzata"}
+                          : isConnected
+                            ? "Collegato, metadata non ancora sincronizzati"
+                            : "Non autorizzato"}
                         {c.root_folder_name ? ` · Root: ${c.root_folder_name}` : ""}
                       </div>
                     </div>
@@ -426,11 +429,11 @@ function DriveKnowledgeRoute() {
                       {!isConnected ? (
                         <Button
                           size="sm"
-                          variant="default"
-                          disabled={isBusy || !(oauthStatus?.configured)}
+                          variant={needsAuth ? "default" : "outline"}
+                          disabled={isBusy || !configured}
                           onClick={() => handleAuthorize(c)}
                           title={
-                            oauthStatus?.configured
+                            configured
                               ? "Avvia consenso OAuth read-only"
                               : "Google OAuth non configurato server-side"
                           }
