@@ -944,3 +944,42 @@ function CompanyOsMini({ brainId }: { brainId: string | null }) {
     </Card>
   );
 }
+
+function BuildEnginesMini({ brainId }: { brainId: string | null }) {
+  const { data: handoffs = [] } = useQuery({
+    queryKey: ["build-engines-mini", brainId],
+    queryFn: async () => {
+      const { listBuildEngineHandoffs } = await import("@/lib/build-engines");
+      return listBuildEngineHandoffs(brainId);
+    },
+  });
+  const drafts = handoffs.filter((h) => h.handoff_status === "draft" || h.handoff_status === "ready").length;
+  const last = handoffs[0];
+  const onOpen = async () => {
+    const { logBuildEngineEvent } = await import("@/lib/build-engines");
+    void logBuildEngineEvent(
+      "build_engine_opened_from_operating_dashboard",
+      "Apertura Build Engines da Operating Dashboard",
+      { brain_id: brainId },
+    );
+  };
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2"><LayoutDashboard className="h-4 w-4" /> Build Engines</span>
+          <Badge variant="outline">{drafts} draft/ready</Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="rounded border bg-background/40 p-2 text-xs">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Ultimo engine usato</div>
+          <div className="truncate font-medium">{last ? last.engine_key : "—"}</div>
+        </div>
+        <Button asChild size="sm" variant="outline" className="w-full" onClick={onOpen}>
+          <Link to="/build-engines" search={{}}>Apri Build Engines <ArrowRight className="ml-1 h-3 w-3" /></Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
