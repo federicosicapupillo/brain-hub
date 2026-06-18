@@ -215,6 +215,9 @@ function CodeAgentJobsPage() {
   const snapshotFn = useServerFn(createMasterSnapshotDraftFromCodeAgentJobFn);
   const syncOneFn = useServerFn(syncCodeAgentJobApprovalStatusFn);
   const syncBulkFn = useServerFn(syncPendingCodeAgentApprovalsFn);
+  // v3.15.5 — creation + repository update behind authenticated server fns.
+  const updateRepoFn = useServerFn(updateCodeAgentJobRepositoryFn);
+  const createJobFn = useServerFn(createCodeAgentJobFromBrowserFn);
 
   function describeTransitionError(e: unknown): string {
     // Accept (a) native CodeAgentTransitionError-like instances (legacy local
