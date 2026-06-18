@@ -127,11 +127,12 @@ export async function listGmailConnections(
     .from("gmail_connection_settings")
     .select("*")
     .order("created_at", { ascending: false });
-  if (brainId) q = q.eq("brain_id", brainId);
+  if (brainId) q = q.or(`brain_id.eq.${brainId},brain_id.is.null`);
   const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as GmailConnection[];
 }
+
 
 export type GmailSummary = {
   connected: boolean;
