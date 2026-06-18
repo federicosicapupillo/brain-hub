@@ -170,6 +170,15 @@ function CodeAgentJobsPage() {
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [resultText, setResultText] = useState("");
+  // v3.16.1 — manual create dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [newCommandText, setNewCommandText] = useState("");
+  const [newPreferredEngine, setNewPreferredEngine] = useState<CodeAgentEngine | "auto">("auto");
+  const [newRiskHint, setNewRiskHint] = useState<CodeAgentRiskLevel | "auto">("auto");
+  const [newRepositoryHint, setNewRepositoryHint] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+  const [newDeliveryPreference, setNewDeliveryPreference] = useState<"auto" | "manual" | "telegram">("auto");
 
   const { data: brains = [] } = useQuery({
     queryKey: ["brains-list"],
