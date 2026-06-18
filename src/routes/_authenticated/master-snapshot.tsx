@@ -466,3 +466,92 @@ function ListBlock({ items }: { items: string[] }) {
     </ul>
   );
 }
+
+function ImportMarkdownButton({ onCreated }: { onCreated: (draftId: string) => void | Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("Import markdown");
+  const [summary, setSummary] = useState("");
+  const [markdown, setMarkdown] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit() {
+    if (!reason.trim()) {
+      toast.error("Inserisci un motivo");
+      return;
+    }
+    if (!markdown.trim()) {
+      toast.error("Incolla il contenuto markdown");
+      return;
+    }
+    setBusy(true);
+    try {
+      const draft = await createDraftFromMarkdown({
+        reason: reason.trim(),
+        summary: summary.trim() || undefined,
+        markdown,
+      });
+      toast.success("Bozza markdown creata");
+      setOpen(false);
+      setMarkdown("");
+      setSummary("");
+      await onCreated(draft.id);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Errore";
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <FileUp className="mr-1 h-3 w-3" />
+          Importa Markdown
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Crea bozza da Markdown</DialogTitle>
+          <DialogDescription>
+            Incolla il contenuto completo di un file .md. Verrà creata una nuova bozza —
+            la versione corrente resta invariata finché non approvi.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="im-reason">Motivo aggiornamento *</Label>
+            <Input id="im-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="im-summary">Sintesi</Label>
+            <Textarea id="im-summary" rows={2} value={summary} onChange={(e) => setSummary(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="im-md">Contenuto markdown *</Label>
+            <Textarea
+              id="im-md"
+              rows={16}
+              value={markdown}
+              onChange={(e) => setMarkdown(e.target.value)}
+              placeholder="# Brain Hub — Master Project Snapshot..."
+              className="font-mono text-xs"
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {markdown.length} caratteri
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
+            Annulla
+          </Button>
+          <Button onClick={handleSubmit} disabled={busy}>
+            {busy ? "Creazione…" : "Crea bozza da Markdown"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
