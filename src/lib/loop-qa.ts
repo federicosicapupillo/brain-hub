@@ -1012,7 +1012,12 @@ export async function logLoopQaEvent(
     | "loop_remediation_item_viewed"
     | "loop_remediation_action_created"
     | "loop_remediation_item_deduplicated"
-    | "loop_remediation_cta_opened",
+    | "loop_remediation_cta_opened"
+    | "loop_remediation_closure_checked"
+    | "loop_remediation_resolved_detected"
+    | "loop_remediation_regressed_detected"
+    | "loop_remediation_progress_viewed"
+    | "loop_readiness_bridge_computed",
   notes: string,
   metadata: Record<string, unknown> = {},
 ) {
