@@ -81,7 +81,7 @@ export async function getTelegramCallbackWarnings(
   const actionIds = Array.from(
     new Set(reqs.map((r) => r.automation_action_id).filter((x): x is string => Boolean(x))),
   );
-  let actionsById = new Map<string, ActionRow>();
+  const actionsById = new Map<string, ActionRow>();
   if (actionIds.length > 0) {
     const { data: actData } = await supabase
       .from("automation_actions")
