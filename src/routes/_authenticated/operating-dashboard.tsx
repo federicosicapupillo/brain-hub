@@ -564,6 +564,7 @@ function OperatingDashboardRoute() {
               <CalendarUpcomingPreview brainId={brainId} compact />
               <GmailMiniCard brainId={brainId} />
               <DailyBriefMiniCard brainId={brainId} />
+              <CodeAgentJobsMiniCard brainId={brainId} />
             </div>
           </div>
         </>
