@@ -608,6 +608,15 @@ const LOG_TITLES: Record<LogEventType, string> = {
   agent_ai_next_action_created: "Next action creata da risultato AI agente",
   agent_ai_risk_warning_created:
     "Warning rischio AI: action supera il max risk dell'agente",
+  telegram_approval_callback_received: "Callback Telegram ricevuta",
+  telegram_approval_callback_approved: "Approvata via Telegram",
+  telegram_approval_callback_rejected: "Rifiutata via Telegram",
+  telegram_approval_callback_invalid: "Callback Telegram non valida",
+  telegram_approval_callback_expired: "Callback Telegram scaduta",
+  telegram_approval_callback_replay_ignored: "Callback Telegram replay ignorato",
+  telegram_approval_action_synced: "Action sincronizzata da Telegram",
+  telegram_webhook_config_viewed: "Webhook Telegram: configurazione visualizzata",
+  telegram_webhook_registered: "Webhook Telegram registrato",
 };
 
 
