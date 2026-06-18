@@ -686,7 +686,30 @@ type SbAny = {
   from: (t: string) => any;
 };
 
-const sb = supabase as unknown as SbAny;
+// v3.15.4 — Server boundary resolver.
+// Lets server functions inject an authenticated Supabase client + userId
+// scoped via AsyncLocalStorage (server-only). Defaults to browser client.
+export type CodeAgentRuntimeResolver = {
+  getSb: () => SbAny | null;
+  getUserId: () => string | null;
+};
+let _resolver: CodeAgentRuntimeResolver | null = null;
+export function setCodeAgentRuntimeResolver(
+  resolver: CodeAgentRuntimeResolver | null,
+): void {
+  _resolver = resolver;
+}
+
+const sb: SbAny = new Proxy({} as SbAny, {
+  get(_t, prop) {
+    const client = (_resolver?.getSb() ?? (supabase as unknown as SbAny)) as Record<
+      string | symbol,
+      unknown
+    >;
+    const v = client[prop];
+    return typeof v === "function" ? (v as (...args: unknown[]) => unknown).bind(client) : v;
+  },
+});
 
 async function logJobEvent(
   jobId: string,
@@ -707,9 +730,12 @@ async function logJobEvent(
 }
 
 async function currentUserId(): Promise<string | null> {
+  const overridden = _resolver?.getUserId();
+  if (overridden) return overridden;
   const { data } = await supabase.auth.getUser();
   return data.user?.id ?? null;
 }
+
 
 // ---------- Create job from Jack command ----------
 
