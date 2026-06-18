@@ -365,13 +365,12 @@ function CodeAgentJobsPage() {
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Status</Label>
+            <Label className="text-xs">Status / bucket</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tutti</SelectItem>
-                {STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>{CODE_AGENT_STATUS_LABEL[s]}</SelectItem>
+                {STATUS_BUCKETS.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
