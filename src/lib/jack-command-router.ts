@@ -17,6 +17,11 @@ import {
   type BrainRef,
   type ProjectResolution,
 } from "@/lib/project-aliases";
+import {
+  getJackMemoryContext,
+  getCurrentJackMemoryDocument,
+  extractProjectAliasesFromMemory,
+} from "@/lib/jack-memory";
 
 export type JackIntent =
   | "daily_status"
@@ -29,6 +34,7 @@ export type JackIntent =
   | "project_next_actions"
   | "project_recent_activity"
   | "multi_project_status"
+  | "identity"
   | "unknown";
 
 export type JackCommandCTA = {
@@ -153,6 +159,19 @@ const INTENT_PATTERNS: Record<Exclude<JackIntent, "unknown">, string[]> = {
     "quali progetti sono bloccati",
     "stato dei progetti",
   ],
+  identity: [
+    "chi sono io",
+    "chi sono",
+    "chi è federico",
+    "chi e federico",
+    "presentati",
+    "chi sei",
+    "cosa sai di me",
+    "cosa sai su di me",
+    "cosa devi sapere di me",
+    "regole jack",
+    "memoria jack",
+  ],
 };
 
 function normalize(t: string): string {
@@ -238,9 +257,26 @@ export async function resolveJackCommandIntent(input: {
     // Resolve potential project mention (used by project_* intents and as upgrade signal)
     const brains = context.brains ?? [];
     const mention = extractProjectMention(transcript);
-    const resolution: ProjectResolution = mention && brains.length > 0
+    let resolution: ProjectResolution = mention && brains.length > 0
       ? resolveProjectAlias(mention, brains)
       : { kind: "none" };
+
+    // Fallback: try memory-derived aliases if direct resolution failed
+    if (resolution.kind === "none" && mention && brains.length > 0) {
+      try {
+        const memDoc = await getCurrentJackMemoryDocument();
+        if (memDoc) {
+          const memAliases = extractProjectAliasesFromMemory(memDoc.content_markdown);
+          const hit = memAliases.find((a) => mention.toLowerCase().includes(a.alias));
+          if (hit) {
+            resolution = resolveProjectAlias(hit.target, brains);
+          }
+        }
+      } catch {
+        // best-effort
+      }
+    }
+
     const projectInfo: ResolvedProjectInfo = {
       brain: resolution.kind === "resolved" ? resolution.brain : null,
       resolution,
@@ -278,6 +314,8 @@ export async function resolveJackCommandIntent(input: {
         return await respondTelegram(context, matched);
       case "master_snapshot":
         return await respondMasterSnapshot(context, matched);
+      case "identity":
+        return await respondIdentity(matched);
       default:
         return {
           intent: "unknown",

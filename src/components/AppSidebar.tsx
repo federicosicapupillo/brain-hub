@@ -2,6 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import {
   Activity,
   Plug,
+  BrainCog,
   PlugZap,
   Brain,
   Map as MapIcon,
@@ -78,6 +79,7 @@ const items = [
   { title: "Result Review", url: "/result-review", icon: CheckSquare },
   { title: "Loop QA", url: "/loop-qa", icon: GitBranch },
   { title: "Knowledge Map", url: "/knowledge-map", icon: BookOpen },
+  { title: "Jack Memory", url: "/jack-memory", icon: BrainCog },
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },
   { title: "Prossime Azioni", url: "/prossime-azioni", icon: ListChecks },

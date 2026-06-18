@@ -1948,6 +1948,57 @@ export type Database = {
           },
         ]
       }
+      jack_memory_documents: {
+        Row: {
+          approved_at: string | null
+          archived_at: string | null
+          content_hash: string
+          content_markdown: string
+          created_at: string
+          id: string
+          imported_at: string
+          metadata: Json
+          source_filename: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+          version: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          archived_at?: string | null
+          content_hash: string
+          content_markdown: string
+          created_at?: string
+          id?: string
+          imported_at?: string
+          metadata?: Json
+          source_filename?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+          version?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          archived_at?: string | null
+          content_hash?: string
+          content_markdown?: string
+          created_at?: string
+          id?: string
+          imported_at?: string
+          metadata?: Json
+          source_filename?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+          version?: string | null
+        }
+        Relationships: []
+      }
       jack_voice_generations: {
         Row: {
           brain_id: string | null
