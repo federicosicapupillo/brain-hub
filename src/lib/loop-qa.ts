@@ -478,6 +478,23 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
+  // Telegram callback warnings (v3.7.1) — read-only, no external calls
+  try {
+    const tgWarnings = await getTelegramCallbackWarnings(brainId ?? null);
+    for (const w of tgWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+        category: w.category,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
 
 
 
