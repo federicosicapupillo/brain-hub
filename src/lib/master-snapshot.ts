@@ -430,3 +430,103 @@ export async function logMasterSnapshotEvent(
     metadata,
   } as never);
 }
+
+export type MasterSnapshotVersionWarning = {
+  id:
+    | "master-snapshot-version-mismatch"
+    | "master-snapshot-current-missing"
+    | "master-snapshot-current-duplicate"
+    | "master-snapshot-approved-draft-not-current"
+    | "master-snapshot-version-label-missing"
+    | "master-snapshot-version-label-duplicate";
+  level: "info" | "warning";
+  title: string;
+  description: string;
+};
+
+/** Non-blocking consistency warnings derived from the snapshot history. */
+export function getMasterSnapshotVersionWarnings(
+  versions: MasterSnapshotVersion[],
+): MasterSnapshotVersionWarning[] {
+  const w: MasterSnapshotVersionWarning[] = [];
+  const currents = versions.filter((v) => v.version_status === "current");
+  if (versions.length > 0 && currents.length === 0) {
+    w.push({
+      id: "master-snapshot-current-missing",
+      level: "warning",
+      title: "Nessuna versione corrente",
+      description: "Ci sono versioni nello storico ma nessuna è marcata come current.",
+    });
+  }
+  if (currents.length > 1) {
+    w.push({
+      id: "master-snapshot-current-duplicate",
+      level: "warning",
+      title: "Più versioni current",
+      description: `Trovate ${currents.length} versioni con status current. Approva una nuova bozza per ricompattare.`,
+    });
+  }
+  const approvedDrafts = versions.filter((v) => v.version_status === "approved_update");
+  if (approvedDrafts.length > 0) {
+    w.push({
+      id: "master-snapshot-approved-draft-not-current",
+      level: "info",
+      title: "Bozze approvate non promosse",
+      description: `${approvedDrafts.length} bozze risultano approved_update ma non current.`,
+    });
+  }
+  const labelCounts = new Map<string, number>();
+  let missingLabel = 0;
+  for (const v of versions) {
+    if (v.version_status === "draft_update") continue;
+    const parsed = parseVersionLabel(v.version_label);
+    if (!parsed) {
+      missingLabel++;
+      continue;
+    }
+    const key = `${parsed.major}.${parsed.minor}`;
+    labelCounts.set(key, (labelCounts.get(key) ?? 0) + 1);
+  }
+  if (missingLabel > 0) {
+    w.push({
+      id: "master-snapshot-version-label-missing",
+      level: "warning",
+      title: "Label versione mancante o legacy",
+      description: `${missingLabel} versioni hanno una label non parseable (es. formato legacy).`,
+    });
+  }
+  const duplicates = [...labelCounts.entries()].filter(([, n]) => n > 1);
+  if (duplicates.length > 0) {
+    w.push({
+      id: "master-snapshot-version-label-duplicate",
+      level: "warning",
+      title: "Label versione duplicate",
+      description: `Label duplicate: ${duplicates.map(([k, n]) => `v${k} (×${n})`).join(", ")}.`,
+    });
+  }
+  const current = currents[0] ?? null;
+  if (current) {
+    const expected = computeNextVersionLabel(versions.filter((v) => v.id !== current.id));
+    const parsedExpected = parseVersionLabel(expected);
+    const parsedCurrent = parseVersionLabel(current.version_label);
+    if (parsedExpected && parsedCurrent) {
+      // The current should be >= expected (since expected is "next after history minus current").
+      const expectedNum = parsedExpected.major * 1000 + parsedExpected.minor;
+      const currentNum = parsedCurrent.major * 1000 + parsedCurrent.minor;
+      if (currentNum < expectedNum) {
+        w.push({
+          id: "master-snapshot-version-mismatch",
+          level: "warning",
+          title: "Label versione non allineata allo storico",
+          description: `Storico contiene ${versions.length} versioni; current è v${current.version_label} ma atteso almeno v${expected}.`,
+        });
+      }
+    }
+  }
+  return w;
+}
+
+/** True if the label is parseable (non-legacy). */
+export function isLegacyVersionLabel(label: string | null | undefined): boolean {
+  return parseVersionLabel(label) === null;
+}
