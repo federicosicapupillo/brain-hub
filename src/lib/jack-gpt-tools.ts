@@ -448,109 +448,39 @@ export const runJackGptTool = createServerFn({ method: "POST" })
         case "create_code_agent_job": {
           const commandText = String(args.command_text ?? "").trim();
           if (!commandText) return { ok: false, error: "empty_command_text" };
-          const {
-            classifyCodeAgentCommand,
-            selectCodeEngine,
-            buildCodeAgentExecutionPlan,
-            buildCodexTaskPrompt,
-            buildClaudeCodeTaskPrompt,
-            CODE_AGENT_ENGINE_REGISTRY,
-          } = await import("@/lib/code-agent-orchestrator");
-          const ctx = {
-            brainId: (args.brain_id as string | undefined) ?? null,
-            projectId: (args.project_id as string | undefined) ?? null,
-            preferredEngine: (args.preferred_engine as CodeAgentEngine | undefined) ?? null,
-            repositoryHint: (args.repository_hint as string | undefined) ?? null,
-            riskHint: (args.risk_hint as CodeAgentRiskLevel | undefined) ?? null,
-          };
-          const cls = classifyCodeAgentCommand(commandText, ctx);
-          const engine = selectCodeEngine(cls, ctx);
-          const plan = buildCodeAgentExecutionPlan({
-            classification: cls,
-            engine,
-            context: ctx,
-            commandText,
-          });
-          const promptJob = {
-            command_text: commandText,
-            job_type: cls.job_type,
-            risk_level: cls.risk_level,
-            recommended_engine: engine,
-            branch_name: null,
-            repo_scope: ctx.repositoryHint ? { repo_url: ctx.repositoryHint } : {},
-            execution_plan: plan as unknown as Record<string, unknown>,
-            allowed_commands: plan.allowed_commands,
-            forbidden_paths: plan.forbidden_paths,
-            metadata: { repository_hint: ctx.repositoryHint },
-          };
-          const promptText = engine.startsWith("claude_code")
-            ? buildClaudeCodeTaskPrompt(promptJob)
-            : buildCodexTaskPrompt(promptJob);
-          const approvalStatus = cls.unsafe_request
-            ? "needs_strong_approval"
-            : cls.risk_level === "low"
-              ? "auto_approved"
-              : "pending";
-          const status = cls.unsafe_request
-            ? "pending_approval"
-            : cls.risk_level === "low"
-              ? "ready"
-              : "pending_approval";
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const sb = supabase as any;
-          let jobId: string | null = null;
-          try {
-            const res = await sb
-              .from("code_agent_jobs")
-              .insert({
-                user_id: userId,
-                brain_id: ctx.brainId,
-                project_id: ctx.projectId,
-                source: "jack_gpt",
-                command_text: commandText,
-                job_type: cls.job_type,
-                recommended_engine: engine,
-                risk_level: cls.risk_level,
-                requires_approval: cls.requires_approval,
-                status,
-                approval_status: approvalStatus,
-                execution_mode: plan.execution_mode,
-                repo_scope: ctx.repositoryHint ? { repo_url: ctx.repositoryHint } : {},
-                prompt_text: promptText,
-                execution_plan: plan,
-                allowed_commands: plan.allowed_commands,
-                forbidden_paths: plan.forbidden_paths,
-                metadata: { jack_classification: cls },
-              })
-              .select("id")
-              .single();
-            jobId = (res?.data?.id as string) ?? null;
-          } catch {
-            jobId = null;
-          }
-          const engineLabel = CODE_AGENT_ENGINE_REGISTRY[engine].label;
-          const safeMessage = cls.unsafe_request
-            ? "Ho preparato il job, ma chiedi esecuzione automatica: lo blocco come high-risk con approvazione forte richiesta. Non eseguo nulla in autonomia."
-            : cls.risk_level === "high"
-              ? `Ho creato un job high-risk per ${engineLabel}. Serve approvazione forte prima di qualsiasi azione.`
-              : cls.risk_level === "medium"
-                ? `Ho preparato un job per ${engineLabel}. Rischio medio: lo mando in approvazione prima dell'handoff.`
-                : `Ho preparato un job low-risk per ${engineLabel}. Pronto per handoff manuale.`;
+          const sb = context.supabase as any;
+          const res = await createCodeAgentJobUnified(sb, userId, {
+            command_text: commandText,
+            preferred_engine: (args.preferred_engine as CodeAgentEngine | undefined) ?? null,
+            repository_hint: (args.repository_hint as string | undefined) ?? null,
+            risk_hint: (args.risk_hint as CodeAgentRiskLevel | undefined) ?? null,
+            project_id: (args.project_id as string | undefined) ?? null,
+            brain_id: (args.brain_id as string | undefined) ?? null,
+            repository_id: (args.repository_id as string | undefined) ?? null,
+            source: "jack_voice",
+          });
           return {
-            ok: jobId !== null,
+            ok: res.ok,
             payload: {
-              job_id: jobId,
-              job_type: cls.job_type,
-              recommended_engine: engine,
-              risk_level: cls.risk_level,
-              requires_approval: cls.requires_approval,
-              status,
-              approval_status: approvalStatus,
-              next_step: jobId
-                ? "Apri /code-agent-jobs per revisione e approvazione."
-                : "Riprova: job non salvato.",
-              safe_message: safeMessage,
-              unsafe_request: cls.unsafe_request,
+              job_id: res.job_id,
+              job_type: res.job_type,
+              recommended_engine: res.recommended_engine,
+              selected_engine: res.selected_engine,
+              risk_level: res.risk_level,
+              requires_approval: res.requires_approval,
+              status: res.status,
+              approval_status: res.approval_status,
+              repository_id: res.repository_id,
+              repository_resolution: {
+                status: res.repository_resolution.status,
+                candidates: res.repository_resolution.candidates.length,
+                reason: res.repository_resolution.reason,
+              },
+              telegram_approval_id: res.telegram_approval_id,
+              next_step: res.next_step,
+              safe_message: res.safe_message,
+              unsafe_request: res.unsafe_request,
             },
           };
         }
