@@ -580,6 +580,8 @@ function Tile({
 
 function TelegramWebhookSetupCard() {
   const checkCfg = useServerFn(checkTelegramWebhookConfig);
+  const registerFn = useServerFn(registerTelegramWebhook);
+  const infoFn = useServerFn(getTelegramWebhookInfo);
   const { data } = useQuery({
     queryKey: ["telegram-webhook-config"],
     queryFn: () => checkCfg(),
@@ -588,6 +590,55 @@ function TelegramWebhookSetupCard() {
   const webhookUrl = origin ? `${origin.replace(/\/$/, "")}/api/public/telegram/webhook` : "";
   const botOk = data?.bot_token_configured;
   const secretOk = data?.webhook_secret_configured;
+  const ready = !!botOk && !!secretOk;
+
+  const [busy, setBusy] = useState<"register" | "verify" | null>(null);
+  const [info, setInfo] = useState<TelegramWebhookInfo | null>(null);
+  const [lastRegistered, setLastRegistered] = useState<string | null>(null);
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+
+  const registered = !!info && !!webhookUrl && info.url === webhookUrl;
+
+  const onRegister = async () => {
+    if (!ready) return;
+    if (!window.confirm("Registrare il webhook Telegram su questo URL? Le callback Telegram verranno inviate a Brain Hub.")) return;
+    setBusy("register");
+    setErrMsg(null);
+    try {
+      const res = await registerFn({ data: { webhook_url: webhookUrl } });
+      setLastRegistered(res.timestamp);
+      toast.success("Webhook Telegram registrato");
+      try {
+        const next = await infoFn();
+        setInfo(next);
+      } catch {
+        /* ignore — verify can be retried */
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Errore registrazione";
+      setErrMsg(msg);
+      toast.error(msg);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const onVerify = async () => {
+    setBusy("verify");
+    setErrMsg(null);
+    try {
+      const next = await infoFn();
+      setInfo(next);
+      toast.success("Webhook verificato");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Errore verifica";
+      setErrMsg(msg);
+      toast.error(msg);
+    } finally {
+      setBusy(null);
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -615,36 +666,87 @@ function TelegramWebhookSetupCard() {
           >
             TELEGRAM_WEBHOOK_SECRET: {secretOk ? "configurato" : "mancante"}
           </Badge>
+          {registered && (
+            <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600">
+              <CheckCircle2 className="mr-1 h-3 w-3" /> Webhook registrato
+            </Badge>
+          )}
+          {info && !registered && (
+            <Badge variant="outline" className="border-amber-500/30 bg-amber-500/10 text-amber-700">
+              URL diverso da Brain Hub
+            </Badge>
+          )}
         </div>
-        {!secretOk && (
+
+        {!ready && (
           <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-amber-700">
-            Senza <code>TELEGRAM_WEBHOOK_SECRET</code> le callback di Telegram saranno rifiutate.
-            Imposta il secret nel backend e registra il webhook su Telegram con lo stesso valore.
+            Configura <code>TELEGRAM_BOT_TOKEN</code> e <code>TELEGRAM_WEBHOOK_SECRET</code> server-side per
+            poter registrare il webhook.
           </div>
         )}
+
         <div>
           <div className="mb-1 text-muted-foreground">URL webhook pubblico:</div>
           <code className="block break-all rounded border bg-muted/30 p-2">{webhookUrl}</code>
         </div>
-        <div className="space-y-1">
-          <div className="font-medium">Registrazione webhook lato Telegram</div>
-          <p className="text-muted-foreground">
-            Esegui (sostituendo i placeholder, mai dal browser):
-          </p>
-          <code className="block whitespace-pre-wrap break-all rounded border bg-muted/30 p-2">
-            {`curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \\
-  -H "Content-Type: application/json" \\
-  -d '{"url":"${webhookUrl}","secret_token":"<TELEGRAM_WEBHOOK_SECRET>","allowed_updates":["callback_query","message"]}'`}
-          </code>
-          <p className="text-muted-foreground">
-            Telegram invierà l'header <code>X-Telegram-Bot-Api-Secret-Token</code>; il backend
-            scarta qualsiasi callback che non corrisponde.
-          </p>
+
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" disabled={!ready || busy !== null} onClick={onRegister}>
+            {busy === "register" ? "Registrazione…" : "Registra webhook Telegram"}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={!botOk || busy !== null}
+            onClick={onVerify}
+          >
+            {busy === "verify" ? "Verifica…" : "Verifica webhook"}
+          </Button>
         </div>
+
+        {errMsg && (
+          <div className="rounded border border-red-500/30 bg-red-500/5 p-2 text-red-700">
+            {errMsg}
+          </div>
+        )}
+
+        {lastRegistered && (
+          <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-2 text-emerald-700">
+            Registrato {new Date(lastRegistered).toLocaleString()}
+          </div>
+        )}
+
+        {info && (
+          <div className="space-y-1 rounded border border-border/60 bg-background/40 p-2">
+            <div>
+              <span className="text-muted-foreground">URL: </span>
+              <code className="break-all">{info.url || "(nessun webhook)"}</code>
+            </div>
+            <div>
+              <span className="text-muted-foreground">allowed_updates: </span>
+              {info.allowed_updates.length > 0 ? info.allowed_updates.join(", ") : "default"}
+            </div>
+            <div>
+              <span className="text-muted-foreground">pending_update_count: </span>
+              {info.pending_update_count}
+            </div>
+            {info.last_error_message && (
+              <div className="text-red-700">
+                <span className="text-muted-foreground">last_error: </span>
+                {info.last_error_message}
+                {info.last_error_date
+                  ? ` (${new Date(info.last_error_date * 1000).toLocaleString()})`
+                  : ""}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="text-[10px] text-muted-foreground">
-          Sicurezza: il valore del secret non viene mai mostrato. Nessun token bot è salvato in
-          database. Le callback sono validate per secret, token-hash, scadenza e replay; non
-          eseguono automaticamente n8n, social, email, GitHub, Drive o Calendar.
+          Sicurezza: bot token e webhook secret non vengono mai inviati al frontend né mostrati nei log.
+          La registrazione è manuale su click e non viene mai eseguita automaticamente. Le callback sono
+          validate per secret, token-hash, scadenza e replay; non eseguono automaticamente n8n, social,
+          email, GitHub, Drive o Calendar.
         </div>
       </CardContent>
     </Card>
