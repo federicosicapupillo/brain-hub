@@ -491,10 +491,15 @@ function CodeAgentJobsPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <PageHeader
-        title="Code Agent Jobs — Orchestratore Codex / Claude Code"
-        subtitle="Manual-first. Brain Hub prepara il job, sceglie engine, stima il rischio e richiede approvazione. Nessuna esecuzione automatica, niente commit/push/merge/deploy."
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader
+          title="Code Agent Jobs — Orchestratore Codex / Claude Code"
+          subtitle="Manual-first. Brain Hub prepara il job, sceglie engine, stima il rischio e richiede approvazione. Nessuna esecuzione automatica, niente commit/push/merge/deploy."
+        />
+        <Button onClick={() => setCreateOpen(true)} className="shrink-0">
+          <Plus className="mr-1 h-4 w-4" /> Nuovo Code Agent Job
+        </Button>
+      </div>
 
       <Card>
         <CardHeader>
