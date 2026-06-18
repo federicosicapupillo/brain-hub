@@ -301,6 +301,119 @@ export const createControlledJackAction = createServerFn({ method: "POST" })
     const plan: JackControlledPlan = planControlledJackAction(commandText, hint);
     const c = plan.classification;
 
+    // ---------- v3.19.3 Confirmation Gate ----------
+    const idempotencyKey =
+      data.idempotency_key ??
+      buildJackActionIdempotencyKey({
+        userId,
+        brainId,
+        source: "jack_voice_controlled",
+        sourceWarningId: data.source_warning_id ?? null,
+        title: c.action_candidate.title,
+      });
+
+    const preview: PendingJackActionPreview = {
+      intent: "create_controlled_action",
+      title: c.action_candidate.title,
+      description: sanitizeText(c.action_candidate.description, 600),
+      source: "jack_voice_controlled",
+      reason: plan.safe_message,
+      risk_level: (["low", "medium", "high"].includes(c.risk_level)
+        ? c.risk_level
+        : "medium") as "low" | "medium" | "high",
+      requires_confirmation: true,
+      confirmation_status: "pending",
+      idempotency_key: idempotencyKey,
+      brain_id: brainId,
+      project_id: projectId,
+      command_preview: sanitizeText(commandText, 280),
+      generated_at: new Date().toISOString(),
+    };
+
+    if (data.confirmed !== true) {
+      await logSanitizedEvent(supabase, userId, "jack_action_preview_created", {
+        brain_id: brainId,
+        source: "jack_voice_controlled",
+        risk_level: preview.risk_level,
+        idempotency_key_preview: idempotencyKey.slice(0, 32),
+        intent: c.intent,
+      });
+      await logSanitizedEvent(supabase, userId, "jack_action_confirmation_required", {
+        brain_id: brainId,
+        idempotency_key_preview: idempotencyKey.slice(0, 32),
+      });
+      await logSanitizedEvent(
+        supabase,
+        userId,
+        "jack_action_creation_blocked_missing_confirmation",
+        {
+          brain_id: brainId,
+          reason: "confirmation_required",
+          idempotency_key_preview: idempotencyKey.slice(0, 32),
+        },
+      );
+      return {
+        ok: false,
+        blocked: true,
+        reason: "confirmation_required",
+        preview,
+        action_id: null,
+        intent: c.intent,
+        secondary_intent: c.secondary_intent,
+        risk_level: c.risk_level,
+        requires_approval: c.requires_approval,
+        recommended_tool: c.recommended_tool,
+        next_step: plan.next_step,
+        safe_message:
+          "Ti propongo una action. Conferma esplicitamente (es. 'sì, confermo, creala') per crearla in Action Queue.",
+        master_snapshot_draft_id: null,
+        telegram_delivery_id: null,
+        research_handoff: c.intent === "market_research",
+        missing_information: c.missing_information,
+        unsafe_request: c.unsafe_request,
+        idempotency_key: idempotencyKey,
+      };
+    }
+
+    await logSanitizedEvent(supabase, userId, "jack_action_confirmation_received", {
+      brain_id: brainId,
+      idempotency_key_preview: idempotencyKey.slice(0, 32),
+    });
+
+    // Idempotency check: reuse existing open action with same key.
+    const existingId = await findExistingActionByIdempotencyKey(
+      supabase,
+      userId,
+      brainId,
+      idempotencyKey,
+    );
+    if (existingId) {
+      await logSanitizedEvent(supabase, userId, "jack_write_tool_duplicate_prevented", {
+        brain_id: brainId,
+        tool_name: "create_controlled_action",
+        idempotency_key_preview: idempotencyKey.slice(0, 32),
+        action_id: existingId,
+      });
+      return {
+        ok: true,
+        deduplicated: true,
+        action_id: existingId,
+        intent: c.intent,
+        secondary_intent: c.secondary_intent,
+        risk_level: c.risk_level,
+        requires_approval: c.requires_approval,
+        recommended_tool: c.recommended_tool,
+        next_step: plan.next_step,
+        safe_message: "Action già esistente in coda: nessuna duplicata creata.",
+        master_snapshot_draft_id: null,
+        telegram_delivery_id: null,
+        research_handoff: c.intent === "market_research",
+        missing_information: c.missing_information,
+        unsafe_request: c.unsafe_request,
+        idempotency_key: idempotencyKey,
+      };
+    }
+
     // Always create the main suggested action.
     const metadata: Record<string, unknown> = {
       source_module: "jack_voice_controlled",
@@ -322,6 +435,9 @@ export const createControlledJackAction = createServerFn({ method: "POST" })
       jack_safe_message: plan.safe_message,
       jack_next_step: plan.next_step,
       jack_notes: data.notes ? sanitizeText(data.notes, 280) : null,
+      jack_idempotency_key: idempotencyKey,
+      jack_source_warning_id: data.source_warning_id ?? null,
+      jack_confirmed: true,
     };
 
     const actionId = await insertAction(supabase, userId, {
@@ -337,6 +453,18 @@ export const createControlledJackAction = createServerFn({ method: "POST" })
       requires_confirmation: c.requires_approval,
       metadata,
     });
+
+    if (actionId) {
+      await logSanitizedEvent(supabase, userId, "jack_controlled_action_created", {
+        brain_id: brainId,
+        action_id: actionId,
+        risk_level: c.risk_level,
+        intent: c.intent,
+        idempotency_key_preview: idempotencyKey.slice(0, 32),
+      });
+    }
+
+
 
     // Optional Telegram delivery handoff (never sends, only prepares).
     let telegramId: string | null = null;
