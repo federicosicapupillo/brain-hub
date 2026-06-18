@@ -33,12 +33,15 @@ import {
   markCodeAgentJobSentManually,
   updateCodeAgentJobRepository,
   syncCodeAgentJobApprovalStatus,
+  syncPendingCodeAgentApprovals,
   saveCodeAgentJobResult,
   createReviewFromCodeAgentJob,
   createNextActionFromCodeAgentJob,
   createMasterSnapshotDraftFromCodeAgentJob,
   createCodeAgentJobFromBrowser,
   getCodeAgentJobSummary,
+  getCodeAgentAvailableActions,
+  getCodeAgentNextStep,
   CODE_AGENT_ENGINE_REGISTRY,
   CODE_AGENT_JOB_TYPE_LABEL,
   CODE_AGENT_STATUS_LABEL,
@@ -51,6 +54,7 @@ import {
   type CodeAgentRiskLevel,
 } from "@/lib/code-agent-orchestrator";
 import {
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   CheckSquare,
@@ -58,9 +62,12 @@ import {
   ExternalLink,
   FileText,
   GitBranch,
+  Info,
   ListChecks,
+  RefreshCw,
   Send,
   ShieldCheck,
+  ShieldOff,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/code-agent-jobs")({
