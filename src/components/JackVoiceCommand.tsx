@@ -198,7 +198,7 @@ export function JackVoiceCommand({ brainId, briefId, currentBrief }: Props) {
     try {
       const res = await resolveJackCommandIntent({
         transcript: t,
-        context: { brainId: brainId ?? null },
+        context: { brainId: brainId ?? null, currentBrief: currentBrief ?? null },
       });
       setResult(res);
       void logJackVoiceCommandEvent(
