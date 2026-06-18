@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,13 +7,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, CheckCircle2, X, Clock, History, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { FileText, CheckCircle2, X, Clock, History, ExternalLink, FileUp, Lock } from "lucide-react";
 import { MasterSnapshotUpdateButton } from "@/components/MasterSnapshotUpdateButton";
 import {
   listMasterSnapshots,
   approveMasterSnapshotUpdate,
   rejectMasterSnapshotUpdate,
   createInitialMasterSnapshot,
+  createDraftFromMarkdown,
   logMasterSnapshotEvent,
   type MasterSnapshotVersion,
   type MasterSnapshotStatus,
@@ -32,6 +44,7 @@ export const Route = createFileRoute("/_authenticated/master-snapshot")({
   }),
   validateSearch: (s: Record<string, unknown>) => ({
     draft: typeof s.draft === "string" ? s.draft : undefined,
+    brain: typeof s.brain === "string" ? s.brain : undefined,
   }),
   component: MasterSnapshotRoute,
 });
@@ -66,6 +79,7 @@ _Da popolare al primo aggiornamento approvato._
 
 function MasterSnapshotRoute() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { draft: draftFromUrl } = Route.useSearch();
 
   useEffect(() => {
@@ -152,19 +166,53 @@ function MasterSnapshotRoute() {
         title="Master Snapshot"
         subtitle="Fonte di verità versionata del progetto Brain Hub"
         actions={
-          <MasterSnapshotUpdateButton
-            source="manual"
-            defaultReason="Aggiornamento manuale"
-            variant="default"
-          />
+          <div className="flex flex-wrap gap-2">
+            <ImportMarkdownButton
+              onCreated={async (draftId) => {
+                await qc.invalidateQueries({ queryKey: ["master-snapshots"] });
+                setSelectedDraftId(draftId);
+                try {
+                  await navigate({ to: "/master-snapshot", search: { draft: draftId } });
+                } catch (e) {
+                  console.error("[MasterSnapshot] navigate failed", e);
+                }
+              }}
+            />
+            <MasterSnapshotUpdateButton
+              source="manual"
+              defaultReason="Aggiornamento manuale"
+              variant="default"
+            />
+          </div>
         }
       />
+
+      {draftFromUrl && selectedDraft && (
+        <div className="rounded-md border border-amber-400/40 bg-amber-500/10 p-3 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-medium">Stai modificando una bozza</div>
+              <div className="text-xs text-muted-foreground">
+                v{selectedDraft.version_label} · {selectedDraft.reason ?? "—"}
+              </div>
+            </div>
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/master-snapshot" search={{}}>
+                Torna alla panoramica
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Current version */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Versione corrente</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              Versione corrente — sola lettura
+            </CardTitle>
             {current && (
               <Badge className={STATUS_TONE.current}>v{current.version_label}</Badge>
             )}
@@ -194,10 +242,15 @@ function MasterSnapshotRoute() {
               <pre className="max-h-96 overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap">
                 {current.markdown_content}
               </pre>
+              <p className="text-xs text-muted-foreground">
+                Per modificare il Master Snapshot crea una bozza e approvala. Le versioni
+                precedenti restano nello storico.
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
+
 
       {/* Drafts */}
       <Card>
@@ -411,5 +464,94 @@ function ListBlock({ items }: { items: string[] }) {
         <li key={i}>{it}</li>
       ))}
     </ul>
+  );
+}
+
+function ImportMarkdownButton({ onCreated }: { onCreated: (draftId: string) => void | Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("Import markdown");
+  const [summary, setSummary] = useState("");
+  const [markdown, setMarkdown] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit() {
+    if (!reason.trim()) {
+      toast.error("Inserisci un motivo");
+      return;
+    }
+    if (!markdown.trim()) {
+      toast.error("Incolla il contenuto markdown");
+      return;
+    }
+    setBusy(true);
+    try {
+      const draft = await createDraftFromMarkdown({
+        reason: reason.trim(),
+        summary: summary.trim() || undefined,
+        markdown,
+      });
+      toast.success("Bozza markdown creata");
+      setOpen(false);
+      setMarkdown("");
+      setSummary("");
+      await onCreated(draft.id);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Errore";
+      toast.error(msg);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <FileUp className="mr-1 h-3 w-3" />
+          Importa Markdown
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Crea bozza da Markdown</DialogTitle>
+          <DialogDescription>
+            Incolla il contenuto completo di un file .md. Verrà creata una nuova bozza —
+            la versione corrente resta invariata finché non approvi.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label htmlFor="im-reason">Motivo aggiornamento *</Label>
+            <Input id="im-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="im-summary">Sintesi</Label>
+            <Textarea id="im-summary" rows={2} value={summary} onChange={(e) => setSummary(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="im-md">Contenuto markdown *</Label>
+            <Textarea
+              id="im-md"
+              rows={16}
+              value={markdown}
+              onChange={(e) => setMarkdown(e.target.value)}
+              placeholder="# Brain Hub — Master Project Snapshot..."
+              className="font-mono text-xs"
+            />
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {markdown.length} caratteri
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
+            Annulla
+          </Button>
+          <Button onClick={handleSubmit} disabled={busy}>
+            {busy ? "Creazione…" : "Crea bozza da Markdown"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

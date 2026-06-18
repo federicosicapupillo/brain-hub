@@ -19,7 +19,9 @@ export type MasterSnapshotEvent =
   | "master_snapshot_update_proposed"
   | "master_snapshot_update_approved"
   | "master_snapshot_update_rejected"
-  | "master_snapshot_version_created";
+  | "master_snapshot_version_created"
+  | "master_snapshot_markdown_import_started"
+  | "master_snapshot_markdown_import_draft_created";
 
 export type MasterSnapshotChanges = {
   what_changed?: string;
@@ -200,13 +202,22 @@ export async function approveMasterSnapshotUpdate(
     throw new Error("Solo le bozze possono essere approvate");
   }
 
-  // Archive current
-  const current = await getCurrentMasterSnapshot(draft.brain_id);
-  if (current && current.id !== draft.id) {
-    await supabase
+  // Defensive guard: archive ALL existing currents matching the same brain
+  // context (brain_id can be null; match exactly). Prevents double-current.
+  const { data: u } = await supabase.auth.getUser();
+  if (u.user) {
+    let q = supabase
       .from("master_snapshot_versions")
       .update({ version_status: "archived" } as never)
-      .eq("id", current.id);
+      .eq("user_id", u.user.id)
+      .eq("version_status", "current")
+      .neq("id", draftId);
+    if (draft.brain_id === null) {
+      q = q.is("brain_id", null);
+    } else {
+      q = q.eq("brain_id", draft.brain_id);
+    }
+    await q;
   }
 
   const newLabel = draft.version_label.replace(/-draft$/, "");
@@ -277,6 +288,41 @@ export async function createInitialMasterSnapshot(
     version_id: (data as Row).id,
   });
   return mapRow(data as Row);
+}
+
+export type CreateDraftFromMarkdownInput = {
+  brainId?: string | null;
+  reason: string;
+  summary?: string;
+  markdown: string;
+  title?: string;
+};
+
+export async function createDraftFromMarkdown(
+  input: CreateDraftFromMarkdownInput,
+): Promise<MasterSnapshotVersion> {
+  await logMasterSnapshotEvent(
+    "master_snapshot_markdown_import_started",
+    input.reason,
+    { brain_id: input.brainId ?? null, length: input.markdown.length },
+  );
+  const draft = await proposeMasterSnapshotUpdate({
+    brainId: input.brainId ?? null,
+    reason: input.reason,
+    summary: input.summary,
+    source: "import",
+    changes: {
+      what_changed: "Import markdown completo",
+    },
+    markdownContent: input.markdown,
+    title: input.title,
+  });
+  await logMasterSnapshotEvent(
+    "master_snapshot_markdown_import_draft_created",
+    input.reason,
+    { draft_id: draft.id, length: input.markdown.length },
+  );
+  return draft;
 }
 
 export async function logMasterSnapshotEvent(
