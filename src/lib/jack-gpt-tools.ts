@@ -373,10 +373,18 @@ export const runJackGptTool = createServerFn({ method: "POST" })
     const cacheKey = dedupKey(userId, tool_name, args);
     const cached = readDedupedCall(cacheKey);
     if (cached !== null) {
-      void logSanitizedEvent(supabase, userId, "jack_duplicate_tool_call_prevented", {
-        tool_name,
-        brain_id: (args.brain_id as string | undefined) ?? null,
-      });
+      const isReadTool = READ_ONLY_TOOL_NAMES.has(tool_name);
+      void logSanitizedEvent(
+        supabase,
+        userId,
+        isReadTool
+          ? "jack_read_tool_duplicate_prevented"
+          : "jack_duplicate_tool_call_prevented",
+        {
+          tool_name,
+          brain_id: (args.brain_id as string | undefined) ?? null,
+        },
+      );
       return cached;
     }
 
