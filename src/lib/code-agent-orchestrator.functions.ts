@@ -2,10 +2,10 @@
 // Brain Hub v3.15.4 — Code Agent Server Function Boundary
 // ============================================================
 // Authenticated server functions for sensitive Code Agent Job mutations.
-// All write operations route through here: the auth middleware injects an
+// All write operations route through here: requireSupabaseAuth injects an
 // authenticated Supabase client (RLS-scoped to the user) plus userId, and
-// we use AsyncLocalStorage to expose them to the existing orchestrator
-// state-machine code without duplicating mutation logic.
+// we use AsyncLocalStorage (from a `.server.ts` shim) to expose them to
+// the existing orchestrator state-machine code without duplicating logic.
 //
 // NO runner. NO Codex/Claude API. NO shell, commit, push, PR, merge, deploy.
 // NO automatic Telegram sends. user_id ALWAYS taken from the server auth
@@ -14,7 +14,6 @@
 
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { AsyncLocalStorage } from "node:async_hooks";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
@@ -27,28 +26,9 @@ import {
   createMasterSnapshotDraftFromCodeAgentJob,
   syncCodeAgentJobApprovalStatus,
   syncPendingCodeAgentApprovals,
-  setCodeAgentRuntimeResolver,
   CodeAgentTransitionError,
   type CodeAgentEngine,
 } from "@/lib/code-agent-orchestrator";
-
-// ---------- Runtime context (server-side) ----------
-
-type SbAny = { from: (t: string) => unknown };
-type CodeAgentCtx = { supabase: SbAny; userId: string };
-
-const als = new AsyncLocalStorage<CodeAgentCtx>();
-
-// Register the resolver ONCE at module load. The orchestrator will read
-// the current store on each `sb.*` / `currentUserId()` access.
-setCodeAgentRuntimeResolver({
-  getSb: () => als.getStore()?.supabase ?? null,
-  getUserId: () => als.getStore()?.userId ?? null,
-});
-
-async function runWithCtx<T>(ctx: CodeAgentCtx, fn: () => Promise<T>): Promise<T> {
-  return als.run(ctx, fn);
-}
 
 // ---------- Error serialization (crosses RPC boundary) ----------
 
@@ -72,21 +52,21 @@ function serializeError(e: unknown): never {
   if (isCodeAgentTransitionError(e)) {
     const payload: SerializedCodeAgentError = {
       type: "code_agent_transition_error",
-      code: (e as CodeAgentTransitionError).code,
-      message: (e as CodeAgentTransitionError).message,
+      code: e.code,
+      message: e.message,
     };
     throw new Error(JSON.stringify(payload));
   }
   throw e instanceof Error ? e : new Error("Errore sconosciuto nel Code Agent");
 }
 
-async function withGuard<T>(
-  context: { supabase: unknown; userId: string },
-  fn: () => Promise<T>,
-): Promise<T> {
+type AuthCtx = { supabase: unknown; userId: string };
+
+async function withGuard<T>(context: AuthCtx, fn: () => Promise<T>): Promise<T> {
+  const runtime = await import("@/lib/code-agent-server-runtime.server");
   try {
-    return await runWithCtx(
-      { supabase: context.supabase as SbAny, userId: context.userId },
+    return await runtime.serverRuntime.runWithCtx(
+      { supabase: context.supabase as { from: (t: string) => unknown }, userId: context.userId },
       fn,
     );
   } catch (e) {
@@ -124,7 +104,10 @@ export const rejectCodeAgentJobFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { jobId: string; reason?: string | null }) =>
     z
-      .object({ jobId: z.string().uuid(), reason: z.string().max(500).nullable().optional() })
+      .object({
+        jobId: z.string().uuid(),
+        reason: z.string().max(500).nullable().optional(),
+      })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
