@@ -319,7 +319,8 @@ function AddRepoDialog({
     }
   }, [open]);
 
-  const parsed = useMemo(() => parseGithubUrl(url), [url]);
+  const parseResult = useMemo(() => parseGithubRepositoryInput(url), [url]);
+  const parsed = parseResult.isValid ? parseResult : null;
 
   // Auto-fill owner/name from URL whenever URL changes and yields a valid parse
   useEffect(() => {
@@ -342,30 +343,11 @@ function AddRepoDialog({
       toast.error("URL GitHub non valido. Usa il formato https://github.com/owner/repo");
       return;
     }
-    const ownerTrim = owner.trim();
-    const nameTrim = name.trim();
-    if (!ownerTrim || !nameTrim) {
-      toast.error("Owner e repository name sono obbligatori");
-      return;
-    }
     setBusy(true);
     try {
-      // Pre-check duplicates for same user (RLS scopes select to current user)
-      const { data: existing } = await supabase
-        .from("github_repository_registry")
-        .select("id")
-        .eq("repository_url", parsed.url)
-        .maybeSingle();
-      if (existing) {
-        toast.error("Repository già presente");
-        setBusy(false);
-        return;
-      }
       await createGithubRepository({
         brain_id: brainId,
         repository_url: parsed.url,
-        repository_owner: ownerTrim,
-        repository_name: nameTrim,
         default_branch: branch.trim() || "main",
         metadata: note.trim() ? { note: note.trim() } : {},
       });
