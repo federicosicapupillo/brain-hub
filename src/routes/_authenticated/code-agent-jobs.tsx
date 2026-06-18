@@ -196,6 +196,18 @@ function CodeAgentJobsPage() {
     }
   };
 
+  const handleBulkSync = async () => {
+    try {
+      const r = await syncPendingCodeAgentApprovals(brainId);
+      toast.success(
+        `Sync · ${r.checked} controllati, ${r.approved} approvati, ${r.rejected} rifiutati, ${r.unchanged} invariati`,
+      );
+      refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
   const handleSetRepo = async (jobId: string, repositoryId: string) => {
     try {
       await updateCodeAgentJobRepository(jobId, repositoryId);
