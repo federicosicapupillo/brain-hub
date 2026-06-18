@@ -989,7 +989,7 @@ export const runJackGptTool = createServerFn({ method: "POST" })
       }
     };
 
-    const runCompute = async (): Promise<unknown> => {
+    const runCompute = async (): Promise<ToolReturn> => {
       try {
         const result = await compute();
         writeDedupedCall(cacheKey, result);
@@ -1010,7 +1010,9 @@ export const runJackGptTool = createServerFn({ method: "POST" })
     // v3.19.5 — in-flight join. If an identical call is already running,
     // both callers await the same Promise (no double DB hit, no double log).
     if (JOINABLE_TOOL_NAMES.has(tool_name)) {
-      const existing = inFlightToolCalls.get(cacheKey);
+      const existing = inFlightToolCalls.get(cacheKey) as
+        | Promise<ToolReturn>
+        | undefined;
       if (existing) {
         void logSanitizedEvent(supabase, userId, "jack_inflight_tool_call_joined", {
           tool_name,
@@ -1018,7 +1020,7 @@ export const runJackGptTool = createServerFn({ method: "POST" })
         });
         return await existing;
       }
-      const p = runCompute().finally(() => {
+      const p: Promise<ToolReturn> = runCompute().finally(() => {
         inFlightToolCalls.delete(cacheKey);
       });
       inFlightToolCalls.set(cacheKey, p);
