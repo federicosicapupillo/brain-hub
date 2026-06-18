@@ -223,8 +223,7 @@ function GmailConnectorRoute() {
     <div className="space-y-6 p-4 md:p-6">
       <PageHeader
         title="Gmail Connector"
-        description="Connettore Gmail read-only: sincronizza email recenti, classifica e crea action manuali. Nessuna email viene inviata, modificata, archiviata o cancellata."
-        icon={Mail}
+        subtitle="Connettore Gmail read-only: sincronizza email recenti, classifica e crea action manuali. Nessuna email viene inviata, modificata, archiviata o cancellata."
       />
 
       <div className="flex flex-wrap items-center gap-3">
