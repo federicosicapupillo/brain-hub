@@ -912,7 +912,7 @@ async function respondMultiProjectStatus(
   };
 }
 
-
+function ctaDaily(ctx: JackCommandContext): JackCommandCTA {
   return {
     label: "Apri Daily Brief",
     to: "/daily-brief",
