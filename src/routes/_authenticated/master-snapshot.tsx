@@ -522,7 +522,9 @@ function ImportMarkdownButton({ onCreated }: { onCreated: (draftId: string) => v
           <DialogTitle>Crea bozza da Markdown</DialogTitle>
           <DialogDescription>
             Incolla il contenuto completo di un file .md. Verrà creata una nuova bozza —
-            la versione corrente resta invariata finché non approvi.
+            la versione corrente resta invariata finché non approvi. Eventuali righe
+            "Versione documento" verranno normalizzate: la versione ufficiale è quella
+            gestita da Brain Hub e mostrata nella scheda del Master Snapshot.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
