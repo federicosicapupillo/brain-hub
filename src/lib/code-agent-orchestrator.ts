@@ -114,6 +114,7 @@ export type CodeAgentJob = {
   external_pr_url: string | null;
   external_run_id: string | null;
   metadata: Record<string, unknown>;
+  sent_manually_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -2102,19 +2103,23 @@ export async function markCodeAgentJobSentManually(
   engine: CodeAgentEngine,
 ): Promise<void> {
   const { userId } = await enforceTransition(jobId, "send_manually", "sent_manually");
+  const nowIso = new Date().toISOString();
   const { error } = await sb
     .from("code_agent_jobs")
     .update({
       selected_engine: engine,
       status: "sent_manually",
-      updated_at: new Date().toISOString(),
+      sent_manually_at: nowIso,
+      updated_at: nowIso,
     })
     .eq("id", jobId)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
   await logJobEvent(jobId, userId, "code_agent_marked_sent_manually", {
     engine,
-    sent_at: new Date().toISOString(),
+    status: "sent_manually",
+    has_sent_manually_at: true,
+    sent_at: nowIso,
   });
 }
 
