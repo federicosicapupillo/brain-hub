@@ -479,8 +479,8 @@ function Section({
   onView,
 }: {
   title: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
+  icon?: ReactNode;
+  children: ReactNode;
   onView?: () => void;
 }) {
   useEffect(() => {
