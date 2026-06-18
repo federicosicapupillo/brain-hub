@@ -240,8 +240,13 @@ function MasterSnapshotRoute() {
                 <span>· Sorgente: {current.source}</span>
               </div>
               <pre className="max-h-96 overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap">
-                {current.markdown_content}
+                {normalizeSnapshotMarkdownVersion(current.markdown_content)}
               </pre>
+              <p className="text-xs text-muted-foreground">
+                La versione ufficiale è quella mostrata nella scheda del Master Snapshot
+                (v{current.version_label}). Eventuali righe "Versione documento" nel
+                markdown vengono normalizzate per evitare disallineamenti.
+              </p>
               <p className="text-xs text-muted-foreground">
                 Per modificare il Master Snapshot crea una bozza e approvala. Le versioni
                 precedenti restano nello storico.
