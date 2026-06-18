@@ -1544,34 +1544,40 @@ export async function createCodeAgentJobUnified(
     (cls.risk_level === "medium" || cls.risk_level === "high" || cls.requires_approval)
   ) {
     try {
-      const req = await createApprovalRequest({
-        brain_id: input.brain_id ?? null,
-        project_id: input.project_id ?? null,
-        approval_type: "manual_action",
-        title: `Code Agent Job — ${CODE_AGENT_JOB_TYPE_LABEL[cls.job_type] ?? cls.job_type}`,
-        message_preview: sanitizeText(commandText, 400),
-        payload_preview: {
-          job_id: jobId,
-          recommended_engine: engine,
-          repo_url: repoRes.repo_url,
-          repository_name: repoRes.repository_name,
-          allowed_commands: plan.allowed_commands,
-          forbidden_paths: plan.forbidden_paths,
-          will_not_do: [
-            "Niente esecuzione automatica",
-            "Niente commit/push/PR/merge/deploy",
-            "Solo handoff manuale del prompt",
-          ],
-          link: "/code-agent-jobs",
-        },
-        risk_level: cls.risk_level,
-        metadata: {
-          source_module: "code_agent_orchestrator",
-          code_agent_job_id: jobId,
-          action_type: "code_agent_job",
-        },
-      });
-      telegramApprovalId = req.id;
+      const insRes = await sb
+        .from("telegram_approval_requests")
+        .insert({
+          user_id: userId,
+          brain_id: input.brain_id ?? null,
+          project_id: input.project_id ?? null,
+          approval_type: "manual_action",
+          title: `Code Agent Job — ${CODE_AGENT_JOB_TYPE_LABEL[cls.job_type] ?? cls.job_type}`,
+          message_preview: sanitizeText(commandText, 400),
+          payload_preview: {
+            job_id: jobId,
+            recommended_engine: engine,
+            repo_url: repoRes.repo_url,
+            repository_name: repoRes.repository_name,
+            allowed_commands: plan.allowed_commands,
+            forbidden_paths: plan.forbidden_paths,
+            will_not_do: [
+              "Niente esecuzione automatica",
+              "Niente commit/push/PR/merge/deploy",
+              "Solo handoff manuale del prompt",
+            ],
+            link: "/code-agent-jobs",
+          },
+          risk_level: cls.risk_level,
+          status: "draft",
+          metadata: {
+            source_module: "code_agent_orchestrator",
+            code_agent_job_id: jobId,
+            action_type: "code_agent_job",
+          },
+        })
+        .select("id")
+        .single();
+      telegramApprovalId = (insRes?.data?.id as string) ?? null;
       await sb
         .from("code_agent_jobs")
         .update({
