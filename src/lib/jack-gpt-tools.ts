@@ -385,6 +385,31 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             },
           };
         }
+        case "create_controlled_action": {
+          const commandText = String(args.command_text ?? "").trim();
+          if (!commandText) return { ok: false, error: "empty_command_text" };
+          const res = await createControlledJackAction({
+            data: {
+              command_text: commandText,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+              project_id: (args.project_id as string | undefined) ?? null,
+              delivery_preference:
+                (args.delivery_preference as "telegram" | "ui_only" | undefined) ?? null,
+              notes: (args.notes as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "prepare_master_snapshot_update": {
+          const res = await prepareJackMasterSnapshotUpdate({
+            data: {
+              brain_id: (args.brain_id as string | undefined) ?? null,
+              reason: (args.reason as string | undefined) ?? null,
+              summary: (args.summary as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
         default:
           return { ok: false, error: "unknown_tool" };
       }
