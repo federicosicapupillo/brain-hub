@@ -468,10 +468,44 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       } catch { /* noop */ }
       // Never fire response.create directly: route through the lifecycle guard.
       safeCreateResponse("tool_result", { queueIfBusy: true });
-      // v3.13: refresh injected context after a successful create_memory_entry
-      // so the next turn sees the new fact without a reconnect.
-      if (name === "create_memory_entry" && okFlag) {
-        void injectNaturalContext("refresh");
+      // v3.13.1: capture persistence diagnostics + refresh injected context.
+      if (name === "create_memory_entry") {
+        const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
+        const persisted = Boolean(payload.persisted);
+        const includedInContext = Boolean(payload.included_in_context);
+        const memId = (payload.entry_id as string | null) ?? null;
+        const memStatus = (payload.status as string | null) ?? null;
+        const memScope = (payload.scope as string | null) ?? null;
+        setLastSavedMemory({
+          id: memId,
+          status: memStatus,
+          scope: memScope,
+          persisted,
+          includedInContext,
+          deduped: Boolean(payload.deduped),
+          at: Date.now(),
+          reason: (payload.reason as string | null) ?? null,
+        });
+        safeLog(persisted ? "jack_memory_entry_persisted" : "jack_memory_entry_persist_failed", {
+          memory_id_redacted: memId ? `${memId.slice(0, 6)}…` : null,
+          status: memStatus,
+          scope: memScope,
+          deduped: Boolean(payload.deduped),
+        });
+        if (persisted && !includedInContext) {
+          pushLog({
+            kind: "warning",
+            text: "Memoria salvata ma non ancora inclusa nel contesto attivo.",
+          });
+          safeLog("jack_memory_entry_context_missing", {
+            memory_id_redacted: memId ? `${memId.slice(0, 6)}…` : null,
+          });
+        } else if (persisted && includedInContext) {
+          safeLog("jack_memory_entry_context_verified");
+        }
+        if (persisted) {
+          void injectNaturalContext("refresh");
+        }
       }
     },
     [toolFn, safeLog, pushLog, safeCreateResponse, injectNaturalContext],
