@@ -438,17 +438,90 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           };
         }
         case "get_action_queue_summary": {
+          const brainId = (args.brain_id as string | undefined) ?? null;
           const ctx = await fetchBrainsCtx(supabase as never);
-          ctx.brainId = (args.brain_id as string | undefined) ?? null;
-          const result = await resolveJackCommandIntent({
-            transcript: "cosa devo fare adesso",
-            context: ctx,
-          });
+          ctx.brainId = brainId;
+          const [result, best, readiness] = await Promise.all([
+            resolveJackCommandIntent({
+              transcript: "cosa devo fare adesso",
+              context: ctx,
+            }),
+            buildJackBestAvailableNextAction(brainId).catch(() => null),
+            getJackReadinessDetails(brainId).catch(() => null),
+          ]);
           return {
             ok: true,
             payload: {
               summary: redactSnippet(result.response_text, 700),
               source: result.source,
+              best_next_action: best
+                ? {
+                    source: best.source,
+                    title: best.title,
+                    reason: best.reason,
+                    cta_label: best.cta_label,
+                    cta_href: best.cta_href,
+                    can_create_action: best.can_create_action,
+                    requires_confirmation: best.requires_confirmation,
+                    action_queue_open_count:
+                      best.meta.action_queue_open_count,
+                  }
+                : null,
+              readiness_details: readiness
+                ? {
+                    status: readiness.status,
+                    missing_count: readiness.missing_count,
+                  }
+                : null,
+              top_missing_readiness_steps:
+                readiness?.top_missing_steps.map((s) => ({
+                  id: s.id,
+                  label: s.label,
+                  area: s.area,
+                  severity: s.severity,
+                  why_it_matters: s.why_it_matters,
+                  suggested_fix: s.suggested_fix,
+                  cta_label: s.cta_label,
+                  cta_href: s.cta_href,
+                })) ?? [],
+            },
+          };
+        }
+        case "get_readiness_details": {
+          const brainId = (args.brain_id as string | undefined) ?? null;
+          void logSanitizedEvent(supabase, userId, "jack_readiness_details_requested", {
+            brain_id: brainId,
+            source: "tool",
+          });
+          const details = await getJackReadinessDetails(brainId);
+          void logSanitizedEvent(supabase, userId, "jack_readiness_details_returned", {
+            brain_id: brainId,
+            status: details.status,
+            missing_count: details.missing_count,
+            top_steps_count: details.top_missing_steps.length,
+          });
+          if (details.missing_count > 0 && details.top_missing_steps.length === 0) {
+            void logSanitizedEvent(supabase, userId, "jack_readiness_details_missing", {
+              brain_id: brainId,
+              missing_count: details.missing_count,
+            });
+          }
+          return {
+            ok: true,
+            payload: {
+              status: details.status,
+              missing_count: details.missing_count,
+              top_missing_steps: details.top_missing_steps.map((s) => ({
+                id: s.id,
+                label: s.label,
+                area: s.area,
+                severity: s.severity,
+                why_it_matters: s.why_it_matters,
+                suggested_fix: s.suggested_fix,
+                cta_label: s.cta_label,
+                cta_href: s.cta_href,
+              })),
+              cta: { label: "Apri Loop QA", to: "/loop-qa" },
             },
           };
         }
