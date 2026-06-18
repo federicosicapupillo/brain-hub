@@ -265,6 +265,58 @@ function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
   return raw;
 }
 
+// ---------- Duplicate tool-call guard ----------
+// Some GPT runs emit the same tool_call twice in the same turn.
+// Memoize identical (user + tool + args) results for a short TTL
+// to prevent duplicate Supabase reads and duplicate event logs.
+type CachedResult = { at: number; result: unknown };
+const TOOL_CALL_DEDUP_TTL_MS = 3000;
+const toolCallCache = new Map<string, CachedResult>();
+
+function dedupKey(userId: string, toolName: string, args: Record<string, unknown>): string {
+  return `${userId}::${toolName}::${JSON.stringify(args)}`;
+}
+
+function readDedupedCall(key: string): unknown | null {
+  const hit = toolCallCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > TOOL_CALL_DEDUP_TTL_MS) {
+    toolCallCache.delete(key);
+    return null;
+  }
+  return hit.result;
+}
+
+function writeDedupedCall(key: string, result: unknown) {
+  toolCallCache.set(key, { at: Date.now(), result });
+  // Light eviction
+  if (toolCallCache.size > 200) {
+    const cutoff = Date.now() - TOOL_CALL_DEDUP_TTL_MS;
+    for (const [k, v] of toolCallCache) {
+      if (v.at < cutoff) toolCallCache.delete(k);
+    }
+  }
+}
+
+async function logSanitizedEvent(
+  supabaseClient: unknown,
+  userId: string,
+  event: string,
+  metadata: Record<string, unknown>,
+) {
+  try {
+    await (supabaseClient as {
+      from: (t: string) => {
+        insert: (v: Record<string, unknown>) => Promise<{ error: unknown }>;
+      };
+    })
+      .from("agent_event_log")
+      .insert({ user_id: userId, event_type: event, metadata });
+  } catch {
+    // best-effort
+  }
+}
+
 export const runJackGptTool = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => d as ToolInput)
@@ -277,6 +329,17 @@ export const runJackGptTool = createServerFn({ method: "POST" })
     if (!tool_name || !ALLOWED_TOOL_NAMES.has(tool_name)) {
       return { ok: false, error: "tool_rejected", detail: "unknown_or_disallowed_tool" };
     }
+
+    const cacheKey = dedupKey(userId, tool_name, args);
+    const cached = readDedupedCall(cacheKey);
+    if (cached !== null) {
+      void logSanitizedEvent(supabase, userId, "jack_duplicate_tool_call_prevented", {
+        tool_name,
+        brain_id: (args.brain_id as string | undefined) ?? null,
+      });
+      return cached;
+    }
+
 
     try {
       switch (tool_name) {
