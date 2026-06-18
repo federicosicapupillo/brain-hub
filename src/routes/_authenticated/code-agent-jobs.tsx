@@ -573,3 +573,57 @@ function Tile({ label, value }: { label: string; value: number }) {
     </Card>
   );
 }
+
+function RepoBlock({
+  job,
+  repos,
+  onSetRepo,
+}: {
+  job: CodeAgentJob;
+  repos: Array<{ id: string; repository_name: string | null; repository_url: string; brain_id: string | null; project_id: string | null }>;
+  onSetRepo: (rid: string) => void;
+}) {
+  const resolution = (job.metadata?.repository_resolution as { status?: string; reason?: string } | undefined) ?? null;
+  const status = resolution?.status ?? (job.repository_id ? "resolved" : "missing");
+  const tone =
+    status === "resolved"
+      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+      : status === "ambiguous"
+        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+        : "bg-red-500/10 text-red-600 border-red-500/30";
+  const currentRepo = repos.find((r) => r.id === job.repository_id) ?? null;
+  return (
+    <div className="rounded border p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <GitBranch className="h-4 w-4" />
+        <span className="text-xs font-medium">Repository</span>
+        <Badge variant="outline" className={tone}>{status}</Badge>
+      </div>
+      {currentRepo ? (
+        <div className="text-sm">
+          <code>{currentRepo.repository_name ?? currentRepo.repository_url}</code>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground">
+          {resolution?.reason ?? "Nessun repository risolto. Seleziona manualmente."}
+        </div>
+      )}
+      {(status !== "resolved" || !job.repository_id) && repos.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Select onValueChange={(rid) => onSetRepo(rid)}>
+            <SelectTrigger className="h-8 w-72 text-xs">
+              <SelectValue placeholder="Scegli repository…" />
+            </SelectTrigger>
+            <SelectContent>
+              {repos.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.repository_name ?? r.repository_url}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
+  );
+}
