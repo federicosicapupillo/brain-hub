@@ -13,7 +13,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import {
-  createReviewItem,
   type ResultReviewItem,
 } from "@/lib/result-review";
 import { createAction, type AutomationAction } from "@/lib/action-queue";
