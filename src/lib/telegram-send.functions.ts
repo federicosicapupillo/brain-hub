@@ -137,6 +137,21 @@ export const sendTelegramApproval = createServerFn({ method: "POST" })
       } as never)
       .eq("id", req.id);
 
+    // Generate callback token + hash (server-side only). Only the hash is stored.
+    const tokenBytes = new Uint8Array(8);
+    crypto.getRandomValues(tokenBytes);
+    const callbackToken = Array.from(tokenBytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const tokenHashBuf = await crypto.subtle.digest(
+      "SHA-256",
+      new TextEncoder().encode(callbackToken),
+    );
+    const callbackTokenHash = Array.from(new Uint8Array(tokenHashBuf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    const callbackExpiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 7).toISOString();
+
     // Build message
     const origin = data.origin_url ?? "";
     const openUrl = origin
@@ -154,20 +169,26 @@ export const sendTelegramApproval = createServerFn({ method: "POST" })
     if (req.message_preview) {
       lines.push(``, escapeHtml(truncate(String(req.message_preview), 800)));
     }
-    lines.push(``, `<i>Approva o rifiuta dentro Brain Hub. Telegram è solo notifica.</i>`);
+    lines.push(``, `<i>Approva o rifiuta direttamente da Telegram, oppure apri Brain Hub.</i>`);
     const text = lines.join("\n");
+
+    const inlineKeyboard: Array<Array<Record<string, unknown>>> = [
+      [
+        { text: "✅ Approva", callback_data: `a|${callbackToken}` },
+        { text: "❌ Rifiuta", callback_data: `r|${callbackToken}` },
+      ],
+    ];
+    if (openUrl) {
+      inlineKeyboard.push([{ text: "Apri in Brain Hub", url: openUrl }]);
+    }
 
     const tgBody: Record<string, unknown> = {
       chat_id: dest.chat_id,
       text,
       parse_mode: "HTML",
       disable_web_page_preview: true,
+      reply_markup: { inline_keyboard: inlineKeyboard },
     };
-    if (openUrl) {
-      tgBody.reply_markup = {
-        inline_keyboard: [[{ text: "Apri approvazione", url: openUrl }]],
-      };
-    }
 
     // Call Telegram API
     type TgResp = { ok: boolean; result?: { message_id?: number }; description?: string };
