@@ -385,6 +385,21 @@ export const runJackGptTool = createServerFn({ method: "POST" })
     const { supabase } = context;
 
     if (!tool_name || !ALLOWED_TOOL_NAMES.has(tool_name)) {
+      // v3.19.6 — hard lock: the model must never invoke write tools.
+      if (tool_name === "create_controlled_action") {
+        void logSanitizedEvent(supabase, userId, "jack_model_write_tool_call_blocked", {
+          tool_name,
+          brain_id: (args.brain_id as string | undefined) ?? null,
+          reason: "write_tool_not_available_to_model",
+        });
+        return {
+          ok: false,
+          blocked: true,
+          reason: "write_tool_not_available_to_model",
+          message:
+            "Posso preparare la proposta, ma la creazione richiede conferma UI o router deterministico.",
+        };
+      }
       return { ok: false, error: "tool_rejected", detail: "unknown_or_disallowed_tool" };
     }
 
