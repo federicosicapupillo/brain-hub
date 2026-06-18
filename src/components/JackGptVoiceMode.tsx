@@ -20,15 +20,23 @@ import {
   ShieldCheck,
   Brain,
   FileText,
+  Activity,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   getOpenAiRealtimeStatus,
   createJackRealtimeSession,
   type OpenAiRealtimeStatus,
+  type CreateRealtimeSessionResult,
 } from "@/lib/openai-realtime.functions";
 import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
 import { JACK_GPT_PRIVACY_NOTICE } from "@/lib/jack-gpt-instructions";
+import {
+  classifyRealtimeStartError,
+  SUGGESTED_REALTIME_MODELS,
+  type ClassifiedRealtimeStartError,
+} from "@/lib/jack-gpt-error-classifier";
 
 type ConnState =
   | "idle"
@@ -42,6 +50,8 @@ type ConnState =
   | "error";
 
 type MicState = "unknown" | "granted" | "denied" | "unavailable" | "unsupported";
+
+type SessionMode = "none" | "full" | "minimal";
 
 type LogKind = "user" | "jack" | "tool" | "system" | "error";
 type LogEntry = { id: string; ts: number; kind: LogKind; text: string };
@@ -59,6 +69,27 @@ type RealtimeEvent = {
   call_id?: string;
   name?: string;
   arguments?: string;
+};
+
+type TestConnectionResult = {
+  ok: boolean;
+  configured: boolean;
+  model: string | null;
+  model_source: OpenAiRealtimeStatus["model_source"] | null;
+  warning: string | null;
+  privacy_mode: OpenAiRealtimeStatus["privacy_mode"] | null;
+  server_time: string | null;
+  message: string;
+};
+
+type Diagnostics = {
+  sessionMode: SessionMode;
+  dataChannelState: RTCDataChannelState | "none";
+  lastEventType: string | null;
+  lastSafeError: string | null;
+  lastToolCalled: string | null;
+  cleanupCount: number;
+  lastTest: TestConnectionResult | null;
 };
 
 type Props = { brainId?: string | null };
@@ -92,13 +123,25 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const [status, setStatus] = useState<OpenAiRealtimeStatus | null>(null);
   const [micState, setMicState] = useState<MicState>("unknown");
   const [lastError, setLastError] = useState<string | null>(null);
+  const [retryNotice, setRetryNotice] = useState<string | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [testing, setTesting] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<Diagnostics>({
+    sessionMode: "none",
+    dataChannelState: "none",
+    lastEventType: null,
+    lastSafeError: null,
+    lastToolCalled: null,
+    cleanupCount: 0,
+    lastTest: null,
+  });
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const sessionUpdateSentRef = useRef(false);
+  const pendingToolsRef = useRef<CreateRealtimeSessionResult | null>(null);
 
   const statusFn = useServerFn(getOpenAiRealtimeStatus);
   const sessionFn = useServerFn(createJackRealtimeSession);
@@ -190,12 +233,20 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     pcRef.current = null;
     localStreamRef.current = null;
     sessionUpdateSentRef.current = false;
+    pendingToolsRef.current = null;
+    setDiagnostics((d) => ({
+      ...d,
+      sessionMode: "none",
+      dataChannelState: "none",
+      cleanupCount: d.cleanupCount + 1,
+    }));
     safeLog("jack_gpt_cleanup_completed");
   }, [safeLog]);
 
   const handleToolCall = useCallback(
     async (callId: string, name: string, argsRaw: string) => {
       pushLog({ kind: "tool", text: `→ ${name}` });
+      setDiagnostics((d) => ({ ...d, lastToolCalled: name }));
       safeLog("jack_gpt_tool_called", { name });
       const result = await toolFn({
         data: { tool_name: name, arguments: argsRaw ?? "" },
@@ -238,6 +289,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       } catch {
         return;
       }
+      if (msg.type) {
+        setDiagnostics((d) => ({ ...d, lastEventType: msg.type ?? d.lastEventType }));
+      }
       switch (msg.type) {
         case "session.created":
         case "session.updated":
@@ -275,22 +329,118 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           const m = msg.error?.message ?? "Errore realtime";
           pushLog({ kind: "error", text: m });
           setLastError(m);
+          setDiagnostics((d) => ({ ...d, lastSafeError: m.slice(0, 160) }));
           break;
         }
         default:
-          // unknown event types are intentionally ignored
           break;
       }
     },
     [handleToolCall, safeLog, pushLog],
   );
 
+  /** Connect WebRTC using a successfully-created realtime session. */
+  const connectWebRTC = useCallback(
+    async (session: Extract<CreateRealtimeSessionResult, { ok: true }>, stream: MediaStream) => {
+      const pc = new RTCPeerConnection();
+      pcRef.current = pc;
+      pendingToolsRef.current = session;
+
+      const audioEl = audioElRef.current ?? new Audio();
+      audioEl.autoplay = true;
+      audioElRef.current = audioEl;
+      pc.ontrack = (e) => {
+        audioEl.srcObject = e.streams[0];
+      };
+      pc.oniceconnectionstatechange = () => {
+        const s = pc.iceConnectionState;
+        if (s === "failed" || s === "disconnected" || s === "closed") {
+          setLastError((prev) => prev ?? "Connessione WebRTC interrotta.");
+        }
+      };
+
+      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+
+      const dc = pc.createDataChannel("oai-events");
+      dcRef.current = dc;
+      const updateDcState = () =>
+        setDiagnostics((d) => ({ ...d, dataChannelState: dc.readyState }));
+      dc.onopen = () => {
+        updateDcState();
+        setState("listening");
+        pushLog({ kind: "system", text: "Connessione attiva. Puoi parlare." });
+        safeLog("jack_gpt_data_channel_opened");
+        safeLog("jack_gpt_connected");
+        if (!sessionUpdateSentRef.current) {
+          try {
+            const sessionPayload: Record<string, unknown> = {
+              modalities: ["audio", "text"],
+              voice: "alloy",
+            };
+            // In minimal mode, push instructions + tools via session.update.
+            if (session.mode === "minimal") {
+              if (session.instructions_for_update) {
+                sessionPayload.instructions = session.instructions_for_update;
+              }
+              if (session.tools_for_update) {
+                sessionPayload.tools = session.tools_for_update;
+                sessionPayload.tool_choice = "auto";
+              }
+            }
+            dc.send(
+              JSON.stringify({ type: "session.update", session: sessionPayload }),
+            );
+            sessionUpdateSentRef.current = true;
+            safeLog("jack_gpt_session_update_sent", { mode: session.mode });
+          } catch {
+            /* noop */
+          }
+        }
+      };
+      dc.onclose = () => {
+        updateDcState();
+        safeLog("jack_gpt_data_channel_closed");
+      };
+      dc.onmessage = handleDcMessage;
+
+      setState("connecting");
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      safeLog("jack_gpt_webrtc_offer_created");
+
+      const baseUrl = "https://api.openai.com/v1/realtime";
+      const sdpRes = await fetch(
+        `${baseUrl}?model=${encodeURIComponent(session.realtime_model)}`,
+        {
+          method: "POST",
+          body: offer.sdp,
+          headers: {
+            Authorization: `Bearer ${session.client_secret}`,
+            "Content-Type": "application/sdp",
+            "OpenAI-Beta": "realtime=v1",
+          },
+        },
+      );
+      if (!sdpRes.ok) {
+        throw new Error(`sdp_exchange_failed:${sdpRes.status}`);
+      }
+      safeLog("jack_gpt_webrtc_answer_received");
+      const answer: RTCSessionDescriptionInit = {
+        type: "answer",
+        sdp: await sdpRes.text(),
+      };
+      await pc.setRemoteDescription(answer);
+      setDiagnostics((d) => ({ ...d, sessionMode: session.mode }));
+    },
+    [handleDcMessage, safeLog, pushLog],
+  );
+
   const start = useCallback(async () => {
     if (!status?.configured) return;
     setLastError(null);
+    setRetryNotice(null);
     setLog([]);
 
-    // 1) Microphone permission first — surface early.
     if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
       setMicState("unsupported");
       setState("error");
@@ -315,121 +465,183 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     }
     localStreamRef.current = stream;
 
-    // 2) Create ephemeral session.
-    setState("creating_session");
-    safeLog("jack_gpt_session_requested");
-    try {
-      const session = await sessionFn({ data: { brain_id: brainId, mode: "jack_gpt" } });
+    // Helper: create + connect a single attempt.
+    const attempt = async (
+      minimal: boolean,
+    ): Promise<{ ok: true } | { ok: false; classified: ClassifiedRealtimeStartError }> => {
+      setState("creating_session");
+      safeLog("jack_gpt_session_requested", { minimal });
+      const session = await sessionFn({
+        data: { brain_id: brainId, mode: "jack_gpt", minimal },
+      });
       if (!session.ok) {
-        setState("error");
-        const msg = `Sessione fallita (${session.error}). Controlla i secrets OpenAI.`;
-        setLastError(msg);
-        pushLog({ kind: "error", text: msg });
-        safeLog("jack_gpt_session_failed", { error: session.error });
-        toast.error("Impossibile avviare Jack GPT Mode");
-        teardown();
-        return;
+        const classified = classifyRealtimeStartError({
+          error: session.error,
+          status: session.status,
+          detail: session.detail,
+        });
+        return { ok: false, classified };
       }
       safeLog("jack_gpt_session_created", {
         model: session.realtime_model,
         mode: session.mode,
       });
-
-      // 3) WebRTC setup.
-      const pc = new RTCPeerConnection();
-      pcRef.current = pc;
-
-      const audioEl = audioElRef.current ?? new Audio();
-      audioEl.autoplay = true;
-      audioElRef.current = audioEl;
-      pc.ontrack = (e) => {
-        audioEl.srcObject = e.streams[0];
-      };
-      pc.oniceconnectionstatechange = () => {
-        const s = pc.iceConnectionState;
-        if (s === "failed" || s === "disconnected" || s === "closed") {
-          if (state !== "idle") {
-            setLastError("Connessione WebRTC interrotta.");
-          }
-        }
-      };
-
-      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-
-      const dc = pc.createDataChannel("oai-events");
-      dcRef.current = dc;
-      dc.onopen = () => {
-        setState("listening");
-        pushLog({ kind: "system", text: "Connessione attiva. Puoi parlare." });
-        safeLog("jack_gpt_data_channel_opened");
-        safeLog("jack_gpt_connected");
-        // Always send a defensive session.update with instructions to ensure persona.
-        if (!sessionUpdateSentRef.current) {
-          try {
-            dc.send(
-              JSON.stringify({
-                type: "session.update",
-                session: {
-                  // server already injected these in "full" mode; harmless reaffirmation
-                  modalities: ["audio", "text"],
-                  voice: "alloy",
-                },
-              }),
-            );
-            sessionUpdateSentRef.current = true;
-            safeLog("jack_gpt_session_update_sent");
-          } catch {
-            /* noop */
-          }
-        }
-      };
-      dc.onclose = () => {
-        safeLog("jack_gpt_data_channel_closed");
-      };
-      dc.onmessage = handleDcMessage;
-
-      setState("connecting");
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      safeLog("jack_gpt_webrtc_offer_created");
-
-      const baseUrl = "https://api.openai.com/v1/realtime";
-      const sdpRes = await fetch(
-        `${baseUrl}?model=${encodeURIComponent(session.realtime_model)}`,
-        {
-          method: "POST",
-          body: offer.sdp,
-          headers: {
-            Authorization: `Bearer ${session.client_secret}`,
-            "Content-Type": "application/sdp",
-            "OpenAI-Beta": "realtime=v1",
-          },
-        },
-      );
-      if (!sdpRes.ok) {
-        throw new Error(`SDP exchange failed: ${sdpRes.status}`);
+      try {
+        await connectWebRTC(session, stream);
+        return { ok: true };
+      } catch (err) {
+        const message = String((err as Error).message ?? err);
+        const status = /sdp_exchange_failed:(\d+)/.exec(message)?.[1];
+        const classified = classifyRealtimeStartError({
+          error: status ? "sdp_exchange_failed" : "unknown",
+          status: status ? Number(status) : undefined,
+          message,
+        });
+        teardown();
+        return { ok: false, classified };
       }
-      safeLog("jack_gpt_webrtc_answer_received");
-      const answer: RTCSessionDescriptionInit = {
-        type: "answer",
-        sdp: await sdpRes.text(),
-      };
-      await pc.setRemoteDescription(answer);
-    } catch (err) {
-      const msg = String((err as Error).message ?? err);
+    };
+
+    // First attempt: full mode.
+    const first = await attempt(false);
+    if (first.ok) return;
+
+    const c1 = first.classified;
+    setDiagnostics((d) => ({ ...d, lastSafeError: c1.user_message }));
+    safeLog("jack_gpt_session_full_failed", {
+      kind: c1.kind,
+      status: c1.status ?? null,
+    });
+
+    if (c1.kind === "model_not_found") {
+      safeLog("jack_gpt_model_not_found", { status: c1.status ?? null });
+      setLastError(c1.user_message);
       setState("error");
-      setLastError(msg);
-      pushLog({ kind: "error", text: msg });
+      teardown();
+      toast.error("Modello realtime non disponibile");
+      return;
+    }
+
+    if (!c1.retryable_with_minimal) {
+      setLastError(c1.user_message);
+      pushLog({ kind: "error", text: c1.user_message });
+      setState("error");
       teardown();
       toast.error("Connessione Jack GPT Mode fallita");
+      return;
     }
-  }, [status, sessionFn, safeLog, handleDcMessage, brainId, pushLog, teardown, state]);
+
+    // Retry once in minimal mode.
+    setRetryNotice("Primo tentativo fallito, riprovo in modalità compatibile…");
+    safeLog("jack_gpt_session_minimal_retry_started", { kind: c1.kind });
+    pushLog({ kind: "system", text: "Riprovo in modalità compatibile…" });
+
+    // Re-acquire mic if it was stopped by teardown during failure path.
+    if (!localStreamRef.current || localStreamRef.current.getTracks().every((t) => t.readyState === "ended")) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStreamRef.current = stream;
+      } catch (err) {
+        const info = classifyMediaError(err);
+        setLastError(info.friendly);
+        setState("error");
+        safeLog("jack_gpt_session_minimal_retry_failed", { reason: "mic_reacquire" });
+        return;
+      }
+    } else {
+      stream = localStreamRef.current;
+    }
+
+    const second = await attempt(true);
+    if (second.ok) {
+      setRetryNotice("Modalità compatibile attiva: tools inviati dopo la connessione.");
+      safeLog("jack_gpt_session_minimal_retry_succeeded");
+      return;
+    }
+    const c2 = second.classified;
+    safeLog("jack_gpt_session_minimal_retry_failed", {
+      kind: c2.kind,
+      status: c2.status ?? null,
+    });
+    setRetryNotice(null);
+    setLastError(c2.user_message);
+    pushLog({ kind: "error", text: c2.user_message });
+    setState("error");
+    teardown();
+    toast.error("Connessione Jack GPT Mode fallita anche in modalità compatibile");
+  }, [status, sessionFn, safeLog, brainId, pushLog, teardown, connectWebRTC]);
 
   const stop = useCallback(() => {
     teardown();
     setState(status?.configured ? "idle" : "not_configured");
     safeLog("jack_gpt_disconnected");
   }, [teardown, status, safeLog]);
+
+  const resetVoice = useCallback(() => {
+    safeLog("jack_gpt_reset_requested");
+    teardown();
+    setLog([]);
+    setLastError(null);
+    setRetryNotice(null);
+    setMicState("unknown");
+    setState(status?.configured ? "idle" : "not_configured");
+    setDiagnostics((d) => ({
+      ...d,
+      sessionMode: "none",
+      dataChannelState: "none",
+      lastEventType: null,
+      lastSafeError: null,
+      lastToolCalled: null,
+    }));
+    safeLog("jack_gpt_reset_completed");
+    toast.success("Reset completato: puoi riavviare Jack.");
+  }, [teardown, status, safeLog]);
+
+  const testConnection = useCallback(async () => {
+    setTesting(true);
+    safeLog("jack_gpt_connection_test_started");
+    try {
+      const res = await statusFn();
+      setStatus(res);
+      const message = res.configured
+        ? `OpenAI configurato. Modello attivo: ${res.model}${res.model_source === "fallback" ? " (fallback)" : ""}.`
+        : "OpenAI non configurato: aggiungi OPENAI_API_KEY nei secrets.";
+      const result: TestConnectionResult = {
+        ok: res.configured,
+        configured: res.configured,
+        model: res.model,
+        model_source: res.model_source,
+        warning: res.model_warning,
+        privacy_mode: res.privacy_mode,
+        server_time: res.server_time,
+        message,
+      };
+      setDiagnostics((d) => ({ ...d, lastTest: result }));
+      safeLog("jack_gpt_connection_test_completed", {
+        configured: res.configured,
+        model: res.model,
+      });
+      if (res.configured) toast.success(message);
+      else toast.warning(message);
+    } catch (err) {
+      const message = "Test connessione fallito.";
+      const result: TestConnectionResult = {
+        ok: false,
+        configured: false,
+        model: null,
+        model_source: null,
+        warning: null,
+        privacy_mode: null,
+        server_time: null,
+        message,
+      };
+      setDiagnostics((d) => ({ ...d, lastTest: result, lastSafeError: message }));
+      safeLog("jack_gpt_connection_test_failed", { detail: String(err).slice(0, 120) });
+      toast.error(message);
+    } finally {
+      setTesting(false);
+    }
+  }, [statusFn, safeLog]);
 
   useEffect(() => () => teardown(), [teardown]);
 
@@ -471,6 +683,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     state === "connecting" ||
     state === "requesting_mic" ||
     state === "creating_session";
+
+  const isModelNotFoundError =
+    !!lastError &&
+    diagnostics.lastSafeError?.includes("modello realtime configurato non risulta disponibile") ===
+      true;
 
   return (
     <Card className="border-violet-500/20">
@@ -524,11 +741,26 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           </Alert>
         ) : null}
 
+        {retryNotice ? (
+          <Alert>
+            <Activity className="h-4 w-4" />
+            <AlertTitle>Modalità compatibile</AlertTitle>
+            <AlertDescription className="text-xs">{retryNotice}</AlertDescription>
+          </Alert>
+        ) : null}
+
         {lastError ? (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertTitle>Ultimo errore</AlertTitle>
-            <AlertDescription className="text-xs">{lastError}</AlertDescription>
+            <AlertDescription className="text-xs space-y-1">
+              <p>{lastError}</p>
+              {isModelNotFoundError ? (
+                <p>
+                  Modelli suggeriti: {SUGGESTED_REALTIME_MODELS.join(", ")}.
+                </p>
+              ) : null}
+            </AlertDescription>
           </Alert>
         ) : null}
 
@@ -558,6 +790,24 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               <MicOff className="h-4 w-4" /> Termina
             </Button>
           )}
+          <Button
+            onClick={testConnection}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={testing}
+          >
+            <Activity className="h-4 w-4" /> {testing ? "Test in corso…" : "Test connessione"}
+          </Button>
+          <Button
+            onClick={resetVoice}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={isLive}
+          >
+            <RotateCcw className="h-4 w-4" /> Reset Jack Voice
+          </Button>
           <Button asChild variant="outline" size="sm" className="gap-2">
             <Link to="/jack-memory">
               <Brain className="h-4 w-4" /> Jack Memory
@@ -568,6 +818,34 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               <FileText className="h-4 w-4" /> Daily Brief
             </Link>
           </Button>
+        </div>
+
+        <div className="rounded-md border bg-muted/30">
+          <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2">
+            <Activity className="h-3.5 w-3.5" /> Diagnostica Jack GPT
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 px-3 py-2 text-xs">
+            <div><span className="text-muted-foreground">OpenAI configurato:</span> {status?.configured ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Modello attivo:</span> {status?.model ?? "—"}</div>
+            <div><span className="text-muted-foreground">Model source:</span> {status?.model_source ?? "—"}</div>
+            <div><span className="text-muted-foreground">Session mode:</span> {diagnostics.sessionMode}</div>
+            <div><span className="text-muted-foreground">Mic:</span> {micLabel[micState].replace("Microfono: ", "")}</div>
+            <div><span className="text-muted-foreground">Connection:</span> {stateLabel[state]}</div>
+            <div><span className="text-muted-foreground">Data channel:</span> {diagnostics.dataChannelState}</div>
+            <div><span className="text-muted-foreground">Last event:</span> {diagnostics.lastEventType ?? "—"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Last tool:</span> {diagnostics.lastToolCalled ?? "—"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Last safe error:</span> {diagnostics.lastSafeError ?? "—"}</div>
+            <div><span className="text-muted-foreground">Cleanup:</span> {diagnostics.cleanupCount}</div>
+            <div><span className="text-muted-foreground">Privacy:</span> {status?.privacy_mode ?? "ephemeral_token_only"}</div>
+            {diagnostics.lastTest ? (
+              <div className="sm:col-span-2 pt-1 border-t mt-1">
+                <span className="text-muted-foreground">Ultimo test:</span> {diagnostics.lastTest.message}
+                {diagnostics.lastTest.server_time ? (
+                  <span className="text-muted-foreground"> · {diagnostics.lastTest.server_time}</span>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="rounded-md border bg-muted/30">
