@@ -219,6 +219,32 @@ function MasterSnapshotRoute() {
         </div>
       )}
 
+      {warnings.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Avvisi integrità versione ({warnings.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {warnings.map((w) => (
+              <div
+                key={w.id}
+                className={`rounded-md border p-2 text-xs ${
+                  w.level === "warning"
+                    ? "border-amber-400/40 bg-amber-500/10"
+                    : "border-sky-400/30 bg-sky-500/10"
+                }`}
+              >
+                <div className="font-medium">{w.title}</div>
+                <div className="text-muted-foreground">{w.description}</div>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground">
+              Prossima versione attesa all'approvazione: v{expectedNext}.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Current version */}
       <Card>
         <CardHeader>
@@ -228,7 +254,12 @@ function MasterSnapshotRoute() {
               Versione corrente — sola lettura
             </CardTitle>
             {current && (
-              <Badge className={STATUS_TONE.current}>v{current.version_label}</Badge>
+              <div className="flex items-center gap-2">
+                {isLegacyVersionLabel(current.version_label) && (
+                  <Badge variant="outline" className="text-[10px]">legacy label</Badge>
+                )}
+                <Badge className={STATUS_TONE.current}>v{getSnapshotVersionLabel(current)}</Badge>
+              </div>
             )}
           </div>
         </CardHeader>
