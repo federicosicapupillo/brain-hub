@@ -878,12 +878,12 @@ export async function createReviewFromCodeAgentJob(
     .from("code_agent_jobs")
     .update({
       result_review_item_id: review.id,
-      status: "review_created",
+      status: "review_ready",
       updated_at: new Date().toISOString(),
     })
     .eq("id", jobId)
     .eq("user_id", userId);
-  await logJobEvent(jobId, userId, "code_agent_job_review_created", { review_id: review.id });
+  await logJobEvent(jobId, userId, "code_agent_review_ready", { review_id: review.id });
   return review;
 }
 
