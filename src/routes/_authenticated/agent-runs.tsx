@@ -1,8 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowRight, Bot, Play, Save, FileText, ShieldCheck, Sparkles, Copy, ClipboardPaste } from "lucide-react";
+import { ArrowRight, Play, Save, FileText, ShieldCheck, Sparkles, Copy, ClipboardPaste, FolderOpen, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ import {
   createReviewFromAgentRun,
   createCodeHandoffFromAgentRun,
   archiveAgentRun,
+  getAgentRun,
   CONTEXT_SOURCE_LABEL,
   RUN_STATUS_LABEL,
   RUN_STATUS_TONE,
@@ -48,12 +49,13 @@ import {
   type AiHandoffStatus,
 } from "@/lib/agent-runs";
 
-type Search = { brain?: string; agent?: string };
+type Search = { brain?: string; agent?: string; run?: string };
 
 export const Route = createFileRoute("/_authenticated/agent-runs")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     brain: typeof s.brain === "string" ? s.brain : undefined,
     agent: typeof s.agent === "string" ? s.agent : undefined,
+    run: typeof s.run === "string" ? s.run : undefined,
   }),
   component: AgentRunsPage,
 });
@@ -83,6 +85,7 @@ const DEFAULT_SOURCES: ContextSourceKey[] = [
 
 function AgentRunsPage() {
   const search = Route.useSearch();
+  const navigate = useNavigate({ from: "/agent-runs" });
   const qc = useQueryClient();
 
   const { data: brains = [] } = useQuery({
@@ -132,8 +135,26 @@ function AgentRunsPage() {
     queryFn: () => listAgentRuns(brainId),
   });
 
-  const invalidate = () =>
-    qc.invalidateQueries({ queryKey: ["agent-runs", brainId] });
+  const {
+    data: openedRun,
+    isLoading: openedRunLoading,
+    error: openedRunError,
+  } = useQuery({
+    queryKey: ["agent-run-detail", search.run],
+    queryFn: () => getAgentRun(search.run as string),
+    enabled: !!search.run,
+  });
+
+  useEffect(() => {
+    if (openedRun) setCurrentRun(openedRun);
+  }, [openedRun]);
+
+  const invalidate = async () => {
+    await qc.invalidateQueries({ queryKey: ["agent-runs", brainId] });
+    if (search.run) {
+      await qc.invalidateQueries({ queryKey: ["agent-run-detail", search.run] });
+    }
+  };
 
   async function handleGeneratePreview() {
     if (!agentId || !objective.trim()) {
@@ -183,6 +204,9 @@ function AgentRunsPage() {
       setCurrentRun(completed);
       await invalidate();
       toast.success("Run salvata");
+      void navigate({
+        search: (prev: Search) => ({ ...prev, run: completed.id }),
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Errore salvataggio");
     } finally {
@@ -433,14 +457,63 @@ function AgentRunsPage() {
         </Card>
       )}
 
+      {search.run && openedRunLoading && !currentRun && (
+        <Card>
+          <CardContent className="py-4 text-sm text-muted-foreground">
+            Caricamento dettaglio run…
+          </CardContent>
+        </Card>
+      )}
+      {search.run && openedRunError && (
+        <Card className="border-destructive/50">
+          <CardContent className="py-4 text-sm text-destructive">
+            Impossibile caricare la run richiesta. Potrebbe non esistere o non
+            appartenere al tuo account.
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-2"
+              onClick={() =>
+                void navigate({
+                  search: (prev: Search) => ({ ...prev, run: undefined }),
+                })
+              }
+            >
+              Chiudi
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {currentRun && (
-        <AiHandoffCard
-          run={currentRun}
-          onRunUpdated={(r) => {
-            setCurrentRun(r);
-            void invalidate();
-          }}
-        />
+        <>
+          {search.run === currentRun.id && (
+            <div className="flex items-center justify-between rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
+              <span>
+                Dettaglio run aperto:{" "}
+                <span className="font-medium">{currentRun.objective}</span>
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  void navigate({
+                    search: (prev: Search) => ({ ...prev, run: undefined }),
+                  })
+                }
+              >
+                <X className="mr-1 h-3.5 w-3.5" /> Chiudi dettaglio
+              </Button>
+            </div>
+          )}
+          <AiHandoffCard
+            run={currentRun}
+            onRunUpdated={(r) => {
+              setCurrentRun(r);
+              void invalidate();
+            }}
+          />
+        </>
       )}
 
       <Card>
@@ -460,9 +533,15 @@ function AgentRunsPage() {
               <RunRow
                 key={r.id}
                 run={r}
+                isOpen={search.run === r.id}
                 agentName={
                   agents.find((a) => a.id === r.agent_id)?.name ?? r.agent_id
                 }
+                onOpen={() => {
+                  void navigate({
+                    search: (prev: Search) => ({ ...prev, run: r.id }),
+                  });
+                }}
                 onArchive={async () => {
                   await archiveAgentRun(r.id);
                   await invalidate();
@@ -479,10 +558,14 @@ function AgentRunsPage() {
 function RunRow({
   run,
   agentName,
+  isOpen,
+  onOpen,
   onArchive,
 }: {
   run: AgentRunLog;
   agentName: string;
+  isOpen: boolean;
+  onOpen: () => void;
   onArchive: () => Promise<void>;
 }) {
   const tone =
@@ -492,13 +575,22 @@ function RunRow({
     RUN_STATUS_LABEL[run.run_status as keyof typeof RUN_STATUS_LABEL] ??
     run.run_status;
   return (
-    <div className="flex items-start justify-between gap-3 rounded border p-3">
+    <div
+      className={`flex items-start justify-between gap-3 rounded border p-3 ${
+        isOpen ? "border-primary ring-1 ring-primary/40 bg-primary/5" : ""
+      }`}
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className={tone}>
             {label}
           </Badge>
           <span className="text-xs text-muted-foreground">{agentName}</span>
+          {isOpen && (
+            <Badge variant="secondary" className="text-[10px]">
+              aperta
+            </Badge>
+          )}
         </div>
         <div className="text-sm font-medium truncate mt-1">{run.objective}</div>
         {run.output_summary && (
@@ -513,11 +605,16 @@ function RunRow({
           {run.code_handoff_id && <span>• handoff ✓</span>}
         </div>
       </div>
-      {run.run_status !== "archived" && (
-        <Button size="sm" variant="ghost" onClick={onArchive}>
-          Archivia
+      <div className="flex flex-col gap-1 shrink-0">
+        <Button size="sm" variant="outline" onClick={onOpen} disabled={isOpen}>
+          <FolderOpen className="mr-1 h-3.5 w-3.5" /> Apri run
         </Button>
-      )}
+        {run.run_status !== "archived" && (
+          <Button size="sm" variant="ghost" onClick={onArchive}>
+            Archivia
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
