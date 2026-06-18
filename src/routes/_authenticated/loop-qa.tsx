@@ -318,7 +318,14 @@ function WarningRow({
     <div className={`rounded border p-2 ${tone}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="text-sm font-medium">{w.title}</div>
+          <div className="flex items-center gap-2">
+            {w.category && (
+              <Badge variant="outline" className="shrink-0 text-[10px]">
+                {w.category}
+              </Badge>
+            )}
+            <div className="text-sm font-medium">{w.title}</div>
+          </div>
           <div className="text-xs text-muted-foreground">{w.description}</div>
         </div>
         {w.cta && (
