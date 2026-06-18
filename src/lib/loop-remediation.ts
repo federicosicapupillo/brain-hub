@@ -245,53 +245,134 @@ type ActionRow = {
   id: string;
   status: string;
   metadata: Record<string, unknown> | null;
+  created_at: string;
+  brain_id: string | null;
 };
 
-async function fetchExistingRemediationActions(
+const OPEN_STATUSES = ["suggested", "pending_approval", "approved", "ready_to_execute"];
+const IN_PROGRESS_STATUSES = ["approved", "ready_to_execute"];
+const CREATED_STATUSES = ["suggested", "pending_approval"];
+const COMPLETED_STATUSES = ["executed"];
+const DISMISSED_STATUSES = ["rejected", "failed", "cancelled"];
+
+export type RemediationActionMap = Map<string, ActionRow[]>;
+
+async function fetchAllRemediationActions(
   brainId: string | null,
-): Promise<Map<string, ActionRow>> {
-  const openStatuses = ["suggested", "pending_approval", "approved", "ready_to_execute"];
+): Promise<RemediationActionMap> {
   let q = supabase
     .from("automation_actions" as never)
-    .select("id,status,metadata")
+    .select("id,status,metadata,created_at,brain_id")
     .eq("source", "loop_qa")
-    .in("status", openStatuses);
+    .order("created_at", { ascending: false });
   if (brainId) q = q.eq("brain_id", brainId);
   const { data } = await q;
   const rows = (data ?? []) as unknown as ActionRow[];
-  const map = new Map<string, ActionRow>();
+  const map: RemediationActionMap = new Map();
   for (const r of rows) {
     const md = (r.metadata ?? {}) as Record<string, unknown>;
     const wid = typeof md.source_warning_id === "string" ? md.source_warning_id : null;
-    if (wid && !map.has(wid)) map.set(wid, r);
+    if (!wid) continue;
+    const list = map.get(wid) ?? [];
+    list.push(r);
+    map.set(wid, list);
   }
   return map;
 }
 
+export async function getRemediationActionMap(
+  brainId?: string | null,
+): Promise<RemediationActionMap> {
+  return fetchAllRemediationActions(brainId ?? null);
+}
+
+function bestActionForWarning(rows: ActionRow[] | undefined): ActionRow | undefined {
+  if (!rows || rows.length === 0) return undefined;
+  // Priority: completed > in_progress > created > dismissed
+  const completed = rows.find((r) => COMPLETED_STATUSES.includes(r.status));
+  if (completed) return completed;
+  const inProgress = rows.find((r) => IN_PROGRESS_STATUSES.includes(r.status));
+  if (inProgress) return inProgress;
+  const created = rows.find((r) => CREATED_STATUSES.includes(r.status));
+  if (created) return created;
+  return rows[0];
+}
+
+function deriveStatusFromAction(
+  warningPresent: boolean,
+  action: ActionRow | undefined,
+): RemediationStatus {
+  if (!warningPresent) {
+    if (!action) return "resolved"; // no warning, no action: not relevant (filtered out)
+    return "resolved";
+  }
+  // warning present
+  if (!action) return "open";
+  if (COMPLETED_STATUSES.includes(action.status)) return "regressed";
+  if (IN_PROGRESS_STATUSES.includes(action.status)) return "action_in_progress";
+  if (CREATED_STATUSES.includes(action.status)) return "action_created";
+  if (DISMISSED_STATUSES.includes(action.status)) return "open";
+  return "open";
+}
+
 function toRemediationItem(
   w: LoopWarningWithMeta,
-  existing: ActionRow | undefined,
+  rows: ActionRow[] | undefined,
 ): RemediationItem {
   const sug = getRemediationSuggestionForWarning(w);
-  const status: RemediationStatus = existing ? "action_created" : "open";
+  const action = bestActionForWarning(rows);
+  const status = deriveStatusFromAction(true, action);
+  const hasOpenAction = action ? OPEN_STATUSES.includes(action.status) : false;
   return {
     id: `rem-${w.id}`,
     warning_id: w.id,
     area: w.area,
     severity: w.severity,
-    priority_score: rankLoopWarningForRemediation(w),
+    priority_score: rankLoopWarningForRemediation(w) + (status === "regressed" ? 200 : 0),
     title: w.title,
     explanation: explain(w),
     why_it_matters: sug.why_it_matters ?? "Migliora la salute operativa di Brain Hub.",
     recommended_action: sug.recommended_action,
     cta_label: sug.cta_label ?? "Apri",
     cta_href: sug.cta_href ?? "/loop-qa",
-    can_create_action: sug.can_create_action !== false && !existing,
+    can_create_action: sug.can_create_action !== false && !hasOpenAction,
     suggested_action_title: sug.suggested_action_title,
     suggested_action_description: sug.suggested_action_description,
     suggested_action_type: sug.suggested_action_type,
     suggested_action_risk: sug.suggested_action_risk,
     status,
+    linked_action_id: action?.id ?? null,
+    linked_action_status: action?.status ?? null,
+  };
+}
+
+function toResolvedItem(
+  warningId: string,
+  rows: ActionRow[],
+): RemediationItem {
+  const action = bestActionForWarning(rows);
+  // resolved items have no current warning, so we don't have full meta;
+  // synthesise the minimum required for UI.
+  return {
+    id: `rem-${warningId}`,
+    warning_id: warningId,
+    area: "general",
+    severity: "info",
+    priority_score: 0,
+    title: warningId,
+    explanation: "Warning non più rilevato.",
+    why_it_matters: "Remediation chiusa con successo.",
+    recommended_action: "Nessuna azione richiesta.",
+    cta_label: "Apri Action Queue",
+    cta_href: "/action-queue",
+    can_create_action: false,
+    suggested_action_title: "",
+    suggested_action_description: "",
+    suggested_action_type: "manual_task",
+    suggested_action_risk: "low",
+    status: "resolved",
+    linked_action_id: action?.id ?? null,
+    linked_action_status: action?.status ?? null,
   };
 }
 
@@ -317,27 +398,43 @@ export async function buildOperationalRemediationPlan(
 ): Promise<RemediationPlan> {
   const summary = await getLoopQaSummary(brainId ?? null);
   const annotated = annotateWarnings(summary.warnings);
-  const existing = await fetchExistingRemediationActions(brainId ?? null);
+  const actionMap = await fetchAllRemediationActions(brainId ?? null);
 
-  const items = annotated
-    .map((w) => toRemediationItem(w, existing.get(w.id)))
-    .sort((a, b) => b.priority_score - a.priority_score);
+  const currentWarningIds = new Set(annotated.map((w) => w.id));
+  const items = annotated.map((w) => toRemediationItem(w, actionMap.get(w.id)));
+
+  // Detect resolved: warning no longer present but action exists
+  for (const [wid, rows] of actionMap.entries()) {
+    if (currentWarningIds.has(wid)) continue;
+    items.push(toResolvedItem(wid, rows));
+  }
+
+  items.sort((a, b) => b.priority_score - a.priority_score);
 
   const byArea = groupRemediationItemsByArea(items);
   const byAreaCount: Record<LoopWarningArea, number> = {
-    code_agent: byArea.code_agent.filter((i) => i.status === "open").length,
-    github_registry: byArea.github_registry.filter((i) => i.status === "open").length,
-    master_snapshot: byArea.master_snapshot.filter((i) => i.status === "open").length,
-    automation_n8n: byArea.automation_n8n.filter((i) => i.status === "open").length,
-    telegram: byArea.telegram.filter((i) => i.status === "open").length,
-    drive_calendar_gmail: byArea.drive_calendar_gmail.filter((i) => i.status === "open").length,
-    jack: byArea.jack.filter((i) => i.status === "open").length,
-    general: byArea.general.filter((i) => i.status === "open").length,
+    code_agent: byArea.code_agent.filter((i) => i.status === "open" || i.status === "regressed").length,
+    github_registry: byArea.github_registry.filter((i) => i.status === "open" || i.status === "regressed").length,
+    master_snapshot: byArea.master_snapshot.filter((i) => i.status === "open" || i.status === "regressed").length,
+    automation_n8n: byArea.automation_n8n.filter((i) => i.status === "open" || i.status === "regressed").length,
+    telegram: byArea.telegram.filter((i) => i.status === "open" || i.status === "regressed").length,
+    drive_calendar_gmail: byArea.drive_calendar_gmail.filter((i) => i.status === "open" || i.status === "regressed").length,
+    jack: byArea.jack.filter((i) => i.status === "open" || i.status === "regressed").length,
+    general: byArea.general.filter((i) => i.status === "open" || i.status === "regressed").length,
   };
 
-  const open = items.filter((i) => i.status === "open").length;
-  const actionCreated = items.filter((i) => i.status === "action_created").length;
-  const next = items.find((i) => i.status === "open") ?? null;
+  const count = (s: RemediationStatus) => items.filter((i) => i.status === s).length;
+  const open = count("open");
+  const actionCreated = count("action_created");
+  const actionInProgress = count("action_in_progress");
+  const actionCompleted = count("action_completed");
+  const resolved = count("resolved");
+  const regressed = count("regressed");
+
+  const next =
+    items.find((i) => i.status === "regressed") ??
+    items.find((i) => i.status === "open") ??
+    null;
 
   const plan: RemediationPlan = {
     brain_id: brainId ?? null,
@@ -345,6 +442,10 @@ export async function buildOperationalRemediationPlan(
     total: items.length,
     open,
     action_created: actionCreated,
+    action_in_progress: actionInProgress,
+    action_completed: actionCompleted,
+    resolved,
+    regressed,
     by_area: byAreaCount,
     items,
     next,
@@ -355,13 +456,20 @@ export async function buildOperationalRemediationPlan(
     total: items.length,
     open,
     action_created: actionCreated,
+    action_in_progress: actionInProgress,
+    action_completed: actionCompleted,
+    resolved,
+    regressed,
     next_warning_id: next?.warning_id ?? null,
     next_area: next?.area ?? null,
     next_severity: next?.severity ?? null,
+    next_status: next?.status ?? null,
   });
 
   return plan;
 }
+
+
 
 export async function getNextRemediationItem(
   brainId?: string | null,
