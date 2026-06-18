@@ -356,7 +356,7 @@ function CodeAgentJobsPage() {
 
   // Keep legacy bindings reachable.
   void markCodeAgentJobReady;
-  void createCodeAgentJobFromBrowser;
+  void createJobFn;
 
   const handleSaveResult = async () => {
     if (!openDetail) return;
