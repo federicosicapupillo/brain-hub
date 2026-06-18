@@ -666,7 +666,7 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               tool_name: "create_controlled_action",
               brain_id: (args.brain_id as string | undefined) ?? null,
             });
-            return dup;
+            return dup as ToolReturn;
           }
 
           const res = await createControlledJackAction({
