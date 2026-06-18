@@ -33,11 +33,13 @@ import {
   markJackVoicePlayed,
 } from "@/lib/jack-voice.functions";
 import type { DailyBriefRow } from "@/lib/daily-operating-brief";
+import type { BrainRef } from "@/lib/project-aliases";
 
 type Props = {
   brainId?: string | null;
   briefId?: string | null;
   currentBrief?: DailyBriefRow | null;
+  brains?: BrainRef[];
 };
 
 type Phase =
