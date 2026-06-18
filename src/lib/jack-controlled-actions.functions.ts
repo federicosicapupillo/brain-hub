@@ -129,7 +129,48 @@ async function insertAction(
     return (res?.data?.id as string) ?? null;
   } catch {
     return null;
+}
+
+async function findExistingActionByIdempotencyKey(
+  supabase: unknown,
+  userId: string,
+  brainId: string | null,
+  idempotencyKey: string,
+): Promise<string | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    let q = sb
+      .from("automation_actions")
+      .select("id,status,metadata")
+      .eq("user_id", userId)
+      .eq("metadata->>jack_idempotency_key", idempotencyKey)
+      .not("status", "in", "(completed,cancelled,failed,rejected,archived)")
+      .limit(1);
+    if (brainId) q = q.eq("brain_id", brainId);
+    const res = await q;
+    const rows = (res?.data ?? []) as Array<{ id: string }>;
+    return rows[0]?.id ?? null;
+  } catch {
+    return null;
   }
+}
+
+async function logSanitizedEvent(
+  supabase: unknown,
+  userId: string,
+  event: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any)
+      .from("agent_event_log")
+      .insert({ user_id: userId, event_type: event, metadata });
+  } catch {
+    // best-effort
+  }
+}
 }
 
 async function insertTelegramApproval(
