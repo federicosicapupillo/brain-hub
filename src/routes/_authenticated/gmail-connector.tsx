@@ -254,7 +254,12 @@ function GmailConnectorRoute() {
             to="/email-daily-brief"
             search={{ brain: brainId ?? undefined }}
           >
-            Apri Daily Brief
+            Apri Daily Brief (email)
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link to="/daily-brief" search={{ brain: brainId ?? undefined }}>
+            Includi nel Daily Brief
           </Link>
         </Button>
       </div>
