@@ -399,6 +399,237 @@ function JackMemoryPage() {
           )}
         </CardContent>
       </Card>
+
+      <ConversationalMemoriesSection />
+    </div>
+  );
+}
+
+function ConversationalMemoriesSection() {
+  const [entries, setEntries] = useState<JackMemoryEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [filterCat, setFilterCat] = useState<string>("");
+
+  const refresh = async () => {
+    setLoading(true);
+    try {
+      const data = await listJackMemoryEntries({
+        status: ["active", "suggested", "archived"],
+        limit: 200,
+      });
+      setEntries(data);
+    } catch (e) {
+      toast.error("Errore", { description: String(e) });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void refresh();
+  }, []);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return entries.filter((e) => {
+      if (filterCat && e.category !== filterCat) return false;
+      if (q && !e.content.toLowerCase().includes(q) && !(e.project_name ?? "").toLowerCase().includes(q)) {
+        return false;
+      }
+      return true;
+    });
+  }, [entries, query, filterCat]);
+
+  const active = filtered.filter((e) => e.status === "active");
+  const suggested = filtered.filter((e) => e.status === "suggested");
+  const archived = filtered.filter((e) => e.status === "archived");
+
+  const doArchive = async (id: string) => {
+    try {
+      await archiveJackMemoryEntry(id);
+      toast("Memoria archiviata");
+      await refresh();
+    } catch (e) {
+      toast.error("Errore", { description: String(e) });
+    }
+  };
+  const doApprove = async (id: string) => {
+    try {
+      await approveJackMemoryEntry(id);
+      toast("Memoria approvata");
+      await refresh();
+    } catch (e) {
+      toast.error("Errore", { description: String(e) });
+    }
+  };
+  const doReject = async (id: string) => {
+    try {
+      await rejectJackMemoryEntry(id);
+      toast("Memoria rifiutata");
+      await refresh();
+    } catch (e) {
+      toast.error("Errore", { description: String(e) });
+    }
+  };
+
+  const categories = [
+    "",
+    "identity",
+    "preference",
+    "project_rule",
+    "project_context",
+    "business_context",
+    "communication_style",
+    "tooling",
+    "safety_rule",
+    "general",
+  ];
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <BrainCog className="h-4 w-4" />
+          Memorie conversazionali
+          <Badge variant="outline" className="ml-2">
+            {active.length} attive
+          </Badge>
+          {suggested.length > 0 ? (
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+              {suggested.length} suggerite
+            </Badge>
+          ) : null}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div className="flex flex-wrap gap-2">
+          <Input
+            placeholder="Cerca…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="max-w-xs"
+          />
+          <select
+            value={filterCat}
+            onChange={(e) => setFilterCat(e.target.value)}
+            className="border rounded px-2 py-1 text-xs bg-background"
+          >
+            {categories.map((c) => (
+              <option key={c || "all"} value={c}>
+                {c || "tutte le categorie"}
+              </option>
+            ))}
+          </select>
+          <Button size="sm" variant="ghost" onClick={() => void refresh()}>
+            Aggiorna
+          </Button>
+        </div>
+
+        {loading ? (
+          <p className="text-muted-foreground">Caricamento…</p>
+        ) : (
+          <>
+            {suggested.length > 0 ? (
+              <div className="space-y-2">
+                <div className="font-medium text-xs uppercase text-amber-700">
+                  Da approvare
+                </div>
+                {suggested.map((e) => (
+                  <EntryRow
+                    key={e.id}
+                    entry={e}
+                    actions={
+                      <>
+                        <Button size="sm" onClick={() => doApprove(e.id)}>
+                          Approva
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => doReject(e.id)}>
+                          Rifiuta
+                        </Button>
+                      </>
+                    }
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <div className="font-medium text-xs uppercase text-muted-foreground">
+                Attive ({active.length})
+              </div>
+              {active.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  Nessuna memoria conversazionale. Dì a Jack "memorizza che…" per crearne.
+                </p>
+              ) : (
+                active.map((e) => (
+                  <EntryRow
+                    key={e.id}
+                    entry={e}
+                    actions={
+                      <Button size="sm" variant="ghost" onClick={() => doArchive(e.id)}>
+                        Archivia
+                      </Button>
+                    }
+                  />
+                ))
+              )}
+            </div>
+
+            {archived.length > 0 ? (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-muted-foreground">
+                  Archiviate ({archived.length})
+                </summary>
+                <div className="mt-2 space-y-1">
+                  {archived.slice(0, 30).map((e) => (
+                    <EntryRow key={e.id} entry={e} muted />
+                  ))}
+                </div>
+              </details>
+            ) : null}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EntryRow({
+  entry,
+  actions,
+  muted,
+}: {
+  entry: JackMemoryEntry;
+  actions?: React.ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <div
+      className={`flex flex-wrap items-start gap-2 rounded border p-2 ${muted ? "opacity-60" : ""}`}
+    >
+      <div className="flex-1 min-w-0">
+        <div className="text-sm">{entry.content}</div>
+        <div className="text-[10px] text-muted-foreground flex flex-wrap gap-2 mt-1">
+          <Badge variant="secondary" className="text-[10px]">
+            {entry.category}
+          </Badge>
+          {entry.project_name ? (
+            <Badge variant="outline" className="text-[10px]">
+              {entry.project_name}
+            </Badge>
+          ) : null}
+          {entry.sensitivity !== "normal" ? (
+            <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 border-amber-500/30">
+              {entry.sensitivity}
+            </Badge>
+          ) : null}
+          <span>fonte: {entry.source}</span>
+          <span>{new Date(entry.created_at).toLocaleString()}</span>
+        </div>
+      </div>
+      {actions ? <div className="flex gap-1">{actions}</div> : null}
     </div>
   );
 }
