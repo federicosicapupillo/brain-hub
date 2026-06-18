@@ -221,7 +221,7 @@ function DailyBriefRoute() {
         </Button>
       </div>
 
-      <JackVoiceCommand brainId={brainId} briefId={brief?.id ?? null} />
+      <JackVoiceCommand brainId={brainId} briefId={brief?.id ?? null} currentBrief={brief} />
 
 
 
