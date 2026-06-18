@@ -160,7 +160,9 @@ export async function getGmailSummary(
 ): Promise<GmailSummary> {
   const conns = await listGmailConnections(brainId ?? null);
   const conn =
-    conns.find((c) => c.status === "connected") ?? conns[0] ?? null;
+    conns.find((c) => c.status === "connected" || c.status === "active") ??
+    conns[0] ??
+    null;
 
   let totalMessages = 0;
   let todayCount = 0;
@@ -168,45 +170,41 @@ export async function getGmailSummary(
   let actionSuggestedCount = 0;
 
   if (conn) {
-    let baseQ = supabase
+    // Messages are scoped by connection_id (already user/account-scoped).
+    // brain_id on messages can be null when sync happened without brain context,
+    // so we do NOT filter by brain_id here — would hide all rows.
+    const { count: t } = await supabase
       .from("gmail_message_map")
       .select("id", { count: "exact", head: true })
       .eq("connection_id", conn.id);
-    if (brainId) baseQ = baseQ.eq("brain_id", brainId);
-    const { count: t } = await baseQ;
     totalMessages = t ?? 0;
 
-    let todayQ = supabase
+    const { count: tc } = await supabase
       .from("gmail_message_map")
       .select("id", { count: "exact", head: true })
       .eq("connection_id", conn.id)
       .gte("internal_date", startOfTodayIso());
-    if (brainId) todayQ = todayQ.eq("brain_id", brainId);
-    const { count: tc } = await todayQ;
     todayCount = tc ?? 0;
 
-    let hpQ = supabase
+    const { count: hc } = await supabase
       .from("gmail_message_map")
       .select("id", { count: "exact", head: true })
       .eq("connection_id", conn.id)
       .eq("detected_priority", "high");
-    if (brainId) hpQ = hpQ.eq("brain_id", brainId);
-    const { count: hc } = await hpQ;
     highPriorityCount = hc ?? 0;
 
-    let asQ = supabase
-      .from("gmail_message_map")
+    // Count actions created from Gmail via metadata.source_label = 'gmail_connector'.
+    // RLS already scopes to current user.
+    const { count: ac } = await supabase
+      .from("automation_actions")
       .select("id", { count: "exact", head: true })
-      .eq("connection_id", conn.id)
-      .is("linked_action_id", null)
-      .in("detected_priority", ["high", "medium"]);
-    if (brainId) asQ = asQ.eq("brain_id", brainId);
-    const { count: ac } = await asQ;
+      .filter("metadata->>source_label", "eq", "gmail_connector");
     actionSuggestedCount = ac ?? 0;
   }
 
   return {
-    connected: !!conn && conn.status === "connected",
+    connected:
+      !!conn && (conn.status === "connected" || conn.status === "active"),
     connection: conn,
     totalMessages,
     todayCount,
@@ -216,6 +214,7 @@ export async function getGmailSummary(
     lastSyncStatus: conn?.last_sync_status ?? null,
   };
 }
+
 
 export async function listSyncedEmails(
   brainId?: string | null,
