@@ -63,6 +63,7 @@ import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 import { Route as AuthenticatedImportaPromptStoriciRouteImport } from './routes/_authenticated/importa.prompt-storici'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
+import { Route as ApiPublicGmailOauthCallbackRouteImport } from './routes/api/public/gmail-oauth/callback'
 import { Route as ApiPublicDriveOauthCallbackRouteImport } from './routes/api/public/drive-oauth/callback'
 import { Route as ApiPublicCalendarOauthCallbackRouteImport } from './routes/api/public/calendar-oauth/callback'
 
@@ -368,6 +369,12 @@ const ApiPublicTelegramWebhookRoute =
     path: '/api/public/telegram/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGmailOauthCallbackRoute =
+  ApiPublicGmailOauthCallbackRouteImport.update({
+    id: '/api/public/gmail-oauth/callback',
+    path: '/api/public/gmail-oauth/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicDriveOauthCallbackRoute =
   ApiPublicDriveOauthCallbackRouteImport.update({
     id: '/api/public/drive-oauth/callback',
@@ -436,6 +443,7 @@ export interface FileRoutesByFullPath {
   '/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
+  '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -492,6 +500,7 @@ export interface FileRoutesByTo {
   '/importa': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
+  '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
@@ -551,6 +560,7 @@ export interface FileRoutesById {
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
+  '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
@@ -610,6 +620,7 @@ export interface FileRouteTypes {
     | '/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
+    | '/api/public/gmail-oauth/callback'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -666,6 +677,7 @@ export interface FileRouteTypes {
     | '/importa'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
+    | '/api/public/gmail-oauth/callback'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
@@ -724,6 +736,7 @@ export interface FileRouteTypes {
     | '/_authenticated/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
+    | '/api/public/gmail-oauth/callback'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -734,6 +747,7 @@ export interface RootRouteChildren {
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
   ApiPublicCalendarOauthCallbackRoute: typeof ApiPublicCalendarOauthCallbackRoute
   ApiPublicDriveOauthCallbackRoute: typeof ApiPublicDriveOauthCallbackRoute
+  ApiPublicGmailOauthCallbackRoute: typeof ApiPublicGmailOauthCallbackRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
@@ -1117,6 +1131,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/gmail-oauth/callback': {
+      id: '/api/public/gmail-oauth/callback'
+      path: '/api/public/gmail-oauth/callback'
+      fullPath: '/api/public/gmail-oauth/callback'
+      preLoaderRoute: typeof ApiPublicGmailOauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/drive-oauth/callback': {
       id: '/api/public/drive-oauth/callback'
       path: '/api/public/drive-oauth/callback'
@@ -1269,6 +1290,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
   ApiPublicCalendarOauthCallbackRoute: ApiPublicCalendarOauthCallbackRoute,
   ApiPublicDriveOauthCallbackRoute: ApiPublicDriveOauthCallbackRoute,
+  ApiPublicGmailOauthCallbackRoute: ApiPublicGmailOauthCallbackRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport
