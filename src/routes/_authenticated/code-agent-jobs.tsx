@@ -719,9 +719,101 @@ function CodeAgentJobsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RecentBlocksSection brainId={brainId} />
     </div>
   );
 }
+
+type BlockedEventRow = {
+  created_at: string;
+  event_data: Record<string, unknown> | null;
+  job_id: string | null;
+};
+
+function RecentBlocksSection({ brainId }: { brainId: string | null }) {
+  const { data: events = [] } = useQuery({
+    queryKey: ["code-agent-recent-blocks", brainId],
+    queryFn: async (): Promise<BlockedEventRow[]> => {
+      const sinceIso = new Date(Date.now() - 24 * 3_600_000).toISOString();
+      let q = supabase
+        .from("code_agent_job_events")
+        .select("created_at,event_data,job_id")
+        .eq("event_type", "code_agent_transition_blocked")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (brainId) {
+        const { data: jobs } = await supabase
+          .from("code_agent_jobs")
+          .select("id")
+          .eq("brain_id", brainId);
+        const ids = (jobs ?? []).map((r: { id: string }) => r.id);
+        if (ids.length === 0) return [];
+        q = q.in("job_id", ids);
+      }
+      const { data } = await q;
+      return (data ?? []) as BlockedEventRow[];
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" /> Ultimi blocchi transizione (24h)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {events.length === 0 ? (
+          <div className="rounded border border-dashed p-4 text-center text-sm text-muted-foreground">
+            Nessun blocco recente.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {events.map((e, i) => {
+              const d = e.event_data ?? {};
+              const reason = (d.reason as string | undefined) ?? "—";
+              const action = (d.requested_action as string | undefined) ?? "—";
+              const target = (d.target_status as string | undefined) ?? "—";
+              const status = (d.current_status as string | undefined) ?? "—";
+              const approval = (d.current_approval_status as string | undefined) ?? "—";
+              const repo =
+                (d.repository_resolution_status as string | undefined) ?? "—";
+              const risk = (d.risk_level as string | undefined) ?? "—";
+              return (
+                <div
+                  key={`${e.created_at}-${i}`}
+                  className="rounded border bg-amber-500/5 p-2 text-xs"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground">
+                      {new Date(e.created_at).toLocaleString()}
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      action: {action} → {target}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      reason: {reason}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      risk: {risk}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 text-muted-foreground">
+                    status: <code>{status}</code> · approval:{" "}
+                    <code>{approval}</code> · repo: <code>{repo}</code>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function Tile({ label, value }: { label: string; value: number }) {
   return (
