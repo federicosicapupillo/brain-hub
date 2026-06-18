@@ -847,6 +847,55 @@ function AiHandoffCard({
           </div>
         </div>
 
+        {run.ai_result_text && (
+          <div className="rounded-md border bg-muted/30 p-2 space-y-2">
+            <div className="text-xs font-semibold flex items-center justify-between">
+              <span>Risultato AI salvato</span>
+              <span className="flex gap-1">
+                <Badge variant="outline" className="text-[10px]">
+                  status: {status}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  provider: {run.ai_provider ?? "—"}
+                </Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {run.ai_result_text.length} char
+                </Badge>
+              </span>
+            </div>
+            <pre className="text-[11px] whitespace-pre-wrap font-mono leading-snug max-h-32 overflow-auto">
+              {run.ai_result_text.slice(0, 300)}
+              {run.ai_result_text.length > 300 ? "…" : ""}
+            </pre>
+            {(() => {
+              const ex = extractSuggestedActionFromAiResult(run.ai_result_text);
+              return (
+                <div className="grid grid-cols-2 gap-1 text-[11px] pt-1 border-t">
+                  <div className="font-semibold col-span-2">
+                    Preview parser (estratto da ai_result_text):
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">title:</span>{" "}
+                    <span className="font-mono">{ex.title ?? "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">action_type:</span>{" "}
+                    <span className="font-mono">{ex.action_type ?? "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">risk_level:</span>{" "}
+                    <span className="font-mono">{ex.risk_level ?? "—"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">priority:</span>{" "}
+                    <span className="font-mono">{ex.priority ?? "—"}</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
         <p className="text-[11px] text-muted-foreground">
           Nessuna API AI chiamata. Brain Hub prepara solo il prompt — usi
           l'AI esterna manualmente e incolli il risultato qui.
