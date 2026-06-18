@@ -38,11 +38,24 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     type: "function",
     name: "get_daily_brief",
     description:
-      "Restituisce il Daily Operating Brief di oggi. Read-only.",
+      "Restituisce il Daily Operating Brief di oggi se presente, sempre arricchito con best_next_action e operational_status. Se il Daily Brief manca, restituisce comunque il fallback operativo (NON dire solo 'genera il Daily Brief'). Read-only.",
     parameters: {
       type: "object",
       properties: {
         brain_id: { type: "string", description: "Brain id opzionale per filtrare." },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "get_operational_status",
+    description:
+      "Stato operativo compatto: presenza Daily Brief, health status/score, best next action, top step di readiness mancanti, contatori remediation. Read-only. Da usare quando l'utente chiede 'a che punto siamo', 'fammi il punto', 'com'è messo Brain Hub'.",
+    parameters: {
+      type: "object",
+      properties: {
+        brain_id: { type: "string" },
       },
       required: [],
     },
