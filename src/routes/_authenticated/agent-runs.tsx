@@ -457,14 +457,63 @@ function AgentRunsPage() {
         </Card>
       )}
 
+      {search.run && openedRunLoading && !currentRun && (
+        <Card>
+          <CardContent className="py-4 text-sm text-muted-foreground">
+            Caricamento dettaglio run…
+          </CardContent>
+        </Card>
+      )}
+      {search.run && openedRunError && (
+        <Card className="border-destructive/50">
+          <CardContent className="py-4 text-sm text-destructive">
+            Impossibile caricare la run richiesta. Potrebbe non esistere o non
+            appartenere al tuo account.
+            <Button
+              size="sm"
+              variant="ghost"
+              className="ml-2"
+              onClick={() =>
+                void navigate({
+                  search: (prev: Search) => ({ ...prev, run: undefined }),
+                })
+              }
+            >
+              Chiudi
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {currentRun && (
-        <AiHandoffCard
-          run={currentRun}
-          onRunUpdated={(r) => {
-            setCurrentRun(r);
-            void invalidate();
-          }}
-        />
+        <>
+          {search.run === currentRun.id && (
+            <div className="flex items-center justify-between rounded-md border border-primary/40 bg-primary/5 px-3 py-2 text-xs">
+              <span>
+                Dettaglio run aperto:{" "}
+                <span className="font-medium">{currentRun.objective}</span>
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() =>
+                  void navigate({
+                    search: (prev: Search) => ({ ...prev, run: undefined }),
+                  })
+                }
+              >
+                <X className="mr-1 h-3.5 w-3.5" /> Chiudi dettaglio
+              </Button>
+            </div>
+          )}
+          <AiHandoffCard
+            run={currentRun}
+            onRunUpdated={(r) => {
+              setCurrentRun(r);
+              void invalidate();
+            }}
+          />
+        </>
       )}
 
       <Card>
