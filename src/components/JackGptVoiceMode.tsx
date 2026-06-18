@@ -225,6 +225,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     priorities: number;
     refreshedAt: number | null;
   }>({ chars: 0, entries: 0, priorities: 0, refreshedAt: null });
+  const [lastSavedMemory, setLastSavedMemory] = useState<{
+    id: string | null;
+    status: string | null;
+    scope: string | null;
+    persisted: boolean;
+    includedInContext: boolean;
+    deduped: boolean;
+    at: number;
+    reason: string | null;
+  } | null>(null);
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id" | "ts">) => {
     setLog((prev) => [
@@ -468,10 +478,44 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       } catch { /* noop */ }
       // Never fire response.create directly: route through the lifecycle guard.
       safeCreateResponse("tool_result", { queueIfBusy: true });
-      // v3.13: refresh injected context after a successful create_memory_entry
-      // so the next turn sees the new fact without a reconnect.
-      if (name === "create_memory_entry" && okFlag) {
-        void injectNaturalContext("refresh");
+      // v3.13.1: capture persistence diagnostics + refresh injected context.
+      if (name === "create_memory_entry") {
+        const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
+        const persisted = Boolean(payload.persisted);
+        const includedInContext = Boolean(payload.included_in_context);
+        const memId = (payload.entry_id as string | null) ?? null;
+        const memStatus = (payload.status as string | null) ?? null;
+        const memScope = (payload.scope as string | null) ?? null;
+        setLastSavedMemory({
+          id: memId,
+          status: memStatus,
+          scope: memScope,
+          persisted,
+          includedInContext,
+          deduped: Boolean(payload.deduped),
+          at: Date.now(),
+          reason: (payload.reason as string | null) ?? null,
+        });
+        safeLog(persisted ? "jack_memory_entry_persisted" : "jack_memory_entry_persist_failed", {
+          memory_id_redacted: memId ? `${memId.slice(0, 6)}…` : null,
+          status: memStatus,
+          scope: memScope,
+          deduped: Boolean(payload.deduped),
+        });
+        if (persisted && !includedInContext) {
+          pushLog({
+            kind: "warning",
+            text: "Memoria salvata ma non ancora inclusa nel contesto attivo.",
+          });
+          safeLog("jack_memory_entry_context_missing", {
+            memory_id_redacted: memId ? `${memId.slice(0, 6)}…` : null,
+          });
+        } else if (persisted && includedInContext) {
+          safeLog("jack_memory_entry_context_verified");
+        }
+        if (persisted) {
+          void injectNaturalContext("refresh");
+        }
       }
     },
     [toolFn, safeLog, pushLog, safeCreateResponse, injectNaturalContext],
@@ -1203,6 +1247,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <div><span className="text-muted-foreground">Entries usate:</span> {contextStats.entries}</div>
             <div><span className="text-muted-foreground">Priorità:</span> {contextStats.priorities}</div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Ultimo refresh:</span> {contextStats.refreshedAt ? new Date(contextStats.refreshedAt).toLocaleTimeString() : "—"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Sorgente contesto:</span> persistent_db</div>
+            <div><span className="text-muted-foreground">Ultima memoria salvata:</span> {lastSavedMemory?.id ? `${lastSavedMemory.id.slice(0, 6)}…` : "—"}</div>
+            <div><span className="text-muted-foreground">Stato salvataggio:</span> {lastSavedMemory?.status ?? "—"}{lastSavedMemory?.deduped ? " (dedup)" : ""}</div>
+            <div><span className="text-muted-foreground">Persisted:</span> {lastSavedMemory ? (lastSavedMemory.persisted ? "sì" : "no") : "—"}</div>
+            <div><span className="text-muted-foreground">In contesto:</span> {lastSavedMemory ? (lastSavedMemory.includedInContext ? "sì" : "no") : "—"}</div>
+            <div><span className="text-muted-foreground">Scope:</span> {lastSavedMemory?.scope ?? "—"}</div>
+            <div><span className="text-muted-foreground">Reason:</span> {lastSavedMemory?.reason ?? "—"}</div>
             <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Response lifecycle</div>
             <div><span className="text-muted-foreground">Response state:</span> {diagnostics.responseState}</div>
             <div><span className="text-muted-foreground">Active response id:</span> {diagnostics.activeResponseIdRedacted ?? "—"}</div>
