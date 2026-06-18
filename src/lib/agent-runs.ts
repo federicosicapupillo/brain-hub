@@ -1120,6 +1120,187 @@ function riskRank(r: RiskLevel | string | null | undefined): number {
   return idx < 0 ? 0 : idx;
 }
 
+type PriorityLevel = "low" | "medium" | "high";
+
+export type ExtractedAiSuggestedAction = {
+  title: string | null;
+  description: string | null;
+  action_type: ActionType | null;
+  risk_level: RiskLevel | null;
+  priority: PriorityLevel | null;
+  verification: string | null;
+};
+
+function normalizeRiskLevel(v: string | null | undefined): RiskLevel | null {
+  if (!v) return null;
+  const s = v.toLowerCase().trim();
+  if (s === "low" || s === "medium" || s === "high") return s;
+  return null;
+}
+
+function normalizePriority(v: string | null | undefined): PriorityLevel | null {
+  if (!v) return null;
+  const s = v.toLowerCase().trim();
+  if (s === "low" || s === "medium" || s === "high") return s;
+  return null;
+}
+
+// Robust scalar field extractor for a YAML/markdown-ish block.
+// Matches: `key: value`, `key: "value"`, `- key: value`, `**key:** value`.
+function extractField(block: string, key: string): string | null {
+  const re = new RegExp(
+    `^[\\s\\-*]*(?:\\*\\*)?\\s*${key}\\s*(?:\\*\\*)?\\s*[:=]\\s*["']?([^"'\\n\\r]+?)["']?\\s*$`,
+    "im",
+  );
+  const m = block.match(re);
+  return m ? m[1].trim() : null;
+}
+
+function tryJsonParse(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function pickFromJsonCandidate(
+  obj: unknown,
+): ExtractedAiSuggestedAction | null {
+  if (!obj || typeof obj !== "object") return null;
+  const o = obj as Record<string, unknown>;
+  const title = typeof o.title === "string" ? o.title : null;
+  const description =
+    typeof o.description === "string" ? o.description : null;
+  const action_type =
+    typeof o.action_type === "string" ? (o.action_type as ActionType) : null;
+  const risk_level = normalizeRiskLevel(
+    typeof o.risk_level === "string" ? o.risk_level : null,
+  );
+  const priority = normalizePriority(
+    typeof o.priority === "string" ? o.priority : null,
+  );
+  const verification =
+    typeof o.verification === "string" ? o.verification : null;
+  if (
+    !title &&
+    !description &&
+    !action_type &&
+    !risk_level &&
+    !priority &&
+    !verification
+  ) {
+    return null;
+  }
+  return { title, description, action_type, risk_level, priority, verification };
+}
+
+function extractFirstBlockAfter(
+  text: string,
+  headerRegex: RegExp,
+): string | null {
+  const m = text.match(headerRegex);
+  if (!m || m.index === undefined) return null;
+  const after = text.slice(m.index + m[0].length);
+  const stop = after.search(
+    /\n(?:#{1,6}\s|action_queue_candidates\b|recommended_actions\b)/i,
+  );
+  return stop >= 0 ? after.slice(0, stop) : after;
+}
+
+export function extractSuggestedActionFromAiResult(
+  aiResultText: string | null | undefined,
+): ExtractedAiSuggestedAction {
+  const empty: ExtractedAiSuggestedAction = {
+    title: null,
+    description: null,
+    action_type: null,
+    risk_level: null,
+    priority: null,
+    verification: null,
+  };
+  if (!aiResultText) return empty;
+  const text = aiResultText;
+
+  // 1) JSON: full doc or fenced ```json blocks.
+  const candidates: unknown[] = [];
+  const fullJson = tryJsonParse(text.trim());
+  if (fullJson) candidates.push(fullJson);
+  const fenceRe = /```(?:json)?\s*([\s\S]*?)```/gi;
+  let fm: RegExpExecArray | null;
+  while ((fm = fenceRe.exec(text)) !== null) {
+    const parsed = tryJsonParse(fm[1].trim());
+    if (parsed) candidates.push(parsed);
+  }
+  const pickFromContainer = (
+    container: unknown,
+  ): ExtractedAiSuggestedAction | null => {
+    if (!container || typeof container !== "object") return null;
+    const c = container as Record<string, unknown>;
+    const aqc = c.action_queue_candidates;
+    if (Array.isArray(aqc) && aqc.length > 0) {
+      const got = pickFromJsonCandidate(aqc[0]);
+      if (got) return got;
+    }
+    const rec = c.recommended_actions;
+    if (Array.isArray(rec) && rec.length > 0) {
+      const got = pickFromJsonCandidate(rec[0]);
+      if (got) return got;
+    }
+    const sa = c.suggested_action;
+    if (sa) {
+      const got = pickFromJsonCandidate(sa);
+      if (got) return got;
+    }
+    return pickFromJsonCandidate(container);
+  };
+  for (const cand of candidates) {
+    const got = pickFromContainer(cand);
+    if (got) return got;
+  }
+
+  // 2) Markdown/YAML-ish: prefer action_queue_candidates, then recommended_actions.
+  const aqcBlock = extractFirstBlockAfter(
+    text,
+    /(?:^|\n)\s*(?:#{1,6}\s*)?action_queue_candidates\s*:?\s*\n/i,
+  );
+  const recBlock = extractFirstBlockAfter(
+    text,
+    /(?:^|\n)\s*(?:#{1,6}\s*)?recommended_actions\s*:?\s*\n/i,
+  );
+
+  const fromBlock = (block: string): ExtractedAiSuggestedAction => ({
+    title: extractField(block, "title"),
+    description: extractField(block, "description"),
+    action_type: extractField(block, "action_type") as ActionType | null,
+    risk_level: normalizeRiskLevel(extractField(block, "risk_level")),
+    priority: normalizePriority(extractField(block, "priority")),
+    verification: extractField(block, "verification"),
+  });
+
+  const hasAny = (g: ExtractedAiSuggestedAction): boolean =>
+    !!(g.title || g.action_type || g.risk_level || g.priority || g.description);
+
+  if (aqcBlock) {
+    const got = fromBlock(aqcBlock);
+    if (hasAny(got)) return got;
+  }
+  if (recBlock) {
+    const got = fromBlock(recBlock);
+    if (hasAny(got)) return got;
+  }
+
+  // 3) Fallback: scan whole text for top-level fields.
+  return {
+    title: extractField(text, "title"),
+    description: extractField(text, "description"),
+    action_type: extractField(text, "action_type") as ActionType | null,
+    risk_level: normalizeRiskLevel(extractField(text, "risk_level")),
+    priority: normalizePriority(extractField(text, "priority")),
+    verification: extractField(text, "verification"),
+  };
+}
+
 export async function createActionFromAgentAiResult(
   runId: string,
 ): Promise<AutomationAction> {
@@ -1127,28 +1308,35 @@ export async function createActionFromAgentAiResult(
   if (!run.ai_result_text) throw new Error("Nessun risultato AI salvato");
   const agent = await getAgent(run.agent_id);
   const preview = run.output_json as Partial<AgentRunPreview>;
-  // Real risk = euristic suggestion (or run risk), NOT clamped to agent.
-  const inferredRisk = (preview.suggested_action?.risk_level ??
+  const extracted = extractSuggestedActionFromAiResult(run.ai_result_text);
+
+  // Real risk = AI-declared risk if present, else heuristic, else run.
+  const inferredRisk = (extracted.risk_level ??
+    preview.suggested_action?.risk_level ??
     run.risk_level ??
     "low") as RiskLevel;
   const agentMaxRisk = (agent.max_risk_level ?? "low") as RiskLevel;
   const exceeds = riskRank(inferredRisk) > riskRank(agentMaxRisk);
-  const action_type = (preview.suggested_action?.action_type ??
+  const action_type = (extracted.action_type ??
+    preview.suggested_action?.action_type ??
     "agent_recommendation") as ActionType;
+  const aiPriority = extracted.priority;
+  const priority: PriorityLevel = exceeds ? "high" : (aiPriority ?? "medium");
 
   const permissionWarning = exceeds
     ? "Il rischio reale stimato supera il livello massimo consentito per questo agente. Richiede revisione manuale."
     : null;
 
+  const baseTitle = extracted.title ?? `AI handoff: ${run.objective}`;
+  const title = exceeds ? `⚠️ ${baseTitle}` : baseTitle;
+
   const action = await createAction({
     source: "agent_center",
     action_type,
-    title: exceeds
-      ? `⚠️ AI handoff (oltre permessi agente): ${run.objective}`
-      : `AI handoff: ${run.objective}`,
-    description: run.ai_result_text.slice(0, 2000),
+    title,
+    description: extracted.description ?? run.ai_result_text.slice(0, 2000),
     risk_level: inferredRisk,
-    priority: exceeds ? "high" : "medium",
+    priority,
     brain_id: run.brain_id,
     metadata: {
       agent_run_id: run.id,
@@ -1163,6 +1351,10 @@ export async function createActionFromAgentAiResult(
         ? "real_risk_preserved_for_transparency"
         : null,
       permission_warning: permissionWarning,
+      ai_extracted_priority: aiPriority,
+      ai_extracted_verification: extracted.verification,
+      ai_extracted_action_type: extracted.action_type,
+      ai_extracted_risk_level: extracted.risk_level,
     },
   });
 
