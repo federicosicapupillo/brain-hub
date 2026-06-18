@@ -793,6 +793,11 @@ function RemediationRow({
               Crea azione
             </Button>
           )}
+          {item.linked_action_id && (
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/action-queue" search={{}}>Apri Action Queue</Link>
+            </Button>
+          )}
         </div>
       </div>
     </div>
