@@ -377,9 +377,17 @@ export function JackVoiceCommand({ brainId, briefId, currentBrief }: Props) {
 
       {result ? (
         <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-          <div className="flex items-center gap-2 text-xs">
+          <div className="flex items-center gap-2 text-xs flex-wrap">
             <Badge variant="secondary">{result.intent}</Badge>
             <span className="text-muted-foreground">fonte: {result.source}</span>
+            <span className="text-muted-foreground">
+              brief: {currentBrief ? `props ${currentBrief.id.slice(0, 8)}` : briefId ? `id ${briefId.slice(0, 8)}` : "lookup"}
+            </span>
+            {brainId ? (
+              <span className="text-muted-foreground">brain: {brainId.slice(0, 8)}</span>
+            ) : (
+              <span className="text-muted-foreground">brain: tutti</span>
+            )}
           </div>
           <p className="text-sm whitespace-pre-wrap">{result.response_text}</p>
           {result.cta ? (
