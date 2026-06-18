@@ -292,6 +292,19 @@ const ALLOWED_TOOL_NAMES: ReadonlySet<string> = new Set(
   JACK_GPT_TOOLS_SCHEMA.map((t) => t.name),
 );
 
+// v3.19.4 — read-only tools (used to log read-tool dedup separately).
+const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "get_daily_brief",
+  "get_operational_status",
+  "get_action_queue_summary",
+  "get_readiness_details",
+  "get_loop_qa_warnings",
+  "get_gmail_summary",
+  "get_project_status",
+  "get_memory_context",
+  "search_jack_memory",
+]);
+
 function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
   if (!raw) return {};
   if (typeof raw === "string") {
