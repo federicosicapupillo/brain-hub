@@ -1324,6 +1324,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <div><span className="text-muted-foreground">In contesto:</span> {lastSavedMemory ? (lastSavedMemory.includedInContext ? "sì" : "no") : "—"}</div>
             <div><span className="text-muted-foreground">Scope:</span> {lastSavedMemory?.scope ?? "—"}</div>
             <div><span className="text-muted-foreground">Reason:</span> {lastSavedMemory?.reason ?? "—"}</div>
+            <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Controlled command (v3.14)</div>
+            <div><span className="text-muted-foreground">Last intent:</span> {lastControlled?.intent ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last risk:</span> {lastControlled?.risk ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last action id:</span> {lastControlled?.actionId ? `${lastControlled.actionId.slice(0, 6)}…` : "—"}</div>
+            <div><span className="text-muted-foreground">Recommended tool:</span> {lastControlled?.recommendedTool ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last delivery req:</span> {lastControlled?.deliveryId ? `${lastControlled.deliveryId.slice(0, 6)}…` : "—"}</div>
+            <div><span className="text-muted-foreground">Last snapshot draft:</span> {lastControlled?.snapshotDraftId ? `${lastControlled.snapshotDraftId.slice(0, 6)}…` : "—"}</div>
+            <div><span className="text-muted-foreground">Research handoff:</span> {lastControlled?.researchHandoff ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Unsafe rifiutato:</span> {lastControlled?.unsafe ? "sì" : "no"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Missing info:</span> {lastControlled?.missing?.length ? lastControlled.missing.join(", ") : "—"}</div>
             <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Response lifecycle</div>
             <div><span className="text-muted-foreground">Response state:</span> {diagnostics.responseState}</div>
             <div><span className="text-muted-foreground">Active response id:</span> {diagnostics.activeResponseIdRedacted ?? "—"}</div>
