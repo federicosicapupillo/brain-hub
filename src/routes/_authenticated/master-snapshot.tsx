@@ -44,6 +44,7 @@ export const Route = createFileRoute("/_authenticated/master-snapshot")({
   }),
   validateSearch: (s: Record<string, unknown>) => ({
     draft: typeof s.draft === "string" ? s.draft : undefined,
+    brain: typeof s.brain === "string" ? s.brain : undefined,
   }),
   component: MasterSnapshotRoute,
 });
