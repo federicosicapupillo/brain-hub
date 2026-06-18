@@ -1365,7 +1365,9 @@ export async function getCodeAgentJobWarnings(
     let jobIdsForBrain: string[] | null = null;
     let scopeNote = "";
     if (brainId) {
-      jobIdsForBrain = items.map((j) => j.id);
+      // v3.15.5: lightweight ID-only query (limit 1000) instead of reusing
+      // the 200-row payload list above.
+      jobIdsForBrain = await listCodeAgentJobIdsForBrain(brainId, 1000);
       scopeNote = " (scope brain)";
     }
     let q = sb
