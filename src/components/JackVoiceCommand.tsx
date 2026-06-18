@@ -32,10 +32,12 @@ import {
   synthesizeJackVoiceFromText,
   markJackVoicePlayed,
 } from "@/lib/jack-voice.functions";
+import type { DailyBriefRow } from "@/lib/daily-operating-brief";
 
 type Props = {
   brainId?: string | null;
   briefId?: string | null;
+  currentBrief?: DailyBriefRow | null;
 };
 
 type Phase =
