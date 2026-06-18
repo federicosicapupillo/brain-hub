@@ -334,17 +334,41 @@ export async function resolveJackCommandIntent(input: {
       mention,
     };
 
-    // Auto-upgrade generic intents to project_* when a project is mentioned
+    // ---- Explicit memory intent detection (wins over pattern match) ----
+    const memHit = detectMemoryIntent(transcript);
     let effectiveIntent: JackIntent = intent;
-    if (resolution.kind !== "none" && resolution.kind !== "ambiguous") {
+    if (memHit.kind === "save") effectiveIntent = "memory_save";
+    else if (memHit.kind === "forget") effectiveIntent = "memory_forget";
+    else if (memHit.kind === "search" && intent !== "identity" && intent !== "jack_rules") {
+      effectiveIntent = "memory_search";
+    }
+
+    // Auto-upgrade generic intents to project_* when a project is mentioned
+    if (
+      effectiveIntent === intent &&
+      resolution.kind !== "none" &&
+      resolution.kind !== "ambiguous"
+    ) {
       if (intent === "daily_status") effectiveIntent = "project_status";
       else if (intent === "next_actions") effectiveIntent = "project_next_actions";
     }
-    if (resolution.kind === "ambiguous") {
+    if (
+      resolution.kind === "ambiguous" &&
+      effectiveIntent !== "memory_save" &&
+      effectiveIntent !== "memory_forget" &&
+      effectiveIntent !== "memory_search"
+    ) {
       return respondProjectAmbiguous(projectInfo, matched);
     }
 
     switch (effectiveIntent) {
+      case "memory_save":
+      case "memory_update":
+        return await respondMemorySave(transcript, projectInfo, matched);
+      case "memory_forget":
+        return await respondMemoryForget(transcript, matched);
+      case "memory_search":
+        return await respondMemorySearch(transcript, projectInfo, matched);
       case "project_status":
         return await respondProjectStatus(context, matched, projectInfo);
       case "project_next_actions":
@@ -367,6 +391,8 @@ export async function resolveJackCommandIntent(input: {
         return await respondMasterSnapshot(context, matched);
       case "identity":
         return await respondIdentity(matched);
+      case "jack_rules":
+        return await respondJackRules(matched);
       default:
         return {
           intent: "unknown",
