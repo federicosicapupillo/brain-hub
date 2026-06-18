@@ -49,7 +49,8 @@ export type ActionSource =
   | "google_calendar"
   | "github_operational"
   | "code_repository"
-  | "agent_center";
+  | "agent_center"
+  | "loop_qa";
 
 
 
