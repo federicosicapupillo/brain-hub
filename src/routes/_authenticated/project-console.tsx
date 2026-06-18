@@ -779,6 +779,29 @@ function OperationalHealthVisibility({ brainId }: { brainId: string | null }) {
               Interventi aperti per area: {areaEntries.map(([a, n]) => `${a}:${n}`).join(" · ")}
             </div>
           )}
+          {plan && plan.total > 0 && (() => {
+            const done = plan.resolved + plan.action_completed;
+            const pct = Math.round((done / plan.total) * 100);
+            return (
+              <div className="mt-2 w-full max-w-xs">
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>Progresso remediation</span>
+                  <span>{pct}% · {done}/{plan.total}</span>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-muted">
+                  <div
+                    className="h-1.5 rounded-full bg-emerald-500"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                {plan.regressed > 0 && (
+                  <div className="text-[10px] text-red-600 mt-0.5">
+                    {plan.regressed} riemerse
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
         <div className="flex gap-2">
           <Button asChild size="sm" variant="outline">

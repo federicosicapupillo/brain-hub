@@ -39,7 +39,9 @@ import {
   createRemediationActionForItem,
   REMEDIATION_AREA_LABEL,
   REMEDIATION_SEVERITY_LABEL,
+  REMEDIATION_STATUS_LABEL,
   type RemediationItem,
+  type RemediationStatus,
 } from "@/lib/loop-remediation";
 
 export const Route = createFileRoute("/_authenticated/loop-qa")({
@@ -548,8 +550,11 @@ function CompanyOsRow({ brainId }: { brainId: string | null }) {
   );
 }
 
+type RemediationFilter = "all" | "open" | "with_action" | "closed";
+
 function RemediationPlanCard({ brainId }: { brainId: string | null }) {
   const qc = useQueryClient();
+  const [filter, setFilter] = useState<RemediationFilter>("all");
   const { data: plan, isLoading } = useQuery({
     queryKey: ["loop-remediation-plan", brainId],
     queryFn: () => buildOperationalRemediationPlan(brainId),
@@ -609,16 +614,34 @@ function RemediationPlanCard({ brainId }: { brainId: string | null }) {
     );
   }
 
-  const top = plan.items.slice(0, 5);
+  const matchesFilter = (it: RemediationItem): boolean => {
+    if (filter === "all") return true;
+    if (filter === "open") return it.status === "open" || it.status === "regressed";
+    if (filter === "with_action")
+      return it.status === "action_created" || it.status === "action_in_progress";
+    if (filter === "closed")
+      return it.status === "resolved" || it.status === "action_completed" || it.status === "regressed";
+    return true;
+  };
+  const filtered = plan.items.filter(matchesFilter).slice(0, 10);
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between gap-2 text-base">
           <span>Piano di correzione consigliato</span>
-          <span className="flex gap-2 text-xs font-normal text-muted-foreground">
-            <Badge variant="outline">{plan.open} aperti</Badge>
-            <Badge variant="outline">{plan.action_created} con azione</Badge>
+          <span className="flex flex-wrap gap-1 text-xs font-normal text-muted-foreground">
+            <Badge variant="outline">{plan.open} aperte</Badge>
+            <Badge variant="outline">
+              {plan.action_created + plan.action_in_progress} con action
+            </Badge>
+            <Badge variant="outline">{plan.action_completed} completate</Badge>
+            <Badge variant="outline">{plan.resolved} risolte</Badge>
+            {plan.regressed > 0 && (
+              <Badge variant="outline" className="border-red-500/30 text-red-600">
+                {plan.regressed} riemerse
+              </Badge>
+            )}
           </span>
         </CardTitle>
       </CardHeader>
@@ -629,6 +652,7 @@ function RemediationPlanCard({ brainId }: { brainId: string | null }) {
               <Badge variant="outline">Prossimo intervento</Badge>
               <Badge variant="outline">{REMEDIATION_AREA_LABEL[plan.next.area]}</Badge>
               <SeverityBadge severity={plan.next.severity} />
+              <StatusBadge status={plan.next.status} />
             </div>
             <div className="mt-1 text-sm font-medium">{plan.next.title}</div>
             <div className="text-xs text-muted-foreground">{plan.next.explanation}</div>
@@ -649,12 +673,37 @@ function RemediationPlanCard({ brainId }: { brainId: string | null }) {
                   Crea azione suggerita
                 </Button>
               )}
+              {plan.next.linked_action_id && (
+                <Button asChild size="sm" variant="ghost">
+                  <Link to="/action-queue" search={{}}>Apri Action Queue</Link>
+                </Button>
+              )}
             </div>
           </div>
         )}
 
+        <div className="flex flex-wrap gap-1 text-[11px]">
+          {(["all", "open", "with_action", "closed"] as RemediationFilter[]).map((f) => (
+            <Button
+              key={f}
+              size="sm"
+              variant={filter === f ? "default" : "outline"}
+              className="h-6 px-2 text-[11px]"
+              onClick={() => setFilter(f)}
+            >
+              {f === "all"
+                ? "Tutte"
+                : f === "open"
+                  ? "Aperte"
+                  : f === "with_action"
+                    ? "Con action"
+                    : "Risolte/Riapparse"}
+            </Button>
+          ))}
+        </div>
+
         <div className="space-y-2">
-          {top.map((it) => (
+          {filtered.map((it) => (
             <RemediationRow
               key={it.id}
               item={it}
@@ -662,9 +711,28 @@ function RemediationPlanCard({ brainId }: { brainId: string | null }) {
               onCta={() => handleCtaOpen(it)}
             />
           ))}
+          {filtered.length === 0 && (
+            <p className="text-xs text-muted-foreground">Nessun item per il filtro selezionato.</p>
+          )}
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function StatusBadge({ status }: { status: RemediationStatus }) {
+  const tone =
+    status === "regressed"
+      ? "border-red-500/30 text-red-600"
+      : status === "open"
+        ? "border-amber-500/30 text-amber-600"
+        : status === "resolved" || status === "action_completed"
+          ? "border-emerald-500/30 text-emerald-600"
+          : "border-sky-500/30 text-sky-600";
+  return (
+    <Badge variant="outline" className={`text-[10px] ${tone}`}>
+      {REMEDIATION_STATUS_LABEL[status]}
+    </Badge>
   );
 }
 
@@ -700,9 +768,7 @@ function RemediationRow({
             <Badge variant="outline" className="text-[10px]">
               {REMEDIATION_AREA_LABEL[item.area]}
             </Badge>
-            {item.status === "action_created" && (
-              <Badge variant="outline" className="text-[10px]">Azione creata</Badge>
-            )}
+            <StatusBadge status={item.status} />
             <div className="text-sm font-medium">{item.title}</div>
           </div>
           <div className="text-xs text-muted-foreground">{item.explanation}</div>
@@ -725,6 +791,11 @@ function RemediationRow({
           {item.can_create_action && (
             <Button size="sm" variant="outline" onClick={onCreate}>
               Crea azione
+            </Button>
+          )}
+          {item.linked_action_id && (
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/action-queue" search={{}}>Apri Action Queue</Link>
             </Button>
           )}
         </div>

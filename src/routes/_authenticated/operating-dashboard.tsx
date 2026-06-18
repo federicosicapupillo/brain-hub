@@ -1407,6 +1407,13 @@ function OperationalHealthMini({ brainId }: { brainId: string | null }) {
       return getNextRemediationItem(brainId);
     },
   });
+  const { data: closure } = useQuery({
+    queryKey: ["brainhub-remediation-closure", brainId],
+    queryFn: async () => {
+      const { getRemediationClosureSummary } = await import("@/lib/loop-remediation");
+      return getRemediationClosureSummary(brainId);
+    },
+  });
   const status = data?.status ?? "healthy";
   const tone =
     status === "blocked"
@@ -1480,6 +1487,19 @@ function OperationalHealthMini({ brainId }: { brainId: string | null }) {
                   <Button asChild size="sm" variant="outline" className="h-7 text-xs">
                     <a href={nextRemediation.cta_href}>{nextRemediation.cta_label}</a>
                   </Button>
+                </div>
+              </div>
+            )}
+            {closure && closure.total > 0 && (
+              <div className="rounded-md border bg-muted/20 p-2 text-[11px]">
+                <div className="text-[10px] uppercase text-muted-foreground">Correzioni operative</div>
+                <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                  <span>aperte <strong>{closure.open}</strong></span>
+                  <span>con action <strong>{closure.action_created + closure.action_in_progress}</strong></span>
+                  <span>risolte <strong>{closure.resolved}</strong></span>
+                  {closure.regressed > 0 && (
+                    <span className="text-red-600">riaperte <strong>{closure.regressed}</strong></span>
+                  )}
                 </div>
               </div>
             )}
