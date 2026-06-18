@@ -19,7 +19,9 @@ export type MasterSnapshotEvent =
   | "master_snapshot_update_proposed"
   | "master_snapshot_update_approved"
   | "master_snapshot_update_rejected"
-  | "master_snapshot_version_created";
+  | "master_snapshot_version_created"
+  | "master_snapshot_markdown_import_started"
+  | "master_snapshot_markdown_import_draft_created";
 
 export type MasterSnapshotChanges = {
   what_changed?: string;
