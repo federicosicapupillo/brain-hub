@@ -427,7 +427,7 @@ function DraftDetail({
     <div className="space-y-3 rounded-md border p-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold">Bozza v{draft.version_label}</div>
+          <div className="text-sm font-semibold">Bozza v{getSnapshotVersionLabel(draft)}</div>
           <div className="text-xs text-muted-foreground">{draft.reason}</div>
         </div>
         <div className="flex gap-2">
