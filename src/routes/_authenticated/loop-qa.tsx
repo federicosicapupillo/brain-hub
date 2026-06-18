@@ -156,6 +156,10 @@ function LoopQaRoute() {
             <Tile label="Next prompts generati" value={summary.counters.nextPromptCreated} />
           </div>
 
+          <RemediationPlanCard brainId={brainId} />
+
+
+
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Ciclo operativo — checklist</CardTitle>
