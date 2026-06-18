@@ -135,8 +135,26 @@ function AgentRunsPage() {
     queryFn: () => listAgentRuns(brainId),
   });
 
-  const invalidate = () =>
-    qc.invalidateQueries({ queryKey: ["agent-runs", brainId] });
+  const {
+    data: openedRun,
+    isLoading: openedRunLoading,
+    error: openedRunError,
+  } = useQuery({
+    queryKey: ["agent-run-detail", search.run],
+    queryFn: () => getAgentRun(search.run as string),
+    enabled: !!search.run,
+  });
+
+  useEffect(() => {
+    if (openedRun) setCurrentRun(openedRun);
+  }, [openedRun]);
+
+  const invalidate = async () => {
+    await qc.invalidateQueries({ queryKey: ["agent-runs", brainId] });
+    if (search.run) {
+      await qc.invalidateQueries({ queryKey: ["agent-run-detail", search.run] });
+    }
+  };
 
   async function handleGeneratePreview() {
     if (!agentId || !objective.trim()) {
