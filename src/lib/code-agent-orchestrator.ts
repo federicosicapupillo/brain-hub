@@ -835,7 +835,7 @@ export async function saveCodeAgentJobResult(
     .eq("id", jobId)
     .eq("user_id", userId);
   if (error) throw new Error(error.message);
-  await logJobEvent(jobId, userId, "code_agent_job_result_received", {
+  await logJobEvent(jobId, userId, "code_agent_result_received", {
     chars: text.length,
   });
 }
