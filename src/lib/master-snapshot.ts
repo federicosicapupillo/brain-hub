@@ -298,13 +298,30 @@ export type CreateDraftFromMarkdownInput = {
   title?: string;
 };
 
+/**
+ * Sostituisce righe tipo "**Versione documento:** 1.2" (o "Versione contenuto: ...")
+ * con un placeholder gestito da Brain Hub. La versione ufficiale è quella della UI.
+ * Idempotente, non distruttivo per il resto del contenuto.
+ */
+export function normalizeSnapshotMarkdownVersion(markdown: string): string {
+  const replacement = "**Versione Snapshot:** gestita da Brain Hub";
+  const re = /^[ \t]*(?:\*\*\s*)?Versione\s+(?:documento|contenuto)(?:\s*\*\*)?\s*:[^\n\r]*$/gim;
+  return markdown.replace(re, replacement);
+}
+
 export async function createDraftFromMarkdown(
   input: CreateDraftFromMarkdownInput,
 ): Promise<MasterSnapshotVersion> {
+  const normalizedMarkdown = normalizeSnapshotMarkdownVersion(input.markdown);
+  const wasNormalized = normalizedMarkdown !== input.markdown;
   await logMasterSnapshotEvent(
     "master_snapshot_markdown_import_started",
     input.reason,
-    { brain_id: input.brainId ?? null, length: input.markdown.length },
+    {
+      brain_id: input.brainId ?? null,
+      length: input.markdown.length,
+      normalized_version_line: wasNormalized,
+    },
   );
   const draft = await proposeMasterSnapshotUpdate({
     brainId: input.brainId ?? null,
@@ -312,15 +329,21 @@ export async function createDraftFromMarkdown(
     summary: input.summary,
     source: "import",
     changes: {
-      what_changed: "Import markdown completo",
+      what_changed: wasNormalized
+        ? "Import markdown completo (riga versione normalizzata)"
+        : "Import markdown completo",
     },
-    markdownContent: input.markdown,
+    markdownContent: normalizedMarkdown,
     title: input.title,
   });
   await logMasterSnapshotEvent(
     "master_snapshot_markdown_import_draft_created",
     input.reason,
-    { draft_id: draft.id, length: input.markdown.length },
+    {
+      draft_id: draft.id,
+      length: normalizedMarkdown.length,
+      normalized_version_line: wasNormalized,
+    },
   );
   return draft;
 }
