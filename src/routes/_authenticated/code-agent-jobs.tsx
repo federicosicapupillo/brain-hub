@@ -468,6 +468,9 @@ function CodeAgentJobsPage() {
                 </Badge>
               </div>
 
+              {/* Operating state box */}
+              <OperatingStateBox job={openDetail} />
+
               {/* Repository resolution */}
               <RepoBlock
                 job={openDetail}
@@ -483,6 +486,7 @@ function CodeAgentJobsPage() {
                     variant="ghost"
                     className="ml-2 h-6 text-xs"
                     onClick={() => void handleSyncApproval(openDetail)}
+                    disabled={!getCodeAgentAvailableActions(openDetail).canSyncApproval}
                   >
                     Sync stato approvazione
                   </Button>
@@ -499,41 +503,41 @@ function CodeAgentJobsPage() {
                 <Textarea readOnly value={openDetail.prompt_text ?? ""} className="h-64 font-mono text-xs" />
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {openDetail.status === "pending_approval" && openDetail.approval_status !== "rejected" && (
-                  <>
-                    <Button size="sm" onClick={() => void handleApprove(openDetail)}>
+              {(() => {
+                const actions = getCodeAgentAvailableActions(openDetail);
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" disabled={!actions.canApprove} onClick={() => void handleApprove(openDetail)}>
                       <CheckCircle2 className="mr-1 h-3 w-3" /> Approva
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => void handleReject(openDetail)}>
+                    <Button size="sm" variant="destructive" disabled={!actions.canReject} onClick={() => void handleReject(openDetail)}>
                       Rifiuta
                     </Button>
-                  </>
-                )}
-                <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
-                  <Copy className="mr-1 h-3 w-3" /> Copia prompt Codex
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
-                  <Copy className="mr-1 h-3 w-3" /> Copia prompt Claude Code
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={openDetail.status === "pending_approval" || openDetail.status === "draft" || openDetail.status === "cancelled"}
-                  onClick={() => void handleSentManually(openDetail, "codex_cloud")}
-                >
-                  <Send className="mr-1 h-3 w-3" /> Segna inviato a Codex
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={openDetail.status === "pending_approval" || openDetail.status === "draft" || openDetail.status === "cancelled"}
-                  onClick={() => void handleSentManually(openDetail, "claude_code_cli")}
-                >
-                  <Send className="mr-1 h-3 w-3" /> Segna inviato a Claude Code
-                </Button>
-              </div>
-
+                    <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
+                      <Copy className="mr-1 h-3 w-3" /> Copia prompt Codex
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
+                      <Copy className="mr-1 h-3 w-3" /> Copia prompt Claude Code
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!actions.canSendManually}
+                      onClick={() => void handleSentManually(openDetail, "codex_cloud")}
+                    >
+                      <Send className="mr-1 h-3 w-3" /> Segna inviato a Codex
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!actions.canSendManually}
+                      onClick={() => void handleSentManually(openDetail, "claude_code_cli")}
+                    >
+                      <Send className="mr-1 h-3 w-3" /> Segna inviato a Claude Code
+                    </Button>
+                  </div>
+                );
+              })()}
 
               <div>
                 <Label className="text-xs">Incolla risultato</Label>
@@ -542,41 +546,47 @@ function CodeAgentJobsPage() {
                   onChange={(e) => setResultText(e.target.value)}
                   placeholder="Incolla qui il diff / output / log…"
                   className="h-40 font-mono text-xs"
-                  disabled={!!openDetail.result_text}
+                  disabled={!getCodeAgentAvailableActions(openDetail).canSaveResult}
                 />
                 {!openDetail.result_text && (
-                  <Button size="sm" className="mt-2" onClick={() => void handleSaveResult()}>
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    disabled={!getCodeAgentAvailableActions(openDetail).canSaveResult}
+                    onClick={() => void handleSaveResult()}
+                  >
                     Salva risultato
                   </Button>
                 )}
               </div>
 
-              {openDetail.result_text && (
-                <div className="flex flex-wrap gap-2">
-                  {!openDetail.result_review_item_id && (
-                    <Button size="sm" variant="outline" onClick={() => void handleReview(openDetail)}>
+              {(() => {
+                const actions = getCodeAgentAvailableActions(openDetail);
+                if (!openDetail.result_text) return null;
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" disabled={!actions.canCreateReview} onClick={() => void handleReview(openDetail)}>
                       <CheckSquare className="mr-1 h-3 w-3" /> Crea Result Review
                     </Button>
-                  )}
-                  {!openDetail.next_action_id && (
-                    <Button size="sm" variant="outline" onClick={() => void handleNext(openDetail)}>
+                    <Button size="sm" variant="outline" disabled={!actions.canCreateNextAction || !!openDetail.next_action_id} onClick={() => void handleNext(openDetail)}>
                       <ArrowRight className="mr-1 h-3 w-3" /> Crea Next Action
                     </Button>
-                  )}
-                  {!openDetail.master_snapshot_draft_id && (
-                    <Button size="sm" variant="outline" onClick={() => void handleSnapshot(openDetail)}>
+                    <Button size="sm" variant="outline" disabled={!actions.canCreateSnapshot} onClick={() => void handleSnapshot(openDetail)}>
                       <FileText className="mr-1 h-3 w-3" /> Master Snapshot draft
                     </Button>
-                  )}
-                  {openDetail.result_review_item_id && (
-                    <Button asChild size="sm" variant="outline">
-                      <Link to="/result-review">
-                        <ExternalLink className="mr-1 h-3 w-3" /> Apri Result Review
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              )}
+                    {openDetail.result_review_item_id && (
+                      <Button asChild size="sm" variant="outline">
+                        <Link to="/result-review">
+                          <ExternalLink className="mr-1 h-3 w-3" /> Apri Result Review
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Safety box */}
+              <SafetyBox />
             </div>
           )}
           <DialogFooter className="flex flex-wrap gap-2">
