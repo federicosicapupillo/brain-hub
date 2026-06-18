@@ -225,6 +225,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     priorities: number;
     refreshedAt: number | null;
   }>({ chars: 0, entries: 0, priorities: 0, refreshedAt: null });
+  const [lastSavedMemory, setLastSavedMemory] = useState<{
+    id: string | null;
+    status: string | null;
+    scope: string | null;
+    persisted: boolean;
+    includedInContext: boolean;
+    deduped: boolean;
+    at: number;
+    reason: string | null;
+  } | null>(null);
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id" | "ts">) => {
     setLog((prev) => [
