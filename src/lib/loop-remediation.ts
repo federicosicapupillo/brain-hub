@@ -492,9 +492,10 @@ export async function createRemediationActionForItem(
   const { data: u, error: ue } = await supabase.auth.getUser();
   if (ue || !u.user) return { ok: false, error: "Non autenticato" };
 
-  // Dedupe check
-  const existing = await fetchExistingRemediationActions(brainId ?? null);
-  const dup = existing.get(item.warning_id);
+  // Dedupe check — search any open action linked to the same warning
+  const actionMap = await fetchAllRemediationActions(brainId ?? null);
+  const rows = actionMap.get(item.warning_id) ?? [];
+  const dup = rows.find((r) => OPEN_STATUSES.includes(r.status));
   if (dup) {
     const { data: full } = await supabase
       .from("automation_actions" as never)
