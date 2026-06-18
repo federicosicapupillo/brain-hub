@@ -22,6 +22,7 @@ import {
   FileText,
   Activity,
   RotateCcw,
+  Radio,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -29,6 +30,8 @@ import {
   createJackRealtimeSession,
   type OpenAiRealtimeStatus,
   type CreateRealtimeSessionResult,
+  REALTIME_CALLS_ENDPOINT,
+  REALTIME_CLIENT_SECRETS_ENDPOINT,
 } from "@/lib/openai-realtime.functions";
 import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
 import { JACK_GPT_PRIVACY_NOTICE } from "@/lib/jack-gpt-instructions";
@@ -50,15 +53,16 @@ type ConnState =
   | "error";
 
 type MicState = "unknown" | "granted" | "denied" | "unavailable" | "unsupported";
-
 type SessionMode = "none" | "full" | "minimal";
-
 type LogKind = "user" | "jack" | "tool" | "system" | "error";
 type LogEntry = { id: string; ts: number; kind: LogKind; text: string };
+
+type ActiveSession = Extract<CreateRealtimeSessionResult, { ok: true; probe: false }>;
 
 type RealtimeEvent = {
   type?: string;
   transcript?: string;
+  delta?: string;
   item?: {
     type?: string;
     call_id?: string;
@@ -82,14 +86,28 @@ type TestConnectionResult = {
   message: string;
 };
 
+type RealtimeSessionTestResult = {
+  ok: boolean;
+  model: string | null;
+  expires_at: number | null;
+  openai_request_id: string | null;
+  status_code: number | null;
+  message: string;
+};
+
 type Diagnostics = {
   sessionMode: SessionMode;
   dataChannelState: RTCDataChannelState | "none";
   lastEventType: string | null;
   lastSafeError: string | null;
+  lastErrorKind: string | null;
   lastToolCalled: string | null;
   cleanupCount: number;
   lastTest: TestConnectionResult | null;
+  lastRealtimeProbe: RealtimeSessionTestResult | null;
+  lastOpenAiStatus: number | null;
+  lastOpenAiRequestId: string | null;
+  sdpEndpointStatus: number | null;
 };
 
 type Props = { brainId?: string | null };
@@ -126,14 +144,20 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const [retryNotice, setRetryNotice] = useState<string | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
   const [testing, setTesting] = useState(false);
+  const [probing, setProbing] = useState(false);
   const [diagnostics, setDiagnostics] = useState<Diagnostics>({
     sessionMode: "none",
     dataChannelState: "none",
     lastEventType: null,
     lastSafeError: null,
+    lastErrorKind: null,
     lastToolCalled: null,
     cleanupCount: 0,
     lastTest: null,
+    lastRealtimeProbe: null,
+    lastOpenAiStatus: null,
+    lastOpenAiRequestId: null,
+    sdpEndpointStatus: null,
   });
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -141,7 +165,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const sessionUpdateSentRef = useRef(false);
-  const pendingToolsRef = useRef<CreateRealtimeSessionResult | null>(null);
+  const pendingToolsRef = useRef<ActiveSession | null>(null);
 
   const statusFn = useServerFn(getOpenAiRealtimeStatus);
   const sessionFn = useServerFn(createJackRealtimeSession);
@@ -164,7 +188,6 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [logFn, brainId],
   );
 
-  // Initial config check
   useEffect(() => {
     let active = true;
     statusFn()
@@ -176,6 +199,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           configured: res.configured,
           model: res.model,
           model_source: res.model_source,
+          api_mode: res.api_mode,
         });
       })
       .catch((err) => {
@@ -190,44 +214,22 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   }, [statusFn, safeLog]);
 
   useEffect(() => {
-    safeLog("jack_gpt_mode_opened");
+    safeLog("jack_gpt_mode_opened", { api_mode: "ga" });
   }, [safeLog]);
 
   const teardown = useCallback(() => {
-    try {
-      dcRef.current?.close();
-    } catch {
-      /* noop */
-    }
+    try { dcRef.current?.close(); } catch { /* noop */ }
     try {
       pcRef.current?.getSenders().forEach((s) => {
-        try {
-          s.track?.stop();
-        } catch {
-          /* noop */
-        }
+        try { s.track?.stop(); } catch { /* noop */ }
       });
-    } catch {
-      /* noop */
-    }
-    try {
-      pcRef.current?.close();
-    } catch {
-      /* noop */
-    }
+    } catch { /* noop */ }
+    try { pcRef.current?.close(); } catch { /* noop */ }
     localStreamRef.current?.getTracks().forEach((t) => {
-      try {
-        t.stop();
-      } catch {
-        /* noop */
-      }
+      try { t.stop(); } catch { /* noop */ }
     });
     if (audioElRef.current) {
-      try {
-        audioElRef.current.srcObject = null;
-      } catch {
-        /* noop */
-      }
+      try { audioElRef.current.srcObject = null; } catch { /* noop */ }
     }
     dcRef.current = null;
     pcRef.current = null;
@@ -274,9 +276,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           }),
         );
         dc.send(JSON.stringify({ type: "response.create" }));
-      } catch {
-        /* noop */
-      }
+      } catch { /* noop */ }
     },
     [toolFn, safeLog, pushLog],
   );
@@ -293,26 +293,45 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         setDiagnostics((d) => ({ ...d, lastEventType: msg.type ?? d.lastEventType }));
       }
       switch (msg.type) {
+        // GA + legacy session lifecycle
         case "session.created":
         case "session.updated":
           break;
+
         case "input_audio_buffer.speech_started":
           setState("listening");
           break;
-        case "response.audio.delta":
-        case "response.audio_transcript.delta":
+
+        // GA response lifecycle
+        case "response.created":
           setState("speaking");
           break;
+        case "response.output_audio.delta":
+        case "response.output_audio_transcript.delta":
+        case "response.output_text.delta":
+        // Legacy fallback
+        case "response.audio.delta":
+        case "response.audio_transcript.delta":
+        case "response.text.delta":
+          setState("speaking");
+          break;
+
+        case "response.output_audio_transcript.done":
         case "response.audio_transcript.done":
+        case "response.output_text.done":
           if (msg.transcript) pushLog({ kind: "jack", text: String(msg.transcript) });
           break;
+
         case "conversation.item.input_audio_transcription.completed":
           if (msg.transcript) pushLog({ kind: "user", text: String(msg.transcript) });
           break;
+
         case "response.done":
           setState("listening");
           safeLog("jack_gpt_response_received");
           break;
+
+        // Tool/function calls — GA + legacy
         case "response.function_call_arguments.done":
           if (msg.call_id && msg.name) {
             void handleToolCall(msg.call_id, msg.name, msg.arguments ?? "");
@@ -325,6 +344,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           }
           break;
         }
+
         case "error": {
           const m = msg.error?.message ?? "Errore realtime";
           pushLog({ kind: "error", text: m });
@@ -339,9 +359,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [handleToolCall, safeLog, pushLog],
   );
 
-  /** Connect WebRTC using a successfully-created realtime session. */
+  /** Connect WebRTC using a successfully-created realtime session (GA endpoint). */
   const connectWebRTC = useCallback(
-    async (session: Extract<CreateRealtimeSessionResult, { ok: true }>, stream: MediaStream) => {
+    async (session: ActiveSession, stream: MediaStream) => {
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
       pendingToolsRef.current = session;
@@ -349,9 +369,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       const audioEl = audioElRef.current ?? new Audio();
       audioEl.autoplay = true;
       audioElRef.current = audioEl;
-      pc.ontrack = (e) => {
-        audioEl.srcObject = e.streams[0];
-      };
+      pc.ontrack = (e) => { audioEl.srcObject = e.streams[0]; };
       pc.oniceconnectionstatechange = () => {
         const s = pc.iceConnectionState;
         if (s === "failed" || s === "disconnected" || s === "closed") {
@@ -374,10 +392,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         if (!sessionUpdateSentRef.current) {
           try {
             const sessionPayload: Record<string, unknown> = {
-              modalities: ["audio", "text"],
-              voice: "alloy",
+              type: "realtime",
+              audio: { output: { voice: "alloy" } },
             };
-            // In minimal mode, push instructions + tools via session.update.
             if (session.mode === "minimal") {
               if (session.instructions_for_update) {
                 sessionPayload.instructions = session.instructions_for_update;
@@ -387,14 +404,10 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 sessionPayload.tool_choice = "auto";
               }
             }
-            dc.send(
-              JSON.stringify({ type: "session.update", session: sessionPayload }),
-            );
+            dc.send(JSON.stringify({ type: "session.update", session: sessionPayload }));
             sessionUpdateSentRef.current = true;
             safeLog("jack_gpt_session_update_sent", { mode: session.mode });
-          } catch {
-            /* noop */
-          }
+          } catch { /* noop */ }
         }
       };
       dc.onclose = () => {
@@ -408,23 +421,20 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       await pc.setLocalDescription(offer);
       safeLog("jack_gpt_webrtc_offer_created");
 
-      const baseUrl = "https://api.openai.com/v1/realtime";
-      const sdpRes = await fetch(
-        `${baseUrl}?model=${encodeURIComponent(session.realtime_model)}`,
-        {
-          method: "POST",
-          body: offer.sdp,
-          headers: {
-            Authorization: `Bearer ${session.client_secret}`,
-            "Content-Type": "application/sdp",
-            "OpenAI-Beta": "realtime=v1",
-          },
+      // GA endpoint: no ?model=... in URL. Model is already on the session config.
+      const sdpRes = await fetch(REALTIME_CALLS_ENDPOINT, {
+        method: "POST",
+        body: offer.sdp,
+        headers: {
+          Authorization: `Bearer ${session.client_secret}`,
+          "Content-Type": "application/sdp",
         },
-      );
+      });
+      setDiagnostics((d) => ({ ...d, sdpEndpointStatus: sdpRes.status }));
       if (!sdpRes.ok) {
-        throw new Error(`sdp_exchange_failed:${sdpRes.status}`);
+        throw new Error(`sdp_call_failed:${sdpRes.status}`);
       }
-      safeLog("jack_gpt_webrtc_answer_received");
+      safeLog("jack_gpt_webrtc_answer_received", { status: sdpRes.status });
       const answer: RTCSessionDescriptionInit = {
         type: "answer",
         sdp: await sdpRes.text(),
@@ -465,12 +475,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     }
     localStreamRef.current = stream;
 
-    // Helper: create + connect a single attempt.
     const attempt = async (
       minimal: boolean,
     ): Promise<{ ok: true } | { ok: false; classified: ClassifiedRealtimeStartError }> => {
       setState("creating_session");
-      safeLog("jack_gpt_session_requested", { minimal });
+      safeLog("jack_gpt_session_requested", { minimal, api_mode: "ga" });
       const session = await sessionFn({
         data: { brain_id: brainId, mode: "jack_gpt", minimal },
       });
@@ -479,30 +488,49 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           error: session.error,
           status: session.status,
           detail: session.detail,
+          openai_request_id: session.openai_request_id ?? null,
         });
+        setDiagnostics((d) => ({
+          ...d,
+          lastOpenAiStatus: session.status ?? null,
+          lastOpenAiRequestId: session.openai_request_id ?? null,
+          lastErrorKind: classified.kind,
+        }));
         return { ok: false, classified };
       }
+      if (session.probe) {
+        // Should not happen — we don't request probe in the live flow.
+        return {
+          ok: false,
+          classified: classifyRealtimeStartError({ error: "unknown" }),
+        };
+      }
+      setDiagnostics((d) => ({
+        ...d,
+        lastOpenAiRequestId: session.openai_request_id ?? null,
+      }));
       safeLog("jack_gpt_session_created", {
         model: session.realtime_model,
         mode: session.mode,
+        api_mode: session.api_mode,
       });
       try {
         await connectWebRTC(session, stream);
         return { ok: true };
       } catch (err) {
         const message = String((err as Error).message ?? err);
-        const status = /sdp_exchange_failed:(\d+)/.exec(message)?.[1];
+        const status = /sdp_call_failed:(\d+)/.exec(message)?.[1];
         const classified = classifyRealtimeStartError({
-          error: status ? "sdp_exchange_failed" : "unknown",
+          error: status ? "sdp_call_failed" : "unknown",
           status: status ? Number(status) : undefined,
           message,
         });
+        setDiagnostics((d) => ({ ...d, lastErrorKind: classified.kind }));
         teardown();
         return { ok: false, classified };
       }
     };
 
-    // First attempt: full mode.
     const first = await attempt(false);
     if (first.ok) return;
 
@@ -513,12 +541,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       status: c1.status ?? null,
     });
 
-    if (c1.kind === "model_not_found") {
-      safeLog("jack_gpt_model_not_found", { status: c1.status ?? null });
+    if (c1.kind === "model_not_available") {
+      safeLog("jack_gpt_model_not_available", { status: c1.status ?? null });
       setLastError(c1.user_message);
       setState("error");
       teardown();
-      toast.error("Modello realtime non disponibile");
+      toast.error("Realtime GA: modello/endpoint non disponibili");
       return;
     }
 
@@ -531,12 +559,10 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       return;
     }
 
-    // Retry once in minimal mode.
     setRetryNotice("Primo tentativo fallito, riprovo in modalità compatibile…");
     safeLog("jack_gpt_session_minimal_retry_started", { kind: c1.kind });
     pushLog({ kind: "system", text: "Riprovo in modalità compatibile…" });
 
-    // Re-acquire mic if it was stopped by teardown during failure path.
     if (!localStreamRef.current || localStreamRef.current.getTracks().every((t) => t.readyState === "ended")) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -591,6 +617,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       dataChannelState: "none",
       lastEventType: null,
       lastSafeError: null,
+      lastErrorKind: null,
       lastToolCalled: null,
     }));
     safeLog("jack_gpt_reset_completed");
@@ -604,7 +631,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       const res = await statusFn();
       setStatus(res);
       const message = res.configured
-        ? `OpenAI configurato. Modello attivo: ${res.model}${res.model_source === "fallback" ? " (fallback)" : ""}.`
+        ? `OpenAI configurato. Modello: ${res.model}${res.model_source === "fallback" ? " (fallback)" : ""}.`
         : "OpenAI non configurato: aggiungi OPENAI_API_KEY nei secrets.";
       const result: TestConnectionResult = {
         ok: res.configured,
@@ -624,7 +651,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       if (res.configured) toast.success(message);
       else toast.warning(message);
     } catch (err) {
-      const message = "Test connessione fallito.";
+      const message = "Test configurazione fallito.";
       const result: TestConnectionResult = {
         ok: false,
         configured: false,
@@ -642,6 +669,86 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       setTesting(false);
     }
   }, [statusFn, safeLog]);
+
+  /** Probe: mint a real client secret server-side then discard. No mic, no WebRTC. */
+  const testRealtimeSession = useCallback(async () => {
+    setProbing(true);
+    safeLog("jack_gpt_realtime_probe_started");
+    try {
+      const res = await sessionFn({
+        data: { brain_id: brainId, mode: "jack_gpt_probe", probe_only: true },
+      });
+      if (!res.ok) {
+        const classified = classifyRealtimeStartError({
+          error: res.error,
+          status: res.status,
+          detail: res.detail,
+          openai_request_id: res.openai_request_id ?? null,
+        });
+        const probe: RealtimeSessionTestResult = {
+          ok: false,
+          model: null,
+          expires_at: null,
+          openai_request_id: res.openai_request_id ?? null,
+          status_code: res.status ?? null,
+          message: classified.user_message,
+        };
+        setDiagnostics((d) => ({
+          ...d,
+          lastRealtimeProbe: probe,
+          lastOpenAiStatus: res.status ?? null,
+          lastOpenAiRequestId: res.openai_request_id ?? null,
+          lastErrorKind: classified.kind,
+          lastSafeError: classified.user_message,
+        }));
+        safeLog("jack_gpt_realtime_probe_failed", {
+          kind: classified.kind,
+          status: res.status ?? null,
+        });
+        toast.error(classified.user_message);
+        return;
+      }
+      if (!res.probe) {
+        // Defensive: server returned a live session unexpectedly. Do nothing with the secret.
+        toast.warning("Probe inatteso: ricevuta sessione live, scartata.");
+        return;
+      }
+      const probe: RealtimeSessionTestResult = {
+        ok: true,
+        model: res.realtime_model,
+        expires_at: res.expires_at,
+        openai_request_id: res.openai_request_id ?? null,
+        status_code: 200,
+        message: res.message,
+      };
+      setDiagnostics((d) => ({
+        ...d,
+        lastRealtimeProbe: probe,
+        lastOpenAiStatus: 200,
+        lastOpenAiRequestId: res.openai_request_id ?? null,
+      }));
+      safeLog("jack_gpt_realtime_probe_succeeded", { model: res.realtime_model });
+      toast.success(res.message);
+    } catch (err) {
+      const message = "Test Realtime session fallito (rete).";
+      setDiagnostics((d) => ({
+        ...d,
+        lastRealtimeProbe: {
+          ok: false,
+          model: null,
+          expires_at: null,
+          openai_request_id: null,
+          status_code: null,
+          message,
+        },
+        lastSafeError: message,
+      }));
+      safeLog("jack_gpt_realtime_probe_failed", { detail: String(err).slice(0, 120) });
+      toast.error(message);
+    } finally {
+      setProbing(false);
+    }
+  }, [sessionFn, safeLog, brainId]);
 
   useEffect(() => () => teardown(), [teardown]);
 
@@ -684,10 +791,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     state === "requesting_mic" ||
     state === "creating_session";
 
-  const isModelNotFoundError =
-    !!lastError &&
-    diagnostics.lastSafeError?.includes("modello realtime configurato non risulta disponibile") ===
-      true;
+  const isModelNotAvailable = diagnostics.lastErrorKind === "model_not_available";
 
   return (
     <Card className="border-violet-500/20">
@@ -698,7 +802,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             Jack GPT Mode
           </CardTitle>
           <Badge variant="outline" className="border-violet-500/40 text-violet-700 dark:text-violet-300">
-            OpenAI Realtime
+            OpenAI Realtime GA
           </Badge>
           <Badge className={stateTone[state]} variant="secondary">
             {stateLabel[state]}
@@ -712,7 +816,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           ) : null}
         </div>
         <CardDescription>
-          Conversazione vocale naturale con Jack. Affianca Jack Classic (ElevenLabs), non lo sostituisce.
+          Conversazione vocale naturale (Realtime GA). Affianca Jack Classic (ElevenLabs).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -755,10 +859,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <AlertTitle>Ultimo errore</AlertTitle>
             <AlertDescription className="text-xs space-y-1">
               <p>{lastError}</p>
-              {isModelNotFoundError ? (
-                <p>
-                  Modelli suggeriti: {SUGGESTED_REALTIME_MODELS.join(", ")}.
-                </p>
+              {isModelNotAvailable ? (
+                <p>Modelli suggeriti: {SUGGESTED_REALTIME_MODELS.join(", ")}.</p>
               ) : null}
             </AlertDescription>
           </Alert>
@@ -797,7 +899,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             className="gap-2"
             disabled={testing}
           >
-            <Activity className="h-4 w-4" /> {testing ? "Test in corso…" : "Test connessione"}
+            <Activity className="h-4 w-4" /> {testing ? "Test in corso…" : "Test configurazione"}
+          </Button>
+          <Button
+            onClick={testRealtimeSession}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled={probing || !status?.configured}
+          >
+            <Radio className="h-4 w-4" /> {probing ? "Probe in corso…" : "Test Realtime session"}
           </Button>
           <Button
             onClick={resetVoice}
@@ -822,26 +933,42 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
         <div className="rounded-md border bg-muted/30">
           <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2">
-            <Activity className="h-3.5 w-3.5" /> Diagnostica Jack GPT
+            <Activity className="h-3.5 w-3.5" /> Diagnostica Jack GPT (Realtime GA)
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 px-3 py-2 text-xs">
+            <div><span className="text-muted-foreground">API mode:</span> {status?.api_mode ?? "ga"}</div>
             <div><span className="text-muted-foreground">OpenAI configurato:</span> {status?.configured ? "sì" : "no"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Client secret endpoint:</span> <code className="text-[10px]">{REALTIME_CLIENT_SECRETS_ENDPOINT}</code></div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">WebRTC endpoint:</span> <code className="text-[10px]">{REALTIME_CALLS_ENDPOINT}</code></div>
             <div><span className="text-muted-foreground">Modello attivo:</span> {status?.model ?? "—"}</div>
             <div><span className="text-muted-foreground">Model source:</span> {status?.model_source ?? "—"}</div>
-            <div><span className="text-muted-foreground">Session mode:</span> {diagnostics.sessionMode}</div>
+            <div><span className="text-muted-foreground">Session config mode:</span> {diagnostics.sessionMode}</div>
             <div><span className="text-muted-foreground">Mic:</span> {micLabel[micState].replace("Microfono: ", "")}</div>
             <div><span className="text-muted-foreground">Connection:</span> {stateLabel[state]}</div>
             <div><span className="text-muted-foreground">Data channel:</span> {diagnostics.dataChannelState}</div>
+            <div><span className="text-muted-foreground">SDP endpoint status:</span> {diagnostics.sdpEndpointStatus ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last OpenAI status:</span> {diagnostics.lastOpenAiStatus ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last OpenAI request id:</span> {diagnostics.lastOpenAiRequestId ?? "—"}</div>
             <div><span className="text-muted-foreground">Last event:</span> {diagnostics.lastEventType ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last error kind:</span> {diagnostics.lastErrorKind ?? "—"}</div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Last tool:</span> {diagnostics.lastToolCalled ?? "—"}</div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Last safe error:</span> {diagnostics.lastSafeError ?? "—"}</div>
             <div><span className="text-muted-foreground">Cleanup:</span> {diagnostics.cleanupCount}</div>
             <div><span className="text-muted-foreground">Privacy:</span> {status?.privacy_mode ?? "ephemeral_token_only"}</div>
             {diagnostics.lastTest ? (
               <div className="sm:col-span-2 pt-1 border-t mt-1">
-                <span className="text-muted-foreground">Ultimo test:</span> {diagnostics.lastTest.message}
+                <span className="text-muted-foreground">Ultimo test config:</span> {diagnostics.lastTest.message}
                 {diagnostics.lastTest.server_time ? (
                   <span className="text-muted-foreground"> · {diagnostics.lastTest.server_time}</span>
+                ) : null}
+              </div>
+            ) : null}
+            {diagnostics.lastRealtimeProbe ? (
+              <div className="sm:col-span-2 pt-1 border-t mt-1">
+                <span className="text-muted-foreground">Ultimo Realtime probe:</span>{" "}
+                {diagnostics.lastRealtimeProbe.ok ? "OK" : "FAIL"} · {diagnostics.lastRealtimeProbe.message}
+                {diagnostics.lastRealtimeProbe.openai_request_id ? (
+                  <span className="text-muted-foreground"> · req {diagnostics.lastRealtimeProbe.openai_request_id}</span>
                 ) : null}
               </div>
             ) : null}
