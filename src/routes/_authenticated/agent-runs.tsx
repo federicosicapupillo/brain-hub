@@ -639,6 +639,11 @@ function AiHandoffCard({
     }
   }
 
+  const runMeta = (run.metadata as Record<string, unknown> | null) ?? {};
+  const riskWarning = runMeta["ai_risk_warning"] === true;
+  const originalRisk = String(runMeta["ai_original_risk_level"] ?? "");
+  const agentMaxRisk = String(runMeta["ai_agent_max_risk_level"] ?? "");
+
   return (
     <Card>
       <CardHeader>
@@ -650,6 +655,14 @@ function AiHandoffCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {riskWarning && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-900 dark:text-amber-200">
+            <strong>Attenzione:</strong> il rischio reale stimato dell'azione
+            ({originalRisk || "?"}) supera il livello massimo consentito per
+            questo agente ({agentMaxRisk || "?"}). Richiede revisione manuale —
+            nessuna esecuzione automatica.
+          </div>
+        )}
         <div className="grid gap-2 md:grid-cols-[200px_1fr] items-center">
           <Label>Provider AI</Label>
           <Select

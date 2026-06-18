@@ -398,7 +398,8 @@ export type LogEventType =
   | "agent_ai_result_saved"
   | "agent_ai_action_created"
   | "agent_ai_review_created"
-  | "agent_ai_next_action_created";
+  | "agent_ai_next_action_created"
+  | "agent_ai_risk_warning_created";
 
 
 
@@ -596,6 +597,8 @@ const LOG_TITLES: Record<LogEventType, string> = {
   agent_ai_action_created: "Action creata da risultato AI agente",
   agent_ai_review_created: "Review creata da risultato AI agente",
   agent_ai_next_action_created: "Next action creata da risultato AI agente",
+  agent_ai_risk_warning_created:
+    "Warning rischio AI: action supera il max risk dell'agente",
 };
 
 
