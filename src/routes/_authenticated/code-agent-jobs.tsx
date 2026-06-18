@@ -326,11 +326,12 @@ function CodeAgentJobsPage() {
 
   const handleSetRepo = async (jobId: string, repositoryId: string) => {
     try {
-      await updateCodeAgentJobRepository(jobId, repositoryId);
+      await updateRepoFn({ data: { jobId, repositoryId } });
       toast.success("Repository aggiornato sul job");
       refresh();
     } catch (e) {
-      toast.error(describeTransitionError(e)); refresh();
+      toast.error(describeTransitionError(e));
+      refresh();
     }
   };
 
