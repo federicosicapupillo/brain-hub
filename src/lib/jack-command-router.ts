@@ -154,13 +154,6 @@ const INTENT_PATTERNS: Record<Exclude<JackIntent, "unknown">, string[]> = {
     "stato dei progetti",
   ],
 };
-    "aggiorna snapshot",
-    "stato memoria progetto",
-    "cosa abbiamo salvato",
-    "snapshot",
-    "memoria",
-  ],
-};
 
 function normalize(t: string): string {
   return t
