@@ -121,6 +121,23 @@ function CodeAgentJobsPage() {
     queryFn: () => getCodeAgentJobSummary(brainId),
   });
 
+  const { data: repos = [] } = useQuery({
+    queryKey: ["repo-registry-for-jobs"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("github_repository_registry")
+        .select("id,repository_name,repository_url,brain_id,project_id")
+        .order("last_sync_at", { ascending: false });
+      return (data ?? []) as Array<{
+        id: string;
+        repository_name: string | null;
+        repository_url: string;
+        brain_id: string | null;
+        project_id: string | null;
+      }>;
+    },
+  });
+
   const filtered = useMemo(() => {
     return items.filter((j) => {
       if (engineFilter !== "all" && j.recommended_engine !== engineFilter) return false;
@@ -145,7 +162,37 @@ function CodeAgentJobsPage() {
   const handleApprove = async (j: CodeAgentJob) => {
     try {
       await approveCodeAgentJob(j.id);
-      toast.success("Job approvato");
+      toast.success("Job approvato — pronto per handoff (nessuna esecuzione)");
+      refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleReject = async (j: CodeAgentJob) => {
+    try {
+      await rejectCodeAgentJob(j.id, null);
+      toast.success("Job rifiutato");
+      refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleSyncApproval = async (j: CodeAgentJob) => {
+    try {
+      const r = await syncCodeAgentJobApprovalStatus(j.id);
+      toast.success(`Sync · status=${r.status}`);
+      refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleSetRepo = async (jobId: string, repositoryId: string) => {
+    try {
+      await updateCodeAgentJobRepository(jobId, repositoryId);
+      toast.success("Repository aggiornato sul job");
       refresh();
     } catch (e) {
       toast.error((e as Error).message);
@@ -161,15 +208,19 @@ function CodeAgentJobsPage() {
     }
   };
 
-  const handleSent = async (j: CodeAgentJob, engine: CodeAgentEngine) => {
+  const handleSentManually = async (j: CodeAgentJob, engine: CodeAgentEngine) => {
     try {
-      await markCodeAgentJobReady(j.id, engine);
-      toast.success(`Segnato inviato a ${CODE_AGENT_ENGINE_REGISTRY[engine].label}`);
+      await markCodeAgentJobSentManually(j.id, engine);
+      toast.success(`Segnato inviato manualmente a ${CODE_AGENT_ENGINE_REGISTRY[engine].label}`);
       refresh();
     } catch (e) {
       toast.error((e as Error).message);
     }
   };
+
+  // Keep legacy bindings reachable.
+  void markCodeAgentJobReady;
+  void createCodeAgentJobFromBrowser;
 
   const handleSaveResult = async () => {
     if (!openDetail) return;
