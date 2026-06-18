@@ -1021,3 +1021,43 @@ export async function logJackVoiceCommandEvent(
     // non-blocking
   }
 }
+
+// ---------------- Identity intent (Jack Memory) ----------------
+
+async function respondIdentity(matched: string[]): Promise<JackCommandResult> {
+  try {
+    const ctxMem = await getJackMemoryContext({
+      scopes: ["identity", "behavior"],
+      maxChars: 800,
+    });
+    if (ctxMem.status === "missing" || !ctxMem.excerpt) {
+      return {
+        intent: "identity",
+        matched_phrases: matched,
+        response_text:
+          "Non ho ancora una memoria personale configurata. Importa il tuo Jack Memory Core dalla pagina Jack Memory per darmi contesto.",
+        cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+        source: "jack_memory_missing",
+      };
+    }
+    const text =
+      "Ecco quello che so di te dalla memoria operativa. " +
+      ctxMem.excerpt.replace(/\n+/g, " ").slice(0, 700);
+    return {
+      intent: "identity",
+      matched_phrases: matched,
+      response_text: text,
+      cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+      source: "jack_memory",
+    };
+  } catch {
+    return {
+      intent: "identity",
+      matched_phrases: matched,
+      response_text:
+        "Non sono riuscito a leggere la memoria operativa. Apri Jack Memory per verificarla.",
+      cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+      source: "error",
+    };
+  }
+}
