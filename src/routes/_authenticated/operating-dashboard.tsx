@@ -1407,6 +1407,13 @@ function OperationalHealthMini({ brainId }: { brainId: string | null }) {
       return getNextRemediationItem(brainId);
     },
   });
+  const { data: closure } = useQuery({
+    queryKey: ["brainhub-remediation-closure", brainId],
+    queryFn: async () => {
+      const { getRemediationClosureSummary } = await import("@/lib/loop-remediation");
+      return getRemediationClosureSummary(brainId);
+    },
+  });
   const status = data?.status ?? "healthy";
   const tone =
     status === "blocked"
