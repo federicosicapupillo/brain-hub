@@ -11,6 +11,12 @@ import {
   getAnyTodayOperatingBriefForUser,
   type DailyBriefRow,
 } from "@/lib/daily-operating-brief";
+import {
+  extractProjectMention,
+  resolveProjectAlias,
+  type BrainRef,
+  type ProjectResolution,
+} from "@/lib/project-aliases";
 
 export type JackIntent =
   | "daily_status"
@@ -19,6 +25,10 @@ export type JackIntent =
   | "warnings_status"
   | "telegram_status"
   | "master_snapshot"
+  | "project_status"
+  | "project_next_actions"
+  | "project_recent_activity"
+  | "multi_project_status"
   | "unknown";
 
 export type JackCommandCTA = {
@@ -27,12 +37,19 @@ export type JackCommandCTA = {
   search?: Record<string, string | undefined>;
 };
 
+export type ResolvedProjectInfo = {
+  brain: BrainRef | null;
+  resolution: ProjectResolution;
+  mention: string | null;
+};
+
 export type JackCommandResult = {
   intent: JackIntent;
   matched_phrases: string[];
   response_text: string;
   cta: JackCommandCTA | null;
   source: string;
+  project?: ResolvedProjectInfo | null;
 };
 
 const INTENT_PATTERNS: Record<Exclude<JackIntent, "unknown">, string[]> = {
