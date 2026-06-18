@@ -36,7 +36,7 @@ export function GmailMiniCard({ brainId }: { brainId: string | null }) {
             <div className="grid grid-cols-3 gap-2 text-center">
               <Stat label="Oggi" value={s.todayCount} />
               <Stat label="High" value={s.highPriorityCount} />
-              <Stat label="Da action" value={s.actionSuggestedCount} />
+              <Stat label="Action" value={s.actionSuggestedCount} />
             </div>
             <Button asChild variant="outline" size="sm" className="w-full">
               <Link to="/gmail-connector" search={{ brain: brainId ?? undefined }}>
