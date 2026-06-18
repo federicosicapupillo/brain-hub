@@ -1708,6 +1708,8 @@ export type Database = {
       }
       github_repository_registry: {
         Row: {
+          archived_at: string | null
+          archived_reason: string | null
           brain_id: string | null
           connected_status: string
           created_at: string
@@ -1715,6 +1717,7 @@ export type Database = {
           id: string
           last_sync_at: string | null
           metadata: Json
+          normalized_repository_url: string | null
           project_id: string | null
           provider: string
           repository_name: string | null
@@ -1724,6 +1727,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          archived_at?: string | null
+          archived_reason?: string | null
           brain_id?: string | null
           connected_status?: string
           created_at?: string
@@ -1731,6 +1736,7 @@ export type Database = {
           id?: string
           last_sync_at?: string | null
           metadata?: Json
+          normalized_repository_url?: string | null
           project_id?: string | null
           provider?: string
           repository_name?: string | null
@@ -1740,6 +1746,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          archived_at?: string | null
+          archived_reason?: string | null
           brain_id?: string | null
           connected_status?: string
           created_at?: string
@@ -1747,6 +1755,7 @@ export type Database = {
           id?: string
           last_sync_at?: string | null
           metadata?: Json
+          normalized_repository_url?: string | null
           project_id?: string | null
           provider?: string
           repository_name?: string | null
