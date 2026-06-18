@@ -28,6 +28,8 @@ import {
   LoopMultiChain,
   getLoopQaSummary,
   logLoopQaEvent,
+  groupLoopWarnings,
+  type LoopWarningArea,
 } from "@/lib/loop-qa";
 import { useServerFn } from "@tanstack/react-start";
 import { getN8nHmacWarnings } from "@/lib/n8n-hmac.functions";
