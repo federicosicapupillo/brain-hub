@@ -454,7 +454,7 @@ function CodeAgentJobsPage() {
                   size="sm"
                   variant="outline"
                   disabled={openDetail.status === "pending_approval"}
-                  onClick={() => void handleSent(openDetail, "codex_cloud")}
+                  onClick={() => void handleSentManually(openDetail, "codex_cloud")}
                 >
                   <Send className="mr-1 h-3 w-3" /> Inviato a Codex
                 </Button>
@@ -462,7 +462,7 @@ function CodeAgentJobsPage() {
                   size="sm"
                   variant="outline"
                   disabled={openDetail.status === "pending_approval"}
-                  onClick={() => void handleSent(openDetail, "claude_code_cli")}
+                  onClick={() => void handleSentManually(openDetail, "claude_code_cli")}
                 >
                   <Send className="mr-1 h-3 w-3" /> Inviato a Claude Code
                 </Button>
