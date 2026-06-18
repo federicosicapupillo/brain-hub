@@ -231,6 +231,78 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [logFn, brainId],
   );
 
+  /**
+   * Centralized response.create sender. Prevents overlapping responses
+   * (Realtime error: conversation_already_has_active_response).
+   */
+  const safeCreateResponse = useCallback(
+    (reason: string, options: SafeCreateResponseOptions = {}): "sent" | "queued" | "skipped" => {
+      const dc = dcRef.current;
+      safeLog("jack_gpt_response_create_requested", { reason });
+      if (!dc || dc.readyState !== "open") {
+        setDiagnostics((d) => ({
+          ...d,
+          skippedResponseCreateCount: d.skippedResponseCreateCount + 1,
+        }));
+        safeLog("jack_gpt_response_create_skipped_active", { reason, why: "dc_not_open" });
+        return "skipped";
+      }
+      const now = Date.now();
+      const tooSoon = now - lastResponseCreateAtRef.current < RESPONSE_CREATE_DEBOUNCE_MS;
+      if (responseInProgressRef.current || tooSoon) {
+        if (options.queueIfBusy) {
+          pendingResponseCreateRef.current = { reason };
+          setDiagnostics((d) => ({ ...d, pendingResponse: true }));
+          safeLog("jack_gpt_response_create_queued", { reason });
+          return "queued";
+        }
+        setDiagnostics((d) => ({
+          ...d,
+          skippedResponseCreateCount: d.skippedResponseCreateCount + 1,
+        }));
+        safeLog("jack_gpt_response_create_skipped_active", {
+          reason,
+          why: responseInProgressRef.current ? "in_progress" : "debounced",
+        });
+        return "skipped";
+      }
+      try {
+        dc.send(JSON.stringify({ type: "response.create" }));
+        lastResponseCreateAtRef.current = now;
+        setDiagnostics((d) => ({
+          ...d,
+          lastResponseCreateReason: reason,
+          lastResponseCreateAt: now,
+          responseState: "response_starting",
+        }));
+        safeLog("jack_gpt_response_create_sent", { reason });
+        return "sent";
+      } catch {
+        return "skipped";
+      }
+    },
+    [safeLog],
+  );
+
+  const flushPendingResponse = useCallback(() => {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    const pending = pendingResponseCreateRef.current;
+    if (!pending) return;
+    flushTimerRef.current = setTimeout(() => {
+      flushTimerRef.current = null;
+      const next = pendingResponseCreateRef.current;
+      if (!next) return;
+      if (responseInProgressRef.current) return;
+      pendingResponseCreateRef.current = null;
+      setDiagnostics((d) => ({ ...d, pendingResponse: false }));
+      const outcome = safeCreateResponse(next.reason);
+      safeLog("jack_gpt_response_queue_flushed", { reason: next.reason, outcome });
+    }, RESPONSE_CREATE_DEBOUNCE_MS);
+  }, [safeCreateResponse, safeLog]);
+
   useEffect(() => {
     let active = true;
     statusFn()
