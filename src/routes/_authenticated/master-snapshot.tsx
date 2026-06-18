@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,13 +7,25 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { FileText, CheckCircle2, X, Clock, History, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { FileText, CheckCircle2, X, Clock, History, ExternalLink, FileUp, Lock } from "lucide-react";
 import { MasterSnapshotUpdateButton } from "@/components/MasterSnapshotUpdateButton";
 import {
   listMasterSnapshots,
   approveMasterSnapshotUpdate,
   rejectMasterSnapshotUpdate,
   createInitialMasterSnapshot,
+  createDraftFromMarkdown,
   logMasterSnapshotEvent,
   type MasterSnapshotVersion,
   type MasterSnapshotStatus,
