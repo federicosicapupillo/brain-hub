@@ -49,6 +49,8 @@ import { listToolLinks, normalizeStatus } from "@/lib/tool-connections";
 import { RISK_TONE } from "@/lib/action-queue";
 import { TelegramSettingsSection, TelegramDiagnosticsCard } from "@/components/TelegramSettingsSection";
 import { TelegramSendControls } from "@/components/TelegramSendControls";
+import { useServerFn } from "@tanstack/react-start";
+import { checkTelegramWebhookConfig } from "@/lib/telegram-webhook.functions";
 
 export const Route = createFileRoute("/_authenticated/telegram-approvals")({
   head: () => ({
@@ -184,6 +186,8 @@ function TelegramApprovalsRoute() {
           configurato in modo sicuro (token gestiti via Lovable Cloud).
         </div>
       )}
+
+      <TelegramWebhookSetupCard />
 
       <TelegramSettingsSection brainId={brainId} />
       <TelegramDiagnosticsCard brainId={brainId} />
@@ -566,5 +570,78 @@ function Tile({
       <div className="text-lg font-semibold">{value}</div>
       <div className="text-[10px] uppercase tracking-wide">{label}</div>
     </div>
+  );
+}
+
+function TelegramWebhookSetupCard() {
+  const checkCfg = useServerFn(checkTelegramWebhookConfig);
+  const { data } = useQuery({
+    queryKey: ["telegram-webhook-config"],
+    queryFn: () => checkCfg(),
+  });
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const webhookUrl = origin ? `${origin.replace(/\/$/, "")}/api/public/telegram/webhook` : "";
+  const botOk = data?.bot_token_configured;
+  const secretOk = data?.webhook_secret_configured;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Webhook Telegram (bidirezionale v3.7)</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            variant="outline"
+            className={
+              botOk
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                : "border-red-500/30 bg-red-500/10 text-red-600"
+            }
+          >
+            TELEGRAM_BOT_TOKEN: {botOk ? "configurato" : "mancante"}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={
+              secretOk
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-700"
+            }
+          >
+            TELEGRAM_WEBHOOK_SECRET: {secretOk ? "configurato" : "mancante"}
+          </Badge>
+        </div>
+        {!secretOk && (
+          <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-amber-700">
+            Senza <code>TELEGRAM_WEBHOOK_SECRET</code> le callback di Telegram saranno rifiutate.
+            Imposta il secret nel backend e registra il webhook su Telegram con lo stesso valore.
+          </div>
+        )}
+        <div>
+          <div className="mb-1 text-muted-foreground">URL webhook pubblico:</div>
+          <code className="block break-all rounded border bg-muted/30 p-2">{webhookUrl}</code>
+        </div>
+        <div className="space-y-1">
+          <div className="font-medium">Registrazione webhook lato Telegram</div>
+          <p className="text-muted-foreground">
+            Esegui (sostituendo i placeholder, mai dal browser):
+          </p>
+          <code className="block whitespace-pre-wrap break-all rounded border bg-muted/30 p-2">
+            {`curl -X POST "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook" \\
+  -H "Content-Type: application/json" \\
+  -d '{"url":"${webhookUrl}","secret_token":"<TELEGRAM_WEBHOOK_SECRET>","allowed_updates":["callback_query","message"]}'`}
+          </code>
+          <p className="text-muted-foreground">
+            Telegram invierà l'header <code>X-Telegram-Bot-Api-Secret-Token</code>; il backend
+            scarta qualsiasi callback che non corrisponde.
+          </p>
+        </div>
+        <div className="text-[10px] text-muted-foreground">
+          Sicurezza: il valore del secret non viene mai mostrato. Nessun token bot è salvato in
+          database. Le callback sono validate per secret, token-hash, scadenza e replay; non
+          eseguono automaticamente n8n, social, email, GitHub, Drive o Calendar.
+        </div>
+      </CardContent>
+    </Card>
   );
 }

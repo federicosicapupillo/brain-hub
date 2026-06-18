@@ -399,7 +399,16 @@ export type LogEventType =
   | "agent_ai_action_created"
   | "agent_ai_review_created"
   | "agent_ai_next_action_created"
-  | "agent_ai_risk_warning_created";
+  | "agent_ai_risk_warning_created"
+  | "telegram_approval_callback_received"
+  | "telegram_approval_callback_approved"
+  | "telegram_approval_callback_rejected"
+  | "telegram_approval_callback_invalid"
+  | "telegram_approval_callback_expired"
+  | "telegram_approval_callback_replay_ignored"
+  | "telegram_approval_action_synced"
+  | "telegram_webhook_config_viewed"
+  | "telegram_webhook_registered";
 
 
 
@@ -599,6 +608,15 @@ const LOG_TITLES: Record<LogEventType, string> = {
   agent_ai_next_action_created: "Next action creata da risultato AI agente",
   agent_ai_risk_warning_created:
     "Warning rischio AI: action supera il max risk dell'agente",
+  telegram_approval_callback_received: "Callback Telegram ricevuta",
+  telegram_approval_callback_approved: "Approvata via Telegram",
+  telegram_approval_callback_rejected: "Rifiutata via Telegram",
+  telegram_approval_callback_invalid: "Callback Telegram non valida",
+  telegram_approval_callback_expired: "Callback Telegram scaduta",
+  telegram_approval_callback_replay_ignored: "Callback Telegram replay ignorato",
+  telegram_approval_action_synced: "Action sincronizzata da Telegram",
+  telegram_webhook_config_viewed: "Webhook Telegram: configurazione visualizzata",
+  telegram_webhook_registered: "Webhook Telegram registrato",
 };
 
 
