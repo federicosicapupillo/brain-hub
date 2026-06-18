@@ -1851,63 +1851,179 @@ export async function createCodeAgentJobUnified(
 }
 
 // ---------- Browser wrapper for UI ----------
+// v3.15.5: prefer server function `createCodeAgentJobFromBrowserFn`. This
+// wrapper remains for internal/non-UI callers; it throws typed
+// CodeAgentTransitionError so the UI/SSR boundary can serialize it.
 
 export async function createCodeAgentJobFromBrowser(
   input: UnifiedCreateCodeAgentJobInput,
 ): Promise<UnifiedCreateCodeAgentJobResult> {
   const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
+  if (!userId) {
+    throw new CodeAgentTransitionError(
+      "code_agent_user_scope_required",
+      "Devi essere autenticato per creare un Code Agent Job.",
+    );
+  }
+  const commandText = String(input?.command_text ?? "").trim();
+  if (!commandText) {
+    throw new CodeAgentTransitionError(
+      "code_agent_invalid_creation_input",
+      "Dati insufficienti per creare il job: comando vuoto.",
+    );
+  }
   return createCodeAgentJobUnified(sb, userId, input);
 }
 
 // ---------- Update repository on job ----------
+// v3.15.5: typed errors + nullable repository (clearing). Server-enforced via
+// `updateCodeAgentJobRepositoryFn`; never accept user_id from the caller.
+
+const CODE_AGENT_REPO_UPDATABLE_STATUSES: CodeAgentJobStatus[] = [
+  "draft",
+  "pending_approval",
+  "ready",
+];
+
+export function canUpdateCodeAgentJobRepository(job: StateJobLike): boolean {
+  if (isCodeAgentJobTerminal(job)) return false;
+  const s = normalizeCodeAgentJobStatus(job.status as string);
+  return CODE_AGENT_REPO_UPDATABLE_STATUSES.includes(s);
+}
 
 export async function updateCodeAgentJobRepository(
   jobId: string,
-  repositoryId: string,
+  repositoryId: string | null,
 ): Promise<void> {
   const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
-  const { data: repo } = await sb
-    .from("github_repository_registry")
-    .select("id,repository_name,repository_url")
-    .eq("id", repositoryId)
-    .eq("user_id", userId)
-    .single();
-  if (!repo) throw new Error("repository_not_found");
+  if (!userId) {
+    throw new CodeAgentTransitionError(
+      "code_agent_user_scope_required",
+      "Devi essere autenticato.",
+    );
+  }
   const current = await loadJob(jobId, userId);
-  if (!current) throw new Error("job_not_found");
+  if (!current) {
+    throw new CodeAgentTransitionError(
+      "code_agent_job_not_found",
+      "Job non trovato o non accessibile.",
+    );
+  }
+  if (isCodeAgentJobTerminal(current as unknown as StateJobLike)) {
+    throw new CodeAgentTransitionError(
+      "code_agent_terminal_status",
+      "Job in stato finale: repository non modificabile.",
+    );
+  }
+  if (!canUpdateCodeAgentJobRepository(current as unknown as StateJobLike)) {
+    throw new CodeAgentTransitionError(
+      "code_agent_repository_update_not_allowed",
+      "Non puoi modificare il repository di un job già inviato o completato.",
+    );
+  }
+
+  await logJobEvent(jobId, userId, "code_agent_repository_update_started", {
+    previous_repository_id: !!current.repository_id,
+    new_repository_id: !!repositoryId,
+    status: current.status,
+    approval_status: current.approval_status,
+  });
+
+  const meta = current.metadata ?? {};
   const repoRequired = CODE_JOB_TYPES_REQUIRING_REPO.includes(
     current.job_type as CodeAgentJobType,
   );
-  const meta = current.metadata ?? {};
-  const newStatus: CodeAgentJobStatus =
-    current.status === "draft" && repoRequired
-      ? current.risk_level === "low"
-        ? "ready"
-        : "pending_approval"
-      : (current.status as CodeAgentJobStatus);
+
+  let repoRow: { id: string; repository_url: string } | null = null;
+  if (repositoryId) {
+    const { data: repo } = await sb
+      .from("github_repository_registry")
+      .select("id,repository_name,repository_url,user_id")
+      .eq("id", repositoryId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!repo) {
+      await logJobEvent(jobId, userId, "code_agent_repository_update_blocked", {
+        reason: "code_agent_repository_not_found",
+        status: current.status,
+      });
+      throw new CodeAgentTransitionError(
+        "code_agent_repository_not_found",
+        "Repository non trovato o non accessibile.",
+      );
+    }
+    repoRow = { id: repo.id as string, repository_url: repo.repository_url as string };
+  }
+
+  let newStatus: CodeAgentJobStatus = current.status as CodeAgentJobStatus;
+  let resolution: { status: RepoResolutionStatus; reason: string };
+  let missingInfo = ((meta.missing_information as string[] | undefined) ?? []).slice();
+
+  if (repoRow) {
+    resolution = { status: "resolved", reason: "Selezione manuale UI" };
+    missingInfo = missingInfo.filter((s) => !s.toLowerCase().includes("repository"));
+    if (current.status === "draft" && repoRequired) {
+      newStatus = current.risk_level === "low" ? "ready" : "pending_approval";
+    }
+  } else {
+    resolution = { status: "missing", reason: "Repository rimosso manualmente" };
+    if (repoRequired && !missingInfo.some((s) => s.toLowerCase().includes("repository"))) {
+      missingInfo.push("Repository mancante");
+    }
+    if (repoRequired) newStatus = "draft";
+  }
+
   const { error } = await sb
     .from("code_agent_jobs")
     .update({
-      repository_id: repo.id,
-      repo_scope: { repo_url: repo.repository_url, repository_id: repo.id },
+      repository_id: repoRow?.id ?? null,
+      repo_scope: repoRow
+        ? { repo_url: repoRow.repository_url, repository_id: repoRow.id }
+        : null,
       status: newStatus,
       metadata: {
         ...meta,
-        repository_resolution: { status: "resolved", reason: "Selezione manuale UI" },
-        missing_information: ((meta.missing_information as string[] | undefined) ?? []).filter(
-          (s) => !s.toLowerCase().includes("repository"),
-        ),
+        repository_resolution: resolution,
+        missing_information: missingInfo,
       },
       updated_at: new Date().toISOString(),
     })
     .eq("id", jobId)
     .eq("user_id", userId);
-  if (error) throw new Error(error.message);
+  if (error) {
+    await logJobEvent(jobId, userId, "code_agent_repository_update_blocked", {
+      reason: "db_update_error",
+      status: current.status,
+    });
+    throw new Error(error.message);
+  }
   await logJobEvent(jobId, userId, "code_agent_repository_updated", {
-    repository_id: repo.id,
+    previous_repository_id: !!current.repository_id,
+    new_repository_id: !!repoRow,
+    repository_resolution_status: resolution.status,
+    status: newStatus,
   });
+}
+
+// ---------- Lightweight brain-scoped job ID query (for QA warnings) ----------
+// v3.15.5: avoids loading 200 full payloads in loop-qa; fetches IDs only.
+
+export async function listCodeAgentJobIdsForBrain(
+  brainId: string | null,
+  limit = 1000,
+): Promise<string[]> {
+  try {
+    let q = sb
+      .from("code_agent_jobs")
+      .select("id")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (brainId) q = q.eq("brain_id", brainId);
+    const { data } = await q;
+    return ((data as Array<{ id: string }> | null) ?? []).map((r) => r.id);
+  } catch {
+    return [];
+  }
 }
 
 // ---------- Reject ----------
