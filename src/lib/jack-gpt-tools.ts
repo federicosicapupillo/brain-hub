@@ -28,6 +28,7 @@ import {
 import {
   buildJackBestAvailableNextAction,
   getJackReadinessDetails,
+  buildJackDailyStatusFallback,
 } from "@/lib/jack-best-next-action";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
