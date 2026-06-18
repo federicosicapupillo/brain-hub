@@ -509,10 +509,14 @@ function AgentRunsPage() {
 function RunRow({
   run,
   agentName,
+  isOpen,
+  onOpen,
   onArchive,
 }: {
   run: AgentRunLog;
   agentName: string;
+  isOpen: boolean;
+  onOpen: () => void;
   onArchive: () => Promise<void>;
 }) {
   const tone =
@@ -522,13 +526,22 @@ function RunRow({
     RUN_STATUS_LABEL[run.run_status as keyof typeof RUN_STATUS_LABEL] ??
     run.run_status;
   return (
-    <div className="flex items-start justify-between gap-3 rounded border p-3">
+    <div
+      className={`flex items-start justify-between gap-3 rounded border p-3 ${
+        isOpen ? "border-primary ring-1 ring-primary/40 bg-primary/5" : ""
+      }`}
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <Badge variant="outline" className={tone}>
             {label}
           </Badge>
           <span className="text-xs text-muted-foreground">{agentName}</span>
+          {isOpen && (
+            <Badge variant="secondary" className="text-[10px]">
+              aperta
+            </Badge>
+          )}
         </div>
         <div className="text-sm font-medium truncate mt-1">{run.objective}</div>
         {run.output_summary && (
@@ -543,11 +556,16 @@ function RunRow({
           {run.code_handoff_id && <span>• handoff ✓</span>}
         </div>
       </div>
-      {run.run_status !== "archived" && (
-        <Button size="sm" variant="ghost" onClick={onArchive}>
-          Archivia
+      <div className="flex flex-col gap-1 shrink-0">
+        <Button size="sm" variant="outline" onClick={onOpen} disabled={isOpen}>
+          <FolderOpen className="mr-1 h-3.5 w-3.5" /> Apri run
         </Button>
-      )}
+        {run.run_status !== "archived" && (
+          <Button size="sm" variant="ghost" onClick={onArchive}>
+            Archivia
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
