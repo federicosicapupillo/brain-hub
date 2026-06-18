@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Volume2, Loader2, AlertCircle, RefreshCcw, Play } from "lucide-react";
+import { Volume2, Loader2, AlertCircle, RefreshCcw, Play, Mic } from "lucide-react";
 import { toast } from "sonner";
 import {
   getJackVoiceStatus,
@@ -92,6 +92,9 @@ export function JackVoicePlayer({ text, brainId, briefId }: Props) {
     }
   }
 
+  const profile = status?.profile;
+  const recommended = status?.recommended_voices;
+
   return (
     <div className="space-y-2 border rounded-md p-3 bg-muted/30">
       <div className="flex items-center gap-2 flex-wrap">
@@ -108,6 +111,11 @@ export function JackVoicePlayer({ text, brainId, briefId }: Props) {
             Non configurato
           </Badge>
         )}
+        {profile && configured ? (
+          <Badge variant="secondary" className="text-xs font-normal">
+            {profile.name}
+          </Badge>
+        ) : null}
         {!hasText ? (
           <Badge variant="outline">Nessun voice_summary</Badge>
         ) : null}
@@ -134,14 +142,50 @@ export function JackVoicePlayer({ text, brainId, briefId }: Props) {
         </div>
       </div>
 
+      {profile && configured ? (
+        <div className="flex flex-wrap gap-1.5">
+          <Badge variant="outline" className="text-[10px] font-normal">
+            speed {profile.speed}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] font-normal">
+            style {profile.style}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] font-normal">
+            stability {profile.stability}
+          </Badge>
+        </div>
+      ) : null}
+
       {!configured && !statusQ.isLoading ? (
-        <div className="flex items-start gap-2 text-xs text-muted-foreground">
-          <AlertCircle className="h-3 w-3 mt-0.5" />
-          <span>
-            Configura <code>ELEVENLABS_API_KEY</code> e{" "}
-            <code>ELEVENLABS_VOICE_ID</code> nei secrets Lovable per attivare la
-            voce di Jack.
-          </span>
+        <div className="space-y-2">
+          <div className="flex items-start gap-2 text-xs text-muted-foreground">
+            <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+            <span>
+              Configura <code>ELEVENLABS_API_KEY</code> e{" "}
+              <code>ELEVENLABS_VOICE_ID</code> nei secrets Lovable per attivare la
+              voce di Jack.
+            </span>
+          </div>
+          {recommended && recommended.length > 0 ? (
+            <div className="rounded-md border bg-background p-2 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                <Mic className="h-3 w-3" />
+                Voci maschili italiane consigliate (ElevenLabs Voice Library)
+              </div>
+              <ul className="space-y-1">
+                {recommended.map((v) => (
+                  <li key={v.name} className="text-xs text-muted-foreground flex gap-1.5 items-start">
+                    <span className="font-medium text-foreground shrink-0">{v.name}</span>
+                    <span>— {v.notes}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[10px] text-muted-foreground">
+                Vai su <a href="https://elevenlabs.io/voice-library" target="_blank" rel="noreferrer" className="underline">elevenlabs.io/voice-library</a>,
+                cerca una voce, copia il Voice ID e impostalo come secret <code>ELEVENLABS_VOICE_ID</code>.
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
