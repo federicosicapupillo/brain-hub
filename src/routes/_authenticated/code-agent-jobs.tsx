@@ -286,7 +286,7 @@ function CodeAgentJobsPage() {
       toast.success("Repository aggiornato sul job");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -305,7 +305,7 @@ function CodeAgentJobsPage() {
       toast.success(`Segnato inviato manualmente a ${CODE_AGENT_ENGINE_REGISTRY[engine].label}`);
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -325,7 +325,7 @@ function CodeAgentJobsPage() {
       setResultText("");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -335,7 +335,7 @@ function CodeAgentJobsPage() {
       toast.success("Result Review creata");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -345,7 +345,7 @@ function CodeAgentJobsPage() {
       toast.success("Next action creata");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -356,7 +356,7 @@ function CodeAgentJobsPage() {
       else toast.error("Bozza non creata");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
