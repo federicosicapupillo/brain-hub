@@ -33,6 +33,10 @@ import {
   findSimilarMemoryEntries,
   archiveJackMemoryEntry,
 } from "@/lib/jack-memory";
+import {
+  buildJackBestAvailableNextAction,
+  formatJackBestNextActionSpeech,
+} from "@/lib/jack-best-next-action";
 
 export type JackIntent =
   | "daily_status"
