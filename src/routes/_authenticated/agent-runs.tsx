@@ -40,6 +40,7 @@ import {
   createActionFromAgentAiResult,
   createReviewFromAgentAiResult,
   createNextActionFromAgentAiResult,
+  extractSuggestedActionFromAiResult,
   AI_PROVIDER_LABEL,
   AI_HANDOFF_STATUS_LABEL,
   type AgentRunLog,
