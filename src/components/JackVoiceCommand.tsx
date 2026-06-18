@@ -394,6 +394,19 @@ export function JackVoiceCommand({ brainId, briefId, currentBrief, brains }: Pro
             ) : (
               <span className="text-muted-foreground">brain: tutti</span>
             )}
+            {result.project?.brain ? (
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30">
+                progetto: {result.project.brain.name}
+              </Badge>
+            ) : result.project?.resolution.kind === "ambiguous" ? (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                progetto ambiguo
+              </Badge>
+            ) : result.project?.mention ? (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                progetto non trovato: {result.project.mention}
+              </Badge>
+            ) : null}
           </div>
           <p className="text-sm whitespace-pre-wrap">{result.response_text}</p>
           {result.cta ? (
