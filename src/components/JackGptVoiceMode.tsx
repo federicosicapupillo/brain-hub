@@ -400,10 +400,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             },
           }),
         );
-        dc.send(JSON.stringify({ type: "response.create" }));
       } catch { /* noop */ }
+      // Never fire response.create directly: route through the lifecycle guard.
+      safeCreateResponse("tool_result", { queueIfBusy: true });
     },
-    [toolFn, safeLog, pushLog],
+    [toolFn, safeLog, pushLog, safeCreateResponse],
   );
 
   const handleDcMessage = useCallback(
