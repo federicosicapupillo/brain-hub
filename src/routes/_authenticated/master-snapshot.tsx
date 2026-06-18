@@ -106,11 +106,20 @@ function MasterSnapshotRoute() {
   );
   const archived = useMemo(
     () =>
-      versions.filter(
-        (v) => v.version_status === "archived" || v.version_status === "approved_update",
-      ),
+      versions
+        .filter(
+          (v) => v.version_status === "archived" || v.version_status === "approved_update",
+        )
+        .slice()
+        .sort((a, b) => {
+          const ax = a.approved_at ?? a.created_at;
+          const bx = b.approved_at ?? b.created_at;
+          return bx.localeCompare(ax);
+        }),
     [versions],
   );
+  const warnings = useMemo(() => getMasterSnapshotVersionWarnings(versions), [versions]);
+  const expectedNext = useMemo(() => computeNextVersionLabel(versions), [versions]);
 
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(draftFromUrl ?? null);
   useEffect(() => {
