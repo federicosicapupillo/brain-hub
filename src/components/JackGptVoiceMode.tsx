@@ -121,6 +121,14 @@ type Diagnostics = {
   lastOpenAiStatus: number | null;
   lastOpenAiRequestId: string | null;
   sdpEndpointStatus: number | null;
+  responseState: ResponseLifecycleState;
+  activeResponseIdRedacted: string | null;
+  pendingResponse: boolean;
+  lastResponseCreateReason: string | null;
+  lastResponseCreateAt: number | null;
+  lastResponseDoneAt: number | null;
+  skippedResponseCreateCount: number;
+  duplicateResponseHandledCount: number;
 };
 
 type Props = { brainId?: string | null };
