@@ -1177,7 +1177,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                             ? "text-blue-600 dark:text-blue-300 text-xs font-mono"
                             : entry.kind === "error"
                               ? "text-destructive text-xs"
-                              : "text-muted-foreground text-xs"
+                              : entry.kind === "warning"
+                                ? "text-amber-600 dark:text-amber-300 text-xs"
+                                : "text-muted-foreground text-xs"
                     }
                   >
                     <span className="opacity-60 mr-1">
@@ -1189,7 +1191,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                             ? "Tool:"
                             : entry.kind === "error"
                               ? "Errore:"
-                              : "•"}
+                              : entry.kind === "warning"
+                                ? "Avviso:"
+                                : "•"}
                     </span>
                     {entry.text}
                   </div>
