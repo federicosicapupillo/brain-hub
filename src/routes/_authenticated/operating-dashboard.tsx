@@ -594,6 +594,13 @@ function CodeAgentJobsMiniCard({ brainId }: { brainId: string | null }) {
       return getCodeAgentQaSummary(brainId);
     },
   });
+  const { data: e2e } = useQuery({
+    queryKey: ["code-agent-e2e-mini", brainId],
+    queryFn: async () => {
+      const { getCodeAgentEndToEndSummary } = await import("@/lib/code-agent-qa");
+      return getCodeAgentEndToEndSummary(brainId);
+    },
+  });
   return (
     <Card>
       <CardHeader className="pb-2">
