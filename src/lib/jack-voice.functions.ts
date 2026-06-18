@@ -47,6 +47,15 @@ export const getJackVoiceStatus = createServerFn({ method: "GET" })
       voice_id_configured: !!voiceId,
       model_id_configured: !!modelId,
       max_chars: MAX_CHARS,
+      profile: {
+        name: JACK_VOICE_PROFILE.name,
+        speed: JACK_VOICE_PROFILE.voice_settings.speed,
+        style: JACK_VOICE_PROFILE.voice_settings.style,
+        stability: JACK_VOICE_PROFILE.voice_settings.stability,
+      },
+      recommended_voices: JACK_VOICE_PROFILE.recommended_male_italian_voices.map(
+        (v) => ({ name: v.name, notes: v.notes }),
+      ),
     };
   });
 
