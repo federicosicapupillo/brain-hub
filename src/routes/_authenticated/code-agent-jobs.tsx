@@ -85,18 +85,53 @@ export const Route = createFileRoute("/_authenticated/code-agent-jobs")({
 });
 
 const ENGINES = Object.keys(CODE_AGENT_ENGINE_REGISTRY) as CodeAgentEngine[];
-const STATUSES: CodeAgentJobStatus[] = [
-  "draft",
-  "pending_approval",
-  "ready",
-  "sent_to_engine",
-  "result_received",
-  "review_created",
-  "completed",
-  "rejected",
-  "failed",
-];
+const STATUS_BUCKETS = [
+  { id: "all", label: "Tutti" },
+  { id: "draft", label: "Draft" },
+  { id: "repo_missing", label: "Repository mancante" },
+  { id: "repo_ambiguous", label: "Repository ambiguo" },
+  { id: "pending_approval", label: "In attesa approvazione" },
+  { id: "ready", label: "Pronti da inviare" },
+  { id: "sent_no_result", label: "Inviati senza risultato" },
+  { id: "result_to_review", label: "Risultati da revisionare" },
+  { id: "review_ready", label: "Review pronte" },
+  { id: "completed", label: "Completati/revisionati" },
+  { id: "failed", label: "Falliti/annullati" },
+] as const;
+type StatusBucketId = (typeof STATUS_BUCKETS)[number]["id"];
 const RISKS: CodeAgentRiskLevel[] = ["low", "medium", "high"];
+
+function jobMatchesBucket(j: CodeAgentJob, bucket: StatusBucketId): boolean {
+  if (bucket === "all") return true;
+  const resolution =
+    ((j.metadata?.repository_resolution as { status?: string } | undefined)?.status) ?? null;
+  switch (bucket) {
+    case "draft":
+      return j.status === "draft";
+    case "repo_missing":
+      return !j.repository_id && resolution === "missing";
+    case "repo_ambiguous":
+      return !j.repository_id && resolution === "ambiguous";
+    case "pending_approval":
+      return j.status === "pending_approval";
+    case "ready":
+      return j.status === "ready";
+    case "sent_no_result":
+      return (
+        (j.status === "sent_manually" || j.status === "sent_to_engine") && !j.result_text
+      );
+    case "result_to_review":
+      return j.status === "result_received" && !j.result_review_item_id;
+    case "review_ready":
+      return j.status === "review_ready";
+    case "completed":
+      return j.status === "reviewed" || j.status === "completed";
+    case "failed":
+      return j.status === "failed" || j.status === "cancelled" || j.status === "rejected";
+    default:
+      return true;
+  }
+}
 
 function CodeAgentJobsPage() {
   const qc = useQueryClient();
