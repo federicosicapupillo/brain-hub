@@ -768,9 +768,7 @@ function RemediationRow({
             <Badge variant="outline" className="text-[10px]">
               {REMEDIATION_AREA_LABEL[item.area]}
             </Badge>
-            {item.status === "action_created" && (
-              <Badge variant="outline" className="text-[10px]">Azione creata</Badge>
-            )}
+            <StatusBadge status={item.status} />
             <div className="text-sm font-medium">{item.title}</div>
           </div>
           <div className="text-xs text-muted-foreground">{item.explanation}</div>
