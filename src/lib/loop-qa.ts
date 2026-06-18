@@ -29,6 +29,7 @@ export type LoopWarning = {
   title: string;
   description: string;
   cta?: { label: string; to: string };
+  category?: string;
 };
 
 export type LoopChainNode =
