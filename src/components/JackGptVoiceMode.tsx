@@ -1440,6 +1440,63 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           </Button>
         </div>
 
+        {pendingActionPreview ? (
+          <Card className="border-amber-500/40 bg-amber-500/5">
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-amber-600" />
+                  Proposta action — richiede conferma
+                </CardTitle>
+                <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-300">
+                  Richiede conferma
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  rischio: {pendingActionPreview.risk_level}
+                </Badge>
+              </div>
+              <CardDescription className="text-xs">
+                Jack non può creare action da solo. Conferma con il pulsante o di' "sì, confermo".
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Titolo</div>
+                <div>{pendingActionPreview.title}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Descrizione</div>
+                <div className="text-xs">{pendingActionPreview.description}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Motivo</div>
+                <div className="text-xs">{pendingActionPreview.reason}</div>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  size="sm"
+                  onClick={() => void confirmPendingPreview("ui_button")}
+                  disabled={confirmingAction}
+                  className="gap-2"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {confirmingAction ? "Creazione…" : "Conferma creazione action"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={cancelPendingPreview}
+                  disabled={confirmingAction}
+                >
+                  Annulla
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+
+
         <div className="rounded-md border bg-muted/30">
           <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2">
             <Activity className="h-3.5 w-3.5" /> Diagnostica Jack GPT (Realtime GA)
