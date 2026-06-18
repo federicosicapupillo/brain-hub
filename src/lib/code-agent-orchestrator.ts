@@ -1257,3 +1257,602 @@ export async function getCodeAgentJobWarnings(
   }
   return warns;
 }
+
+// ============================================================
+// v3.15.1 — Repo Resolver, Unified Create, Approval Sync,
+// Manual Handoff, Reject, Telegram Approval Wiring
+// ============================================================
+
+export type RepoResolutionStatus = "resolved" | "ambiguous" | "missing";
+
+export type RepoCandidate = {
+  repository_id: string;
+  repository_name: string | null;
+  repository_url: string;
+  source: "explicit" | "hint_match" | "project_link" | "brain_link" | "recent";
+};
+
+export type RepoResolutionResult = {
+  status: RepoResolutionStatus;
+  repository_id: string | null;
+  repository_name: string | null;
+  repo_url: string | null;
+  candidates: RepoCandidate[];
+  reason: string;
+};
+
+type SbLike = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  from: (t: string) => any;
+};
+
+export type ResolveRepoInput = {
+  repository_id?: string | null;
+  repository_hint?: string | null;
+  project_id?: string | null;
+  brain_id?: string | null;
+};
+
+export async function resolveRepositoryForCodeAgentJob(
+  sb: SbLike,
+  userId: string,
+  input: ResolveRepoInput,
+): Promise<RepoResolutionResult> {
+  const collected: RepoCandidate[] = [];
+
+  const toCandidate = (
+    r: { id: string; repository_name: string | null; repository_url: string },
+    source: RepoCandidate["source"],
+  ): RepoCandidate => ({
+    repository_id: r.id,
+    repository_name: r.repository_name,
+    repository_url: r.repository_url,
+    source,
+  });
+
+  // 1) explicit
+  if (input.repository_id) {
+    try {
+      const { data } = await sb
+        .from("github_repository_registry")
+        .select("id,repository_name,repository_url")
+        .eq("user_id", userId)
+        .eq("id", input.repository_id)
+        .single();
+      if (data) {
+        return {
+          status: "resolved",
+          repository_id: data.id,
+          repository_name: data.repository_name,
+          repo_url: data.repository_url,
+          candidates: [toCandidate(data, "explicit")],
+          reason: "Repository fornito esplicitamente.",
+        };
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // load workspace repos once
+  let repos: Array<{ id: string; repository_name: string | null; repository_url: string; project_id: string | null; brain_id: string | null; last_sync_at: string | null }> = [];
+  try {
+    const { data } = await sb
+      .from("github_repository_registry")
+      .select("id,repository_name,repository_url,project_id,brain_id,last_sync_at")
+      .eq("user_id", userId)
+      .order("last_sync_at", { ascending: false })
+      .limit(200);
+    repos = (data ?? []) as typeof repos;
+  } catch {
+    repos = [];
+  }
+
+  // 2) hint
+  if (input.repository_hint) {
+    const hint = input.repository_hint.toLowerCase();
+    const hits = repos.filter(
+      (r) =>
+        r.repository_url.toLowerCase().includes(hint) ||
+        (r.repository_name ?? "").toLowerCase().includes(hint),
+    );
+    for (const r of hits) collected.push(toCandidate(r, "hint_match"));
+  }
+
+  // 3) project link
+  if (input.project_id) {
+    for (const r of repos.filter((r) => r.project_id === input.project_id)) {
+      if (!collected.find((c) => c.repository_id === r.id)) {
+        collected.push(toCandidate(r, "project_link"));
+      }
+    }
+  }
+
+  // 4) brain link
+  if (input.brain_id) {
+    for (const r of repos.filter((r) => r.brain_id === input.brain_id)) {
+      if (!collected.find((c) => c.repository_id === r.id)) {
+        collected.push(toCandidate(r, "brain_link"));
+      }
+    }
+  }
+
+  // 5) recent for brain/project
+  if (collected.length === 0 && (input.brain_id || input.project_id)) {
+    const recent = repos.find(
+      (r) =>
+        (input.brain_id && r.brain_id === input.brain_id) ||
+        (input.project_id && r.project_id === input.project_id),
+    );
+    if (recent) collected.push(toCandidate(recent, "recent"));
+  }
+
+  if (collected.length === 0) {
+    return {
+      status: "missing",
+      repository_id: null,
+      repository_name: null,
+      repo_url: null,
+      candidates: [],
+      reason: "Nessun repository collegato a brain/progetto. Scegli repository.",
+    };
+  }
+  if (collected.length === 1) {
+    const c = collected[0];
+    return {
+      status: "resolved",
+      repository_id: c.repository_id,
+      repository_name: c.repository_name,
+      repo_url: c.repository_url,
+      candidates: collected,
+      reason: `Risolto da ${c.source}.`,
+    };
+  }
+  return {
+    status: "ambiguous",
+    repository_id: null,
+    repository_name: null,
+    repo_url: null,
+    candidates: collected.slice(0, 10),
+    reason: `Trovati ${collected.length} repository candidati. Selezione manuale richiesta.`,
+  };
+}
+
+// ---------- Unified create (shared by Jack + UI) ----------
+
+export type UnifiedCreateCodeAgentJobInput = CreateCodeAgentJobInput & {
+  delivery_preference?: "manual" | "telegram" | null;
+};
+
+export type UnifiedCreateCodeAgentJobResult = CreateCodeAgentJobResult & {
+  repository_id: string | null;
+  repository_resolution: RepoResolutionResult;
+  telegram_approval_id: string | null;
+  selected_engine: CodeAgentEngine | null;
+};
+
+const CODE_JOB_TYPES_REQUIRING_REPO: CodeAgentJobType[] = [
+  "code_fix",
+  "code_refactor",
+  "typecheck_fix",
+  "build_fix",
+  "test_generation",
+  "test_run",
+  "feature_implementation",
+  "dependency_check",
+];
+
+export async function createCodeAgentJobUnified(
+  sb: SbLike,
+  userId: string,
+  input: UnifiedCreateCodeAgentJobInput,
+): Promise<UnifiedCreateCodeAgentJobResult> {
+  const commandText = sanitizeText(String(input.command_text ?? "").trim(), 1500);
+  const ctx: CodeAgentCommandContext = {
+    brainId: input.brain_id ?? null,
+    projectId: input.project_id ?? null,
+    repositoryId: input.repository_id ?? null,
+    preferredEngine: input.preferred_engine ?? null,
+    repositoryHint: input.repository_hint ?? null,
+    riskHint: input.risk_hint ?? null,
+  };
+  const cls = classifyCodeAgentCommand(commandText, ctx);
+  const engine = selectCodeEngine(cls, ctx);
+  const plan = buildCodeAgentExecutionPlan({
+    classification: cls,
+    engine,
+    context: ctx,
+    commandText,
+  });
+
+  // Repo resolution
+  const repoRes = await resolveRepositoryForCodeAgentJob(sb, userId, {
+    repository_id: input.repository_id ?? null,
+    repository_hint: input.repository_hint ?? null,
+    project_id: input.project_id ?? null,
+    brain_id: input.brain_id ?? null,
+  });
+
+  const repoRequired = CODE_JOB_TYPES_REQUIRING_REPO.includes(cls.job_type);
+  const repoBlocking = repoRequired && repoRes.status !== "resolved";
+
+  const approvalStatus: CodeAgentApprovalStatus = cls.unsafe_request
+    ? "needs_strong_approval"
+    : cls.risk_level === "low"
+      ? "auto_approved"
+      : "pending";
+
+  let status: CodeAgentJobStatus;
+  if (repoBlocking) {
+    status = "draft";
+  } else if (cls.unsafe_request) {
+    status = "pending_approval";
+  } else if (cls.risk_level === "low") {
+    status = "ready";
+  } else {
+    status = "pending_approval";
+  }
+
+  const promptJob: PromptJobLike = {
+    command_text: commandText,
+    job_type: cls.job_type,
+    risk_level: cls.risk_level,
+    recommended_engine: engine,
+    branch_name: null,
+    repo_scope: repoRes.repo_url
+      ? { repo_url: repoRes.repo_url, repository_id: repoRes.repository_id }
+      : input.repository_hint
+        ? { repo_url: input.repository_hint }
+        : {},
+    execution_plan: plan as unknown as Record<string, unknown>,
+    allowed_commands: plan.allowed_commands,
+    forbidden_paths: plan.forbidden_paths,
+    metadata: {
+      repository_hint: input.repository_hint ?? null,
+      repository_resolution: repoRes.status,
+    },
+  };
+  const promptText = engine.startsWith("claude_code")
+    ? buildClaudeCodeTaskPrompt(promptJob)
+    : buildCodexTaskPrompt(promptJob);
+
+  const missingInfo: string[] = [];
+  if (repoBlocking) {
+    missingInfo.push(repoRes.status === "ambiguous" ? "Scegli repository tra i candidati" : "Scegli repository");
+  }
+
+  let jobId: string | null = null;
+  try {
+    const res = await sb
+      .from("code_agent_jobs")
+      .insert({
+        user_id: userId,
+        brain_id: input.brain_id ?? null,
+        project_id: input.project_id ?? null,
+        repository_id: repoRes.repository_id,
+        source: input.source ?? "jack",
+        command_text: commandText,
+        job_type: cls.job_type,
+        recommended_engine: engine,
+        selected_engine: null,
+        risk_level: cls.risk_level,
+        requires_approval: cls.requires_approval,
+        status,
+        approval_status: approvalStatus,
+        execution_mode: plan.execution_mode,
+        repo_scope: promptJob.repo_scope,
+        branch_name: null,
+        prompt_text: promptText,
+        execution_plan: plan,
+        allowed_commands: plan.allowed_commands,
+        forbidden_paths: plan.forbidden_paths,
+        metadata: {
+          jack_classification: cls,
+          repository_hint: input.repository_hint ?? null,
+          repository_resolution: {
+            status: repoRes.status,
+            reason: repoRes.reason,
+            candidate_count: repoRes.candidates.length,
+          },
+          delivery_preference: input.delivery_preference ?? null,
+          missing_information: missingInfo,
+          notes: input.notes ? sanitizeText(input.notes, 280) : null,
+        },
+      })
+      .select("id")
+      .single();
+    jobId = (res?.data?.id as string) ?? null;
+  } catch {
+    jobId = null;
+  }
+
+  if (jobId) {
+    await logJobEvent(jobId, userId, "code_agent_job_server_created", {
+      source: input.source ?? "jack",
+      engine,
+      job_type: cls.job_type,
+      risk: cls.risk_level,
+    });
+    if (repoRes.status === "resolved") {
+      await logJobEvent(jobId, userId, "code_agent_repository_resolved", {
+        repository_id: repoRes.repository_id,
+        source: repoRes.candidates[0]?.source ?? null,
+      });
+    } else if (repoRes.status === "ambiguous") {
+      await logJobEvent(jobId, userId, "code_agent_repository_ambiguous", {
+        candidate_count: repoRes.candidates.length,
+      });
+    } else {
+      await logJobEvent(jobId, userId, "code_agent_repository_missing", {});
+    }
+  }
+
+  // Telegram approval draft for medium/high risk or requires_approval
+  let telegramApprovalId: string | null = null;
+  if (
+    jobId &&
+    !repoBlocking &&
+    (cls.risk_level === "medium" || cls.risk_level === "high" || cls.requires_approval)
+  ) {
+    try {
+      const req = await createApprovalRequest({
+        brain_id: input.brain_id ?? null,
+        project_id: input.project_id ?? null,
+        approval_type: "manual_action",
+        title: `Code Agent Job — ${CODE_AGENT_JOB_TYPE_LABEL[cls.job_type] ?? cls.job_type}`,
+        message_preview: sanitizeText(commandText, 400),
+        payload_preview: {
+          job_id: jobId,
+          recommended_engine: engine,
+          repo_url: repoRes.repo_url,
+          repository_name: repoRes.repository_name,
+          allowed_commands: plan.allowed_commands,
+          forbidden_paths: plan.forbidden_paths,
+          will_not_do: [
+            "Niente esecuzione automatica",
+            "Niente commit/push/PR/merge/deploy",
+            "Solo handoff manuale del prompt",
+          ],
+          link: "/code-agent-jobs",
+        },
+        risk_level: cls.risk_level,
+        metadata: {
+          source_module: "code_agent_orchestrator",
+          code_agent_job_id: jobId,
+          action_type: "code_agent_job",
+        },
+      });
+      telegramApprovalId = req.id;
+      await sb
+        .from("code_agent_jobs")
+        .update({
+          telegram_approval_id: telegramApprovalId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", jobId)
+        .eq("user_id", userId);
+      await logJobEvent(jobId, userId, "code_agent_telegram_approval_created", {
+        approval_id: telegramApprovalId,
+        risk: cls.risk_level,
+      });
+    } catch {
+      telegramApprovalId = null;
+    }
+  }
+
+  const engineLabel = CODE_AGENT_ENGINE_REGISTRY[engine].label;
+  const safeMessage = repoBlocking
+    ? `Ho preparato il job ma serve scegliere il repository (${repoRes.status}). Apri /code-agent-jobs per selezionarlo.`
+    : cls.unsafe_request
+      ? "Job preparato ma chiedi esecuzione automatica: lo blocco e segno come high-risk con approvazione forte."
+      : cls.risk_level === "high"
+        ? `Job high-risk per ${engineLabel}. Approvazione forte richiesta.`
+        : cls.risk_level === "medium"
+          ? `Job per ${engineLabel}. Rischio medio: approvazione richiesta prima dell'handoff.`
+          : `Job low-risk per ${engineLabel}. Pronto per handoff manuale.`;
+
+  return {
+    ok: jobId !== null,
+    job_id: jobId,
+    job_type: cls.job_type,
+    recommended_engine: engine,
+    selected_engine: null,
+    risk_level: cls.risk_level,
+    requires_approval: cls.requires_approval,
+    status,
+    approval_status: approvalStatus,
+    next_step: jobId
+      ? repoBlocking
+        ? "Apri /code-agent-jobs e seleziona il repository."
+        : telegramApprovalId
+          ? "Job creato. Approvazione Telegram in bozza."
+          : "Apri /code-agent-jobs per revisione e approvazione."
+      : "Riprova: job non salvato.",
+    safe_message: safeMessage,
+    unsafe_request: cls.unsafe_request,
+    repository_id: repoRes.repository_id,
+    repository_resolution: repoRes,
+    telegram_approval_id: telegramApprovalId,
+  };
+}
+
+// ---------- Browser wrapper for UI ----------
+
+export async function createCodeAgentJobFromBrowser(
+  input: UnifiedCreateCodeAgentJobInput,
+): Promise<UnifiedCreateCodeAgentJobResult> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error("auth_required");
+  return createCodeAgentJobUnified(sb, userId, input);
+}
+
+// ---------- Update repository on job ----------
+
+export async function updateCodeAgentJobRepository(
+  jobId: string,
+  repositoryId: string,
+): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error("auth_required");
+  const { data: repo } = await sb
+    .from("github_repository_registry")
+    .select("id,repository_name,repository_url")
+    .eq("id", repositoryId)
+    .eq("user_id", userId)
+    .single();
+  if (!repo) throw new Error("repository_not_found");
+  const current = await loadJob(jobId, userId);
+  if (!current) throw new Error("job_not_found");
+  const repoRequired = CODE_JOB_TYPES_REQUIRING_REPO.includes(
+    current.job_type as CodeAgentJobType,
+  );
+  const meta = current.metadata ?? {};
+  const newStatus: CodeAgentJobStatus =
+    current.status === "draft" && repoRequired
+      ? current.risk_level === "low"
+        ? "ready"
+        : "pending_approval"
+      : (current.status as CodeAgentJobStatus);
+  const { error } = await sb
+    .from("code_agent_jobs")
+    .update({
+      repository_id: repo.id,
+      repo_scope: { repo_url: repo.repository_url, repository_id: repo.id },
+      status: newStatus,
+      metadata: {
+        ...meta,
+        repository_resolution: { status: "resolved", reason: "Selezione manuale UI" },
+        missing_information: ((meta.missing_information as string[] | undefined) ?? []).filter(
+          (s) => !s.toLowerCase().includes("repository"),
+        ),
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  await logJobEvent(jobId, userId, "code_agent_repository_updated", {
+    repository_id: repo.id,
+  });
+}
+
+// ---------- Reject ----------
+
+export async function rejectCodeAgentJob(
+  jobId: string,
+  reason: string | null = null,
+): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error("auth_required");
+  const { error } = await sb
+    .from("code_agent_jobs")
+    .update({
+      approval_status: "rejected",
+      status: "cancelled",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  await logJobEvent(jobId, userId, "code_agent_job_rejected", {
+    reason: reason ? sanitizeText(reason, 200) : null,
+  });
+}
+
+// ---------- Mark sent manually ----------
+
+export async function markCodeAgentJobSentManually(
+  jobId: string,
+  engine: CodeAgentEngine,
+): Promise<void> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error("auth_required");
+  const { error } = await sb
+    .from("code_agent_jobs")
+    .update({
+      selected_engine: engine,
+      status: "sent_manually",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", jobId)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  await logJobEvent(jobId, userId, "code_agent_marked_sent_manually", {
+    engine,
+    sent_at: new Date().toISOString(),
+  });
+}
+
+// ---------- Approval sync ----------
+
+export type ApprovalSyncResult = {
+  job_id: string;
+  approval_status: CodeAgentApprovalStatus | string;
+  status: CodeAgentJobStatus | string;
+  telegram_status: string | null;
+};
+
+export async function syncCodeAgentJobApprovalStatus(
+  jobId: string,
+): Promise<ApprovalSyncResult> {
+  const userId = await currentUserId();
+  if (!userId) throw new Error("auth_required");
+  const job = await loadJob(jobId, userId);
+  if (!job) throw new Error("job_not_found");
+  let nextApproval = job.approval_status;
+  let nextStatus = job.status;
+  let telegramStatus: string | null = null;
+
+  if (job.telegram_approval_id) {
+    try {
+      const { data } = await sb
+        .from("telegram_approval_requests")
+        .select("status")
+        .eq("id", job.telegram_approval_id)
+        .single();
+      telegramStatus = (data?.status as string) ?? null;
+      if (telegramStatus === "approved") {
+        nextApproval = "approved";
+        nextStatus = "ready";
+      } else if (telegramStatus === "rejected") {
+        nextApproval = "rejected";
+        nextStatus = "cancelled";
+      } else if (telegramStatus === "expired" || telegramStatus === "failed") {
+        nextStatus = "failed";
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // Low-risk auto-policy
+  if (job.risk_level === "low" && job.approval_status === "auto_approved" && job.status === "draft") {
+    nextStatus = "ready";
+  }
+
+  if (nextApproval !== job.approval_status || nextStatus !== job.status) {
+    await sb
+      .from("code_agent_jobs")
+      .update({
+        approval_status: nextApproval,
+        status: nextStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", jobId)
+      .eq("user_id", userId);
+    await logJobEvent(jobId, userId, "code_agent_approval_synced", {
+      from_status: job.status,
+      to_status: nextStatus,
+      from_approval: job.approval_status,
+      to_approval: nextApproval,
+      telegram_status: telegramStatus,
+    });
+  }
+
+  return {
+    job_id: jobId,
+    approval_status: nextApproval,
+    status: nextStatus,
+    telegram_status: telegramStatus,
+  };
+}
