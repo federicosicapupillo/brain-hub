@@ -183,7 +183,7 @@ function CodeAgentJobsPage() {
   const filtered = useMemo(() => {
     return items.filter((j) => {
       if (engineFilter !== "all" && j.recommended_engine !== engineFilter) return false;
-      if (statusFilter !== "all" && j.status !== statusFilter) return false;
+      if (!jobMatchesBucket(j, statusFilter as StatusBucketId)) return false;
       if (riskFilter !== "all" && j.risk_level !== riskFilter) return false;
       return true;
     });
