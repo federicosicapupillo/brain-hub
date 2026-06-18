@@ -53,10 +53,14 @@ export type CodeAgentJobStatus =
   | "pending_approval"
   | "ready"
   | "sent_to_engine"
+  | "sent_manually"
   | "result_received"
   | "review_created"
+  | "review_ready"
+  | "reviewed"
   | "completed"
   | "rejected"
+  | "cancelled"
   | "failed";
 
 export type CodeAgentApprovalStatus =
