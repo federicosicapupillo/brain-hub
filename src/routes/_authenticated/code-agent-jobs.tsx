@@ -29,8 +29,6 @@ import {
   listCodeAgentJobs,
   getCodeAgentJob,
   markCodeAgentJobReady,
-  updateCodeAgentJobRepository,
-  createCodeAgentJobFromBrowser,
   getCodeAgentJobSummary,
   getCodeAgentAvailableActions,
   getCodeAgentNextStep,
@@ -55,6 +53,8 @@ import {
   createMasterSnapshotDraftFromCodeAgentJobFn,
   syncCodeAgentJobApprovalStatusFn,
   syncPendingCodeAgentApprovalsFn,
+  createCodeAgentJobFromBrowserFn,
+  updateCodeAgentJobRepositoryFn,
 } from "@/lib/code-agent-orchestrator.functions";
 import {
   AlertTriangle,
