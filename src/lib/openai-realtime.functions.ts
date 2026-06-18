@@ -87,11 +87,19 @@ function resolveModel(): {
 // JACK_GPT_TOOLS_SCHEMA is already in GA shape ({type:"function", name, description, parameters}).
 // This adapter is the single boundary in case OpenAI changes the wrapping.
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [k: string]: JsonValue };
+
 export type GaRealtimeTool = {
   type: "function";
   name: string;
   description: string;
-  parameters: Record<string, unknown>;
+  parameters: JsonValue;
 };
 
 export function buildRealtimeGaToolsSchema(): GaRealtimeTool[] {
@@ -99,7 +107,7 @@ export function buildRealtimeGaToolsSchema(): GaRealtimeTool[] {
     type: "function",
     name: t.name,
     description: t.description,
-    parameters: t.parameters as Record<string, unknown>,
+    parameters: t.parameters as unknown as JsonValue,
   }));
 }
 
