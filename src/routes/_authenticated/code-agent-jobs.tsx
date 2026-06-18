@@ -617,13 +617,18 @@ function CodeAgentJobsPage() {
               <div>
                 Nessun job ancora. Puoi crearne uno manualmente oppure chiedere a Jack di prepararlo.
               </div>
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-2 flex-wrap">
                 <Button size="sm" onClick={() => setCreateOpen(true)}>
                   <Plus className="mr-1 h-3 w-3" /> Nuovo Code Agent Job
                 </Button>
                 <Button asChild size="sm" variant="outline">
                   <Link to="/code-agent-qa">
                     <ShieldCheck className="mr-1 h-3 w-3" /> Apri Code Agent QA
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/github-operational">
+                    <GitBranch className="mr-1 h-3 w-3" /> GitHub Operational
                   </Link>
                 </Button>
               </div>
