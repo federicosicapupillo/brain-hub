@@ -160,7 +160,7 @@ function GithubOperationalPage() {
               onSuggestions={() => setOpenSuggestions(r)}
               onArchive={async () => {
                 if (!confirm("Archiviare il repository?")) return;
-                await archiveGithubRepository(r.id);
+                await archiveGithubRepository(r.id, "manual");
                 toast.success("Repository archiviato");
                 await qc.invalidateQueries({ queryKey: ["gho-repos"] });
               }}
@@ -168,6 +168,13 @@ function GithubOperationalPage() {
           ))}
         </CardContent>
       </Card>
+
+      <SuspectRepositoriesCard
+        repos={reposQ.data ?? []}
+        onChanged={async () => {
+          await qc.invalidateQueries({ queryKey: ["gho-repos"] });
+        }}
+      />
 
       <AddRepoDialog
         open={openAddRepo}
