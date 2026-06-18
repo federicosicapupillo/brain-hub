@@ -1076,7 +1076,11 @@ export type JackVoiceCommandEvent =
   | "jack_memory_natural_response_generated"
   | "jack_memory_forget_requested"
   | "jack_memory_secret_warning"
-  | "jack_memory_entry_used";
+  | "jack_memory_entry_used"
+  | "jack_best_next_action_built"
+  | "jack_action_queue_empty_fallback_used"
+  | "jack_daily_brief_next_action_used"
+  | "jack_operational_fallback_used";
 
 function redactTranscript(t: string): string {
   return t
