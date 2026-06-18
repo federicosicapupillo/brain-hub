@@ -9,12 +9,7 @@ import {
   resolveJackCommandIntent,
   type JackCommandContext,
 } from "@/lib/jack-command-router";
-import {
-  searchJackMemory,
-  getCurrentJackMemoryDocument,
-  detectSecretPatterns,
-} from "@/lib/jack-memory";
-import { supabase as browserSupabase } from "@/integrations/supabase/client";
+import { searchJackMemory, detectSecretPatterns } from "@/lib/jack-memory";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
@@ -23,7 +18,7 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     type: "function",
     name: "get_daily_brief",
     description:
-      "Restituisce il Daily Operating Brief di oggi (executive summary, next actions, warnings, email summary). Read-only.",
+      "Restituisce il Daily Operating Brief di oggi. Read-only.",
     parameters: {
       type: "object",
       properties: {
@@ -36,7 +31,7 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     type: "function",
     name: "get_project_status",
     description:
-      "Stato di un progetto/brain (recente attività, azioni aperte, warning). Usare quando Federico nomina un progetto.",
+      "Stato di un progetto/brain. Usare quando Federico nomina un progetto.",
     parameters: {
       type: "object",
       properties: {
@@ -50,7 +45,7 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     type: "function",
     name: "search_jack_memory",
     description:
-      "Cerca in Jack Memory (entries + sezioni documento). Restituisce risultati compatti, mai dump markdown grezzo.",
+      "Cerca in Jack Memory. Restituisce risultati compatti, mai dump markdown grezzo.",
     parameters: {
       type: "object",
       properties: {
@@ -78,7 +73,7 @@ export const JACK_GPT_TOOLS_SCHEMA = [
   {
     type: "function",
     name: "get_action_queue_summary",
-    description: "Riepilogo Action Queue (count aperte, high risk, suggested, top azioni).",
+    description: "Riepilogo Action Queue (open, high risk, top azioni).",
     parameters: {
       type: "object",
       properties: {
@@ -91,7 +86,7 @@ export const JACK_GPT_TOOLS_SCHEMA = [
   {
     type: "function",
     name: "get_loop_qa_warnings",
-    description: "Warning Loop QA (critici, medi, info).",
+    description: "Warning Loop QA recenti.",
     parameters: {
       type: "object",
       properties: { brain_id: { type: "string" } },
@@ -101,8 +96,7 @@ export const JACK_GPT_TOOLS_SCHEMA = [
   {
     type: "function",
     name: "get_gmail_summary",
-    description:
-      "Riepilogo email oggi (totale, high priority, reply needed, lead/finance/meeting). Mai body completo salvo richiesta.",
+    description: "Riepilogo email oggi. Mai body completo salvo richiesta.",
     parameters: {
       type: "object",
       properties: { brain_id: { type: "string" } },
@@ -113,24 +107,30 @@ export const JACK_GPT_TOOLS_SCHEMA = [
 
 // ---------- Helpers ----------
 
-async function fetchBrains(): Promise<Array<{ id: string; name: string }>> {
-  const { data } = await browserSupabase
-    .from("brains")
-    .select("id,name")
-    .order("name", { ascending: true });
-  return (data ?? []) as Array<{ id: string; name: string }>;
-}
-
-function buildContext(brains: Array<{ id: string; name: string }>): JackCommandContext {
-  return { brains, currentBrief: null };
-}
-
-function redactSnippet(text: string, max = 220): string {
+function redactSnippet(text: string | null | undefined, max = 600): string {
+  if (!text) return "";
   let out = text.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[REDACTED]");
   out = out.replace(/sk-[A-Za-z0-9_-]{16,}/g, "[REDACTED]");
   out = out.replace(/\b\d{12,}\b/g, "[REDACTED]");
   if (out.length > max) out = out.slice(0, max - 1) + "…";
   return out;
+}
+
+async function fetchBrainsCtx(
+  supabase: {
+    from: (t: string) => {
+      select: (cols: string) => {
+        order: (col: string, opts: { ascending: boolean }) => Promise<{ data: unknown }>;
+      };
+    };
+  },
+): Promise<JackCommandContext> {
+  const { data } = await supabase
+    .from("brains")
+    .select("id,name")
+    .order("name", { ascending: true });
+  const brains = (data as Array<{ id: string; name: string }> | null) ?? [];
+  return { brainId: null, brains, currentBrief: null };
 }
 
 // ---------- Server function: tool dispatcher ----------
@@ -146,47 +146,42 @@ export const runJackGptTool = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { tool_name, arguments: args } = data;
     const userId = context.userId;
+    const { supabase } = context;
 
     try {
       switch (tool_name) {
         case "get_daily_brief": {
-          const brains = await fetchBrains();
+          const ctx = await fetchBrainsCtx(supabase as never);
+          ctx.brainId = (args.brain_id as string | undefined) ?? null;
           const result = await resolveJackCommandIntent({
             transcript: "a che punto siamo",
-            intent: "daily_status",
-            context: buildContext(brains),
+            context: ctx,
           });
           return {
             ok: true,
             payload: {
-              executive_summary: redactSnippet(result.summary ?? "", 600),
-              voice_summary_text: redactSnippet(result.speech ?? "", 800),
-              next_actions: (result.bullets ?? []).slice(0, 6).map((b) => redactSnippet(b, 180)),
-              warnings_summary: result.warnings ?? null,
-              source_counts: result.sourceCounts ?? null,
-              generated_at: result.generatedAt ?? null,
-              brain_id: (args.brain_id as string) ?? null,
+              summary: redactSnippet(result.response_text, 900),
+              source: result.source,
+              brain_id: ctx.brainId,
             },
           };
         }
         case "get_project_status": {
-          const brains = await fetchBrains();
-          const projectName = (args.project_name as string) ?? (args.brain_id as string) ?? "";
+          const ctx = await fetchBrainsCtx(supabase as never);
+          ctx.brainId = (args.brain_id as string | undefined) ?? null;
+          const projectName = (args.project_name as string) ?? "";
           const result = await resolveJackCommandIntent({
             transcript: `a che punto siamo con ${projectName}`,
-            intent: "project_status",
-            context: buildContext(brains),
-            projectMention: projectName || undefined,
+            context: ctx,
           });
           return {
             ok: true,
             payload: {
-              project_name: result.resolvedProject?.name ?? projectName,
-              resolved_brain_id: result.resolvedProject?.brainId ?? null,
-              status_summary: redactSnippet(result.speech ?? result.summary ?? "", 800),
-              recent_activity: (result.bullets ?? []).slice(0, 5).map((b) => redactSnippet(b, 180)),
-              warnings: result.warnings ?? null,
-              next_steps: result.nextSteps ?? null,
+              project_name: result.project?.brain?.name ?? projectName,
+              resolved_brain_id: result.project?.brain?.id ?? null,
+              resolution: result.project?.resolution.kind ?? "none",
+              status_summary: redactSnippet(result.response_text, 900),
+              source: result.source,
             },
           };
         }
@@ -198,9 +193,8 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             payload: {
               query,
               entries: hits.slice(0, 6).map((h) => ({
-                kind: h.kind,
-                snippet: redactSnippet(h.snippet, 200),
-                category: h.category ?? null,
+                heading: h.heading,
+                snippet: redactSnippet(h.text, 200),
               })),
             },
           };
@@ -211,8 +205,15 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           const warnings = detectSecretPatterns(content);
           const isSecret = warnings.length > 0;
           const category = (args.category as string) ?? "preference";
-          const { supabase } = context;
-          const { data: row, error } = await supabase
+          const { data: row, error } = await (supabase as never as {
+            from: (t: string) => {
+              insert: (v: Record<string, unknown>) => {
+                select: (c: string) => {
+                  single: () => Promise<{ data: unknown; error: unknown }>;
+                };
+              };
+            };
+          })
             .from("jack_memory_entries")
             .insert({
               user_id: userId,
@@ -221,67 +222,66 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               sensitivity: isSecret ? "secret" : "normal",
               status: isSecret ? "suggested" : "active",
               source: "jack_gpt",
-            } as never)
+            })
             .select("id,status,sensitivity")
             .single();
           if (error) return { ok: false, error: "insert_failed" };
+          const r = row as { id?: string; status?: string; sensitivity?: string } | null;
           return {
             ok: true,
             payload: {
-              entry_id: (row as { id: string } | null)?.id ?? null,
-              status: (row as { status: string } | null)?.status ?? null,
-              sensitivity: (row as { sensitivity: string } | null)?.sensitivity ?? null,
+              entry_id: r?.id ?? null,
+              status: r?.status ?? null,
+              sensitivity: r?.sensitivity ?? null,
               secret_warning: isSecret,
               message: isSecret
-                ? "Ho rilevato un possibile segreto. L'ho salvato come suggerito, in attesa di conferma manuale."
+                ? "Possibile segreto rilevato: salvato come 'suggerito', in attesa di conferma manuale."
                 : "Memoria salvata.",
             },
           };
         }
         case "get_action_queue_summary": {
-          const brains = await fetchBrains();
-          const projectName = (args.project_name as string) ?? "";
+          const ctx = await fetchBrainsCtx(supabase as never);
+          ctx.brainId = (args.brain_id as string | undefined) ?? null;
           const result = await resolveJackCommandIntent({
             transcript: "cosa devo fare adesso",
-            intent: projectName ? "project_next_actions" : "next_actions",
-            context: buildContext(brains),
-            projectMention: projectName || undefined,
+            context: ctx,
           });
           return {
             ok: true,
             payload: {
-              top_actions: (result.bullets ?? []).slice(0, 6).map((b) => redactSnippet(b, 180)),
-              summary: redactSnippet(result.speech ?? result.summary ?? "", 600),
+              summary: redactSnippet(result.response_text, 700),
+              source: result.source,
             },
           };
         }
         case "get_loop_qa_warnings": {
-          const brains = await fetchBrains();
+          const ctx = await fetchBrainsCtx(supabase as never);
+          ctx.brainId = (args.brain_id as string | undefined) ?? null;
           const result = await resolveJackCommandIntent({
             transcript: "ci sono warning",
-            intent: "warnings",
-            context: buildContext(brains),
+            context: ctx,
           });
           return {
             ok: true,
             payload: {
-              warnings_summary: redactSnippet(result.speech ?? result.summary ?? "", 600),
-              items: (result.bullets ?? []).slice(0, 8).map((b) => redactSnippet(b, 200)),
+              warnings_summary: redactSnippet(result.response_text, 700),
+              source: result.source,
             },
           };
         }
         case "get_gmail_summary": {
-          const brains = await fetchBrains();
+          const ctx = await fetchBrainsCtx(supabase as never);
+          ctx.brainId = (args.brain_id as string | undefined) ?? null;
           const result = await resolveJackCommandIntent({
             transcript: "riepilogo email di oggi",
-            intent: "email_summary",
-            context: buildContext(brains),
+            context: ctx,
           });
           return {
             ok: true,
             payload: {
-              summary: redactSnippet(result.speech ?? result.summary ?? "", 600),
-              highlights: (result.bullets ?? []).slice(0, 6).map((b) => redactSnippet(b, 180)),
+              summary: redactSnippet(result.response_text, 700),
+              source: result.source,
             },
           };
         }
@@ -289,11 +289,15 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           return { ok: false, error: "unknown_tool" };
       }
     } catch (err) {
-      return { ok: false, error: "tool_failed", detail: String((err as Error).message ?? err).slice(0, 200) };
+      return {
+        ok: false,
+        error: "tool_failed",
+        detail: String((err as Error).message ?? err).slice(0, 200),
+      };
     }
   });
 
-// Log helper (client-callable) — write a sanitized event row.
+// Log helper — sanitized event row.
 export const logJackGptEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => d as { event: string; metadata?: Record<string, unknown> })
@@ -303,15 +307,19 @@ export const logJackGptEvent = createServerFn({ method: "POST" })
       JSON.stringify(metadata ?? {}).replace(/sk-[A-Za-z0-9_-]{16,}/g, "[REDACTED]"),
     );
     try {
-      await context.supabase
-        .from("agent_event_log" as never)
+      await (context.supabase as never as {
+        from: (t: string) => {
+          insert: (v: Record<string, unknown>) => Promise<{ error: unknown }>;
+        };
+      })
+        .from("agent_event_log")
         .insert({
           user_id: context.userId,
           event_type: event,
           metadata: safe,
-        } as never);
+        });
     } catch {
-      // best-effort logging only
+      // best-effort
     }
     return { ok: true };
   });
