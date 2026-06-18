@@ -15,7 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   type ResultReviewItem,
 } from "@/lib/result-review";
-import { createAction, type AutomationAction } from "@/lib/action-queue";
+import { type AutomationAction } from "@/lib/action-queue";
 
 // ---------- Types ----------
 
