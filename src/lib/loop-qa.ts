@@ -1003,7 +1003,11 @@ export async function logLoopQaEvent(
     | "loop_qa_viewed"
     | "loop_qa_warning_opened"
     | "loop_qa_related_section_opened"
-    | "drive_warning_opened_from_loop_qa",
+    | "drive_warning_opened_from_loop_qa"
+    | "operational_health_viewed"
+    | "loop_qa_warning_aggregated"
+    | "loop_qa_next_action_computed"
+    | "project_health_visibility_opened",
   notes: string,
   metadata: Record<string, unknown> = {},
 ) {
@@ -1016,4 +1020,212 @@ export async function logLoopQaEvent(
     notes,
     metadata,
   } as never);
+}
+
+// ============================================================
+// v3.16.5 — Brain Hub Operational Health (centralized summary)
+// ============================================================
+
+export type LoopWarningArea =
+  | "code_agent"
+  | "github_registry"
+  | "master_snapshot"
+  | "automation_n8n"
+  | "telegram"
+  | "drive_calendar_gmail"
+  | "jack"
+  | "general";
+
+export type LoopWarningSeverity = "critical" | "warning" | "info";
+
+export type LoopWarningWithMeta = LoopWarning & {
+  severity: LoopWarningSeverity;
+  area: LoopWarningArea;
+};
+
+const CATEGORY_TO_AREA: Record<string, LoopWarningArea> = {
+  code_agent: "code_agent",
+  github_registry: "github_registry",
+  master_snapshot: "master_snapshot",
+  jack_memory: "jack",
+  jack_voice: "jack",
+  drive_knowledge: "drive_calendar_gmail",
+  gmail: "drive_calendar_gmail",
+  calendar: "drive_calendar_gmail",
+  telegram_callback: "telegram",
+};
+
+function inferArea(w: LoopWarning): LoopWarningArea {
+  if (w.category && CATEGORY_TO_AREA[w.category]) return CATEGORY_TO_AREA[w.category];
+  const id = w.id.toLowerCase();
+  if (id.startsWith("caj-")) return "code_agent";
+  if (id.startsWith("github-repository") || id.startsWith("gho-")) return "github_registry";
+  if (id.startsWith("master-snapshot")) return "master_snapshot";
+  if (id.includes("telegram")) return "telegram";
+  if (id.includes("n8n") || id.includes("hmac")) return "automation_n8n";
+  if (id.includes("gmail") || id.includes("drive") || id.includes("calendar"))
+    return "drive_calendar_gmail";
+  if (id.includes("jack")) return "jack";
+  return "general";
+}
+
+function inferSeverity(w: LoopWarning): LoopWarningSeverity {
+  if (w.level === "error") return "critical";
+  if (w.level === "warning") return "warning";
+  return "info";
+}
+
+export function annotateWarnings(warnings: LoopWarning[]): LoopWarningWithMeta[] {
+  return warnings.map((w) => ({
+    ...w,
+    severity: inferSeverity(w),
+    area: inferArea(w),
+  }));
+}
+
+export function groupLoopWarnings(
+  warnings: LoopWarning[],
+): Record<LoopWarningArea, LoopWarningWithMeta[]> {
+  const grouped: Record<LoopWarningArea, LoopWarningWithMeta[]> = {
+    code_agent: [],
+    github_registry: [],
+    master_snapshot: [],
+    automation_n8n: [],
+    telegram: [],
+    drive_calendar_gmail: [],
+    jack: [],
+    general: [],
+  };
+  for (const w of annotateWarnings(warnings)) grouped[w.area].push(w);
+  return grouped;
+}
+
+export type BrainHubHealthStatus = "healthy" | "needs_attention" | "blocked" | "incomplete";
+
+export type BrainHubNextAction = {
+  label: string;
+  to: string;
+  reason: string;
+};
+
+export type BrainHubOperationalHealth = {
+  status: BrainHubHealthStatus;
+  score: number;
+  total: number;
+  critical: number;
+  warning: number;
+  info: number;
+  areas: LoopWarningArea[];
+  topArea: LoopWarningArea | null;
+  nextAction: BrainHubNextAction;
+};
+
+function computeNextAction(warnings: LoopWarningWithMeta[]): BrainHubNextAction {
+  const byId = (id: string) => warnings.find((w) => w.id === id);
+  if (byId("github-repository-suspect-records")) {
+    return {
+      label: "Risolvi repository sospetti",
+      to: "/github-operational",
+      reason: "Registry contiene record sospetti che bloccano la deduplica.",
+    };
+  }
+  if (byId("github-repository-none-valid-for-code-agent")) {
+    return {
+      label: "Aggiungi repository valido",
+      to: "/github-operational",
+      reason: "Code Agent Jobs senza repository validi.",
+    };
+  }
+  const blockedCaj = warnings.find(
+    (w) =>
+      w.id === "caj-server-transition-blocked" || w.id === "caj-e2e-blocked-jobs",
+  );
+  if (blockedCaj) {
+    return { label: "Apri Code Agent QA", to: "/code-agent-qa", reason: blockedCaj.title };
+  }
+  if (byId("caj-e2e-result-without-review")) {
+    return {
+      label: "Rivedi risultati senza review",
+      to: "/result-review",
+      reason: "Job con result_text senza Result Review.",
+    };
+  }
+  const msIssue = warnings.find(
+    (w) => w.area === "master_snapshot" && w.severity !== "info",
+  );
+  if (msIssue) {
+    return { label: "Controlla Master Snapshot", to: "/master-snapshot", reason: msIssue.title };
+  }
+  const firstCritical = warnings.find((w) => w.severity === "critical");
+  if (firstCritical && firstCritical.cta) {
+    return {
+      label: firstCritical.cta.label,
+      to: firstCritical.cta.to,
+      reason: firstCritical.title,
+    };
+  }
+  const firstWarning = warnings.find((w) => w.severity === "warning");
+  if (firstWarning && firstWarning.cta) {
+    return {
+      label: firstWarning.cta.label,
+      to: firstWarning.cta.to,
+      reason: firstWarning.title,
+    };
+  }
+  return { label: "Apri Loop QA", to: "/loop-qa", reason: "Nessuna azione critica." };
+}
+
+export async function getBrainHubOperationalHealth(
+  brainId?: string | null,
+): Promise<BrainHubOperationalHealth> {
+  const summary = await getLoopQaSummary(brainId ?? null);
+  const annotated = annotateWarnings(summary.warnings);
+  const critical = annotated.filter((w) => w.severity === "critical").length;
+  const warning = annotated.filter((w) => w.severity === "warning").length;
+  const info = annotated.filter((w) => w.severity === "info").length;
+  let score = 100 - critical * 25 - warning * 10 - info * 3;
+  if (score < 0) score = 0;
+  if (score > 100) score = 100;
+  const areaCounts = new Map<LoopWarningArea, number>();
+  for (const w of annotated) {
+    if (w.severity === "info") continue;
+    areaCounts.set(w.area, (areaCounts.get(w.area) ?? 0) + 1);
+  }
+  const topArea =
+    [...areaCounts.entries()].sort((a, b) => b[1] - a[1]).map(([a]) => a)[0] ?? null;
+  const status: BrainHubHealthStatus =
+    critical > 0
+      ? "blocked"
+      : warning > 0
+        ? "needs_attention"
+        : summary.health === "incomplete"
+          ? "incomplete"
+          : "healthy";
+  const nextAction = computeNextAction(annotated);
+  await logLoopQaEvent("loop_qa_warning_aggregated", "Health aggregato calcolato", {
+    brain_id: brainId ?? null,
+    total: annotated.length,
+    critical,
+    warning,
+    info,
+    score,
+    status,
+    top_area: topArea,
+  });
+  await logLoopQaEvent("loop_qa_next_action_computed", nextAction.label, {
+    brain_id: brainId ?? null,
+    to: nextAction.to,
+    reason_preview: nextAction.reason.slice(0, 120),
+  });
+  return {
+    status,
+    score,
+    total: annotated.length,
+    critical,
+    warning,
+    info,
+    areas: [...areaCounts.keys()],
+    topArea,
+    nextAction,
+  };
 }
