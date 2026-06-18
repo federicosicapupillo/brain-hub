@@ -586,3 +586,230 @@ export const REMEDIATION_SEVERITY_LABEL: Record<LoopWarningSeverity, string> = {
 };
 
 export type { LoopWarning, LoopWarningArea, LoopWarningSeverity };
+
+export const REMEDIATION_STATUS_LABEL: Record<RemediationStatus, string> = {
+  open: "Aperta",
+  action_created: "Action creata",
+  action_in_progress: "In lavorazione",
+  action_completed: "Completata",
+  resolved: "Risolta",
+  regressed: "Riaperta",
+  ignored: "Ignorata",
+};
+
+// ============================================================
+// v3.19 — Closure summary, detection helpers, readiness bridge
+// ============================================================
+
+export type RemediationClosureSummary = {
+  brain_id: string | null;
+  total: number;
+  open: number;
+  action_created: number;
+  action_in_progress: number;
+  action_completed: number;
+  resolved: number;
+  regressed: number;
+  progress_pct: number;
+  by_area: Record<LoopWarningArea, { open: number; in_action: number; done: number; regressed: number }>;
+};
+
+export async function getRemediationClosureSummary(
+  brainId?: string | null,
+): Promise<RemediationClosureSummary> {
+  const plan = await buildOperationalRemediationPlan(brainId ?? null);
+  const grouped = groupRemediationItemsByArea(plan.items);
+  const by_area: RemediationClosureSummary["by_area"] = {
+    code_agent: emptyAreaBucket(),
+    github_registry: emptyAreaBucket(),
+    master_snapshot: emptyAreaBucket(),
+    automation_n8n: emptyAreaBucket(),
+    telegram: emptyAreaBucket(),
+    drive_calendar_gmail: emptyAreaBucket(),
+    jack: emptyAreaBucket(),
+    general: emptyAreaBucket(),
+  };
+  for (const area of Object.keys(grouped) as LoopWarningArea[]) {
+    for (const it of grouped[area]) {
+      if (it.status === "open") by_area[area].open += 1;
+      else if (it.status === "action_created" || it.status === "action_in_progress")
+        by_area[area].in_action += 1;
+      else if (it.status === "resolved" || it.status === "action_completed")
+        by_area[area].done += 1;
+      else if (it.status === "regressed") by_area[area].regressed += 1;
+    }
+  }
+  const denom = plan.total === 0 ? 1 : plan.total;
+  const progress_pct = Math.round(
+    ((plan.resolved + plan.action_completed) / denom) * 100,
+  );
+  const summary: RemediationClosureSummary = {
+    brain_id: brainId ?? null,
+    total: plan.total,
+    open: plan.open,
+    action_created: plan.action_created,
+    action_in_progress: plan.action_in_progress,
+    action_completed: plan.action_completed,
+    resolved: plan.resolved,
+    regressed: plan.regressed,
+    progress_pct,
+    by_area,
+  };
+  await logLoopQaEvent(
+    "loop_remediation_closure_checked",
+    "Closure remediation calcolata",
+    {
+      brain_id: brainId ?? null,
+      total: summary.total,
+      progress_pct,
+      regressed: summary.regressed,
+      resolved: summary.resolved,
+    },
+  );
+  return summary;
+}
+
+function emptyAreaBucket() {
+  return { open: 0, in_action: 0, done: 0, regressed: 0 };
+}
+
+export async function detectResolvedRemediations(
+  brainId?: string | null,
+): Promise<RemediationItem[]> {
+  const plan = await buildOperationalRemediationPlan(brainId ?? null);
+  const list = plan.items.filter((i) => i.status === "resolved");
+  if (list.length > 0) {
+    await logLoopQaEvent(
+      "loop_remediation_resolved_detected",
+      `${list.length} remediation risolte`,
+      {
+        brain_id: brainId ?? null,
+        count: list.length,
+        warning_ids: list.map((i) => i.warning_id),
+      },
+    );
+  }
+  return list;
+}
+
+export async function detectRegressedRemediations(
+  brainId?: string | null,
+): Promise<RemediationItem[]> {
+  const plan = await buildOperationalRemediationPlan(brainId ?? null);
+  const list = plan.items.filter((i) => i.status === "regressed");
+  if (list.length > 0) {
+    await logLoopQaEvent(
+      "loop_remediation_regressed_detected",
+      `${list.length} remediation riaperte`,
+      {
+        brain_id: brainId ?? null,
+        count: list.length,
+        warning_ids: list.map((i) => i.warning_id),
+      },
+    );
+  }
+  return list;
+}
+
+export type RemediationProgressByArea = Record<
+  LoopWarningArea,
+  { area: LoopWarningArea; pct: number; open: number; done: number; total: number }
+>;
+
+export async function getRemediationProgressByArea(
+  brainId?: string | null,
+): Promise<RemediationProgressByArea> {
+  const summary = await getRemediationClosureSummary(brainId ?? null);
+  const out = {} as RemediationProgressByArea;
+  for (const area of Object.keys(summary.by_area) as LoopWarningArea[]) {
+    const b = summary.by_area[area];
+    const total = b.open + b.in_action + b.done + b.regressed;
+    const pct = total === 0 ? 100 : Math.round((b.done / total) * 100);
+    out[area] = { area, pct, open: b.open, done: b.done, total };
+  }
+  await logLoopQaEvent(
+    "loop_remediation_progress_viewed",
+    "Progresso remediation per area letto",
+    { brain_id: brainId ?? null },
+  );
+  return out;
+}
+
+// ---------- validateLoopReadiness bridge ----------
+
+export type ReadinessStatus = "ready" | "partially_ready" | "blocked";
+
+export type LoopReadinessHealthBridge = {
+  brain_id: string | null;
+  ready: boolean;
+  status: ReadinessStatus;
+  missing: string[];
+  missing_by_area: Record<LoopWarningArea, string[]>;
+  total_missing: number;
+};
+
+function mapMissingLabelToArea(label: string): LoopWarningArea {
+  const l = label.toLowerCase();
+  if (l.includes("master snapshot")) return "master_snapshot";
+  if (l.includes("result review") || l.includes("review")) return "code_agent";
+  if (l.includes("telegram")) return "telegram";
+  if (l.includes("action")) return "automation_n8n";
+  if (l.includes("knowledge")) return "jack";
+  if (l.includes("roadmap")) return "automation_n8n";
+  if (l.includes("next prompt") || l.includes("learning")) return "code_agent";
+  return "general";
+}
+
+export function mapReadinessChecksToOperationalAreas(
+  missing: string[],
+): Record<LoopWarningArea, string[]> {
+  const out: Record<LoopWarningArea, string[]> = {
+    code_agent: [],
+    github_registry: [],
+    master_snapshot: [],
+    automation_n8n: [],
+    telegram: [],
+    drive_calendar_gmail: [],
+    jack: [],
+    general: [],
+  };
+  for (const m of missing) out[mapMissingLabelToArea(m)].push(m);
+  return out;
+}
+
+export async function getLoopReadinessHealthBridge(
+  brainId?: string | null,
+): Promise<LoopReadinessHealthBridge> {
+  const r = await validateLoopReadiness(brainId ?? null);
+  const total = r.missing.length;
+  const status: ReadinessStatus = r.ready
+    ? "ready"
+    : total >= 4
+      ? "blocked"
+      : "partially_ready";
+  const bridge: LoopReadinessHealthBridge = {
+    brain_id: brainId ?? null,
+    ready: r.ready,
+    status,
+    missing: r.missing,
+    missing_by_area: mapReadinessChecksToOperationalAreas(r.missing),
+    total_missing: total,
+  };
+  await logLoopQaEvent(
+    "loop_readiness_bridge_computed",
+    "Bridge readiness calcolato",
+    {
+      brain_id: brainId ?? null,
+      ready: bridge.ready,
+      status: bridge.status,
+      total_missing: total,
+    },
+  );
+  return bridge;
+}
+
+export const READINESS_STATUS_LABEL: Record<ReadinessStatus, string> = {
+  ready: "Pronto",
+  partially_ready: "Parzialmente pronto",
+  blocked: "Bloccato",
+};
