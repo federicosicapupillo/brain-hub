@@ -351,11 +351,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     localStreamRef.current = null;
     sessionUpdateSentRef.current = false;
     pendingToolsRef.current = null;
+    responseInProgressRef.current = false;
+    activeResponseIdRef.current = null;
+    pendingResponseCreateRef.current = null;
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
     setDiagnostics((d) => ({
       ...d,
       sessionMode: "none",
       dataChannelState: "none",
       cleanupCount: d.cleanupCount + 1,
+      responseState: "idle",
+      activeResponseIdRedacted: null,
+      pendingResponse: false,
     }));
     safeLog("jack_gpt_cleanup_completed");
   }, [safeLog]);
