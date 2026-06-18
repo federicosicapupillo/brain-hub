@@ -83,9 +83,17 @@ async function clearMessageButtons(
   }
 }
 
+const diag = () =>
+  new Response(
+    JSON.stringify({ ok: true, endpoint: "telegram-webhook", method_hint: "POST only for Telegram" }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+
 export const Route = createFileRoute("/api/public/telegram/webhook")({
   server: {
     handlers: {
+      GET: async () => diag(),
+      HEAD: async () => diag(),
       POST: async ({ request }) => {
         const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
         const botToken = process.env.TELEGRAM_BOT_TOKEN;

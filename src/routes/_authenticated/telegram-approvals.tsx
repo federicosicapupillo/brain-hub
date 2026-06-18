@@ -587,7 +587,14 @@ function TelegramWebhookSetupCard() {
     queryFn: () => checkCfg(),
   });
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const webhookUrl = origin ? `${origin.replace(/\/$/, "")}/api/public/telegram/webhook` : "";
+  // Telegram refuses preview-bridge hostnames (id-preview--*.lovable.app)
+  // because they 302 to /auth. Rewrite to the stable public dev host.
+  const stableOrigin = origin.replace(
+    /^https:\/\/id-preview--([0-9a-f-]+)\.lovable\.app$/i,
+    "https://project--$1-dev.lovable.app",
+  );
+  const webhookUrl = stableOrigin ? `${stableOrigin.replace(/\/$/, "")}/api/public/telegram/webhook` : "";
+  const isPreviewBridge = origin !== stableOrigin;
   const botOk = data?.bot_token_configured;
   const secretOk = data?.webhook_secret_configured;
   const ready = !!botOk && !!secretOk;
@@ -739,6 +746,23 @@ function TelegramWebhookSetupCard() {
                   : ""}
               </div>
             )}
+            {info.last_error_message && /302\s*Found/i.test(info.last_error_message) && (
+              <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-amber-700">
+                Il webhook è registrato ma l'endpoint sta rispondendo con redirect 302.
+                La route <code>/api/public/telegram/webhook</code> deve essere pubblica e non
+                autenticata. Verifica di aver registrato l'URL stabile
+                <code> project--&lt;id&gt;-dev.lovable.app</code> o il dominio pubblicato,
+                non l'host <code>id-preview--…</code>.
+              </div>
+            )}
+          </div>
+        )}
+
+        {isPreviewBridge && (
+          <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-amber-700">
+            Stai usando l'host preview <code>id-preview--…</code> che redirige a /auth.
+            Brain Hub registrerà comunque l'URL stabile <code>project--…-dev.lovable.app</code>
+            mostrato sopra.
           </div>
         )}
 
