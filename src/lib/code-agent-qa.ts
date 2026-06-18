@@ -695,13 +695,419 @@ export async function getCodeAgentLoopQaWarnings(
   return warnings;
 }
 
+// ============================================================
+// v3.16.3 — End-to-end manual flow QA helpers
+// ============================================================
+
+export type CodeAgentE2EStepStatus =
+  | "done"
+  | "warning"
+  | "blocked"
+  | "pending"
+  | "not_applicable";
+
+export type CodeAgentEndToEndStep = {
+  id: string;
+  label: string;
+  status: CodeAgentE2EStepStatus;
+  reason: string;
+  nextActionLabel: string | null;
+  nextActionTarget: string | null;
+};
+
+export type CodeAgentEndToEndFlow = {
+  jobId: string;
+  jobTitle: string;
+  status: string;
+  approval_status: string;
+  risk_level: string;
+  has_repository: boolean;
+  steps: CodeAgentEndToEndStep[];
+  overall:
+    | "ready_for_manual_test"
+    | "in_progress"
+    | "blocked"
+    | "completed"
+    | "failed";
+};
+
+export type CodeAgentEndToEndSummary = {
+  total: number;
+  ready_for_manual_test: number;
+  blocked_repository: number;
+  blocked_approval: number;
+  sent_without_result: number;
+  result_without_review: number;
+  ready_for_snapshot: number;
+  completed: number;
+  failed_or_cancelled: number;
+};
+
+const E2E_TARGETS = {
+  repo: "/github-operational",
+  jobs: "/code-agent-jobs",
+  review: "/result-review",
+  snapshot: "/master-snapshot",
+} as const;
+
+type RepoRow = {
+  id: string;
+  repository_url: string | null;
+  repository_owner: string | null;
+  repository_name: string | null;
+  archived_at: string | null;
+};
+
+async function fetchRepoForJob(repoId: string | null): Promise<RepoRow | null> {
+  if (!repoId) return null;
+  try {
+    const { data } = await supabase
+      .from("github_repository_registry")
+      .select("id,repository_url,repository_owner,repository_name,archived_at")
+      .eq("id", repoId)
+      .maybeSingle();
+    return (data as RepoRow | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function mkStep(
+  id: string,
+  label: string,
+  status: CodeAgentE2EStepStatus,
+  reason: string,
+  nextActionLabel: string | null = null,
+  nextActionTarget: string | null = null,
+): CodeAgentEndToEndStep {
+  return { id, label, status, reason, nextActionLabel, nextActionTarget };
+}
+
+function buildSteps(
+  job: CodeAgentJob,
+  repo: RepoRow | null,
+): CodeAgentEndToEndStep[] {
+  const needsRepo = requiresRepo(job);
+  const res = repoResolution(job);
+  const isTerminal = TERMINAL_STATUSES.includes(job.status as CodeAgentJobStatus);
+  const needsApproval =
+    job.risk_level === "medium" || job.risk_level === "high";
+  const approvalOk =
+    approvalGranted(job) || job.approval_status === "not_required";
+
+  const steps: CodeAgentEndToEndStep[] = [];
+  steps.push(mkStep("created", "Job creato", "done", `id=${job.id.slice(0, 8)}`));
+
+  if (!needsRepo) {
+    steps.push(mkStep("repo-present", "Repository presente", "not_applicable", "Job non richiede repository"));
+    steps.push(mkStep("repo-clean", "Repository non sospetto", "not_applicable", "—"));
+    steps.push(mkStep("repo-active", "Repository non archiviato", "not_applicable", "—"));
+  } else if (!job.repository_id) {
+    steps.push(
+      mkStep(
+        "repo-present",
+        "Repository presente",
+        "blocked",
+        res === "ambiguous" ? "Repository ambiguo" : "Repository mancante",
+        "Apri GitHub Operational",
+        E2E_TARGETS.repo,
+      ),
+    );
+    steps.push(mkStep("repo-clean", "Repository non sospetto", "pending", "Manca repository"));
+    steps.push(mkStep("repo-active", "Repository non archiviato", "pending", "Manca repository"));
+  } else {
+    steps.push(mkStep("repo-present", "Repository presente", "done", "Repository collegato"));
+    if (!repo) {
+      steps.push(mkStep("repo-clean", "Repository non sospetto", "warning", "Repository non leggibile"));
+      steps.push(mkStep("repo-active", "Repository non archiviato", "warning", "Stato sconosciuto"));
+    } else {
+      const suspect = isSuspectRepositoryRecord({
+        repository_url: repo.repository_url,
+        repository_owner: repo.repository_owner,
+        repository_name: repo.repository_name,
+      });
+      steps.push(
+        mkStep(
+          "repo-clean",
+          "Repository non sospetto",
+          suspect ? "warning" : "done",
+          suspect ? "Record sospetto/non normalizzato" : "Owner/name validi",
+          suspect ? "Normalizza repo" : null,
+          suspect ? E2E_TARGETS.repo : null,
+        ),
+      );
+      steps.push(
+        mkStep(
+          "repo-active",
+          "Repository non archiviato",
+          repo.archived_at ? "blocked" : "done",
+          repo.archived_at ? "Repository archiviato" : "Repository attivo",
+          repo.archived_at ? "Apri GitHub Operational" : null,
+          repo.archived_at ? E2E_TARGETS.repo : null,
+        ),
+      );
+    }
+  }
+
+  if (!needsApproval) {
+    steps.push(mkStep("approval-required", "Approval non richiesta", "not_applicable", "Risk low"));
+    steps.push(mkStep("approval-granted", "Approval approvata se richiesta", "not_applicable", "—"));
+  } else {
+    steps.push(
+      mkStep(
+        "approval-required",
+        "Approval presente",
+        job.telegram_approval_id ? "done" : "warning",
+        job.telegram_approval_id ? "Telegram approval linkata" : "Manca telegram_approval_id",
+        job.telegram_approval_id ? null : "Apri Code Agent Jobs",
+        job.telegram_approval_id ? null : E2E_TARGETS.jobs,
+      ),
+    );
+    steps.push(
+      mkStep(
+        "approval-granted",
+        "Approval approvata",
+        approvalOk ? "done" : "blocked",
+        `approval=${job.approval_status}`,
+        approvalOk ? null : "Apri Code Agent Jobs",
+        approvalOk ? null : E2E_TARGETS.jobs,
+      ),
+    );
+  }
+
+  steps.push(
+    mkStep(
+      "prompt-ready",
+      "Prompt Codex/Claude disponibile",
+      job.prompt_text ? "done" : "warning",
+      job.prompt_text ? `${job.prompt_text.length} char` : "Nessun prompt generato",
+      job.prompt_text ? null : "Apri Code Agent Jobs",
+      job.prompt_text ? null : E2E_TARGETS.jobs,
+    ),
+  );
+
+  const canSend =
+    !isTerminal &&
+    (!needsRepo || !!job.repository_id) &&
+    approvalOk &&
+    (job.status === "ready" || job.status === "sent_manually");
+  steps.push(
+    mkStep(
+      "sendable-manually",
+      "Job inviabile manualmente",
+      canSend ? "done" : isTerminal ? "not_applicable" : "pending",
+      canSend ? "Pronto per handoff manuale" : `status=${job.status}`,
+      canSend ? "Apri Code Agent Jobs" : null,
+      canSend ? E2E_TARGETS.jobs : null,
+    ),
+  );
+
+  const sent =
+    job.status === "sent_manually" ||
+    job.status === "sent_to_engine" ||
+    job.status === "result_received" ||
+    job.status === "review_created" ||
+    job.status === "review_ready" ||
+    job.status === "reviewed" ||
+    job.status === "completed";
+  steps.push(
+    mkStep(
+      "sent-manually",
+      "Job inviato manualmente",
+      sent ? "done" : isTerminal ? "not_applicable" : "pending",
+      sent ? `status=${job.status}` : "Non ancora inviato",
+      sent ? null : "Apri Code Agent Jobs",
+      sent ? null : E2E_TARGETS.jobs,
+    ),
+  );
+
+  steps.push(
+    mkStep(
+      "result-present",
+      "Result text presente",
+      job.result_text ? "done" : sent ? "pending" : "not_applicable",
+      job.result_text
+        ? `${(job.result_text ?? "").length} char`
+        : sent
+          ? "Incolla risultato Codex/Claude"
+          : "Non ancora inviato",
+      job.result_text ? null : sent ? "Apri Code Agent Jobs" : null,
+      job.result_text ? null : sent ? E2E_TARGETS.jobs : null,
+    ),
+  );
+
+  const canCreateReview = !!job.result_text && !job.result_review_item_id && !isTerminal;
+  steps.push(
+    mkStep(
+      "review-creatable",
+      "Result Review creabile",
+      job.result_review_item_id
+        ? "done"
+        : canCreateReview
+          ? "pending"
+          : "not_applicable",
+      job.result_review_item_id
+        ? "Review già creata"
+        : canCreateReview
+          ? "Pronta da creare"
+          : "Manca result_text",
+      canCreateReview ? "Apri Code Agent Jobs" : null,
+      canCreateReview ? E2E_TARGETS.jobs : null,
+    ),
+  );
+  steps.push(
+    mkStep(
+      "review-created",
+      "Result Review creata",
+      job.result_review_item_id ? "done" : "pending",
+      job.result_review_item_id
+        ? `id=${job.result_review_item_id.slice(0, 8)}`
+        : "Non ancora creata",
+      job.result_review_item_id ? "Apri Result Review" : null,
+      job.result_review_item_id ? E2E_TARGETS.review : null,
+    ),
+  );
+
+  const canCreateNextAction = !!job.result_text && !isTerminal;
+  steps.push(
+    mkStep(
+      "next-action-creatable",
+      "Next Action creabile",
+      job.next_action_id
+        ? "done"
+        : canCreateNextAction
+          ? "pending"
+          : "not_applicable",
+      job.next_action_id
+        ? "Next Action già creata"
+        : canCreateNextAction
+          ? "Pronta da creare"
+          : "Manca result_text",
+      canCreateNextAction && !job.next_action_id ? "Apri Code Agent Jobs" : null,
+      canCreateNextAction && !job.next_action_id ? E2E_TARGETS.jobs : null,
+    ),
+  );
+
+  steps.push(
+    mkStep(
+      "snapshot-allowed",
+      "Master Snapshot draft consentito",
+      job.result_text ? "done" : "not_applicable",
+      job.result_text ? "Risultato presente" : "Serve risultato salvato",
+    ),
+  );
+  steps.push(
+    mkStep(
+      "snapshot-created",
+      "Master Snapshot draft creato",
+      job.master_snapshot_draft_id ? "done" : "pending",
+      job.master_snapshot_draft_id
+        ? `id=${job.master_snapshot_draft_id.slice(0, 8)}`
+        : "Nessuna bozza ancora",
+      job.master_snapshot_draft_id ? "Apri Master Snapshot" : null,
+      job.master_snapshot_draft_id ? E2E_TARGETS.snapshot : null,
+    ),
+  );
+
+  return steps;
+}
+
+function computeOverall(
+  job: CodeAgentJob,
+  steps: CodeAgentEndToEndStep[],
+): CodeAgentEndToEndFlow["overall"] {
+  if (job.status === "failed" || job.status === "cancelled") return "failed";
+  if (job.status === "reviewed" || job.status === "completed") return "completed";
+  if (steps.some((s) => s.status === "blocked")) return "blocked";
+  const sendable = steps.find((s) => s.id === "sendable-manually");
+  if (sendable?.status === "done" && job.status === "ready") return "ready_for_manual_test";
+  return "in_progress";
+}
+
+export async function getCodeAgentEndToEndFlow(
+  jobId: string,
+): Promise<CodeAgentEndToEndFlow | null> {
+  if (!jobId) return null;
+  try {
+    const { data } = await supabase
+      .from("code_agent_jobs")
+      .select("*")
+      .eq("id", jobId)
+      .maybeSingle();
+    const job = data as CodeAgentJob | null;
+    if (!job) return null;
+    const repo = await fetchRepoForJob(job.repository_id);
+    const steps = buildSteps(job, repo);
+    return {
+      jobId: job.id,
+      jobTitle: jobTitle(job),
+      status: job.status,
+      approval_status: job.approval_status,
+      risk_level: job.risk_level,
+      has_repository: !!job.repository_id,
+      steps,
+      overall: computeOverall(job, steps),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function getCodeAgentEndToEndSummary(
+  brainId?: string | null,
+): Promise<CodeAgentEndToEndSummary> {
+  const items = await listCodeAgentJobs({ brainId: brainId ?? null });
+  const summary: CodeAgentEndToEndSummary = {
+    total: items.length,
+    ready_for_manual_test: 0,
+    blocked_repository: 0,
+    blocked_approval: 0,
+    sent_without_result: 0,
+    result_without_review: 0,
+    ready_for_snapshot: 0,
+    completed: 0,
+    failed_or_cancelled: 0,
+  };
+  for (const j of items) {
+    const needsRepo = requiresRepo(j);
+    const needsApproval = j.risk_level === "medium" || j.risk_level === "high";
+    const isTerminal = TERMINAL_STATUSES.includes(j.status as CodeAgentJobStatus);
+    if (j.status === "failed" || j.status === "cancelled") {
+      summary.failed_or_cancelled++;
+      continue;
+    }
+    if (j.status === "reviewed" || j.status === "completed") {
+      summary.completed++;
+      continue;
+    }
+    if (isTerminal) continue;
+    if (needsRepo && !j.repository_id) summary.blocked_repository++;
+    else if (needsApproval && !approvalGranted(j) && j.approval_status !== "not_required")
+      summary.blocked_approval++;
+    else if (j.status === "ready") summary.ready_for_manual_test++;
+    if (
+      (j.status === "sent_manually" || j.status === "sent_to_engine") &&
+      !j.result_text
+    )
+      summary.sent_without_result++;
+    if (j.result_text && !j.result_review_item_id) summary.result_without_review++;
+    if (j.result_text && !j.master_snapshot_draft_id) summary.ready_for_snapshot++;
+  }
+  return summary;
+}
+
 // ---------- Event logging ----------
 
 export async function logCodeAgentQaEvent(
   eventType:
     | "code_agent_qa_opened"
     | "code_agent_qa_warning_opened"
-    | "code_agent_qa_runner_readiness_viewed",
+    | "code_agent_qa_runner_readiness_viewed"
+    | "code_agent_e2e_qa_viewed"
+    | "code_agent_e2e_job_checked"
+    | "code_agent_e2e_blocker_detected"
+    | "code_agent_e2e_ready_for_manual_test"
+    | "code_agent_e2e_flow_completed",
   payload: Record<string, unknown>,
   jobId?: string | null,
 ): Promise<void> {
@@ -719,4 +1125,5 @@ export async function logCodeAgentQaEvent(
     // best-effort
   }
 }
+
 
