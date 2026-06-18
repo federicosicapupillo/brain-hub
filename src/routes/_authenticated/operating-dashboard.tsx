@@ -1490,6 +1490,19 @@ function OperationalHealthMini({ brainId }: { brainId: string | null }) {
                 </div>
               </div>
             )}
+            {closure && closure.total > 0 && (
+              <div className="rounded-md border bg-muted/20 p-2 text-[11px]">
+                <div className="text-[10px] uppercase text-muted-foreground">Correzioni operative</div>
+                <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                  <span>aperte <strong>{closure.open}</strong></span>
+                  <span>con action <strong>{closure.action_created + closure.action_in_progress}</strong></span>
+                  <span>risolte <strong>{closure.resolved}</strong></span>
+                  {closure.regressed > 0 && (
+                    <span className="text-red-600">riaperte <strong>{closure.regressed}</strong></span>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button asChild size="sm" variant="outline" className="flex-1">
                 <Link to="/loop-qa" search={{}}>
