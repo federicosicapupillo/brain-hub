@@ -20,7 +20,7 @@ import {
   prepareJackMasterSnapshotUpdate,
 } from "@/lib/jack-controlled-actions.functions";
 import {
-  createCodeAgentJobFromJackCommand,
+  createCodeAgentJobUnified,
   type CodeAgentEngine,
   type CodeAgentRiskLevel,
 } from "@/lib/code-agent-orchestrator";
