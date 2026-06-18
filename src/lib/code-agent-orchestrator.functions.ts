@@ -28,6 +28,7 @@ import {
   syncPendingCodeAgentApprovals,
   createCodeAgentJobFromBrowser,
   updateCodeAgentJobRepository,
+  emitCodeAgentJackJobCreatedEvent,
   CodeAgentTransitionError,
   type CodeAgentEngine,
   type CodeAgentRiskLevel,
@@ -264,5 +265,114 @@ export const updateCodeAgentJobRepositoryFn = createServerFn({ method: "POST" })
     return withGuard(context, async () => {
       await updateCodeAgentJobRepository(data.jobId, data.repositoryId);
       return { ok: true } as const;
+    });
+  });
+
+// ---------- v3.15.6: Jack → Code Agent Job (authenticated server function) ----------
+
+const jackSourceEnum = z.enum(["jack_command", "jack_gpt", "jack_classic", "jack_voice", "jack"]);
+
+function normalizeJackSource(src: string | null | undefined): string {
+  if (!src) return "jack_command";
+  const s = src.toLowerCase();
+  if (s === "jack_gpt" || s === "jack_voice") return "jack_gpt";
+  if (s === "jack_classic") return "jack_classic";
+  if (s === "jack" || s === "jack_command") return "jack_command";
+  return "jack_command";
+}
+
+export const createCodeAgentJobFromJackCommandFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (d: {
+      commandText: string;
+      brainId?: string | null;
+      projectId?: string | null;
+      repositoryId?: string | null;
+      preferredEngine?: CodeAgentEngine | null;
+      repositoryHint?: string | null;
+      riskHint?: CodeAgentRiskLevel | null;
+      source?: string | null;
+      notes?: string | null;
+      deliveryPreference?: "manual" | "telegram" | null;
+      transcriptPreview?: string | null;
+      intent?: string | null;
+    }) =>
+      z
+        .object({
+          commandText: z.string().min(1).max(1500),
+          brainId: z.string().uuid().nullable().optional(),
+          projectId: z.string().uuid().nullable().optional(),
+          repositoryId: z.string().uuid().nullable().optional(),
+          preferredEngine: engineEnum.nullable().optional(),
+          repositoryHint: z.string().max(500).nullable().optional(),
+          riskHint: riskEnum.nullable().optional(),
+          source: jackSourceEnum.nullable().optional(),
+          notes: z.string().max(2000).nullable().optional(),
+          deliveryPreference: z.enum(["manual", "telegram"]).nullable().optional(),
+          // Short preview only — never the full transcript. We trim hard.
+          transcriptPreview: z.string().max(240).nullable().optional(),
+          intent: z.string().max(120).nullable().optional(),
+        })
+        .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    return withGuard(context, async () => {
+      const cmd = String(data.commandText ?? "").trim();
+      if (!cmd) {
+        throw new CodeAgentTransitionError(
+          "code_agent_jack_command_empty",
+          "Comando Jack vuoto o non valido.",
+        );
+      }
+      const normalizedSource = normalizeJackSource(data.source ?? null);
+      const res = await createCodeAgentJobFromBrowser({
+        command_text: cmd,
+        brain_id: data.brainId ?? null,
+        project_id: data.projectId ?? null,
+        repository_id: data.repositoryId ?? null,
+        preferred_engine: data.preferredEngine ?? null,
+        repository_hint: data.repositoryHint ?? null,
+        risk_hint: data.riskHint ?? null,
+        source: normalizedSource,
+        notes: data.notes ?? null,
+        delivery_preference: data.deliveryPreference ?? null,
+      });
+
+      if (res.job_id) {
+        await emitCodeAgentJackJobCreatedEvent(res.job_id, {
+          brain_id: data.brainId ?? null,
+          project_id: !!data.projectId,
+          repository_id: !!res.repository_id,
+          engine: res.recommended_engine,
+          risk_level: res.risk_level,
+          source: normalizedSource,
+          intent: data.intent ?? null,
+          has_repository_hint: !!data.repositoryHint,
+          has_transcript_preview: !!data.transcriptPreview,
+          status: res.status,
+          approval_status: res.approval_status,
+        });
+      }
+
+      // Minimal typed payload — no transcript / prompt / result.
+      return {
+        ok: res.ok,
+        job_id: res.job_id,
+        job_type: res.job_type,
+        recommended_engine: res.recommended_engine,
+        selected_engine: res.selected_engine,
+        risk_level: res.risk_level,
+        requires_approval: res.requires_approval,
+        status: res.status,
+        approval_status: res.approval_status,
+        repository_id: res.repository_id,
+        repository_resolution_status: res.repository_resolution.status,
+        telegram_approval_id: res.telegram_approval_id,
+        next_step: res.next_step,
+        safe_message: res.safe_message,
+        unsafe_request: res.unsafe_request,
+        source: normalizedSource,
+      } as const;
     });
   });

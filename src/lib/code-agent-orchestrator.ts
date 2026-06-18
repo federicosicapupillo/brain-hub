@@ -803,6 +803,17 @@ export async function createCodeAgentJobFromJackCommand(
   };
 }
 
+// v3.15.6 — Jack-specific sanitized audit event (no transcript / no prompt).
+export async function emitCodeAgentJackJobCreatedEvent(
+  jobId: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  if (!jobId) return;
+  const userId = await currentUserId();
+  if (!userId) return;
+  await logJobEvent(jobId, userId, "code_agent_jack_job_created", payload);
+}
+
 // ---------- Approval / readiness / result lifecycle ----------
 
 /**
@@ -1376,6 +1387,7 @@ export async function getCodeAgentJobWarnings(
       .in("event_type", [
         "code_agent_transition_blocked",
         "code_agent_bulk_approval_sync_error",
+        "code_agent_jack_job_create_blocked",
       ])
       .gte("created_at", sinceIso)
       .order("created_at", { ascending: false })
@@ -1417,6 +1429,18 @@ export async function getCodeAgentJobWarnings(
         level: "warning",
         title: "Bulk sync approval con errori",
         description: `${bulkErrors.length} errori durante la sync approval di massa nelle ultime 24h${scopeNote}.`,
+        cta,
+      });
+    }
+    const jackBlocked = rows.filter(
+      (r) => r.event_type === "code_agent_jack_job_create_blocked",
+    );
+    if (jackBlocked.length > 0) {
+      warns.push({
+        id: "caj-jack-create-blocked",
+        level: "info",
+        title: "Creazione Jack → Code Agent bloccata di recente",
+        description: `${jackBlocked.length} tentativi Jack bloccati nelle ultime 24h${scopeNote}.`,
         cta,
       });
     }

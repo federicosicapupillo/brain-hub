@@ -20,7 +20,8 @@ import {
   prepareJackMasterSnapshotUpdate,
 } from "@/lib/jack-controlled-actions.functions";
 import {
-  createCodeAgentJobUnified,
+  createCodeAgentJobFromBrowser,
+  emitCodeAgentJackJobCreatedEvent,
   type CodeAgentEngine,
   type CodeAgentRiskLevel,
 } from "@/lib/code-agent-orchestrator";
@@ -447,19 +448,44 @@ export const runJackGptTool = createServerFn({ method: "POST" })
         }
         case "create_code_agent_job": {
           const commandText = String(args.command_text ?? "").trim();
-          if (!commandText) return { ok: false, error: "empty_command_text" };
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const sb = context.supabase as any;
-          const res = await createCodeAgentJobUnified(sb, userId, {
-            command_text: commandText,
-            preferred_engine: (args.preferred_engine as CodeAgentEngine | undefined) ?? null,
-            repository_hint: (args.repository_hint as string | undefined) ?? null,
-            risk_hint: (args.risk_hint as CodeAgentRiskLevel | undefined) ?? null,
-            project_id: (args.project_id as string | undefined) ?? null,
-            brain_id: (args.brain_id as string | undefined) ?? null,
-            repository_id: (args.repository_id as string | undefined) ?? null,
-            source: "jack_voice",
-          });
+          if (!commandText) return { ok: false, error: "code_agent_jack_command_empty" };
+          // v3.15.6: route through the unified browser helper inside the
+          // server-runtime context so audit + typed errors stay consistent
+          // with createCodeAgentJobFromJackCommandFn. Dynamic import keeps
+          // the `.server.ts` runtime out of the client bundle.
+          const { serverRuntime } = await import("@/lib/code-agent-server-runtime.server");
+          const sbCtx = context.supabase as unknown as { from: (t: string) => unknown };
+          const res = await serverRuntime.runWithCtx(
+            { supabase: sbCtx, userId },
+            async () =>
+              createCodeAgentJobFromBrowser({
+                command_text: commandText,
+                preferred_engine: (args.preferred_engine as CodeAgentEngine | undefined) ?? null,
+                repository_hint: (args.repository_hint as string | undefined) ?? null,
+                risk_hint: (args.risk_hint as CodeAgentRiskLevel | undefined) ?? null,
+                project_id: (args.project_id as string | undefined) ?? null,
+                brain_id: (args.brain_id as string | undefined) ?? null,
+                repository_id: (args.repository_id as string | undefined) ?? null,
+                source: "jack_gpt",
+              }),
+          );
+          if (res.job_id) {
+            await serverRuntime.runWithCtx({ supabase: sbCtx, userId }, async () =>
+              emitCodeAgentJackJobCreatedEvent(res.job_id as string, {
+                brain_id: (args.brain_id as string | undefined) ?? null,
+                project_id: !!args.project_id,
+                repository_id: !!res.repository_id,
+                engine: res.recommended_engine,
+                risk_level: res.risk_level,
+                source: "jack_gpt",
+                intent: (args.intent as string | undefined) ?? null,
+                has_repository_hint: !!args.repository_hint,
+                has_transcript_preview: false,
+                status: res.status,
+                approval_status: res.approval_status,
+              }),
+            );
+          }
           return {
             ok: res.ok,
             payload: {
