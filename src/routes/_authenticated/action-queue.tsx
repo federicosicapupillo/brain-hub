@@ -792,6 +792,7 @@ function ActionDetail({ a, brainName }: { a: AutomationAction; brainName?: strin
           )}
         </div>
       )}
+      <AiRiskMetadataBox action={a} />
       <div className="grid grid-cols-2 gap-2">
         <DetailItem label="Tipo" value={ACTION_TYPE_LABEL[a.action_type]} />
         <DetailItem label="Origine" value={SOURCE_LABEL[a.source]} />
