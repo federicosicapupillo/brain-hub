@@ -192,9 +192,13 @@ function any(text: string, patterns: RegExp[]): boolean {
 }
 
 function captureRegions(text: string): string | null {
-  const matches = text.match(REGION_PATTERNS);
-  if (!matches || matches.length === 0) return null;
-  return Array.from(new Set(matches.map((m) => m.trim()))).join(" / ");
+  const found: string[] = [];
+  for (const re of REGION_PATTERNS) {
+    const m = text.match(re);
+    if (m) for (const x of m) found.push(x.trim());
+  }
+  if (found.length === 0) return null;
+  return Array.from(new Set(found)).join(" / ");
 }
 
 function captureMarketHint(text: string): string {
