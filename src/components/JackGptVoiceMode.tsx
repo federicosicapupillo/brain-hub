@@ -541,8 +541,29 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           void injectNaturalContext("refresh");
         }
       }
+      // v3.19.6 — capture preview into UI state for the confirmation bridge.
+      if (name === "preview_controlled_action" && okFlag) {
+        const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
+        const preview = (payload.preview as PendingJackActionPreview | undefined) ?? null;
+        if (preview && preview.title && preview.idempotency_key) {
+          pendingPreviewRef.current = preview;
+          setPendingActionPreview(preview);
+          safeLog("jack_pending_action_preview_stored", {
+            source: preview.source,
+            risk_level: preview.risk_level,
+            idempotency_key_preview: preview.idempotency_key.slice(0, 32),
+          });
+        }
+      }
+      // v3.19.6 — model is hard-locked from create_controlled_action.
+      if (name === "create_controlled_action") {
+        safeLog("jack_model_write_tool_call_blocked", {
+          tool_name: name,
+          source: "client_dispatcher_observed",
+        });
+      }
       // v3.14: capture controlled-action diagnostics + sanitized events.
-      if (name === "create_controlled_action" || name === "prepare_master_snapshot_update") {
+      if (name === "prepare_master_snapshot_update") {
         const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
         const intent = (payload.intent as string | undefined) ?? null;
         const risk = (payload.risk_level as string | undefined) ?? null;
