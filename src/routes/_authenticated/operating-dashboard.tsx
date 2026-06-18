@@ -600,6 +600,15 @@ function CodeAgentJobsMiniCard({ brainId }: { brainId: string | null }) {
           <Tile label="In approvazione" value={summary?.awaitingApproval ?? 0} tone={(summary?.awaitingApproval ?? 0) > 0 ? "amber" : undefined} />
           <Tile label="Da revisionare" value={summary?.awaitingReview ?? 0} tone={(summary?.awaitingReview ?? 0) > 0 ? "amber" : undefined} />
         </div>
+        <div className="grid grid-cols-3 gap-2">
+          <Tile label="Repo mancante" value={summary?.buckets.missing_repository ?? 0} tone={(summary?.buckets.missing_repository ?? 0) > 0 ? "red" : undefined} />
+          <Tile label="Pronti da inviare" value={summary?.buckets.ready_to_send ?? 0} />
+          <Tile label="Risultati da review" value={summary?.buckets.result_to_review ?? 0} tone={(summary?.buckets.result_to_review ?? 0) > 0 ? "amber" : undefined} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Tile label="Inviati senza risultato" value={summary?.buckets.sent_without_result ?? 0} tone={(summary?.buckets.sent_without_result ?? 0) > 0 ? "amber" : undefined} />
+          <Tile label="Falliti/annullati" value={summary?.buckets.failed_or_cancelled ?? 0} tone={(summary?.buckets.failed_or_cancelled ?? 0) > 0 ? "red" : undefined} />
+        </div>
         {summary?.lastLabel && (
           <div className="text-[11px] text-muted-foreground">
             Ultimo engine: <span className="font-medium">{summary.lastLabel}</span>

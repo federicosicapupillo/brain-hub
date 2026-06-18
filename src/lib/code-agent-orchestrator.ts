@@ -779,9 +779,77 @@ export async function createCodeAgentJobFromJackCommand(
 
 // ---------- Approval / readiness / result lifecycle ----------
 
-export async function approveCodeAgentJob(jobId: string): Promise<void> {
+/**
+ * v3.15.3 — Server-side transition enforcement.
+ * Loads the job fresh from DB, runs assertCodeAgentTransitionAllowed,
+ * and emits sanitized blocked/allowed events for audit.
+ */
+async function enforceTransition(
+  jobId: string,
+  actionName:
+    | "approve"
+    | "reject"
+    | "sync_approval"
+    | "send_manually"
+    | "save_result"
+    | "create_review"
+    | "create_snapshot"
+    | "create_next_action",
+  targetStatus: CodeAgentJobStatus | "no_change",
+): Promise<{ userId: string; job: CodeAgentJob }> {
   const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
+  if (!userId) {
+    throw new CodeAgentTransitionError(
+      "code_agent_user_scope_required",
+      "Login richiesto per modificare i Code Agent Jobs.",
+    );
+  }
+  const job = await loadJob(jobId, userId);
+  if (!job) {
+    throw new CodeAgentTransitionError(
+      "code_agent_job_not_found",
+      "Code Agent Job non trovato (o non accessibile).",
+    );
+  }
+  try {
+    assertCodeAgentTransitionAllowed(job, (targetStatus === "no_change" ? (job.status as CodeAgentJobStatus) : targetStatus), actionName);
+  } catch (e) {
+    const err =
+      e instanceof CodeAgentTransitionError
+        ? e
+        : new CodeAgentTransitionError(
+            "code_agent_transition_not_allowed",
+            (e as Error).message ?? "Transizione non ammessa",
+          );
+    await logJobEvent(jobId, userId, "code_agent_transition_blocked", {
+      current_status: job.status,
+      current_approval_status: job.approval_status,
+      requested_action: actionName,
+      target_status: targetStatus,
+      reason: err.code,
+      message: err.message.slice(0, 200),
+      has_repository: !!job.repository_id,
+      repository_resolution_status:
+        ((job.metadata?.repository_resolution as { status?: string } | undefined)?.status) ??
+        null,
+      risk_level: job.risk_level,
+      requires_approval: job.risk_level === "medium" || job.risk_level === "high",
+    });
+    throw err;
+  }
+  await logJobEvent(jobId, userId, "code_agent_transition_allowed", {
+    previous_status: job.status,
+    next_status: targetStatus,
+    action: actionName,
+    approval_status: job.approval_status,
+    has_repository: !!job.repository_id,
+    engine: job.recommended_engine,
+  });
+  return { userId, job };
+}
+
+export async function approveCodeAgentJob(jobId: string): Promise<void> {
+  const { userId } = await enforceTransition(jobId, "approve", "ready");
   const { error } = await sb
     .from("code_agent_jobs")
     .update({
@@ -824,8 +892,7 @@ export async function saveCodeAgentJobResult(
   jobId: string,
   result: CodeAgentJobResultInput,
 ): Promise<void> {
-  const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
+  const { userId } = await enforceTransition(jobId, "save_result", "result_received");
   const text = sanitizeText(result.text, 8000);
   const { error } = await sb
     .from("code_agent_jobs")
@@ -856,16 +923,12 @@ async function loadJob(jobId: string, userId: string): Promise<CodeAgentJob | nu
 export async function createReviewFromCodeAgentJob(
   jobId: string,
 ): Promise<ResultReviewItem | null> {
-  const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
-  const job = await loadJob(jobId, userId);
-  if (!job) throw new Error("job_not_found");
-  if (!job.result_text) throw new Error("no_result");
+  const { userId, job } = await enforceTransition(jobId, "create_review", "review_ready");
 
   const review = await createReviewItem({
     brain_id: job.brain_id,
     title: `Code Agent: ${CODE_AGENT_JOB_TYPE_LABEL[job.job_type as CodeAgentJobType] ?? job.job_type}`,
-    result_text: sanitizeText(job.result_text, 4000),
+    result_text: sanitizeText(job.result_text ?? "", 4000),
     source_type: "code_engine_handoff",
     source_id: job.id,
     risk_level: job.risk_level,
@@ -893,10 +956,11 @@ export async function createReviewFromCodeAgentJob(
 export async function createNextActionFromCodeAgentJob(
   jobId: string,
 ): Promise<AutomationAction | null> {
-  const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
-  const job = await loadJob(jobId, userId);
-  if (!job) throw new Error("job_not_found");
+  const { userId, job } = await enforceTransition(
+    jobId,
+    "create_next_action",
+    "no_change",
+  );
   const action = await createAction({
     brain_id: job.brain_id,
     project_id: job.project_id,
@@ -932,11 +996,12 @@ export async function createNextActionFromCodeAgentJob(
 export async function createMasterSnapshotDraftFromCodeAgentJob(
   jobId: string,
 ): Promise<string | null> {
-  const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
-  const job = await loadJob(jobId, userId);
-  if (!job) throw new Error("job_not_found");
-  if (!job.result_text) throw new Error("master_snapshot_requires_result");
+  const { userId, job } = await enforceTransition(
+    jobId,
+    "create_snapshot",
+    "no_change",
+  );
+
 
   // Look up current snapshot (best effort).
   let baseMd = "# Brain Hub — Master Project Snapshot\n";
@@ -1266,6 +1331,57 @@ export async function getCodeAgentJobWarnings(
       });
     }
   }
+
+  // v3.15.3 — surface recent server-side transition blocks and bulk-sync errors.
+  try {
+    const sinceIso = new Date(now - 24 * 3_600_000).toISOString();
+    const { data: events } = await sb
+      .from("code_agent_job_events")
+      .select("event_type,event_data,created_at")
+      .in("event_type", [
+        "code_agent_transition_blocked",
+        "code_agent_bulk_approval_sync_error",
+      ])
+      .gte("created_at", sinceIso)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    const rows = (events as Array<{
+      event_type: string;
+      event_data: Record<string, unknown> | null;
+    }> | null) ?? [];
+    const blocked = rows.filter((r) => r.event_type === "code_agent_transition_blocked");
+    const bulkErrors = rows.filter(
+      (r) => r.event_type === "code_agent_bulk_approval_sync_error",
+    );
+    if (blocked.length > 0) {
+      const reasons = Array.from(
+        new Set(
+          blocked
+            .map((r) => (r.event_data?.reason as string | undefined) ?? "unknown")
+            .slice(0, 3),
+        ),
+      ).join(", ");
+      warns.push({
+        id: "caj-server-transition-blocked",
+        level: "warning",
+        title: "Transizioni server bloccate di recente",
+        description: `${blocked.length} transizioni bloccate nelle ultime 24h (${reasons}).`,
+        cta,
+      });
+    }
+    if (bulkErrors.length > 0) {
+      warns.push({
+        id: "caj-bulk-sync-errors",
+        level: "warning",
+        title: "Bulk sync approval con errori",
+        description: `${bulkErrors.length} errori durante la sync approval di massa nelle ultime 24h.`,
+        cta,
+      });
+    }
+  } catch {
+    // best-effort
+  }
+
   return warns;
 }
 
@@ -1759,8 +1875,7 @@ export async function rejectCodeAgentJob(
   jobId: string,
   reason: string | null = null,
 ): Promise<void> {
-  const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
+  const { userId } = await enforceTransition(jobId, "reject", "cancelled");
   const { error } = await sb
     .from("code_agent_jobs")
     .update({
@@ -1782,8 +1897,7 @@ export async function markCodeAgentJobSentManually(
   jobId: string,
   engine: CodeAgentEngine,
 ): Promise<void> {
-  const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
+  const { userId } = await enforceTransition(jobId, "send_manually", "sent_manually");
   const { error } = await sb
     .from("code_agent_jobs")
     .update({
@@ -1807,15 +1921,47 @@ export type ApprovalSyncResult = {
   approval_status: CodeAgentApprovalStatus | string;
   status: CodeAgentJobStatus | string;
   telegram_status: string | null;
+  skipped?: boolean;
+  skip_reason?: string;
 };
 
 export async function syncCodeAgentJobApprovalStatus(
   jobId: string,
 ): Promise<ApprovalSyncResult> {
   const userId = await currentUserId();
-  if (!userId) throw new Error("auth_required");
+  if (!userId) {
+    throw new CodeAgentTransitionError(
+      "code_agent_user_scope_required",
+      "Login richiesto per sincronizzare l'approvazione.",
+    );
+  }
   const job = await loadJob(jobId, userId);
-  if (!job) throw new Error("job_not_found");
+  if (!job) {
+    throw new CodeAgentTransitionError(
+      "code_agent_job_not_found",
+      "Code Agent Job non trovato.",
+    );
+  }
+
+  if (isCodeAgentJobTerminal(job)) {
+    await logJobEvent(jobId, userId, "code_agent_transition_blocked", {
+      current_status: job.status,
+      current_approval_status: job.approval_status,
+      requested_action: "sync_approval",
+      target_status: "no_change",
+      reason: "code_agent_terminal_status",
+      risk_level: job.risk_level,
+    });
+    return {
+      job_id: jobId,
+      approval_status: job.approval_status,
+      status: job.status,
+      telegram_status: null,
+      skipped: true,
+      skip_reason: "code_agent_terminal_status",
+    };
+  }
+
   let nextApproval = job.approval_status;
   let nextStatus = job.status;
   let telegramStatus: string | null = null;
@@ -1847,6 +1993,51 @@ export async function syncCodeAgentJobApprovalStatus(
     nextStatus = "ready";
   }
 
+  // Block: medium/high cannot move to ready without real approval.
+  if (
+    nextStatus === "ready" &&
+    (job.risk_level === "medium" || job.risk_level === "high") &&
+    nextApproval !== "approved" &&
+    nextApproval !== "auto_approved"
+  ) {
+    await logJobEvent(jobId, userId, "code_agent_transition_blocked", {
+      current_status: job.status,
+      current_approval_status: job.approval_status,
+      requested_action: "sync_approval",
+      target_status: "ready",
+      reason: "code_agent_approval_required",
+      risk_level: job.risk_level,
+    });
+    return {
+      job_id: jobId,
+      approval_status: job.approval_status,
+      status: job.status,
+      telegram_status: telegramStatus,
+      skipped: true,
+      skip_reason: "code_agent_approval_required",
+    };
+  }
+
+  // Block: don't move to ready if repository missing/ambiguous on repo-required job.
+  if (nextStatus === "ready" && repoBlocking(job as unknown as StateJobLike)) {
+    await logJobEvent(jobId, userId, "code_agent_transition_blocked", {
+      current_status: job.status,
+      current_approval_status: job.approval_status,
+      requested_action: "sync_approval",
+      target_status: "ready",
+      reason: "code_agent_repository_required",
+      risk_level: job.risk_level,
+    });
+    return {
+      job_id: jobId,
+      approval_status: job.approval_status,
+      status: job.status,
+      telegram_status: telegramStatus,
+      skipped: true,
+      skip_reason: "code_agent_repository_required",
+    };
+  }
+
   if (nextApproval !== job.approval_status || nextStatus !== job.status) {
     await sb
       .from("code_agent_jobs")
@@ -1857,6 +2048,14 @@ export async function syncCodeAgentJobApprovalStatus(
       })
       .eq("id", jobId)
       .eq("user_id", userId);
+    await logJobEvent(jobId, userId, "code_agent_transition_allowed", {
+      previous_status: job.status,
+      next_status: nextStatus,
+      action: "sync_approval",
+      approval_status: nextApproval,
+      has_repository: !!job.repository_id,
+      engine: job.recommended_engine,
+    });
     await logJobEvent(jobId, userId, "code_agent_approval_synced", {
       from_status: job.status,
       to_status: nextStatus,
@@ -2296,6 +2495,13 @@ export function assertCodeAgentTransitionAllowed(
           "Risultato mancante: non posso creare bozza Master Snapshot.",
         );
       break;
+    case "create_next_action":
+      if (!job.result_text)
+        throw new CodeAgentTransitionError(
+          "code_agent_result_required",
+          "Risultato mancante: non posso creare Next Action.",
+        );
+      break;
     default:
       break;
   }
@@ -2311,6 +2517,8 @@ export type CodeAgentBulkApprovalSyncResult = {
   expired: number;
   failed: number;
   unchanged: number;
+  skipped: number;
+  errors: Array<{ job_id: string; code: string; message: string }>;
 };
 
 export async function syncPendingCodeAgentApprovals(
@@ -2324,17 +2532,31 @@ export async function syncPendingCodeAgentApprovals(
     expired: 0,
     failed: 0,
     unchanged: 0,
+    skipped: 0,
+    errors: [],
   };
   if (!userId) return summary;
   const items = await listCodeAgentJobs({ brainId: brainId ?? null });
-  const targets = items.filter(
-    (j) =>
-      !!j.telegram_approval_id &&
-      !isCodeAgentJobTerminal(j) &&
-      !APPROVAL_FINAL.includes(
+  // Pre-filter: require telegram_approval_id, ignore terminal jobs, ignore
+  // already-final approval, ignore repo-blocked medium/high.
+  const targets = items.filter((j) => {
+    if (!j.telegram_approval_id) return false;
+    if (isCodeAgentJobTerminal(j)) return false;
+    if (
+      APPROVAL_FINAL.includes(
         normalizeCodeAgentApprovalStatus(j.approval_status as string),
-      ),
-  );
+      )
+    ) {
+      return false;
+    }
+    if (
+      (j.risk_level === "medium" || j.risk_level === "high") &&
+      repoBlocking(j as unknown as StateJobLike)
+    ) {
+      return false;
+    }
+    return true;
+  });
   if (targets.length === 0) return summary;
   await logJobEvent(targets[0].id, userId, "code_agent_bulk_approval_sync_started", {
     target_count: targets.length,
@@ -2344,18 +2566,41 @@ export async function syncPendingCodeAgentApprovals(
     summary.checked++;
     try {
       const r = await syncCodeAgentJobApprovalStatus(j.id);
+      if (r.skipped) {
+        summary.skipped++;
+        continue;
+      }
       const ts = r.telegram_status;
       if (ts === "approved") summary.approved++;
       else if (ts === "rejected") summary.rejected++;
       else if (ts === "expired") summary.expired++;
       else if (ts === "failed") summary.failed++;
       else summary.unchanged++;
-    } catch {
+    } catch (e) {
+      const err = e instanceof CodeAgentTransitionError
+        ? { code: e.code, message: e.message }
+        : { code: "sync_failed", message: ((e as Error)?.message ?? "unknown").slice(0, 200) };
       summary.failed++;
+      summary.errors.push({ job_id: j.id, ...err });
+      try {
+        await logJobEvent(j.id, userId, "code_agent_bulk_approval_sync_error", {
+          code: err.code,
+          message: err.message.slice(0, 200),
+        });
+      } catch {
+        /* best-effort */
+      }
     }
   }
   await logJobEvent(targets[0].id, userId, "code_agent_bulk_approval_sync_completed", {
-    ...summary,
+    checked: summary.checked,
+    approved: summary.approved,
+    rejected: summary.rejected,
+    expired: summary.expired,
+    failed: summary.failed,
+    unchanged: summary.unchanged,
+    skipped: summary.skipped,
+    error_count: summary.errors.length,
   });
   return summary;
 }

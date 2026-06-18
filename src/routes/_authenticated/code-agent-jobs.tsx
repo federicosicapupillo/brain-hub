@@ -85,18 +85,53 @@ export const Route = createFileRoute("/_authenticated/code-agent-jobs")({
 });
 
 const ENGINES = Object.keys(CODE_AGENT_ENGINE_REGISTRY) as CodeAgentEngine[];
-const STATUSES: CodeAgentJobStatus[] = [
-  "draft",
-  "pending_approval",
-  "ready",
-  "sent_to_engine",
-  "result_received",
-  "review_created",
-  "completed",
-  "rejected",
-  "failed",
-];
+const STATUS_BUCKETS = [
+  { id: "all", label: "Tutti" },
+  { id: "draft", label: "Draft" },
+  { id: "repo_missing", label: "Repository mancante" },
+  { id: "repo_ambiguous", label: "Repository ambiguo" },
+  { id: "pending_approval", label: "In attesa approvazione" },
+  { id: "ready", label: "Pronti da inviare" },
+  { id: "sent_no_result", label: "Inviati senza risultato" },
+  { id: "result_to_review", label: "Risultati da revisionare" },
+  { id: "review_ready", label: "Review pronte" },
+  { id: "completed", label: "Completati/revisionati" },
+  { id: "failed", label: "Falliti/annullati" },
+] as const;
+type StatusBucketId = (typeof STATUS_BUCKETS)[number]["id"];
 const RISKS: CodeAgentRiskLevel[] = ["low", "medium", "high"];
+
+function jobMatchesBucket(j: CodeAgentJob, bucket: StatusBucketId): boolean {
+  if (bucket === "all") return true;
+  const resolution =
+    ((j.metadata?.repository_resolution as { status?: string } | undefined)?.status) ?? null;
+  switch (bucket) {
+    case "draft":
+      return j.status === "draft";
+    case "repo_missing":
+      return !j.repository_id && resolution === "missing";
+    case "repo_ambiguous":
+      return !j.repository_id && resolution === "ambiguous";
+    case "pending_approval":
+      return j.status === "pending_approval";
+    case "ready":
+      return j.status === "ready";
+    case "sent_no_result":
+      return (
+        (j.status === "sent_manually" || j.status === "sent_to_engine") && !j.result_text
+      );
+    case "result_to_review":
+      return j.status === "result_received" && !j.result_review_item_id;
+    case "review_ready":
+      return j.status === "review_ready";
+    case "completed":
+      return j.status === "reviewed" || j.status === "completed";
+    case "failed":
+      return j.status === "failed" || j.status === "cancelled" || j.status === "rejected";
+    default:
+      return true;
+  }
+}
 
 function CodeAgentJobsPage() {
   const qc = useQueryClient();
@@ -148,7 +183,7 @@ function CodeAgentJobsPage() {
   const filtered = useMemo(() => {
     return items.filter((j) => {
       if (engineFilter !== "all" && j.recommended_engine !== engineFilter) return false;
-      if (statusFilter !== "all" && j.status !== statusFilter) return false;
+      if (!jobMatchesBucket(j, statusFilter as StatusBucketId)) return false;
       if (riskFilter !== "all" && j.risk_level !== riskFilter) return false;
       return true;
     });
@@ -166,13 +201,38 @@ function CodeAgentJobsPage() {
     void qc.invalidateQueries({ queryKey: ["code-agent-jobs-summary"] });
   };
 
+  function describeTransitionError(e: unknown): string {
+    const err = e as { code?: string; message?: string } | null;
+    const code = err?.code;
+    const msg = err?.message ?? "Errore sconosciuto";
+    switch (code) {
+      case "code_agent_repository_required":
+        return "Repository richiesto prima di procedere.";
+      case "code_agent_approval_required":
+        return "Serve approvazione prima dell'invio manuale.";
+      case "code_agent_result_required":
+        return "Serve un risultato prima di questa azione.";
+      case "code_agent_terminal_status":
+        return "Questo job è in uno stato finale.";
+      case "code_agent_job_not_found":
+        return "Job non trovato.";
+      case "code_agent_user_scope_required":
+        return "Devi essere autenticato.";
+      case "code_agent_transition_not_allowed":
+        return msg;
+      default:
+        return msg;
+    }
+  }
+
   const handleApprove = async (j: CodeAgentJob) => {
     try {
       await approveCodeAgentJob(j.id);
       toast.success("Job approvato — pronto per handoff (nessuna esecuzione)");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e));
+      refresh();
     }
   };
 
@@ -182,29 +242,41 @@ function CodeAgentJobsPage() {
       toast.success("Job rifiutato");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e));
+      refresh();
     }
   };
 
   const handleSyncApproval = async (j: CodeAgentJob) => {
     try {
       const r = await syncCodeAgentJobApprovalStatus(j.id);
-      toast.success(`Sync · status=${r.status}`);
+      if (r.skipped) {
+        toast.message(`Sync saltato · ${r.skip_reason ?? "stato non sincronizzabile"}`);
+      } else {
+        toast.success(`Sync · status=${r.status}`);
+      }
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e));
+      refresh();
     }
   };
 
   const handleBulkSync = async () => {
     try {
       const r = await syncPendingCodeAgentApprovals(brainId);
+      const errPart = r.errors.length > 0 ? `, ${r.errors.length} errori` : "";
+      const skipPart = r.skipped > 0 ? `, ${r.skipped} saltati` : "";
       toast.success(
-        `Sync · ${r.checked} controllati, ${r.approved} approvati, ${r.rejected} rifiutati, ${r.unchanged} invariati`,
+        `Sync · ${r.checked} controllati, ${r.approved} approvati, ${r.rejected} rifiutati, ${r.unchanged} invariati${skipPart}${errPart}`,
       );
+      if (r.errors.length > 0) {
+        const sample = r.errors.slice(0, 2).map((x) => x.code).join(", ");
+        toast.error(`Errori bulk sync: ${sample}${r.errors.length > 2 ? "…" : ""}`);
+      }
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e));
     }
   };
 
@@ -214,7 +286,7 @@ function CodeAgentJobsPage() {
       toast.success("Repository aggiornato sul job");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -233,7 +305,7 @@ function CodeAgentJobsPage() {
       toast.success(`Segnato inviato manualmente a ${CODE_AGENT_ENGINE_REGISTRY[engine].label}`);
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -253,7 +325,7 @@ function CodeAgentJobsPage() {
       setResultText("");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -263,7 +335,7 @@ function CodeAgentJobsPage() {
       toast.success("Result Review creata");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -273,7 +345,7 @@ function CodeAgentJobsPage() {
       toast.success("Next action creata");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -284,7 +356,7 @@ function CodeAgentJobsPage() {
       else toast.error("Bozza non creata");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e)); refresh();
     }
   };
 
@@ -330,13 +402,12 @@ function CodeAgentJobsPage() {
             </Select>
           </div>
           <div>
-            <Label className="text-xs">Status</Label>
+            <Label className="text-xs">Status / bucket</Label>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Tutti</SelectItem>
-                {STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>{CODE_AGENT_STATUS_LABEL[s]}</SelectItem>
+                {STATUS_BUCKETS.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>{s.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
