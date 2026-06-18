@@ -399,7 +399,16 @@ export type LogEventType =
   | "agent_ai_action_created"
   | "agent_ai_review_created"
   | "agent_ai_next_action_created"
-  | "agent_ai_risk_warning_created";
+  | "agent_ai_risk_warning_created"
+  | "telegram_approval_callback_received"
+  | "telegram_approval_callback_approved"
+  | "telegram_approval_callback_rejected"
+  | "telegram_approval_callback_invalid"
+  | "telegram_approval_callback_expired"
+  | "telegram_approval_callback_replay_ignored"
+  | "telegram_approval_action_synced"
+  | "telegram_webhook_config_viewed"
+  | "telegram_webhook_registered";
 
 
 
