@@ -15,6 +15,10 @@ import {
   upsertJackMemoryEntryFromTool,
   verifyJackMemoryPersistence,
 } from "@/lib/jack-memory-persistence";
+import {
+  createControlledJackAction,
+  prepareJackMasterSnapshotUpdate,
+} from "@/lib/jack-controlled-actions.functions";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
