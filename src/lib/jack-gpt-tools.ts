@@ -151,9 +151,26 @@ export const JACK_GPT_TOOLS_SCHEMA = [
   },
   {
     type: "function",
+    name: "preview_controlled_action",
+    description:
+      "Prepara una PREVIEW di una action suggerita SENZA crearla. Sempre safe. Usalo PRIMA di create_controlled_action per mostrare a Federico cosa proponi. Restituisce title, description, reason, risk_level e idempotency_key. NON scrive nulla nel database.",
+    parameters: {
+      type: "object",
+      properties: {
+        command_text: { type: "string", description: "Testo del comando vocale di Federico." },
+        brain_id: { type: "string" },
+        project_id: { type: "string" },
+        source_warning_id: { type: "string" },
+        notes: { type: "string" },
+      },
+      required: ["command_text"],
+    },
+  },
+  {
+    type: "function",
     name: "create_controlled_action",
     description:
-      "Trasforma un comando vocale di Federico (es. 'crea il prossimo prompt e mandamelo su Telegram', 'fammi una ricerca aziende su Perplexity', 'aggiorna il master snapshot') in una action suggerita controllata. NON esegue nulla in automatico: crea solo proposte in coda, draft Master Snapshot, handoff Telegram/research. Sempre approval-first.",
+      "Crea una action suggerita controllata SOLO DOPO conferma esplicita di Federico (es. 'sì, confermo', 'creala', 'procedi'). Richiede confirmed:true e idempotency_key ricevuta da preview_controlled_action. Se chiamata senza conferma esplicita viene bloccata server-side. NON esegue mai operazioni esterne.",
     parameters: {
       type: "object",
       properties: {
@@ -162,8 +179,17 @@ export const JACK_GPT_TOOLS_SCHEMA = [
         project_id: { type: "string" },
         delivery_preference: { type: "string", enum: ["telegram", "ui_only"] },
         notes: { type: "string" },
+        confirmed: {
+          type: "boolean",
+          description: "DEVE essere true. Settarlo a true SOLO dopo conferma verbale esplicita di Federico (es. 'sì confermo', 'creala', 'procedi'). Frasi ambigue come 'ok', 'va bene', 'preparamela', 'dimmi' NON sono conferme valide.",
+        },
+        idempotency_key: {
+          type: "string",
+          description: "Idempotency key ricevuta da preview_controlled_action. Garantisce che la stessa proposta non venga creata due volte.",
+        },
+        source_warning_id: { type: "string" },
       },
-      required: ["command_text"],
+      required: ["command_text", "confirmed"],
     },
   },
   {
