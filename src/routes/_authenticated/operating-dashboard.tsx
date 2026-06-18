@@ -423,6 +423,7 @@ function OperatingDashboardRoute() {
 
           {/* Health */}
           <ProjectHealthCheck brainId={brainId} />
+          <OperationalHealthMini brainId={brainId} />
 
           {/* 4 snapshot cards */}
           <div className="grid gap-4 lg:grid-cols-2">
