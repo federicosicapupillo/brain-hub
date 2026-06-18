@@ -81,6 +81,7 @@ function getSpeechRecognitionCtor():
 export function JackVoiceCommand({ brainId, briefId }: Props) {
   const synthFn = useServerFn(synthesizeJackVoiceFromText);
   const playedFn = useServerFn(markJackVoicePlayed);
+  const navigate = useNavigate();
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [transcript, setTranscript] = useState("");
