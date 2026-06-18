@@ -208,6 +208,7 @@ function CodeAgentJobsPage() {
       const { data } = await supabase
         .from("github_repository_registry")
         .select("id,repository_name,repository_owner,repository_url,brain_id,project_id,default_branch,last_sync_at,connected_status")
+        .is("archived_at" as never, null)
         .order("last_sync_at", { ascending: false });
       return (data ?? []) as Array<{
         id: string;
