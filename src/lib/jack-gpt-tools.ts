@@ -245,41 +245,43 @@ export const runJackGptTool = createServerFn({ method: "POST" })
         case "create_memory_entry": {
           const content = String(args.content ?? "").trim();
           if (!content) return { ok: false, error: "empty_content" };
-          const warnings = detectSecretPatterns(content);
-          const isSecret = warnings.length > 0;
-          const category = (args.category as string) ?? "preference";
-          const { data: row, error } = await (supabase as never as {
-            from: (t: string) => {
-              insert: (v: Record<string, unknown>) => {
-                select: (c: string) => {
-                  single: () => Promise<{ data: unknown; error: unknown }>;
-                };
-              };
-            };
-          })
-            .from("jack_memory_entries")
-            .insert({
-              user_id: userId,
-              content,
-              category,
-              sensitivity: isSecret ? "secret" : "normal",
-              status: isSecret ? "suggested" : "active",
-              source: "jack_gpt",
-            })
-            .select("id,status,sensitivity")
-            .single();
-          if (error) return { ok: false, error: "insert_failed" };
-          const r = row as { id?: string; status?: string; sensitivity?: string } | null;
+          const brainArg = (args.brain_id as string | undefined) ?? null;
+          const scopeArg = (args.scope as "global" | "brain" | undefined) ?? (brainArg ? "brain" : "global");
+          const upsert = await upsertJackMemoryEntryFromTool(supabase as never, {
+            userId,
+            content,
+            category: (args.category as string | undefined) ?? "preference",
+            brainId: scopeArg === "brain" ? brainArg : null,
+            scope: scopeArg,
+            projectName: (args.project_name as string | undefined) ?? null,
+            source: "jack_gpt",
+          });
+          const verify = await verifyJackMemoryPersistence(supabase as never, {
+            userId,
+            memoryId: upsert.entryId,
+            brainId: scopeArg === "brain" ? brainArg : null,
+          });
           return {
-            ok: true,
+            ok: upsert.persisted,
             payload: {
-              entry_id: r?.id ?? null,
-              status: r?.status ?? null,
-              sensitivity: r?.sensitivity ?? null,
-              secret_warning: isSecret,
-              message: isSecret
+              entry_id: upsert.entryId,
+              status: upsert.status,
+              sensitivity: upsert.sensitivity,
+              scope: upsert.scope,
+              brain_id: upsert.brainId,
+              persisted: upsert.persisted,
+              deduped: upsert.deduped,
+              included_in_context: verify.includedInContext,
+              active_memory_count: verify.activeMemoryCount,
+              global_memory_count: verify.globalMemoryCount,
+              brain_memory_count: verify.brainMemoryCount,
+              secret_warning: upsert.secretWarning,
+              reason: upsert.reason ?? verify.reason ?? null,
+              message: upsert.secretWarning
                 ? "Possibile segreto rilevato: salvato come 'suggerito', in attesa di conferma manuale."
-                : "Memoria salvata.",
+                : upsert.persisted
+                  ? (upsert.deduped ? "Memoria aggiornata (deduplicata)." : "Memoria salvata.")
+                  : "Non sono riuscito a salvare la memoria.",
             },
           };
         }
