@@ -1200,7 +1200,28 @@ export async function getCodeAgentJobWarnings(
 ): Promise<CodeAgentJobWarning[]> {
   const items = await listCodeAgentJobs({ brainId: brainId ?? null });
   const warns: CodeAgentJobWarning[] = [];
+  const now = Date.now();
   for (const j of items) {
+    const requiresRepo = CODE_JOB_TYPES_REQUIRING_REPO.includes(j.job_type as CodeAgentJobType);
+    const resolution = ((j.metadata?.repository_resolution as { status?: string } | undefined)?.status) ?? null;
+    if (requiresRepo && !j.repository_id) {
+      warns.push({
+        id: `caj-no-repo-${j.id}`,
+        level: "warning",
+        title: "Code Agent Job senza repository",
+        description: "Seleziona un repository prima di approvare o inviare il job.",
+        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+      });
+    }
+    if (resolution === "ambiguous" && !j.repository_id) {
+      warns.push({
+        id: `caj-ambig-repo-${j.id}`,
+        level: "warning",
+        title: "Repository ambiguo per Code Agent Job",
+        description: "Più candidati trovati: seleziona manualmente.",
+        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+      });
+    }
     if (
       (j.risk_level === "medium" || j.risk_level === "high") &&
       j.approval_status === "pending" &&
@@ -1214,6 +1235,40 @@ export async function getCodeAgentJobWarnings(
         cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
       });
     }
+    if (
+      (j.risk_level === "medium" || j.risk_level === "high") &&
+      !j.telegram_approval_id &&
+      j.status !== "cancelled" &&
+      j.status !== "rejected"
+    ) {
+      warns.push({
+        id: `caj-no-telegram-${j.id}`,
+        level: "warning",
+        title: "Code Agent Job senza approvazione Telegram",
+        description: "Job medium/high risk senza richiesta Telegram collegata.",
+        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+      });
+    }
+    const updatedMs = new Date(j.updated_at).getTime();
+    const ageHours = (now - updatedMs) / 3_600_000;
+    if (j.status === "ready" && ageHours > 24) {
+      warns.push({
+        id: `caj-approved-not-sent-${j.id}`,
+        level: "info",
+        title: "Job approvato ma mai inviato",
+        description: `Approvato da ${Math.round(ageHours)}h, ancora non inviato a engine.`,
+        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+      });
+    }
+    if ((j.status === "sent_to_engine" || j.status === "sent_manually") && ageHours > 48 && !j.result_text) {
+      warns.push({
+        id: `caj-sent-no-result-${j.id}`,
+        level: "warning",
+        title: "Job inviato senza risultato",
+        description: `Inviato da ${Math.round(ageHours)}h, nessun risultato registrato.`,
+        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+      });
+    }
     if (j.status === "result_received" && !j.result_review_item_id) {
       warns.push({
         id: `caj-no-review-${j.id}`,
@@ -1223,16 +1278,12 @@ export async function getCodeAgentJobWarnings(
         cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
       });
     }
-    if (
-      j.status === "sent_to_engine" &&
-      (j.recommended_engine.includes("codex") || j.recommended_engine.includes("claude")) &&
-      !(j.metadata?.tests_acknowledged === true)
-    ) {
+    if (j.master_snapshot_draft_id && !j.result_review_item_id) {
       warns.push({
-        id: `caj-no-tests-${j.id}`,
-        level: "info",
-        title: "Code Agent senza conferma test",
-        description: "Verifica che il risultato includa test eseguiti o motivazione esplicita.",
+        id: `caj-snapshot-no-review-${j.id}`,
+        level: "warning",
+        title: "Master Snapshot draft senza Result Review",
+        description: "Crea una Result Review prima di promuovere lo snapshot.",
         cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
       });
     }
