@@ -963,20 +963,29 @@ export async function createReviewFromCodeAgentJob(
 ): Promise<ResultReviewItem | null> {
   const { userId, job } = await enforceTransition(jobId, "create_review", "review_ready");
 
-  const review = await createReviewItem({
-    brain_id: job.brain_id,
+  const reviewPayload = {
+    user_id: userId,
+    source_type: "code_engine_handoff" as const,
+    source_id: job.id,
     title: `Code Agent: ${CODE_AGENT_JOB_TYPE_LABEL[job.job_type as CodeAgentJobType] ?? job.job_type}`,
     result_text: sanitizeText(job.result_text ?? "", 4000),
-    source_type: "code_engine_handoff",
-    source_id: job.id,
+    brain_id: job.brain_id,
     risk_level: job.risk_level,
+    review_status: "pending_review",
     metadata: {
       engine: job.recommended_engine,
       risk_level: job.risk_level,
       job_id: job.id,
       code_agent_orchestrator: true,
     },
-  });
+  };
+  const { data: reviewData, error: reviewError } = await sb
+    .from("result_review_items" as never)
+    .insert(reviewPayload as never)
+    .select()
+    .single();
+  if (reviewError) throw new Error(reviewError.message);
+  const review = reviewData as unknown as ResultReviewItem;
 
   await sb
     .from("code_agent_jobs")
