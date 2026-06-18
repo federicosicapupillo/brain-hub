@@ -1334,6 +1334,16 @@ export async function getAgentAiHandoffWarnings(
         cta: { label: "Apri Run Console", to: "/agent-runs" },
       });
     }
+    const meta = (r.metadata as Record<string, unknown> | null) ?? {};
+    if (meta["ai_risk_warning"] === true) {
+      warnings.push({
+        id: `aai-risk-exceeds-${r.id}`,
+        level: "warning",
+        title: "Action AI oltre il max risk dell'agente",
+        description: `"${r.objective}": rischio reale ${String(meta["ai_original_risk_level"] ?? "?")} > permesso ${String(meta["ai_agent_max_risk_level"] ?? "?")}.`,
+        cta: { label: "Apri Action Queue", to: "/action-queue" },
+      });
+    }
   }
   return warnings;
 }
