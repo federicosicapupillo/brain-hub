@@ -1359,18 +1359,32 @@ export async function getCodeAgentJobWarnings(
   }
 
   // v3.15.3 — surface recent server-side transition blocks and bulk-sync errors.
+  // v3.15.4 — best-effort brain scoping (filters events by jobs of this brain).
   try {
     const sinceIso = new Date(now - 24 * 3_600_000).toISOString();
-    const { data: events } = await sb
+    let jobIdsForBrain: string[] | null = null;
+    let scopeNote = "";
+    if (brainId) {
+      jobIdsForBrain = items.map((j) => j.id);
+      scopeNote = " (scope brain)";
+    }
+    let q = sb
       .from("code_agent_job_events")
-      .select("event_type,event_data,created_at")
+      .select("event_type,event_data,created_at,job_id")
       .in("event_type", [
         "code_agent_transition_blocked",
         "code_agent_bulk_approval_sync_error",
       ])
       .gte("created_at", sinceIso)
       .order("created_at", { ascending: false })
-      .limit(50);
+      .limit(100);
+    if (jobIdsForBrain && jobIdsForBrain.length > 0) {
+      q = q.in("job_id", jobIdsForBrain);
+    } else if (jobIdsForBrain && jobIdsForBrain.length === 0) {
+      // No jobs in this brain → skip query entirely.
+      q = null as unknown as typeof q;
+    }
+    const { data: events } = q ? await q : { data: [] as unknown[] };
     const rows = (events as Array<{
       event_type: string;
       event_data: Record<string, unknown> | null;
@@ -1391,7 +1405,7 @@ export async function getCodeAgentJobWarnings(
         id: "caj-server-transition-blocked",
         level: "warning",
         title: "Transizioni server bloccate di recente",
-        description: `${blocked.length} transizioni bloccate nelle ultime 24h (${reasons}).`,
+        description: `${blocked.length} transizioni bloccate nelle ultime 24h${scopeNote} (${reasons}).`,
         cta,
       });
     }
@@ -1400,13 +1414,14 @@ export async function getCodeAgentJobWarnings(
         id: "caj-bulk-sync-errors",
         level: "warning",
         title: "Bulk sync approval con errori",
-        description: `${bulkErrors.length} errori durante la sync approval di massa nelle ultime 24h.`,
+        description: `${bulkErrors.length} errori durante la sync approval di massa nelle ultime 24h${scopeNote}.`,
         cta,
       });
     }
   } catch {
     // best-effort
   }
+
 
   return warns;
 }
