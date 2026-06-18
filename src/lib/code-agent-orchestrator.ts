@@ -1198,6 +1198,7 @@ export type CodeAgentJobSummaryBuckets = {
   result_to_review: number;
   reviewed: number;
   failed_or_cancelled: number;
+  resolved_repository: number;
 };
 
 export type CodeAgentJobSummary = {
@@ -1223,12 +1224,14 @@ export async function getCodeAgentJobSummary(
     result_to_review: 0,
     reviewed: 0,
     failed_or_cancelled: 0,
+    resolved_repository: 0,
   };
   for (const j of items) {
     const res = ((j.metadata?.repository_resolution as { status?: string } | undefined)?.status) ?? null;
     const requiresRepo = CODE_JOB_TYPES_REQUIRING_REPO.includes(j.job_type as CodeAgentJobType);
     if (requiresRepo && !j.repository_id && res === "missing") buckets.missing_repository++;
     if (requiresRepo && !j.repository_id && res === "ambiguous") buckets.ambiguous_repository++;
+    if (j.repository_id) buckets.resolved_repository++;
     if (j.status === "draft") buckets.draft++;
     if (j.status === "pending_approval") buckets.pending_approval++;
     if (j.status === "ready") buckets.ready_to_send++;
