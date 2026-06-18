@@ -398,7 +398,8 @@ export type LogEventType =
   | "agent_ai_result_saved"
   | "agent_ai_action_created"
   | "agent_ai_review_created"
-  | "agent_ai_next_action_created";
+  | "agent_ai_next_action_created"
+  | "agent_ai_risk_warning_created";
 
 
 
