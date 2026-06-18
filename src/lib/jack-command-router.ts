@@ -1128,7 +1128,10 @@ export type JackVoiceCommandEvent =
   | "jack_best_next_action_built"
   | "jack_action_queue_empty_fallback_used"
   | "jack_daily_brief_next_action_used"
-  | "jack_operational_fallback_used";
+  | "jack_operational_fallback_used"
+  | "jack_daily_status_fallback_used"
+  | "jack_daily_brief_missing"
+  | "jack_operational_status_used_without_daily_brief";
 
 function redactTranscript(t: string): string {
   return t
