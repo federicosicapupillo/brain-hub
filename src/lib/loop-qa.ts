@@ -513,6 +513,27 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
+  // Daily Operating Brief warnings (v3.8.1) — read-only aggregator
+  try {
+    const { getDailyBriefWarnings } = await import(
+      "@/lib/daily-operating-brief"
+    );
+    const dbw = await getDailyBriefWarnings(brainId ?? null);
+    for (const w of dbw) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+        category: w.category,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
+
 
 
 
