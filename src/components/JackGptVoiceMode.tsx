@@ -37,6 +37,7 @@ import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
 import { JACK_GPT_PRIVACY_NOTICE } from "@/lib/jack-gpt-instructions";
 import {
   classifyRealtimeStartError,
+  isActiveResponseInProgressError,
   SUGGESTED_REALTIME_MODELS,
   type ClassifiedRealtimeStartError,
 } from "@/lib/jack-gpt-error-classifier";
@@ -54,8 +55,19 @@ type ConnState =
 
 type MicState = "unknown" | "granted" | "denied" | "unavailable" | "unsupported";
 type SessionMode = "none" | "full" | "minimal";
-type LogKind = "user" | "jack" | "tool" | "system" | "error";
+type LogKind = "user" | "jack" | "tool" | "system" | "error" | "warning";
 type LogEntry = { id: string; ts: number; kind: LogKind; text: string };
+
+type ResponseLifecycleState =
+  | "idle"
+  | "response_starting"
+  | "response_active"
+  | "response_finishing"
+  | "tool_waiting"
+  | "response_active_unknown"
+  | "error";
+
+type SafeCreateResponseOptions = { queueIfBusy?: boolean };
 
 type ActiveSession = Extract<CreateRealtimeSessionResult, { ok: true; probe: false }>;
 
@@ -63,13 +75,14 @@ type RealtimeEvent = {
   type?: string;
   transcript?: string;
   delta?: string;
+  response?: { id?: string; status?: string };
   item?: {
     type?: string;
     call_id?: string;
     name?: string;
     arguments?: string;
   };
-  error?: { message?: string; code?: string };
+  error?: { message?: string; code?: string; type?: string };
   call_id?: string;
   name?: string;
   arguments?: string;
@@ -108,6 +121,14 @@ type Diagnostics = {
   lastOpenAiStatus: number | null;
   lastOpenAiRequestId: string | null;
   sdpEndpointStatus: number | null;
+  responseState: ResponseLifecycleState;
+  activeResponseIdRedacted: string | null;
+  pendingResponse: boolean;
+  lastResponseCreateReason: string | null;
+  lastResponseCreateAt: number | null;
+  lastResponseDoneAt: number | null;
+  skippedResponseCreateCount: number;
+  duplicateResponseHandledCount: number;
 };
 
 type Props = { brainId?: string | null };
@@ -158,7 +179,29 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastOpenAiStatus: null,
     lastOpenAiRequestId: null,
     sdpEndpointStatus: null,
+    responseState: "idle",
+    activeResponseIdRedacted: null,
+    pendingResponse: false,
+    lastResponseCreateReason: null,
+    lastResponseCreateAt: null,
+    lastResponseDoneAt: null,
+    skippedResponseCreateCount: 0,
+    duplicateResponseHandledCount: 0,
   });
+
+  const responseInProgressRef = useRef(false);
+  const activeResponseIdRef = useRef<string | null>(null);
+  const pendingResponseCreateRef = useRef<{ reason: string } | null>(null);
+  const lastResponseCreateAtRef = useRef<number>(0);
+  const lastResponseDoneAtRef = useRef<number>(0);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const RESPONSE_CREATE_DEBOUNCE_MS = 400;
+
+  function redactResponseId(id: string | null): string | null {
+    if (!id) return null;
+    if (id.length <= 10) return id;
+    return `${id.slice(0, 6)}…${id.slice(-4)}`;
+  }
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
@@ -187,6 +230,78 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     },
     [logFn, brainId],
   );
+
+  /**
+   * Centralized response.create sender. Prevents overlapping responses
+   * (Realtime error: conversation_already_has_active_response).
+   */
+  const safeCreateResponse = useCallback(
+    (reason: string, options: SafeCreateResponseOptions = {}): "sent" | "queued" | "skipped" => {
+      const dc = dcRef.current;
+      safeLog("jack_gpt_response_create_requested", { reason });
+      if (!dc || dc.readyState !== "open") {
+        setDiagnostics((d) => ({
+          ...d,
+          skippedResponseCreateCount: d.skippedResponseCreateCount + 1,
+        }));
+        safeLog("jack_gpt_response_create_skipped_active", { reason, why: "dc_not_open" });
+        return "skipped";
+      }
+      const now = Date.now();
+      const tooSoon = now - lastResponseCreateAtRef.current < RESPONSE_CREATE_DEBOUNCE_MS;
+      if (responseInProgressRef.current || tooSoon) {
+        if (options.queueIfBusy) {
+          pendingResponseCreateRef.current = { reason };
+          setDiagnostics((d) => ({ ...d, pendingResponse: true }));
+          safeLog("jack_gpt_response_create_queued", { reason });
+          return "queued";
+        }
+        setDiagnostics((d) => ({
+          ...d,
+          skippedResponseCreateCount: d.skippedResponseCreateCount + 1,
+        }));
+        safeLog("jack_gpt_response_create_skipped_active", {
+          reason,
+          why: responseInProgressRef.current ? "in_progress" : "debounced",
+        });
+        return "skipped";
+      }
+      try {
+        dc.send(JSON.stringify({ type: "response.create" }));
+        lastResponseCreateAtRef.current = now;
+        setDiagnostics((d) => ({
+          ...d,
+          lastResponseCreateReason: reason,
+          lastResponseCreateAt: now,
+          responseState: "response_starting",
+        }));
+        safeLog("jack_gpt_response_create_sent", { reason });
+        return "sent";
+      } catch {
+        return "skipped";
+      }
+    },
+    [safeLog],
+  );
+
+  const flushPendingResponse = useCallback(() => {
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    const pending = pendingResponseCreateRef.current;
+    if (!pending) return;
+    flushTimerRef.current = setTimeout(() => {
+      flushTimerRef.current = null;
+      const next = pendingResponseCreateRef.current;
+      if (!next) return;
+      if (responseInProgressRef.current) return;
+      pendingResponseCreateRef.current = null;
+      setDiagnostics((d) => ({ ...d, pendingResponse: false }));
+      const outcome = safeCreateResponse(next.reason);
+      safeLog("jack_gpt_response_queue_flushed", { reason: next.reason, outcome });
+    }, RESPONSE_CREATE_DEBOUNCE_MS);
+  }, [safeCreateResponse, safeLog]);
 
   useEffect(() => {
     let active = true;
@@ -236,11 +351,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     localStreamRef.current = null;
     sessionUpdateSentRef.current = false;
     pendingToolsRef.current = null;
+    responseInProgressRef.current = false;
+    activeResponseIdRef.current = null;
+    pendingResponseCreateRef.current = null;
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
     setDiagnostics((d) => ({
       ...d,
       sessionMode: "none",
       dataChannelState: "none",
       cleanupCount: d.cleanupCount + 1,
+      responseState: "idle",
+      activeResponseIdRedacted: null,
+      pendingResponse: false,
     }));
     safeLog("jack_gpt_cleanup_completed");
   }, [safeLog]);
@@ -275,10 +400,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             },
           }),
         );
-        dc.send(JSON.stringify({ type: "response.create" }));
       } catch { /* noop */ }
+      // Never fire response.create directly: route through the lifecycle guard.
+      safeCreateResponse("tool_result", { queueIfBusy: true });
     },
-    [toolFn, safeLog, pushLog],
+    [toolFn, safeLog, pushLog, safeCreateResponse],
   );
 
   const handleDcMessage = useCallback(
@@ -303,9 +429,19 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
 
         // GA response lifecycle
-        case "response.created":
+        case "response.created": {
+          const id = msg.response?.id ?? null;
+          responseInProgressRef.current = true;
+          activeResponseIdRef.current = id;
           setState("speaking");
+          setDiagnostics((d) => ({
+            ...d,
+            responseState: "response_active",
+            activeResponseIdRedacted: redactResponseId(id),
+          }));
+          safeLog("jack_gpt_response_created", { has_id: Boolean(id) });
           break;
+        }
         case "response.output_audio.delta":
         case "response.output_audio_transcript.delta":
         case "response.output_text.delta":
@@ -327,26 +463,60 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
 
         case "response.done":
+        case "response.cancelled":
+        case "response.failed":
+        case "response.incomplete": {
+          responseInProgressRef.current = false;
+          activeResponseIdRef.current = null;
+          lastResponseDoneAtRef.current = Date.now();
           setState("listening");
-          safeLog("jack_gpt_response_received");
+          setDiagnostics((d) => ({
+            ...d,
+            responseState: "idle",
+            activeResponseIdRedacted: null,
+            lastResponseDoneAt: lastResponseDoneAtRef.current,
+          }));
+          safeLog("jack_gpt_response_done", { type: msg.type });
+          if (pendingResponseCreateRef.current) flushPendingResponse();
           break;
+        }
 
         // Tool/function calls — GA + legacy
         case "response.function_call_arguments.done":
           if (msg.call_id && msg.name) {
+            setDiagnostics((d) => ({ ...d, responseState: "tool_waiting" }));
             void handleToolCall(msg.call_id, msg.name, msg.arguments ?? "");
           }
           break;
         case "response.output_item.done": {
           const item = msg.item;
           if (item?.type === "function_call" && item.call_id && item.name) {
+            setDiagnostics((d) => ({ ...d, responseState: "tool_waiting" }));
             void handleToolCall(item.call_id, item.name, item.arguments ?? "");
           }
           break;
         }
 
         case "error": {
-          const m = msg.error?.message ?? "Errore realtime";
+          const err = msg.error ?? {};
+          if (isActiveResponseInProgressError(err)) {
+            // Non-critical: overlap was rejected by the server. Reconcile lifecycle.
+            responseInProgressRef.current = true;
+            const friendly = "Jack stava ancora rispondendo: ho evitato una risposta duplicata.";
+            pushLog({ kind: "warning", text: friendly });
+            setDiagnostics((d) => ({
+              ...d,
+              responseState: activeResponseIdRef.current ? "response_active" : "response_active_unknown",
+              lastErrorKind: "active_response_in_progress",
+              lastSafeError: friendly,
+              duplicateResponseHandledCount: d.duplicateResponseHandledCount + 1,
+            }));
+            safeLog("jack_gpt_active_response_error_handled", {
+              has_active_id: Boolean(activeResponseIdRef.current),
+            });
+            break;
+          }
+          const m = err.message ?? "Errore realtime";
           pushLog({ kind: "error", text: m });
           setLastError(m);
           setDiagnostics((d) => ({ ...d, lastSafeError: m.slice(0, 160) }));
@@ -356,7 +526,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
       }
     },
-    [handleToolCall, safeLog, pushLog],
+    [handleToolCall, safeLog, pushLog, flushPendingResponse],
   );
 
   /** Connect WebRTC using a successfully-created realtime session (GA endpoint). */
@@ -955,6 +1125,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <div className="sm:col-span-2"><span className="text-muted-foreground">Last safe error:</span> {diagnostics.lastSafeError ?? "—"}</div>
             <div><span className="text-muted-foreground">Cleanup:</span> {diagnostics.cleanupCount}</div>
             <div><span className="text-muted-foreground">Privacy:</span> {status?.privacy_mode ?? "ephemeral_token_only"}</div>
+            <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Response lifecycle</div>
+            <div><span className="text-muted-foreground">Response state:</span> {diagnostics.responseState}</div>
+            <div><span className="text-muted-foreground">Active response id:</span> {diagnostics.activeResponseIdRedacted ?? "—"}</div>
+            <div><span className="text-muted-foreground">Pending response:</span> {diagnostics.pendingResponse ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Last create reason:</span> {diagnostics.lastResponseCreateReason ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last create at:</span> {diagnostics.lastResponseCreateAt ? new Date(diagnostics.lastResponseCreateAt).toLocaleTimeString() : "—"}</div>
+            <div><span className="text-muted-foreground">Last done at:</span> {diagnostics.lastResponseDoneAt ? new Date(diagnostics.lastResponseDoneAt).toLocaleTimeString() : "—"}</div>
+            <div><span className="text-muted-foreground">Skipped create:</span> {diagnostics.skippedResponseCreateCount}</div>
+            <div><span className="text-muted-foreground">Duplicate handled:</span> {diagnostics.duplicateResponseHandledCount}</div>
             {diagnostics.lastTest ? (
               <div className="sm:col-span-2 pt-1 border-t mt-1">
                 <span className="text-muted-foreground">Ultimo test config:</span> {diagnostics.lastTest.message}
@@ -998,7 +1177,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                             ? "text-blue-600 dark:text-blue-300 text-xs font-mono"
                             : entry.kind === "error"
                               ? "text-destructive text-xs"
-                              : "text-muted-foreground text-xs"
+                              : entry.kind === "warning"
+                                ? "text-amber-600 dark:text-amber-300 text-xs"
+                                : "text-muted-foreground text-xs"
                     }
                   >
                     <span className="opacity-60 mr-1">
@@ -1010,7 +1191,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                             ? "Tool:"
                             : entry.kind === "error"
                               ? "Errore:"
-                              : "•"}
+                              : entry.kind === "warning"
+                                ? "Avviso:"
+                                : "•"}
                     </span>
                     {entry.text}
                   </div>

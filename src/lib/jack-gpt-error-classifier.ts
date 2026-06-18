@@ -10,9 +10,24 @@ export type RealtimeStartErrorKind =
   | "client_secret_failed"
   | "sdp_call_failed"
   | "ga_endpoint_mismatch"
+  | "active_response_in_progress"
   | "network"
   | "microphone"
   | "unknown";
+
+/** Detect the OpenAI Realtime error raised when response.create overlaps an active response. */
+export function isActiveResponseInProgressError(
+  payload: { code?: string; message?: string } | null | undefined,
+): boolean {
+  if (!payload) return false;
+  const code = (payload.code ?? "").toLowerCase();
+  const msg = (payload.message ?? "").toLowerCase();
+  return (
+    code === "conversation_already_has_active_response" ||
+    msg.includes("already has an active response") ||
+    msg.includes("conversation_already_has_active_response")
+  );
+}
 
 export type ClassifiedRealtimeStartError = {
   kind: RealtimeStartErrorKind;
