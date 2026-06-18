@@ -30,6 +30,7 @@ import {
   createReviewFromAgentRun,
   createCodeHandoffFromAgentRun,
   archiveAgentRun,
+  getAgentRun,
   CONTEXT_SOURCE_LABEL,
   RUN_STATUS_LABEL,
   RUN_STATUS_TONE,
@@ -48,12 +49,13 @@ import {
   type AiHandoffStatus,
 } from "@/lib/agent-runs";
 
-type Search = { brain?: string; agent?: string };
+type Search = { brain?: string; agent?: string; run?: string };
 
 export const Route = createFileRoute("/_authenticated/agent-runs")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     brain: typeof s.brain === "string" ? s.brain : undefined,
     agent: typeof s.agent === "string" ? s.agent : undefined,
+    run: typeof s.run === "string" ? s.run : undefined,
   }),
   component: AgentRunsPage,
 });
