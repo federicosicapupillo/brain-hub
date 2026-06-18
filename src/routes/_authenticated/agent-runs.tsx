@@ -85,6 +85,7 @@ const DEFAULT_SOURCES: ContextSourceKey[] = [
 
 function AgentRunsPage() {
   const search = Route.useSearch();
+  const navigate = useNavigate({ from: "/agent-runs" });
   const qc = useQueryClient();
 
   const { data: brains = [] } = useQuery({
