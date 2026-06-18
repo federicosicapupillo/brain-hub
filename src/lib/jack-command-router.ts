@@ -235,7 +235,37 @@ export async function resolveJackCommandIntent(input: {
   const { intent, matched } = parseJackCommand(transcript);
 
   try {
-    switch (intent) {
+    // Resolve potential project mention (used by project_* intents and as upgrade signal)
+    const brains = context.brains ?? [];
+    const mention = extractProjectMention(transcript);
+    const resolution: ProjectResolution = mention && brains.length > 0
+      ? resolveProjectAlias(mention, brains)
+      : { kind: "none" };
+    const projectInfo: ResolvedProjectInfo = {
+      brain: resolution.kind === "resolved" ? resolution.brain : null,
+      resolution,
+      mention,
+    };
+
+    // Auto-upgrade generic intents to project_* when a project is mentioned
+    let effectiveIntent: JackIntent = intent;
+    if (resolution.kind !== "none" && resolution.kind !== "ambiguous") {
+      if (intent === "daily_status") effectiveIntent = "project_status";
+      else if (intent === "next_actions") effectiveIntent = "project_next_actions";
+    }
+    if (resolution.kind === "ambiguous") {
+      return respondProjectAmbiguous(projectInfo, matched);
+    }
+
+    switch (effectiveIntent) {
+      case "project_status":
+        return await respondProjectStatus(context, matched, projectInfo);
+      case "project_next_actions":
+        return await respondProjectNextActions(context, matched, projectInfo);
+      case "project_recent_activity":
+        return await respondProjectRecentActivity(context, matched, projectInfo);
+      case "multi_project_status":
+        return await respondMultiProjectStatus(context, matched);
       case "daily_status":
         return await respondDailyStatus(context, matched);
       case "next_actions":
@@ -253,9 +283,10 @@ export async function resolveJackCommandIntent(input: {
           intent: "unknown",
           matched_phrases: [],
           response_text:
-            "Non ho capito bene. Puoi chiedermi: a che punto siamo, prossime azioni, email di oggi, warning o stato Telegram.",
+            "Non ho capito bene. Puoi chiedermi: a che punto siamo, prossime azioni, email di oggi, warning, stato Telegram, oppure indicare un progetto (es. 'a che punto siamo con Brain Hub').",
           cta: null,
           source: "fallback",
+          project: projectInfo,
         };
     }
   } catch (e) {
