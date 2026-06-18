@@ -451,7 +451,9 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           if (!commandText) return { ok: false, error: "code_agent_jack_command_empty" };
           // v3.15.6: route through the unified browser helper inside the
           // server-runtime context so audit + typed errors stay consistent
-          // with createCodeAgentJobFromJackCommandFn.
+          // with createCodeAgentJobFromJackCommandFn. Dynamic import keeps
+          // the `.server.ts` runtime out of the client bundle.
+          const { serverRuntime } = await import("@/lib/code-agent-server-runtime.server");
           const sbCtx = context.supabase as unknown as { from: (t: string) => unknown };
           const res = await serverRuntime.runWithCtx(
             { supabase: sbCtx, userId },
