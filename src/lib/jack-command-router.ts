@@ -199,14 +199,16 @@ export function getJackCommandSuggestions(): string[] {
     "Cosa devo fare oggi?",
     "Email di oggi",
     "Ci sono warning?",
-    "Stato Telegram",
-    "Master snapshot",
+    "A che punto siamo con Brain Hub?",
+    "Cosa manca su Furia?",
+    "Come sono messi tutti i progetti?",
   ];
 }
 
 export type JackCommandContext = {
   brainId: string | null;
   currentBrief?: DailyBriefRow | null;
+  brains?: BrainRef[];
 };
 
 export type ResolvedBrief = {
