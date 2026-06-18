@@ -185,6 +185,8 @@ function TelegramApprovalsRoute() {
         </div>
       )}
 
+      <TelegramWebhookSetupCard />
+
       <TelegramSettingsSection brainId={brainId} />
       <TelegramDiagnosticsCard brainId={brainId} />
 
