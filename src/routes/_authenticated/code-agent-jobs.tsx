@@ -587,17 +587,34 @@ function CodeAgentJobsPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between">
             <span>Jobs ({filtered.length})</span>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/action-queue">
-                <ListChecks className="mr-1 h-3 w-3" /> Action Queue
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-1 h-3 w-3" /> Nuovo Code Agent Job
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/action-queue">
+                  <ListChecks className="mr-1 h-3 w-3" /> Action Queue
+                </Link>
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {filtered.length === 0 && (
-            <div className="rounded border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Nessun job. Chiedi a Jack: "crea un job per Codex per correggere il bug X".
+            <div className="rounded border border-dashed p-6 text-center text-sm text-muted-foreground space-y-3">
+              <div>
+                Nessun job ancora. Puoi crearne uno manualmente oppure chiedere a Jack di prepararlo.
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  <Plus className="mr-1 h-3 w-3" /> Nuovo Code Agent Job
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/code-agent-qa">
+                    <ShieldCheck className="mr-1 h-3 w-3" /> Apri Code Agent QA
+                  </Link>
+                </Button>
+              </div>
             </div>
           )}
           {filtered.map((j) => (
