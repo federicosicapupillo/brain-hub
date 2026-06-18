@@ -1125,6 +1125,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <div className="sm:col-span-2"><span className="text-muted-foreground">Last safe error:</span> {diagnostics.lastSafeError ?? "—"}</div>
             <div><span className="text-muted-foreground">Cleanup:</span> {diagnostics.cleanupCount}</div>
             <div><span className="text-muted-foreground">Privacy:</span> {status?.privacy_mode ?? "ephemeral_token_only"}</div>
+            <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Response lifecycle</div>
+            <div><span className="text-muted-foreground">Response state:</span> {diagnostics.responseState}</div>
+            <div><span className="text-muted-foreground">Active response id:</span> {diagnostics.activeResponseIdRedacted ?? "—"}</div>
+            <div><span className="text-muted-foreground">Pending response:</span> {diagnostics.pendingResponse ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Last create reason:</span> {diagnostics.lastResponseCreateReason ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last create at:</span> {diagnostics.lastResponseCreateAt ? new Date(diagnostics.lastResponseCreateAt).toLocaleTimeString() : "—"}</div>
+            <div><span className="text-muted-foreground">Last done at:</span> {diagnostics.lastResponseDoneAt ? new Date(diagnostics.lastResponseDoneAt).toLocaleTimeString() : "—"}</div>
+            <div><span className="text-muted-foreground">Skipped create:</span> {diagnostics.skippedResponseCreateCount}</div>
+            <div><span className="text-muted-foreground">Duplicate handled:</span> {diagnostics.duplicateResponseHandledCount}</div>
             {diagnostics.lastTest ? (
               <div className="sm:col-span-2 pt-1 border-t mt-1">
                 <span className="text-muted-foreground">Ultimo test config:</span> {diagnostics.lastTest.message}
