@@ -28,11 +28,16 @@ import {
   listCodeAgentJobs,
   getCodeAgentJob,
   approveCodeAgentJob,
+  rejectCodeAgentJob,
   markCodeAgentJobReady,
+  markCodeAgentJobSentManually,
+  updateCodeAgentJobRepository,
+  syncCodeAgentJobApprovalStatus,
   saveCodeAgentJobResult,
   createReviewFromCodeAgentJob,
   createNextActionFromCodeAgentJob,
   createMasterSnapshotDraftFromCodeAgentJob,
+  createCodeAgentJobFromBrowser,
   getCodeAgentJobSummary,
   CODE_AGENT_ENGINE_REGISTRY,
   CODE_AGENT_JOB_TYPE_LABEL,
@@ -116,6 +121,23 @@ function CodeAgentJobsPage() {
     queryFn: () => getCodeAgentJobSummary(brainId),
   });
 
+  const { data: repos = [] } = useQuery({
+    queryKey: ["repo-registry-for-jobs"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("github_repository_registry")
+        .select("id,repository_name,repository_url,brain_id,project_id")
+        .order("last_sync_at", { ascending: false });
+      return (data ?? []) as Array<{
+        id: string;
+        repository_name: string | null;
+        repository_url: string;
+        brain_id: string | null;
+        project_id: string | null;
+      }>;
+    },
+  });
+
   const filtered = useMemo(() => {
     return items.filter((j) => {
       if (engineFilter !== "all" && j.recommended_engine !== engineFilter) return false;
@@ -140,7 +162,37 @@ function CodeAgentJobsPage() {
   const handleApprove = async (j: CodeAgentJob) => {
     try {
       await approveCodeAgentJob(j.id);
-      toast.success("Job approvato");
+      toast.success("Job approvato — pronto per handoff (nessuna esecuzione)");
+      refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleReject = async (j: CodeAgentJob) => {
+    try {
+      await rejectCodeAgentJob(j.id, null);
+      toast.success("Job rifiutato");
+      refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleSyncApproval = async (j: CodeAgentJob) => {
+    try {
+      const r = await syncCodeAgentJobApprovalStatus(j.id);
+      toast.success(`Sync · status=${r.status}`);
+      refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleSetRepo = async (jobId: string, repositoryId: string) => {
+    try {
+      await updateCodeAgentJobRepository(jobId, repositoryId);
+      toast.success("Repository aggiornato sul job");
       refresh();
     } catch (e) {
       toast.error((e as Error).message);
@@ -156,15 +208,19 @@ function CodeAgentJobsPage() {
     }
   };
 
-  const handleSent = async (j: CodeAgentJob, engine: CodeAgentEngine) => {
+  const handleSentManually = async (j: CodeAgentJob, engine: CodeAgentEngine) => {
     try {
-      await markCodeAgentJobReady(j.id, engine);
-      toast.success(`Segnato inviato a ${CODE_AGENT_ENGINE_REGISTRY[engine].label}`);
+      await markCodeAgentJobSentManually(j.id, engine);
+      toast.success(`Segnato inviato manualmente a ${CODE_AGENT_ENGINE_REGISTRY[engine].label}`);
       refresh();
     } catch (e) {
       toast.error((e as Error).message);
     }
   };
+
+  // Keep legacy bindings reachable.
+  void markCodeAgentJobReady;
+  void createCodeAgentJobFromBrowser;
 
   const handleSaveResult = async () => {
     if (!openDetail) return;
@@ -375,6 +431,27 @@ function CodeAgentJobsPage() {
                 </Badge>
               </div>
 
+              {/* Repository resolution */}
+              <RepoBlock
+                job={openDetail}
+                repos={repos}
+                onSetRepo={(rid) => void handleSetRepo(openDetail.id, rid)}
+              />
+
+              {openDetail.telegram_approval_id && (
+                <div className="rounded border bg-amber-500/5 p-2 text-xs">
+                  Telegram approval collegata: <code>{openDetail.telegram_approval_id}</code>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-2 h-6 text-xs"
+                    onClick={() => void handleSyncApproval(openDetail)}
+                  >
+                    Sync stato approvazione
+                  </Button>
+                </div>
+              )}
+
               <div>
                 <Label className="text-xs">Comando</Label>
                 <div className="rounded border bg-muted/30 p-2 text-sm">{openDetail.command_text}</div>
@@ -386,31 +463,40 @@ function CodeAgentJobsPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {openDetail.status === "pending_approval" && (
-                  <Button size="sm" onClick={() => void handleApprove(openDetail)}>
-                    <CheckCircle2 className="mr-1 h-3 w-3" /> Approva
-                  </Button>
+                {openDetail.status === "pending_approval" && openDetail.approval_status !== "rejected" && (
+                  <>
+                    <Button size="sm" onClick={() => void handleApprove(openDetail)}>
+                      <CheckCircle2 className="mr-1 h-3 w-3" /> Approva
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => void handleReject(openDetail)}>
+                      Rifiuta
+                    </Button>
+                  </>
                 )}
                 <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
-                  <Copy className="mr-1 h-3 w-3" /> Copia prompt
+                  <Copy className="mr-1 h-3 w-3" /> Copia prompt Codex
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
+                  <Copy className="mr-1 h-3 w-3" /> Copia prompt Claude Code
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={openDetail.status === "pending_approval"}
-                  onClick={() => void handleSent(openDetail, "codex_cloud")}
+                  disabled={openDetail.status === "pending_approval" || openDetail.status === "draft" || openDetail.status === "cancelled"}
+                  onClick={() => void handleSentManually(openDetail, "codex_cloud")}
                 >
-                  <Send className="mr-1 h-3 w-3" /> Inviato a Codex
+                  <Send className="mr-1 h-3 w-3" /> Segna inviato a Codex
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={openDetail.status === "pending_approval"}
-                  onClick={() => void handleSent(openDetail, "claude_code_cli")}
+                  disabled={openDetail.status === "pending_approval" || openDetail.status === "draft" || openDetail.status === "cancelled"}
+                  onClick={() => void handleSentManually(openDetail, "claude_code_cli")}
                 >
-                  <Send className="mr-1 h-3 w-3" /> Inviato a Claude Code
+                  <Send className="mr-1 h-3 w-3" /> Segna inviato a Claude Code
                 </Button>
               </div>
+
 
               <div>
                 <Label className="text-xs">Incolla risultato</Label>
@@ -485,5 +571,59 @@ function Tile({ label, value }: { label: string; value: number }) {
         <div className="text-2xl font-semibold">{value}</div>
       </CardContent>
     </Card>
+  );
+}
+
+function RepoBlock({
+  job,
+  repos,
+  onSetRepo,
+}: {
+  job: CodeAgentJob;
+  repos: Array<{ id: string; repository_name: string | null; repository_url: string; brain_id: string | null; project_id: string | null }>;
+  onSetRepo: (rid: string) => void;
+}) {
+  const resolution = (job.metadata?.repository_resolution as { status?: string; reason?: string } | undefined) ?? null;
+  const status = resolution?.status ?? (job.repository_id ? "resolved" : "missing");
+  const tone =
+    status === "resolved"
+      ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
+      : status === "ambiguous"
+        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+        : "bg-red-500/10 text-red-600 border-red-500/30";
+  const currentRepo = repos.find((r) => r.id === job.repository_id) ?? null;
+  return (
+    <div className="rounded border p-3 space-y-2">
+      <div className="flex items-center gap-2">
+        <GitBranch className="h-4 w-4" />
+        <span className="text-xs font-medium">Repository</span>
+        <Badge variant="outline" className={tone}>{status}</Badge>
+      </div>
+      {currentRepo ? (
+        <div className="text-sm">
+          <code>{currentRepo.repository_name ?? currentRepo.repository_url}</code>
+        </div>
+      ) : (
+        <div className="text-xs text-muted-foreground">
+          {resolution?.reason ?? "Nessun repository risolto. Seleziona manualmente."}
+        </div>
+      )}
+      {(status !== "resolved" || !job.repository_id) && repos.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Select onValueChange={(rid) => onSetRepo(rid)}>
+            <SelectTrigger className="h-8 w-72 text-xs">
+              <SelectValue placeholder="Scegli repository…" />
+            </SelectTrigger>
+            <SelectContent>
+              {repos.map((r) => (
+                <SelectItem key={r.id} value={r.id}>
+                  {r.repository_name ?? r.repository_url}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </div>
   );
 }
