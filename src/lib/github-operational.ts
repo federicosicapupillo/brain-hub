@@ -117,6 +117,11 @@ export async function logGithubOperationalEvent(
 // Repository registry
 // ============================================================
 
+import {
+  parseGithubRepositoryInput,
+  type GithubRepositoryParseErrorCode,
+} from "./github-repository-parse";
+
 export type CreateRepositoryInput = {
   brain_id?: string | null;
   project_id?: string | null;
@@ -127,33 +132,105 @@ export type CreateRepositoryInput = {
   metadata?: Record<string, unknown>;
 };
 
+export class GithubRepositoryRegistryError extends Error {
+  constructor(
+    public code:
+      | "github_repository_url_invalid"
+      | "github_repository_already_exists"
+      | "not_authenticated",
+    message: string,
+    public details?: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = "GithubRepositoryRegistryError";
+  }
+}
+
+export type ListRepositoriesOptions = {
+  includeArchived?: boolean;
+};
+
 export async function listGithubRepositories(
   brainId?: string | null,
+  options: ListRepositoriesOptions = {},
 ): Promise<GithubRepository[]> {
   let q = supabase
     .from("github_repository_registry" as never)
     .select("*")
     .order("created_at", { ascending: false });
   if (brainId) q = q.eq("brain_id", brainId);
+  if (!options.includeArchived) q = q.is("archived_at", null);
   const { data, error } = await q;
   if (error) throw error;
   return ((data ?? []) as unknown) as GithubRepository[];
+}
+
+function previewForLog(value: string | null | undefined): string {
+  if (!value) return "";
+  const compact = value.replace(/\s+/g, " ").trim();
+  return compact.length > 80 ? compact.slice(0, 80) + "…" : compact;
 }
 
 export async function createGithubRepository(
   input: CreateRepositoryInput,
 ): Promise<GithubRepository> {
   const { data: u, error: ue } = await supabase.auth.getUser();
-  if (ue || !u.user) throw ue ?? new Error("Non autenticato");
+  if (ue || !u.user) {
+    throw new GithubRepositoryRegistryError(
+      "not_authenticated",
+      "Non autenticato",
+    );
+  }
+
+  // Server-side normalization: ignore client owner/name, derive from URL.
+  const parsed = parseGithubRepositoryInput(input.repository_url);
+  if (!parsed.isValid) {
+    await logEvent(
+      "github_repository_input_rejected",
+      `Input rifiutato: ${parsed.errorCode}`,
+      { error_code: parsed.errorCode, input_preview: previewForLog(input.repository_url) },
+    );
+    throw new GithubRepositoryRegistryError(
+      "github_repository_url_invalid",
+      `URL repository non valido (${parsed.errorCode})`,
+      { error_code: parsed.errorCode },
+    );
+  }
+
+  // Application-level dedup: find non-archived record with same normalized URL.
+  const { data: existing, error: dupErr } = await supabase
+    .from("github_repository_registry" as never)
+    .select("id,archived_at")
+    .eq("user_id", u.user.id)
+    .eq("normalized_repository_url" as never, parsed.normalizedUrl)
+    .is("archived_at" as never, null)
+    .maybeSingle();
+  if (dupErr && dupErr.code !== "PGRST116") {
+    // fall through if not-found, otherwise surface
+    throw dupErr;
+  }
+  if (existing) {
+    await logEvent(
+      "github_repository_duplicate_detected",
+      `Repository già presente: ${parsed.url}`,
+      { repository_url: parsed.url },
+    );
+    throw new GithubRepositoryRegistryError(
+      "github_repository_already_exists",
+      "Repository già presente",
+      { repository_url: parsed.url },
+    );
+  }
 
   const payload = {
     user_id: u.user.id,
     brain_id: input.brain_id ?? null,
     project_id: input.project_id ?? null,
-    repository_url: input.repository_url,
-    repository_owner: input.repository_owner ?? null,
-    repository_name: input.repository_name ?? null,
-    default_branch: input.default_branch ?? null,
+    repository_url: parsed.url,
+    normalized_repository_url: parsed.normalizedUrl,
+    repository_owner: parsed.owner,
+    repository_name: parsed.name,
+    default_branch: (input.default_branch ?? "main").trim() || "main",
     connected_status: "manual",
     provider: "github",
     metadata: input.metadata ?? {},
@@ -166,10 +243,11 @@ export async function createGithubRepository(
     .single();
   if (error) throw error;
   const repo = (data as unknown) as GithubRepository;
-  await logEvent("github_repository_added", `Repo aggiunto: ${repo.repository_url}`, {
-    repository_id: repo.id,
-    brain_id: repo.brain_id,
-  });
+  await logEvent(
+    "github_repository_input_normalized",
+    `Repo aggiunto: ${parsed.url}`,
+    { repository_id: repo.id, brain_id: repo.brain_id },
+  );
   return repo;
 }
 
@@ -191,14 +269,59 @@ export async function updateGithubRepository(
   return repo;
 }
 
-export async function archiveGithubRepository(id: string): Promise<void> {
+export async function archiveGithubRepository(
+  id: string,
+  reason: string = "manual",
+): Promise<void> {
   const { error } = await supabase
     .from("github_repository_registry" as never)
-    .update({ connected_status: "archived" } as never)
+    .update({
+      connected_status: "archived",
+      archived_at: new Date().toISOString(),
+      archived_reason: reason,
+    } as never)
     .eq("id", id);
   if (error) throw error;
-  await logEvent("github_repository_archived", `Repo archiviato`, { repository_id: id });
+  await logEvent("github_repository_archived", `Repo archiviato (${reason})`, {
+    repository_id: id,
+    reason,
+  });
 }
+
+/**
+ * Try to normalize a suspect record: if its repository_url field contains
+ * (somewhere) a valid github URL, rewrite url/owner/name and clear suspicion.
+ * Returns updated repo or null if normalization is not possible.
+ */
+export async function normalizeSuspectRepository(
+  id: string,
+  rawUrlField: string,
+): Promise<GithubRepository | null> {
+  const parsed = parseGithubRepositoryInput(rawUrlField);
+  if (!parsed.isValid) return null;
+  const { data, error } = await supabase
+    .from("github_repository_registry" as never)
+    .update({
+      repository_url: parsed.url,
+      normalized_repository_url: parsed.normalizedUrl,
+      repository_owner: parsed.owner,
+      repository_name: parsed.name,
+    } as never)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  const repo = (data as unknown) as GithubRepository;
+  await logEvent(
+    "github_repository_normalized_from_garbage",
+    `Repo normalizzato: ${parsed.url}`,
+    { repository_id: repo.id },
+  );
+  return repo;
+}
+
+export type { GithubRepositoryParseErrorCode };
+
 
 // ============================================================
 // Code file map
