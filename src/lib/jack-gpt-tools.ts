@@ -341,7 +341,7 @@ export const runJackGptTool = createServerFn({ method: "POST" })
     }
 
 
-    try {
+    const compute = async (): Promise<unknown> => {
       switch (tool_name) {
 
         case "get_daily_brief": {
