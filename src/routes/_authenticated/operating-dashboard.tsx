@@ -1469,10 +1469,24 @@ function OperationalHealthMini({ brainId }: { brainId: string | null }) {
                 </div>
               )}
             </div>
+            {nextRemediation && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 p-2 text-xs">
+                <div className="text-[10px] uppercase text-muted-foreground">Prossima correzione</div>
+                <div className="font-medium">{nextRemediation.title}</div>
+                <div className="text-muted-foreground">
+                  {areaLabel[nextRemediation.area] ?? nextRemediation.area} · {nextRemediation.severity}
+                </div>
+                <div className="mt-1 flex gap-2">
+                  <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                    <a href={nextRemediation.cta_href}>{nextRemediation.cta_label}</a>
+                  </Button>
+                </div>
+              </div>
+            )}
             <div className="flex gap-2">
               <Button asChild size="sm" variant="outline" className="flex-1">
                 <Link to="/loop-qa" search={{}}>
-                  Apri Loop QA <ArrowRight className="ml-1 h-3 w-3" />
+                  Apri piano correzione <ArrowRight className="ml-1 h-3 w-3" />
                 </Link>
               </Button>
               <Button asChild size="sm" className="flex-1">
