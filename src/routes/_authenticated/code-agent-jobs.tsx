@@ -431,6 +431,27 @@ function CodeAgentJobsPage() {
                 </Badge>
               </div>
 
+              {/* Repository resolution */}
+              <RepoBlock
+                job={openDetail}
+                repos={repos}
+                onSetRepo={(rid) => void handleSetRepo(openDetail.id, rid)}
+              />
+
+              {openDetail.telegram_approval_id && (
+                <div className="rounded border bg-amber-500/5 p-2 text-xs">
+                  Telegram approval collegata: <code>{openDetail.telegram_approval_id}</code>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-2 h-6 text-xs"
+                    onClick={() => void handleSyncApproval(openDetail)}
+                  >
+                    Sync stato approvazione
+                  </Button>
+                </div>
+              )}
+
               <div>
                 <Label className="text-xs">Comando</Label>
                 <div className="rounded border bg-muted/30 p-2 text-sm">{openDetail.command_text}</div>
@@ -442,31 +463,40 @@ function CodeAgentJobsPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                {openDetail.status === "pending_approval" && (
-                  <Button size="sm" onClick={() => void handleApprove(openDetail)}>
-                    <CheckCircle2 className="mr-1 h-3 w-3" /> Approva
-                  </Button>
+                {openDetail.status === "pending_approval" && openDetail.approval_status !== "rejected" && (
+                  <>
+                    <Button size="sm" onClick={() => void handleApprove(openDetail)}>
+                      <CheckCircle2 className="mr-1 h-3 w-3" /> Approva
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => void handleReject(openDetail)}>
+                      Rifiuta
+                    </Button>
+                  </>
                 )}
                 <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
-                  <Copy className="mr-1 h-3 w-3" /> Copia prompt
+                  <Copy className="mr-1 h-3 w-3" /> Copia prompt Codex
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
+                  <Copy className="mr-1 h-3 w-3" /> Copia prompt Claude Code
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={openDetail.status === "pending_approval"}
+                  disabled={openDetail.status === "pending_approval" || openDetail.status === "draft" || openDetail.status === "cancelled"}
                   onClick={() => void handleSentManually(openDetail, "codex_cloud")}
                 >
-                  <Send className="mr-1 h-3 w-3" /> Inviato a Codex
+                  <Send className="mr-1 h-3 w-3" /> Segna inviato a Codex
                 </Button>
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={openDetail.status === "pending_approval"}
+                  disabled={openDetail.status === "pending_approval" || openDetail.status === "draft" || openDetail.status === "cancelled"}
                   onClick={() => void handleSentManually(openDetail, "claude_code_cli")}
                 >
-                  <Send className="mr-1 h-3 w-3" /> Inviato a Claude Code
+                  <Send className="mr-1 h-3 w-3" /> Segna inviato a Claude Code
                 </Button>
               </div>
+
 
               <div>
                 <Label className="text-xs">Incolla risultato</Label>
