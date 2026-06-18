@@ -225,7 +225,7 @@ export async function getCodeAgentInconsistentJobs(
     if (j.status === "ready" && needsRepo && !j.repository_id) {
       push(j, "Status ready ma repository richiesto mancante");
     }
-    if (j.status === "sent_manually" && !j.metadata?.sent_manually_at) {
+    if (j.status === "sent_manually" && !j.sent_manually_at) {
       push(j, "Status sent_manually senza sent_manually_at");
     }
     if (j.status === "result_received" && !j.result_text) {
