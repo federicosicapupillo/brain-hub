@@ -693,6 +693,59 @@ export async function getCodeAgentLoopQaWarnings(
     });
   }
 
+  // v3.16.3 — E2E manual flow warnings
+  try {
+    const e2e = await getCodeAgentEndToEndSummary(brainId ?? null);
+    if (e2e.ready_for_manual_test === 0) {
+      warnings.push({
+        id: "caj-e2e-no-ready-job" as CodeAgentLoopQaWarning["id"],
+        severity: "info",
+        label: "Nessun job pronto per test manuale",
+        detail: "Crea un Code Agent Job pronto per il flusso end-to-end.",
+      });
+    }
+    if (e2e.blocked_repository + e2e.blocked_approval > 0) {
+      warnings.push({
+        id: "caj-e2e-blocked-jobs" as CodeAgentLoopQaWarning["id"],
+        severity: "warning",
+        label: "Job bloccati nel flusso end-to-end",
+        detail: `${e2e.blocked_repository} repo, ${e2e.blocked_approval} approval.`,
+      });
+    }
+    if (e2e.result_without_review > 0) {
+      warnings.push({
+        id: "caj-e2e-result-without-review" as CodeAgentLoopQaWarning["id"],
+        severity: "warning",
+        label: "Risultati senza Result Review",
+        detail: `${e2e.result_without_review} job con result_text e senza review.`,
+      });
+    }
+    if (e2e.completed > 0 && e2e.ready_for_snapshot > 0) {
+      warnings.push({
+        id: "caj-e2e-snapshot-ready" as CodeAgentLoopQaWarning["id"],
+        severity: "info",
+        label: "Master Snapshot draft proponibile",
+        detail: `${e2e.ready_for_snapshot} job pronti per bozza snapshot.`,
+      });
+    }
+    // review-without-next-action: result_review item present ma next_action mancante non
+    // sempre rilevabile lato job; approssimiamo con review_ready senza next_action.
+    const items = await listCodeAgentJobs({ brainId: brainId ?? null });
+    const reviewNoAction = items.filter(
+      (j) => j.status === "review_ready" && !j.next_action_id,
+    ).length;
+    if (reviewNoAction > 0) {
+      warnings.push({
+        id: "caj-e2e-review-without-next-action" as CodeAgentLoopQaWarning["id"],
+        severity: "warning",
+        label: "Review senza Next Action",
+        detail: `${reviewNoAction} job in review_ready senza next_action.`,
+      });
+    }
+  } catch {
+    /* best-effort */
+  }
+
   return warnings;
 }
 
