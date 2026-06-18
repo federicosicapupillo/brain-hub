@@ -467,7 +467,7 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
-  // GitHub operational warnings (v3.2)
+  // GitHub operational warnings (v3.2 + v3.16.5 registry)
   try {
     const ghWarnings = await getGithubOperationalWarnings(brainId ?? null);
     for (const w of ghWarnings) {
@@ -477,6 +477,7 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
         title: w.title,
         description: w.description,
         cta: w.cta,
+        category: "github_registry",
       });
     }
   } catch {
