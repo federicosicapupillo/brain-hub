@@ -375,6 +375,7 @@ const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_gmail_summary",
   "get_memory_context",
   "preview_controlled_action",
+]);
 type InFlightResult = { ok: boolean; [k: string]: unknown };
 const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
 
