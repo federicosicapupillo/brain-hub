@@ -165,19 +165,53 @@ function MasterSnapshotRoute() {
         title="Master Snapshot"
         subtitle="Fonte di verità versionata del progetto Brain Hub"
         actions={
-          <MasterSnapshotUpdateButton
-            source="manual"
-            defaultReason="Aggiornamento manuale"
-            variant="default"
-          />
+          <div className="flex flex-wrap gap-2">
+            <ImportMarkdownButton
+              onCreated={async (draftId) => {
+                await qc.invalidateQueries({ queryKey: ["master-snapshots"] });
+                setSelectedDraftId(draftId);
+                try {
+                  await navigate({ to: "/master-snapshot", search: { draft: draftId } });
+                } catch (e) {
+                  console.error("[MasterSnapshot] navigate failed", e);
+                }
+              }}
+            />
+            <MasterSnapshotUpdateButton
+              source="manual"
+              defaultReason="Aggiornamento manuale"
+              variant="default"
+            />
+          </div>
         }
       />
+
+      {draftFromUrl && selectedDraft && (
+        <div className="rounded-md border border-amber-400/40 bg-amber-500/10 p-3 text-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-medium">Stai modificando una bozza</div>
+              <div className="text-xs text-muted-foreground">
+                v{selectedDraft.version_label} · {selectedDraft.reason ?? "—"}
+              </div>
+            </div>
+            <Button asChild size="sm" variant="ghost">
+              <Link to="/master-snapshot" search={{}}>
+                Torna alla panoramica
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Current version */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base">Versione corrente</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Lock className="h-4 w-4 text-muted-foreground" />
+              Versione corrente — sola lettura
+            </CardTitle>
             {current && (
               <Badge className={STATUS_TONE.current}>v{current.version_label}</Badge>
             )}
@@ -207,10 +241,15 @@ function MasterSnapshotRoute() {
               <pre className="max-h-96 overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap">
                 {current.markdown_content}
               </pre>
+              <p className="text-xs text-muted-foreground">
+                Per modificare il Master Snapshot crea una bozza e approvala. Le versioni
+                precedenti restano nello storico.
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
+
 
       {/* Drafts */}
       <Card>
