@@ -223,6 +223,10 @@ export const sendTelegramApproval = createServerFn({ method: "POST" })
       sent_at: new Date().toISOString(),
     }) as Record<string, unknown>;
 
+    const existingMetadata =
+      (req.metadata && typeof req.metadata === "object" && !Array.isArray(req.metadata)
+        ? (req.metadata as Record<string, unknown>)
+        : {}) ?? {};
     const updatePayload: Record<string, unknown> = {
       telegram_delivery_status: ok ? "sent" : "failed",
       telegram_chat_id: dest.chat_id,
@@ -230,6 +234,14 @@ export const sendTelegramApproval = createServerFn({ method: "POST" })
       telegram_sent_at: ok ? new Date().toISOString() : null,
       telegram_error_text: errorText,
       telegram_receipt_json: receipt,
+      metadata: ok
+        ? {
+            ...existingMetadata,
+            callback_token_hash: callbackTokenHash,
+            callback_expires_at: callbackExpiresAt,
+            callback_status: "pending",
+          }
+        : existingMetadata,
     };
     if (ok && req.status === "draft") {
       updatePayload.status = "sent";
