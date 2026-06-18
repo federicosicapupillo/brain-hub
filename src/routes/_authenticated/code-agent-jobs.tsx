@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,17 +28,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   listCodeAgentJobs,
   getCodeAgentJob,
-  approveCodeAgentJob,
-  rejectCodeAgentJob,
   markCodeAgentJobReady,
-  markCodeAgentJobSentManually,
   updateCodeAgentJobRepository,
-  syncCodeAgentJobApprovalStatus,
-  syncPendingCodeAgentApprovals,
-  saveCodeAgentJobResult,
-  createReviewFromCodeAgentJob,
-  createNextActionFromCodeAgentJob,
-  createMasterSnapshotDraftFromCodeAgentJob,
   createCodeAgentJobFromBrowser,
   getCodeAgentJobSummary,
   getCodeAgentAvailableActions,
@@ -54,6 +46,17 @@ import {
   type CodeAgentRiskLevel,
 } from "@/lib/code-agent-orchestrator";
 import {
+  approveCodeAgentJobFn,
+  rejectCodeAgentJobFn,
+  markCodeAgentJobSentManuallyFn,
+  saveCodeAgentJobResultFn,
+  createReviewFromCodeAgentJobFn,
+  createNextActionFromCodeAgentJobFn,
+  createMasterSnapshotDraftFromCodeAgentJobFn,
+  syncCodeAgentJobApprovalStatusFn,
+  syncPendingCodeAgentApprovalsFn,
+} from "@/lib/code-agent-orchestrator.functions";
+import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
@@ -69,6 +72,7 @@ import {
   ShieldCheck,
   ShieldOff,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/code-agent-jobs")({
   head: () => ({
@@ -201,10 +205,43 @@ function CodeAgentJobsPage() {
     void qc.invalidateQueries({ queryKey: ["code-agent-jobs-summary"] });
   };
 
+  // v3.15.4 — Server function bindings (auth-enforced).
+  const approveFn = useServerFn(approveCodeAgentJobFn);
+  const rejectFn = useServerFn(rejectCodeAgentJobFn);
+  const markSentFn = useServerFn(markCodeAgentJobSentManuallyFn);
+  const saveResultFn = useServerFn(saveCodeAgentJobResultFn);
+  const reviewFn = useServerFn(createReviewFromCodeAgentJobFn);
+  const nextActionFn = useServerFn(createNextActionFromCodeAgentJobFn);
+  const snapshotFn = useServerFn(createMasterSnapshotDraftFromCodeAgentJobFn);
+  const syncOneFn = useServerFn(syncCodeAgentJobApprovalStatusFn);
+  const syncBulkFn = useServerFn(syncPendingCodeAgentApprovalsFn);
+
   function describeTransitionError(e: unknown): string {
-    const err = e as { code?: string; message?: string } | null;
-    const code = err?.code;
-    const msg = err?.message ?? "Errore sconosciuto";
+    // Accept (a) native CodeAgentTransitionError-like instances (legacy local
+    // calls), (b) Errors whose message is a SerializedCodeAgentError JSON
+    // (server-function boundary), (c) anything else.
+    let code: string | undefined;
+    let msg = "Errore sconosciuto";
+    if (e && typeof e === "object") {
+      const anyE = e as { code?: unknown; message?: unknown; name?: unknown };
+      if (typeof anyE.message === "string") msg = anyE.message;
+      if (typeof anyE.code === "string") code = anyE.code;
+      if (typeof anyE.message === "string" && anyE.message.startsWith("{")) {
+        try {
+          const parsed = JSON.parse(anyE.message) as {
+            type?: string;
+            code?: string;
+            message?: string;
+          };
+          if (parsed && parsed.type === "code_agent_transition_error") {
+            code = parsed.code ?? code;
+            msg = parsed.message ?? msg;
+          }
+        } catch {
+          /* not JSON */
+        }
+      }
+    }
     switch (code) {
       case "code_agent_repository_required":
         return "Repository richiesto prima di procedere.";
@@ -221,13 +258,14 @@ function CodeAgentJobsPage() {
       case "code_agent_transition_not_allowed":
         return msg;
       default:
-        return msg;
+        // Don't leak stack/payload — generic message for unknown errors.
+        return msg && msg.length < 240 ? msg : "Operazione non riuscita.";
     }
   }
 
   const handleApprove = async (j: CodeAgentJob) => {
     try {
-      await approveCodeAgentJob(j.id);
+      await approveFn({ data: { jobId: j.id } });
       toast.success("Job approvato — pronto per handoff (nessuna esecuzione)");
       refresh();
     } catch (e) {
@@ -238,7 +276,7 @@ function CodeAgentJobsPage() {
 
   const handleReject = async (j: CodeAgentJob) => {
     try {
-      await rejectCodeAgentJob(j.id, null);
+      await rejectFn({ data: { jobId: j.id, reason: null } });
       toast.success("Job rifiutato");
       refresh();
     } catch (e) {
@@ -249,7 +287,7 @@ function CodeAgentJobsPage() {
 
   const handleSyncApproval = async (j: CodeAgentJob) => {
     try {
-      const r = await syncCodeAgentJobApprovalStatus(j.id);
+      const r = await syncOneFn({ data: { jobId: j.id } });
       if (r.skipped) {
         toast.message(`Sync saltato · ${r.skip_reason ?? "stato non sincronizzabile"}`);
       } else {
@@ -264,14 +302,17 @@ function CodeAgentJobsPage() {
 
   const handleBulkSync = async () => {
     try {
-      const r = await syncPendingCodeAgentApprovals(brainId);
+      const r = await syncBulkFn({ data: { brainId } });
       const errPart = r.errors.length > 0 ? `, ${r.errors.length} errori` : "";
       const skipPart = r.skipped > 0 ? `, ${r.skipped} saltati` : "";
       toast.success(
         `Sync · ${r.checked} controllati, ${r.approved} approvati, ${r.rejected} rifiutati, ${r.unchanged} invariati${skipPart}${errPart}`,
       );
       if (r.errors.length > 0) {
-        const sample = r.errors.slice(0, 2).map((x) => x.code).join(", ");
+        const sample = r.errors
+          .slice(0, 2)
+          .map((x: { code: string }) => x.code)
+          .join(", ");
         toast.error(`Errori bulk sync: ${sample}${r.errors.length > 2 ? "…" : ""}`);
       }
       refresh();
@@ -301,7 +342,7 @@ function CodeAgentJobsPage() {
 
   const handleSentManually = async (j: CodeAgentJob, engine: CodeAgentEngine) => {
     try {
-      await markCodeAgentJobSentManually(j.id, engine);
+      await markSentFn({ data: { jobId: j.id, engine } });
       toast.success(`Segnato inviato manualmente a ${CODE_AGENT_ENGINE_REGISTRY[engine].label}`);
       refresh();
     } catch (e) {
@@ -320,7 +361,7 @@ function CodeAgentJobsPage() {
       return;
     }
     try {
-      await saveCodeAgentJobResult(openDetail.id, { text: resultText.trim() });
+      await saveResultFn({ data: { jobId: openDetail.id, text: resultText.trim() } });
       toast.success("Risultato salvato");
       setResultText("");
       refresh();
@@ -331,7 +372,7 @@ function CodeAgentJobsPage() {
 
   const handleReview = async (j: CodeAgentJob) => {
     try {
-      await createReviewFromCodeAgentJob(j.id);
+      await reviewFn({ data: { jobId: j.id } });
       toast.success("Result Review creata");
       refresh();
     } catch (e) {
@@ -341,7 +382,7 @@ function CodeAgentJobsPage() {
 
   const handleNext = async (j: CodeAgentJob) => {
     try {
-      await createNextActionFromCodeAgentJob(j.id);
+      await nextActionFn({ data: { jobId: j.id } });
       toast.success("Next action creata");
       refresh();
     } catch (e) {
@@ -351,14 +392,15 @@ function CodeAgentJobsPage() {
 
   const handleSnapshot = async (j: CodeAgentJob) => {
     try {
-      const id = await createMasterSnapshotDraftFromCodeAgentJob(j.id);
-      if (id) toast.success("Bozza Master Snapshot creata");
+      const r = await snapshotFn({ data: { jobId: j.id } });
+      if (r.draft_id) toast.success("Bozza Master Snapshot creata");
       else toast.error("Bozza non creata");
       refresh();
     } catch (e) {
       toast.error(describeTransitionError(e)); refresh();
     }
   };
+
 
   return (
     <div className="space-y-6 p-6">
@@ -677,9 +719,101 @@ function CodeAgentJobsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <RecentBlocksSection brainId={brainId} />
     </div>
   );
 }
+
+type BlockedEventRow = {
+  created_at: string;
+  event_data: Record<string, unknown> | null;
+  job_id: string | null;
+};
+
+function RecentBlocksSection({ brainId }: { brainId: string | null }) {
+  const { data: events = [] } = useQuery({
+    queryKey: ["code-agent-recent-blocks", brainId],
+    queryFn: async (): Promise<BlockedEventRow[]> => {
+      const sinceIso = new Date(Date.now() - 24 * 3_600_000).toISOString();
+      let q = supabase
+        .from("code_agent_job_events")
+        .select("created_at,event_data,job_id")
+        .eq("event_type", "code_agent_transition_blocked")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (brainId) {
+        const { data: jobs } = await supabase
+          .from("code_agent_jobs")
+          .select("id")
+          .eq("brain_id", brainId);
+        const ids = (jobs ?? []).map((r: { id: string }) => r.id);
+        if (ids.length === 0) return [];
+        q = q.in("job_id", ids);
+      }
+      const { data } = await q;
+      return (data ?? []) as BlockedEventRow[];
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4" /> Ultimi blocchi transizione (24h)
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {events.length === 0 ? (
+          <div className="rounded border border-dashed p-4 text-center text-sm text-muted-foreground">
+            Nessun blocco recente.
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {events.map((e, i) => {
+              const d = e.event_data ?? {};
+              const reason = (d.reason as string | undefined) ?? "—";
+              const action = (d.requested_action as string | undefined) ?? "—";
+              const target = (d.target_status as string | undefined) ?? "—";
+              const status = (d.current_status as string | undefined) ?? "—";
+              const approval = (d.current_approval_status as string | undefined) ?? "—";
+              const repo =
+                (d.repository_resolution_status as string | undefined) ?? "—";
+              const risk = (d.risk_level as string | undefined) ?? "—";
+              return (
+                <div
+                  key={`${e.created_at}-${i}`}
+                  className="rounded border bg-amber-500/5 p-2 text-xs"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-muted-foreground">
+                      {new Date(e.created_at).toLocaleString()}
+                    </span>
+                    <Badge variant="outline" className="text-[10px]">
+                      action: {action} → {target}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      reason: {reason}
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      risk: {risk}
+                    </Badge>
+                  </div>
+                  <div className="mt-1 text-muted-foreground">
+                    status: <code>{status}</code> · approval:{" "}
+                    <code>{approval}</code> · repo: <code>{repo}</code>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 
 function Tile({ label, value }: { label: string; value: number }) {
   return (
