@@ -1176,6 +1176,24 @@ export async function getTodayOperatingBrief(
   return getBriefForDate(brainId ?? null, todayDateString());
 }
 
+/**
+ * Fallback lookup used by Jack: returns the most recent brief generated
+ * today for this user regardless of brain_id. Avoids "brief mancante"
+ * when the page is on "Tutti i progetti" but the brief was generated
+ * against a specific brain (or vice versa). RLS scopes to current user.
+ */
+export async function getAnyTodayOperatingBriefForUser(): Promise<DailyBriefRow | null> {
+  const today = todayDateString();
+  const { data } = await supabase
+    .from("daily_operating_briefs" as never)
+    .select("*")
+    .eq("brief_date", today)
+    .order("generated_at", { ascending: false })
+    .limit(1);
+  const rows = (data ?? []) as RawRow[];
+  return rows[0] ? mapRow(rows[0]) : null;
+}
+
 export async function listDailyOperatingBriefs(
   brainId?: string | null,
   limit = 20,
