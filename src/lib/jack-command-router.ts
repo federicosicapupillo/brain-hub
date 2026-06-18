@@ -573,7 +573,346 @@ async function respondMasterSnapshot(
   }
 }
 
-function ctaDaily(ctx: JackCommandContext): JackCommandCTA {
+// ---------------- Project-aware responders ----------------
+
+function ctaProjectConsole(): JackCommandCTA {
+  return { label: "Apri Project Console", to: "/project-console" };
+}
+
+function ctaActionQueueForBrain(brainId: string | null): JackCommandCTA {
+  return {
+    label: "Apri Action Queue",
+    to: "/action-queue",
+    search: brainId ? { brain: brainId } : undefined,
+  };
+}
+
+function ctaDailyForBrain(brainId: string | null): JackCommandCTA {
+  return {
+    label: "Apri Daily Brief",
+    to: "/daily-brief",
+    search: brainId ? { brain: brainId } : undefined,
+  };
+}
+
+function respondProjectAmbiguous(
+  info: ResolvedProjectInfo,
+  matched: string[],
+): JackCommandResult {
+  const cands =
+    info.resolution.kind === "ambiguous" ? info.resolution.candidates : [];
+  const names = cands.map((c) => c.brain.name).slice(0, 3).join(", ");
+  void logJackVoiceCommandEvent(
+    "jack_project_alias_ambiguous",
+    "Ambiguità progetto Jack",
+    { mention: info.mention, candidates: cands.map((c) => c.brain.name) },
+  );
+  return {
+    intent: "project_status",
+    matched_phrases: matched,
+    response_text: `Ho trovato più progetti possibili: ${names}. Quale vuoi controllare?`,
+    cta: ctaProjectConsole(),
+    source: "project_ambiguous",
+    project: info,
+  };
+}
+
+function respondProjectNone(matched: string[]): JackCommandResult {
+  return {
+    intent: "project_status",
+    matched_phrases: matched,
+    response_text:
+      "Non trovo ancora un progetto con quel nome. Vuoi aprire la Project Console?",
+    cta: ctaProjectConsole(),
+    source: "project_not_found",
+    project: null,
+  };
+}
+
+async function getLatestBriefForBrain(
+  brainId: string,
+): Promise<DailyBriefRow | null> {
+  const today = await getTodayOperatingBrief(brainId);
+  if (today) return today;
+  const { data } = await supabase
+    .from("daily_operating_briefs" as never)
+    .select("*")
+    .eq("brain_id", brainId)
+    .order("brief_date", { ascending: false })
+    .limit(1);
+  const row = (data ?? [])[0] as DailyBriefRow | undefined;
+  return row ?? null;
+}
+
+type ActionLite = {
+  id: string;
+  title: string;
+  status: string;
+  priority: string;
+  risk_level: string;
+  created_at: string;
+};
+
+async function getOpenActionsForBrain(
+  brainId: string,
+  limit = 5,
+): Promise<ActionLite[]> {
+  const { data } = await supabase
+    .from("automation_actions")
+    .select("id,title,status,priority,risk_level,created_at")
+    .eq("brain_id", brainId)
+    .in("status", ["suggested", "pending_approval", "approved", "ready_to_execute"])
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as ActionLite[];
+}
+
+async function getRecentTimelineForBrain(
+  brainId: string,
+  limit = 5,
+): Promise<Array<{ action: string; notes: string | null; created_at: string }>> {
+  // brain_id is filtered via metadata->>brain_id when present
+  const sinceIso = new Date(Date.now() - 7 * 86400000).toISOString();
+  const { data } = await supabase
+    .from("clipboard_execution_logs")
+    .select("action,notes,metadata,created_at")
+    .gte("created_at", sinceIso)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  const rows = (data ?? []) as Array<{
+    action: string;
+    notes: string | null;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
+  }>;
+  return rows
+    .filter((r) => {
+      const m = r.metadata ?? {};
+      const bid = (m as Record<string, unknown>).brain_id;
+      return typeof bid === "string" && bid === brainId;
+    })
+    .slice(0, limit)
+    .map((r) => ({ action: r.action, notes: r.notes, created_at: r.created_at }));
+}
+
+async function getCurrentSnapshotForBrain(
+  brainId: string,
+): Promise<{ label: string; updated_at: string } | null> {
+  const { data } = await supabase
+    .from("master_snapshot_versions")
+    .select("version_label,version_status,updated_at,created_at")
+    .eq("brain_id", brainId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+  const rows = (data ?? []) as Array<{
+    version_label: string;
+    version_status: string;
+    updated_at: string;
+  }>;
+  const current =
+    rows.find((r) => r.version_status === "current") ?? rows[0] ?? null;
+  if (!current) return null;
+  return { label: current.version_label, updated_at: current.updated_at };
+}
+
+async function respondProjectStatus(
+  _ctx: JackCommandContext,
+  matched: string[],
+  info: ResolvedProjectInfo,
+): Promise<JackCommandResult> {
+  if (!info.brain) return respondProjectNone(matched);
+  void logJackVoiceCommandEvent(
+    "jack_project_status_requested",
+    `Project status: ${info.brain.name}`,
+    { brain_id: info.brain.id, mention: info.mention },
+  );
+
+  const [brief, actions, snapshot, timeline] = await Promise.all([
+    getLatestBriefForBrain(info.brain.id),
+    getOpenActionsForBrain(info.brain.id, 5),
+    getCurrentSnapshotForBrain(info.brain.id),
+    getRecentTimelineForBrain(info.brain.id, 3),
+  ]);
+
+  const parts: string[] = [];
+  parts.push(`Federico, su ${info.brain.name}`);
+  if (brief) {
+    const summary =
+      brief.voice_summary_text?.trim() ||
+      brief.executive_summary?.slice(0, 320) ||
+      "il briefing è presente ma vuoto.";
+    parts.push(`il briefing dice: ${summary}`);
+  } else {
+    parts.push("non c'è ancora un Daily Brief generato.");
+  }
+  if (actions.length > 0) {
+    parts.push(
+      `Ci sono ${actions.length} azioni aperte, top: ${actions
+        .slice(0, 3)
+        .map((a) => a.title)
+        .join("; ")}.`,
+    );
+  } else {
+    parts.push("Nessuna azione aperta in coda.");
+  }
+  if (snapshot) {
+    parts.push(`Ultimo Master Snapshot: ${snapshot.label}.`);
+  }
+  if (timeline.length > 0) {
+    parts.push(`Ultime attività: ${timeline.map((t) => t.action).join(", ")}.`);
+  }
+
+  let text = parts.join(" ");
+  if (text.length > 900) text = text.slice(0, 895) + "...";
+
+  void logJackVoiceCommandEvent(
+    "jack_project_status_response_generated",
+    "Risposta project_status generata",
+    { brain_id: info.brain.id, chars: text.length },
+  );
+
+  return {
+    intent: "project_status",
+    matched_phrases: matched,
+    response_text: text,
+    cta: ctaDailyForBrain(info.brain.id),
+    source: "project_status",
+    project: info,
+  };
+}
+
+async function respondProjectNextActions(
+  _ctx: JackCommandContext,
+  matched: string[],
+  info: ResolvedProjectInfo,
+): Promise<JackCommandResult> {
+  if (!info.brain) return respondProjectNone(matched);
+  const actions = await getOpenActionsForBrain(info.brain.id, 5);
+  if (actions.length === 0) {
+    return {
+      intent: "project_next_actions",
+      matched_phrases: matched,
+      response_text: `Su ${info.brain.name} non ci sono azioni aperte in coda. Puoi generare un Daily Brief per scoprirne di nuove.`,
+      cta: ctaDailyForBrain(info.brain.id),
+      source: "project_next_actions_empty",
+      project: info,
+    };
+  }
+  const top = actions.slice(0, 3);
+  const blockers = actions.filter((a) => a.risk_level === "high").length;
+  const text =
+    `Su ${info.brain.name} ci sono ${actions.length} azioni aperte. ` +
+    `Top: ${top.map((a, i) => `${i + 1}. ${a.title}`).join(". ")}.` +
+    (blockers > 0 ? ` ${blockers} ad alto rischio.` : "") +
+    " Da approvare manualmente in Action Queue.";
+  return {
+    intent: "project_next_actions",
+    matched_phrases: matched,
+    response_text: text,
+    cta: ctaActionQueueForBrain(info.brain.id),
+    source: "project_next_actions",
+    project: info,
+  };
+}
+
+async function respondProjectRecentActivity(
+  _ctx: JackCommandContext,
+  matched: string[],
+  info: ResolvedProjectInfo,
+): Promise<JackCommandResult> {
+  if (!info.brain) return respondProjectNone(matched);
+  const [timeline, brief] = await Promise.all([
+    getRecentTimelineForBrain(info.brain.id, 5),
+    getLatestBriefForBrain(info.brain.id),
+  ]);
+  const impl = brief?.implemented_today ?? [];
+  if (timeline.length === 0 && impl.length === 0) {
+    return {
+      intent: "project_recent_activity",
+      matched_phrases: matched,
+      response_text: `Su ${info.brain.name} non vedo attività recenti registrate.`,
+      cta: ctaDailyForBrain(info.brain.id),
+      source: "project_recent_empty",
+      project: info,
+    };
+  }
+  const parts: string[] = [`Su ${info.brain.name},`];
+  if (impl.length > 0) {
+    parts.push(
+      `oggi completate: ${impl.slice(0, 3).map((i) => i.action).join(", ")}.`,
+    );
+  }
+  if (timeline.length > 0) {
+    parts.push(
+      `Eventi recenti: ${timeline.slice(0, 3).map((t) => t.action).join(", ")}.`,
+    );
+  }
+  return {
+    intent: "project_recent_activity",
+    matched_phrases: matched,
+    response_text: parts.join(" "),
+    cta: ctaDailyForBrain(info.brain.id),
+    source: "project_recent_activity",
+    project: info,
+  };
+}
+
+async function respondMultiProjectStatus(
+  ctx: JackCommandContext,
+  matched: string[],
+): Promise<JackCommandResult> {
+  void logJackVoiceCommandEvent(
+    "jack_multi_project_status_requested",
+    "Multi-project status",
+    {},
+  );
+  const brains = ctx.brains ?? [];
+  if (brains.length === 0) {
+    return {
+      intent: "multi_project_status",
+      matched_phrases: matched,
+      response_text:
+        "Non vedo progetti caricati. Apri la Project Console per crearne o gestirli.",
+      cta: ctaProjectConsole(),
+      source: "no_brains",
+    };
+  }
+  const perBrain = await Promise.all(
+    brains.slice(0, 6).map(async (b) => {
+      const [actions, brief] = await Promise.all([
+        getOpenActionsForBrain(b.id, 3),
+        getLatestBriefForBrain(b.id),
+      ]);
+      const highRisk = actions.filter((a) => a.risk_level === "high").length;
+      const warnings = brief?.warnings_summary.total ?? 0;
+      let health: "healthy" | "warning" | "blocked" = "healthy";
+      if (highRisk > 0 || warnings >= 3) health = "warning";
+      if (highRisk >= 2 && warnings >= 3) health = "blocked";
+      return { brain: b, actions, health, brief };
+    }),
+  );
+  const lines = perBrain.map((p) => {
+    const next = p.actions[0]?.title;
+    const tag =
+      p.health === "blocked"
+        ? "bloccato"
+        : p.health === "warning"
+          ? "attenzione"
+          : "ok";
+    return `${p.brain.name}: ${tag}${next ? `, prossima: ${next}` : ""}`;
+  });
+  let text = `Stato progetti: ${lines.join("; ")}.`;
+  if (text.length > 900) text = text.slice(0, 895) + "...";
+  return {
+    intent: "multi_project_status",
+    matched_phrases: matched,
+    response_text: text,
+    cta: ctaProjectConsole(),
+    source: "multi_project_status",
+  };
+}
+
+
   return {
     label: "Apri Daily Brief",
     to: "/daily-brief",
