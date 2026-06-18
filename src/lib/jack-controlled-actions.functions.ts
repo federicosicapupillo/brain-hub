@@ -174,7 +174,7 @@ async function logSanitizedEvent(
     // best-effort
   }
 }
-}
+
 
 async function insertTelegramApproval(
   supabase: unknown,
