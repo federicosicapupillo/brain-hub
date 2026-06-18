@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Bot,
   CheckCircle2,
   ExternalLink,
   ListChecks,
