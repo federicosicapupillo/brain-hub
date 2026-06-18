@@ -21,6 +21,16 @@ import {
   getJackMemoryContext,
   getCurrentJackMemoryDocument,
   extractProjectAliasesFromMemory,
+  buildNaturalIdentityResponse,
+  buildNaturalJackRulesResponse,
+  buildNaturalProjectMemoryResponse,
+  detectMemoryIntent,
+  extractMemoryEntryFromTranscript,
+  createJackMemoryEntry,
+  listJackMemoryEntries,
+  searchJackMemoryEntries,
+  findSimilarMemoryEntries,
+  archiveJackMemoryEntry,
 } from "@/lib/jack-memory";
 
 export type JackIntent =
@@ -35,6 +45,11 @@ export type JackIntent =
   | "project_recent_activity"
   | "multi_project_status"
   | "identity"
+  | "jack_rules"
+  | "memory_save"
+  | "memory_forget"
+  | "memory_search"
+  | "memory_update"
   | "unknown";
 
 export type JackCommandCTA = {
