@@ -110,6 +110,7 @@ const SOURCE_BADGE: Record<ActionSource, string> = {
   github_operational: "Da GitHub Operational",
   code_repository: "Da Repository",
   agent_center: "Da Agent Center",
+  loop_qa: "Da Loop QA",
 };
 
 
