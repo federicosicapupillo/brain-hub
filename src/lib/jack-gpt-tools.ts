@@ -989,18 +989,43 @@ export const runJackGptTool = createServerFn({ method: "POST" })
       }
     };
 
-    try {
-      const result = await compute();
-      writeDedupedCall(cacheKey, result);
-      return result;
-    } catch (err) {
-      const result = {
-        ok: false,
-        error: "tool_failed",
-        detail: String((err as Error).message ?? err).slice(0, 200),
-      };
-      return result;
+    const runCompute = async (): Promise<unknown> => {
+      try {
+        const result = await compute();
+        writeDedupedCall(cacheKey, result);
+        return result;
+      } catch (err) {
+        // v3.19.5 — never bubble unhandled errors as tool_failed when we
+        // can return a structured, recoverable error.
+        return {
+          ok: false,
+          blocked: true,
+          error: "tool_failed",
+          reason: "tool_internal_error",
+          detail: String((err as Error).message ?? err).slice(0, 200),
+        };
+      }
+    };
+
+    // v3.19.5 — in-flight join. If an identical call is already running,
+    // both callers await the same Promise (no double DB hit, no double log).
+    if (JOINABLE_TOOL_NAMES.has(tool_name)) {
+      const existing = inFlightToolCalls.get(cacheKey);
+      if (existing) {
+        void logSanitizedEvent(supabase, userId, "jack_inflight_tool_call_joined", {
+          tool_name,
+          brain_id: (args.brain_id as string | undefined) ?? null,
+        });
+        return await existing;
+      }
+      const p = runCompute().finally(() => {
+        inFlightToolCalls.delete(cacheKey);
+      });
+      inFlightToolCalls.set(cacheKey, p);
+      return await p;
     }
+
+    return await runCompute();
   });
 
 // Log helper — sanitized event row.
