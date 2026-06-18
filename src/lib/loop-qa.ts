@@ -526,6 +526,67 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
         title: w.title,
         description: w.description,
         cta: w.cta,
+        category: "code_agent",
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
+  // Code Agent QA warnings (v3.16.2 / v3.16.3 — server-side enforcement + E2E)
+  try {
+    const { getCodeAgentLoopQaWarnings } = await import("@/lib/code-agent-qa");
+    const cajQa = await getCodeAgentLoopQaWarnings(brainId ?? null);
+    const ctaFor = (id: string): { label: string; to: string } => {
+      if (id === "caj-e2e-result-without-review") {
+        return { label: "Apri Result Review", to: "/result-review" };
+      }
+      if (id === "caj-e2e-snapshot-ready") {
+        return { label: "Apri Master Snapshot", to: "/master-snapshot" };
+      }
+      if (
+        id === "caj-e2e-no-ready-job" ||
+        id === "caj-e2e-blocked-jobs" ||
+        id === "caj-e2e-review-without-next-action"
+      ) {
+        return { label: "Apri Code Agent QA", to: "/code-agent-qa" };
+      }
+      return { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" };
+    };
+    for (const w of cajQa) {
+      warnings.push({
+        id: w.id,
+        level:
+          w.severity === "critical"
+            ? "error"
+            : w.severity === "warning"
+              ? "warning"
+              : "info",
+        title: w.label,
+        description: w.detail,
+        cta: ctaFor(w.id),
+        category: "code_agent",
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
+  // Master Snapshot integrity warnings (v3.16.4)
+  try {
+    const { listMasterSnapshots, getMasterSnapshotVersionWarnings } = await import(
+      "@/lib/master-snapshot"
+    );
+    const snaps = await listMasterSnapshots(brainId ?? null);
+    const msWarnings = getMasterSnapshotVersionWarnings(snaps);
+    for (const w of msWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level === "warning" ? "warning" : "info",
+        title: w.title,
+        description: w.description,
+        cta: { label: "Apri Master Snapshot", to: "/master-snapshot" },
+        category: "master_snapshot",
       });
     }
   } catch {
