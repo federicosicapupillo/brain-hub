@@ -357,11 +357,29 @@ function CodeAgentJobsPage() {
       </Card>
 
       {summary && (
-        <div className="grid gap-3 sm:grid-cols-4">
-          <Tile label="Totali" value={summary.total} />
-          <Tile label="Aperti" value={summary.open} />
-          <Tile label="In attesa approvazione" value={summary.awaitingApproval} />
-          <Tile label="Da revisionare" value={summary.awaitingReview} />
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Tile label="Totali" value={summary.total} />
+            <Tile label="Aperti" value={summary.open} />
+            <Tile label="In attesa approvazione" value={summary.awaitingApproval} />
+            <Tile label="Da revisionare" value={summary.awaitingReview} />
+          </div>
+          <div className="grid gap-2 text-xs sm:grid-cols-3 lg:grid-cols-9">
+            <BucketTile label="Draft" value={summary.buckets.draft} />
+            <BucketTile label="Repo mancante" value={summary.buckets.missing_repository} tone={summary.buckets.missing_repository > 0 ? "red" : undefined} />
+            <BucketTile label="Repo ambiguo" value={summary.buckets.ambiguous_repository} tone={summary.buckets.ambiguous_repository > 0 ? "amber" : undefined} />
+            <BucketTile label="In approvazione" value={summary.buckets.pending_approval} tone={summary.buckets.pending_approval > 0 ? "amber" : undefined} />
+            <BucketTile label="Pronti per invio" value={summary.buckets.ready_to_send} />
+            <BucketTile label="Inviati senza risultato" value={summary.buckets.sent_without_result} tone={summary.buckets.sent_without_result > 0 ? "amber" : undefined} />
+            <BucketTile label="Risultato da review" value={summary.buckets.result_to_review} tone={summary.buckets.result_to_review > 0 ? "amber" : undefined} />
+            <BucketTile label="Reviewed" value={summary.buckets.reviewed} />
+            <BucketTile label="Failed/cancelled" value={summary.buckets.failed_or_cancelled} />
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" variant="outline" onClick={() => void handleBulkSync()}>
+              <RefreshCw className="mr-1 h-3 w-3" /> Sync approval pending
+            </Button>
+          </div>
         </div>
       )}
 
