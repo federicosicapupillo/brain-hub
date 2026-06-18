@@ -140,8 +140,8 @@ function MasterSnapshotRoute() {
   async function handleApprove() {
     if (!selectedDraft) return;
     try {
-      await approveMasterSnapshotUpdate(selectedDraft.id, editor);
-      toast.success("Nuova versione del Master Snapshot salvata");
+      const saved = await approveMasterSnapshotUpdate(selectedDraft.id, editor);
+      toast.success(`Master Snapshot salvato come v${saved.version_label}`);
       await qc.invalidateQueries({ queryKey: ["master-snapshots"] });
       setSelectedDraftId(null);
     } catch (e) {
