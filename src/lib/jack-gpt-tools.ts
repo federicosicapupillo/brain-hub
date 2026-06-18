@@ -137,19 +137,42 @@ async function fetchBrainsCtx(
 
 type ToolInput = {
   tool_name: string;
-  arguments: Record<string, unknown>;
+  arguments: Record<string, unknown> | string | null | undefined;
 };
+
+const ALLOWED_TOOL_NAMES: ReadonlySet<string> = new Set(
+  JACK_GPT_TOOLS_SCHEMA.map((t) => t.name),
+);
+
+function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
+    } catch {
+      return {};
+    }
+  }
+  return raw;
+}
 
 export const runJackGptTool = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => d as ToolInput)
   .handler(async ({ data, context }) => {
-    const { tool_name, arguments: args } = data;
+    const { tool_name } = data;
+    const args = parseToolArgs(data.arguments);
     const userId = context.userId;
     const { supabase } = context;
 
+    if (!tool_name || !ALLOWED_TOOL_NAMES.has(tool_name)) {
+      return { ok: false, error: "tool_rejected", detail: "unknown_or_disallowed_tool" };
+    }
+
     try {
       switch (tool_name) {
+
         case "get_daily_brief": {
           const ctx = await fetchBrainsCtx(supabase as never);
           ctx.brainId = (args.brain_id as string | undefined) ?? null;
