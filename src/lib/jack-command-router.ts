@@ -1064,7 +1064,11 @@ export type JackVoiceCommandEvent =
   | "jack_project_status_requested"
   | "jack_project_status_response_generated"
   | "jack_project_alias_ambiguous"
-  | "jack_multi_project_status_requested";
+  | "jack_multi_project_status_requested"
+  | "jack_memory_natural_response_generated"
+  | "jack_memory_forget_requested"
+  | "jack_memory_secret_warning"
+  | "jack_memory_entry_used";
 
 function redactTranscript(t: string): string {
   return t
