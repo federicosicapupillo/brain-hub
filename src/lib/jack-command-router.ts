@@ -1099,33 +1099,28 @@ export async function logJackVoiceCommandEvent(
   }
 }
 
-// ---------------- Identity intent (Jack Memory) ----------------
+// ---------------- Identity / Rules / Memory intents (Jack Memory) ----------------
+
+const JACK_MEMORY_CTA: JackCommandCTA = { label: "Apri Jack Memory", to: "/jack-memory" };
 
 async function respondIdentity(matched: string[]): Promise<JackCommandResult> {
   try {
     const ctxMem = await getJackMemoryContext({
       scopes: ["identity", "behavior"],
-      maxChars: 800,
+      maxChars: 1200,
     });
-    if (ctxMem.status === "missing" || !ctxMem.excerpt) {
-      return {
-        intent: "identity",
-        matched_phrases: matched,
-        response_text:
-          "Non ho ancora una memoria personale configurata. Importa il tuo Jack Memory Core dalla pagina Jack Memory per darmi contesto.",
-        cta: { label: "Apri Jack Memory", to: "/jack-memory" },
-        source: "jack_memory_missing",
-      };
-    }
-    const text =
-      "Ecco quello che so di te dalla memoria operativa. " +
-      ctxMem.excerpt.replace(/\n+/g, " ").slice(0, 700);
+    const text = buildNaturalIdentityResponse(ctxMem);
+    void logJackVoiceCommandEvent(
+      "jack_memory_natural_response_generated" as JackVoiceCommandEvent,
+      "Identity naturale",
+      { chars: text.length, status: ctxMem.status },
+    );
     return {
       intent: "identity",
       matched_phrases: matched,
       response_text: text,
-      cta: { label: "Apri Jack Memory", to: "/jack-memory" },
-      source: "jack_memory",
+      cta: JACK_MEMORY_CTA,
+      source: ctxMem.status === "missing" ? "jack_memory_missing" : "jack_memory_natural",
     };
   } catch {
     return {
@@ -1133,7 +1128,255 @@ async function respondIdentity(matched: string[]): Promise<JackCommandResult> {
       matched_phrases: matched,
       response_text:
         "Non sono riuscito a leggere la memoria operativa. Apri Jack Memory per verificarla.",
-      cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+      cta: JACK_MEMORY_CTA,
+      source: "error",
+    };
+  }
+}
+
+async function respondJackRules(matched: string[]): Promise<JackCommandResult> {
+  try {
+    const ctxMem = await getJackMemoryContext({
+      scopes: ["behavior"],
+      maxChars: 1500,
+    });
+    const text = buildNaturalJackRulesResponse(ctxMem);
+    void logJackVoiceCommandEvent(
+      "jack_memory_natural_response_generated" as JackVoiceCommandEvent,
+      "Regole naturali",
+      { chars: text.length },
+    );
+    return {
+      intent: "jack_rules",
+      matched_phrases: matched,
+      response_text: text,
+      cta: JACK_MEMORY_CTA,
+      source: "jack_memory_rules_natural",
+    };
+  } catch {
+    return {
+      intent: "jack_rules",
+      matched_phrases: matched,
+      response_text:
+        "Non riesco a leggere le regole operative adesso. Apri Jack Memory per controllare.",
+      cta: JACK_MEMORY_CTA,
+      source: "error",
+    };
+  }
+}
+
+async function respondMemorySave(
+  transcript: string,
+  project: ResolvedProjectInfo,
+  matched: string[],
+): Promise<JackCommandResult> {
+  const extracted = extractMemoryEntryFromTranscript(transcript);
+  if (!extracted.content || extracted.content.length < 4) {
+    return {
+      intent: "memory_save",
+      matched_phrases: matched,
+      response_text:
+        "Dimmi cosa devo memorizzare. Per esempio: 'memorizza che Furia e Pupillo devono restare separati'.",
+      cta: JACK_MEMORY_CTA,
+      source: "memory_save_empty",
+      project,
+    };
+  }
+  const projectName = project.brain?.name ?? null;
+  try {
+    const res = await createJackMemoryEntry({
+      content: extracted.content,
+      category: extracted.category,
+      sensitivity: extracted.sensitivity,
+      project_name: projectName,
+      brain_id: project.brain?.id ?? null,
+      source: "voice_conversation",
+    });
+    if (res.kind === "needs_confirmation") {
+      void logJackVoiceCommandEvent(
+        "jack_memory_secret_warning" as JackVoiceCommandEvent,
+        "Memoria con possibile segreto: richiesta conferma",
+        { category: extracted.category },
+      );
+      return {
+        intent: "memory_save",
+        matched_phrases: matched,
+        response_text:
+          "Aspetta Federico: questa nota sembra contenere una chiave o un segreto. L'ho salvata come suggerimento, ma non la userò finché non la approvi manualmente in Jack Memory.",
+        cta: JACK_MEMORY_CTA,
+        source: "memory_save_secret_warning",
+        project,
+      };
+    }
+    const projectSuffix = projectName
+      ? ` Quando parleremo di ${projectName} la terrò in considerazione.`
+      : "";
+    return {
+      intent: "memory_save",
+      matched_phrases: matched,
+      response_text: `Perfetto Federico, l'ho salvato nella memoria di Jack come ${describeCategory(extracted.category)}.${projectSuffix}`,
+      cta: JACK_MEMORY_CTA,
+      source: "memory_save_created",
+      project,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return {
+      intent: "memory_save",
+      matched_phrases: matched,
+      response_text: `Non sono riuscito a salvare quella memoria: ${msg}. Riprova o aggiungila a mano da Jack Memory.`,
+      cta: JACK_MEMORY_CTA,
+      source: "error",
+      project,
+    };
+  }
+}
+
+function describeCategory(c: string): string {
+  switch (c) {
+    case "project_rule":
+      return "regola operativa di progetto";
+    case "preference":
+      return "preferenza personale";
+    case "communication_style":
+      return "regola di stile comunicativo";
+    case "safety_rule":
+      return "regola di sicurezza";
+    case "tooling":
+      return "nota sugli strumenti";
+    case "business_context":
+      return "contesto business";
+    case "project_context":
+      return "contesto di progetto";
+    case "identity":
+      return "nota identitaria";
+    default:
+      return "nota operativa";
+  }
+}
+
+async function respondMemoryForget(
+  transcript: string,
+  matched: string[],
+): Promise<JackCommandResult> {
+  void logJackVoiceCommandEvent(
+    "jack_memory_forget_requested" as JackVoiceCommandEvent,
+    "Forget requested",
+    {},
+  );
+  const { payload } = detectMemoryIntent(transcript);
+  const target = payload.replace(/^che\s+/i, "").trim();
+  if (!target) {
+    return {
+      intent: "memory_forget",
+      matched_phrases: matched,
+      response_text:
+        "Dimmi cosa devo dimenticare. Per esempio: 'dimentica che Furia e Pupillo sono collegati'.",
+      cta: JACK_MEMORY_CTA,
+      source: "memory_forget_empty",
+    };
+  }
+  try {
+    const candidates = await findSimilarMemoryEntries(target);
+    if (candidates.length === 0) {
+      return {
+        intent: "memory_forget",
+        matched_phrases: matched,
+        response_text:
+          "Non trovo nessuna memoria attiva che corrisponda. Controlla nella pagina Jack Memory.",
+        cta: JACK_MEMORY_CTA,
+        source: "memory_forget_no_match",
+      };
+    }
+    if (candidates.length === 1) {
+      await archiveJackMemoryEntry(candidates[0].id);
+      return {
+        intent: "memory_forget",
+        matched_phrases: matched,
+        response_text:
+          "Ho archiviato quella memoria. Non la userò più nelle risposte operative.",
+        cta: JACK_MEMORY_CTA,
+        source: "memory_forget_archived",
+      };
+    }
+    const preview = candidates
+      .slice(0, 3)
+      .map((c, i) => `${i + 1}. ${c.content.slice(0, 80)}`)
+      .join("; ");
+    return {
+      intent: "memory_forget",
+      matched_phrases: matched,
+      response_text: `Ho trovato ${candidates.length} memorie simili: ${preview}. Quale vuoi che archivi? Puoi farlo direttamente da Jack Memory.`,
+      cta: JACK_MEMORY_CTA,
+      source: "memory_forget_ambiguous",
+    };
+  } catch (e) {
+    return {
+      intent: "memory_forget",
+      matched_phrases: matched,
+      response_text: `Non sono riuscito ad aggiornare la memoria: ${e instanceof Error ? e.message : String(e)}.`,
+      cta: JACK_MEMORY_CTA,
+      source: "error",
+    };
+  }
+}
+
+async function respondMemorySearch(
+  transcript: string,
+  project: ResolvedProjectInfo,
+  matched: string[],
+): Promise<JackCommandResult> {
+  try {
+    const ctxMem = await getJackMemoryContext({ scopes: ["all"], maxChars: 1500 });
+    if (project.brain) {
+      const entries = await listJackMemoryEntries({
+        status: ["active", "suggested"],
+        project_name: project.brain.name,
+      });
+      const text = buildNaturalProjectMemoryResponse(project.brain.name, ctxMem, entries);
+      void logJackVoiceCommandEvent(
+        "jack_memory_entry_used" as JackVoiceCommandEvent,
+        "Memoria di progetto richiamata",
+        { brain_id: project.brain.id, entries: entries.length },
+      );
+      return {
+        intent: "memory_search",
+        matched_phrases: matched,
+        response_text: text,
+        cta: JACK_MEMORY_CTA,
+        source: "memory_search_project",
+        project,
+      };
+    }
+    const { payload } = detectMemoryIntent(transcript);
+    const q = payload.trim();
+    const hits = q ? await searchJackMemoryEntries(q) : [];
+    if (hits.length === 0) {
+      return {
+        intent: "memory_search",
+        matched_phrases: matched,
+        response_text:
+          "Non trovo memorie specifiche su quel tema. Puoi aggiungerne dicendo 'memorizza che…'.",
+        cta: JACK_MEMORY_CTA,
+        source: "memory_search_empty",
+      };
+    }
+    const text =
+      "Ecco cosa ricordo: " +
+      hits.slice(0, 5).map((h) => h.content).join("; ");
+    return {
+      intent: "memory_search",
+      matched_phrases: matched,
+      response_text: text.slice(0, 900),
+      cta: JACK_MEMORY_CTA,
+      source: "memory_search_entries",
+    };
+  } catch (e) {
+    return {
+      intent: "memory_search",
+      matched_phrases: matched,
+      response_text: `Non riesco a leggere la memoria: ${e instanceof Error ? e.message : String(e)}.`,
+      cta: JACK_MEMORY_CTA,
       source: "error",
     };
   }
