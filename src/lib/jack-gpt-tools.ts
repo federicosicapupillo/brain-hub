@@ -600,9 +600,75 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             },
           };
         }
+        case "preview_controlled_action": {
+          const commandText = String(args.command_text ?? "").trim();
+          if (!commandText) return { ok: false, error: "empty_command_text" };
+          const res = await createControlledJackAction({
+            data: {
+              command_text: commandText,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+              project_id: (args.project_id as string | undefined) ?? null,
+              notes: (args.notes as string | undefined) ?? null,
+              source_warning_id: (args.source_warning_id as string | undefined) ?? null,
+              confirmed: false,
+            },
+          });
+          return {
+            ok: true,
+            payload: {
+              preview: res.preview,
+              requires_confirmation: true,
+              idempotency_key: res.idempotency_key,
+              safe_message:
+                "Preview generata. Chiedi conferma esplicita a Federico prima di chiamare create_controlled_action.",
+            },
+          };
+        }
         case "create_controlled_action": {
           const commandText = String(args.command_text ?? "").trim();
           if (!commandText) return { ok: false, error: "empty_command_text" };
+
+          // v3.19.3 — server-side confirmation gate (never trust the model).
+          const confirmed = args.confirmed === true;
+          if (!confirmed) {
+            void logSanitizedEvent(
+              supabase,
+              userId,
+              "jack_action_creation_blocked_missing_confirmation",
+              {
+                tool_name: "create_controlled_action",
+                brain_id: (args.brain_id as string | undefined) ?? null,
+                reason: "confirmation_required",
+                source: "tool_dispatcher",
+              },
+            );
+            return {
+              ok: false,
+              blocked: true,
+              reason: "confirmation_required",
+              error: "confirmation_required",
+              detail:
+                "create_controlled_action richiede confirmed:true. Usa preview_controlled_action e attendi una conferma esplicita di Federico.",
+            };
+          }
+
+          // Write-tool idempotency dedup (returns the first result, never repeats).
+          const writeKey = `${userId}::write::create_controlled_action::${
+            (args.idempotency_key as string | undefined) ?? JSON.stringify({
+              c: commandText,
+              b: args.brain_id ?? null,
+              p: args.project_id ?? null,
+            })
+          }`;
+          const dup = readDedupedCall(writeKey);
+          if (dup !== null) {
+            void logSanitizedEvent(supabase, userId, "jack_write_tool_duplicate_prevented", {
+              tool_name: "create_controlled_action",
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            });
+            return dup;
+          }
+
           const res = await createControlledJackAction({
             data: {
               command_text: commandText,
@@ -611,9 +677,14 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               delivery_preference:
                 (args.delivery_preference as "telegram" | "ui_only" | undefined) ?? null,
               notes: (args.notes as string | undefined) ?? null,
+              source_warning_id: (args.source_warning_id as string | undefined) ?? null,
+              idempotency_key: (args.idempotency_key as string | undefined) ?? null,
+              confirmed: true,
             },
           });
-          return { ok: res.ok, payload: res };
+          const out = { ok: res.ok, payload: res };
+          writeDedupedCall(writeKey, out);
+          return out;
         }
         case "prepare_master_snapshot_update": {
           const res = await prepareJackMasterSnapshotUpdate({
