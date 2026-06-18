@@ -359,6 +359,11 @@ export type LogEventType =
   | "github_repository_added"
   | "github_repository_updated"
   | "github_repository_archived"
+  | "github_repository_input_normalized"
+  | "github_repository_input_rejected"
+  | "github_repository_duplicate_detected"
+  | "github_repository_normalized_from_garbage"
+  | "github_repository_cleanup_required"
   | "code_file_mapped"
   | "code_action_suggested"
   | "code_action_created"
@@ -566,6 +571,11 @@ const LOG_TITLES: Record<LogEventType, string> = {
   github_repository_added: "Repository GitHub aggiunto",
   github_repository_updated: "Repository GitHub aggiornato",
   github_repository_archived: "Repository GitHub archiviato",
+  github_repository_input_normalized: "Repository GitHub normalizzato",
+  github_repository_input_rejected: "Input repository GitHub rifiutato",
+  github_repository_duplicate_detected: "Repository GitHub duplicato",
+  github_repository_normalized_from_garbage: "Repository GitHub riparato",
+  github_repository_cleanup_required: "Repository GitHub da controllare",
   code_file_mapped: "File codice mappato",
   code_action_suggested: "Azione codice suggerita",
   code_action_created: "Azione codice creata",

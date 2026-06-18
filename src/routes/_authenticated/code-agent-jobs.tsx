@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { isSuspectRepositoryRecord } from "@/lib/github-repository-parse";
 import {
   listCodeAgentJobs,
   getCodeAgentJob,
@@ -208,6 +209,7 @@ function CodeAgentJobsPage() {
       const { data } = await supabase
         .from("github_repository_registry")
         .select("id,repository_name,repository_owner,repository_url,brain_id,project_id,default_branch,last_sync_at,connected_status")
+        .is("archived_at" as never, null)
         .order("last_sync_at", { ascending: false });
       return (data ?? []) as Array<{
         id: string;
@@ -936,39 +938,60 @@ function CodeAgentJobsPage() {
             </div>
             <div>
               <Label className="text-xs">Repository (registry)</Label>
-              {repos.length === 0 ? (
-                <div className="rounded border border-dashed p-2 text-xs text-muted-foreground space-y-1">
-                  <div>Nessun repository registrato.</div>
-                  <Button asChild size="sm" variant="outline" className="h-7 text-xs">
-                    <Link to="/github-operational">
-                      <GitBranch className="mr-1 h-3 w-3" /> Apri GitHub Operational
-                    </Link>
-                  </Button>
-                </div>
-              ) : (
-                <Select
-                  value={newRepositoryId}
-                  onValueChange={setNewRepositoryId}
-                  disabled={createSubmitting}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nessuno (auto / hint)</SelectItem>
-                    {repos.map((r) => {
-                      const name = r.repository_owner
-                        ? `${r.repository_owner}/${r.repository_name ?? ""}`
-                        : r.repository_name ?? r.repository_url;
-                      return (
-                        <SelectItem key={r.id} value={r.id}>
-                          {name}
-                          {r.default_branch ? ` · ${r.default_branch}` : ""}
-                          {r.connected_status ? ` · ${r.connected_status}` : ""}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              )}
+              {(() => {
+                const validRepos = repos.filter(
+                  (r) => !isSuspectRepositoryRecord(r),
+                );
+                const suspectCount = repos.length - validRepos.length;
+                if (validRepos.length === 0) {
+                  return (
+                    <div className="rounded border border-dashed p-2 text-xs text-muted-foreground space-y-1">
+                      <div>Nessun repository registrato.</div>
+                      {suspectCount > 0 && (
+                        <div className="text-amber-600">
+                          {suspectCount} repository da controllare in GitHub Operational.
+                        </div>
+                      )}
+                      <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                        <Link to="/github-operational">
+                          <GitBranch className="mr-1 h-3 w-3" /> Apri GitHub Operational
+                        </Link>
+                      </Button>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-1">
+                    <Select
+                      value={newRepositoryId}
+                      onValueChange={setNewRepositoryId}
+                      disabled={createSubmitting}
+                    >
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nessuno (auto / hint)</SelectItem>
+                        {validRepos.map((r) => {
+                          const name = r.repository_owner
+                            ? `${r.repository_owner}/${r.repository_name ?? ""}`
+                            : r.repository_name ?? r.repository_url;
+                          return (
+                            <SelectItem key={r.id} value={r.id}>
+                              {name}
+                              {r.default_branch ? ` · ${r.default_branch}` : ""}
+                              {r.connected_status ? ` · ${r.connected_status}` : ""}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    {suspectCount > 0 && (
+                      <div className="text-[11px] text-amber-600">
+                        Alcuni repository sono da controllare in GitHub Operational.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
             <div>
               <Label className="text-xs">Repository hint (fallback testuale)</Label>

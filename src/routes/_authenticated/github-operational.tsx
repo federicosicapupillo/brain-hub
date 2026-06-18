@@ -28,6 +28,7 @@ import {
   listGithubRepositories,
   createGithubRepository,
   archiveGithubRepository,
+  normalizeSuspectRepository,
   listCodeFileMap,
   addCodeFileToMap,
   suggestCodeActionsForRepository,
@@ -36,11 +37,16 @@ import {
   buildClaudeCodePromptForAction,
   buildGithubIssueDraftForAction,
   createGithubOperationalReview,
+  logGithubOperationalEvent,
   ENGINE_LABEL,
   type GithubRepository,
   type CodeActionSuggestion,
   type SupportedEngine,
 } from "@/lib/github-operational";
+import {
+  parseGithubRepositoryInput,
+  isSuspectRepositoryRecord,
+} from "@/lib/github-repository-parse";
 import {
   ExternalLink,
   GitBranch,
@@ -154,7 +160,7 @@ function GithubOperationalPage() {
               onSuggestions={() => setOpenSuggestions(r)}
               onArchive={async () => {
                 if (!confirm("Archiviare il repository?")) return;
-                await archiveGithubRepository(r.id);
+                await archiveGithubRepository(r.id, "manual");
                 toast.success("Repository archiviato");
                 await qc.invalidateQueries({ queryKey: ["gho-repos"] });
               }}
@@ -162,6 +168,13 @@ function GithubOperationalPage() {
           ))}
         </CardContent>
       </Card>
+
+      <SuspectRepositoriesCard
+        repos={reposQ.data ?? []}
+        onChanged={async () => {
+          await qc.invalidateQueries({ queryKey: ["gho-repos"] });
+        }}
+      />
 
       <AddRepoDialog
         open={openAddRepo}
@@ -269,28 +282,136 @@ function RepoRow({
   );
 }
 
-type ParsedGithubUrl = { url: string; owner: string; name: string };
-
-function parseGithubUrl(input: string): ParsedGithubUrl | null {
-  if (!input) return null;
-  // Extract first github.com/owner/repo occurrence from arbitrary text
-  const m = input.match(
-    /https?:\/\/github\.com\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+?)(?:\.git)?(?:[\/#?\s]|$)/i,
+function SuspectRepositoriesCard({
+  repos,
+  onChanged,
+}: {
+  repos: GithubRepository[];
+  onChanged: () => void | Promise<void>;
+}) {
+  const suspects = useMemo(
+    () => repos.filter((r) => isSuspectRepositoryRecord(r)),
+    [repos],
   );
-  if (!m) return null;
-  const owner = m[1];
-  const name = m[2];
-  if (!owner || !name) return null;
-  return {
-    url: `https://github.com/${owner}/${name}`,
-    owner,
-    name,
+
+  useEffect(() => {
+    if (suspects.length > 0) {
+      void logGithubOperationalEvent(
+        "github_repository_cleanup_required",
+        `Repository sospetti: ${suspects.length}`,
+        { count: suspects.length },
+      );
+    }
+    // log once per render of count change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suspects.length]);
+
+  if (suspects.length === 0) return null;
+
+  return (
+    <Card className="border-amber-500/40">
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Archive className="w-4 h-4 text-amber-600" />
+          Repository da controllare ({suspects.length})
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="text-xs text-muted-foreground">
+          Questi record hanno URL, owner o name non normalizzati. Prova a
+          normalizzarli o archiviali.
+        </div>
+        {suspects.map((r) => (
+          <SuspectRepoRow key={r.id} repo={r} onChanged={onChanged} />
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SuspectRepoRow({
+  repo,
+  onChanged,
+}: {
+  repo: GithubRepository;
+  onChanged: () => void | Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const previewUrl =
+    (repo.repository_url ?? "").replace(/\s+/g, " ").slice(0, 120) || "(vuoto)";
+  const candidate = parseGithubRepositoryInput(repo.repository_url ?? "");
+
+  const handleNormalize = async () => {
+    setBusy(true);
+    try {
+      const updated = await normalizeSuspectRepository(
+        repo.id,
+        repo.repository_url ?? "",
+      );
+      if (!updated) {
+        toast.error("Impossibile normalizzare: nessun URL GitHub valido trovato");
+        return;
+      }
+      toast.success("Repository normalizzato");
+      await onChanged();
+    } catch (e) {
+      toast.error(humanizePgError(e));
+    } finally {
+      setBusy(false);
+    }
   };
+
+  const handleArchive = async () => {
+    if (!confirm("Archiviare il repository sospetto?")) return;
+    setBusy(true);
+    try {
+      await archiveGithubRepository(repo.id, "suspect_record");
+      toast.success("Repository archiviato");
+      await onChanged();
+    } catch (e) {
+      toast.error(humanizePgError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="border rounded-md p-3 space-y-2 bg-amber-50/30 dark:bg-amber-950/10">
+      <div className="text-xs font-mono truncate" title={repo.repository_url ?? ""}>
+        {previewUrl}
+      </div>
+      <div className="text-xs text-muted-foreground flex flex-wrap gap-2">
+        <span>owner: <span className="font-mono">{repo.repository_owner || "—"}</span></span>
+        <span>name: <span className="font-mono">{(repo.repository_name ?? "").slice(0, 40) || "—"}</span></span>
+      </div>
+      {candidate.isValid && (
+        <div className="text-xs text-emerald-700 dark:text-emerald-400">
+          Suggerito: <span className="font-mono">{candidate.owner}/{candidate.name}</span>
+        </div>
+      )}
+      <div className="flex gap-2 flex-wrap">
+        {candidate.isValid && (
+          <Button size="sm" variant="outline" disabled={busy} onClick={handleNormalize}>
+            Prova a normalizzare
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" disabled={busy} onClick={handleArchive}>
+          <Archive className="w-3.5 h-3.5 mr-1" /> Archivia
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 function humanizePgError(e: unknown): string {
-  const err = e as { code?: string; message?: string } | null;
+  const err = e as { code?: string; message?: string; name?: string } | null;
   if (!err) return "Errore salvataggio repository";
+  if (err.name === "GithubRepositoryRegistryError") {
+    if (err.code === "github_repository_already_exists") return "Repository già presente";
+    if (err.code === "github_repository_url_invalid")
+      return "URL GitHub non valido. Usa il formato https://github.com/owner/repo";
+    if (err.code === "not_authenticated") return "Non autenticato";
+  }
   if (err.code === "23505") return "Repository già presente";
   if (err.code === "42501") return "Permesso negato dalla RLS";
   return err.message || "Errore salvataggio repository";
@@ -326,7 +447,8 @@ function AddRepoDialog({
     }
   }, [open]);
 
-  const parsed = useMemo(() => parseGithubUrl(url), [url]);
+  const parseResult = useMemo(() => parseGithubRepositoryInput(url), [url]);
+  const parsed = parseResult.isValid ? parseResult : null;
 
   // Auto-fill owner/name from URL whenever URL changes and yields a valid parse
   useEffect(() => {
@@ -349,30 +471,11 @@ function AddRepoDialog({
       toast.error("URL GitHub non valido. Usa il formato https://github.com/owner/repo");
       return;
     }
-    const ownerTrim = owner.trim();
-    const nameTrim = name.trim();
-    if (!ownerTrim || !nameTrim) {
-      toast.error("Owner e repository name sono obbligatori");
-      return;
-    }
     setBusy(true);
     try {
-      // Pre-check duplicates for same user (RLS scopes select to current user)
-      const { data: existing } = await supabase
-        .from("github_repository_registry")
-        .select("id")
-        .eq("repository_url", parsed.url)
-        .maybeSingle();
-      if (existing) {
-        toast.error("Repository già presente");
-        setBusy(false);
-        return;
-      }
       await createGithubRepository({
         brain_id: brainId,
         repository_url: parsed.url,
-        repository_owner: ownerTrim,
-        repository_name: nameTrim,
         default_branch: branch.trim() || "main",
         metadata: note.trim() ? { note: note.trim() } : {},
       });
