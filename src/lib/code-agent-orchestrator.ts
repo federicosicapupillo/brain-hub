@@ -1432,6 +1432,18 @@ export async function getCodeAgentJobWarnings(
         cta,
       });
     }
+    const jackBlocked = rows.filter(
+      (r) => r.event_type === "code_agent_jack_job_create_blocked",
+    );
+    if (jackBlocked.length > 0) {
+      warns.push({
+        id: "caj-jack-create-blocked",
+        level: "info",
+        title: "Creazione Jack → Code Agent bloccata di recente",
+        description: `${jackBlocked.length} tentativi Jack bloccati nelle ultime 24h${scopeNote}.`,
+        cta,
+      });
+    }
   } catch {
     // best-effort
   }
