@@ -429,9 +429,19 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
 
         // GA response lifecycle
-        case "response.created":
+        case "response.created": {
+          const id = msg.response?.id ?? null;
+          responseInProgressRef.current = true;
+          activeResponseIdRef.current = id;
           setState("speaking");
+          setDiagnostics((d) => ({
+            ...d,
+            responseState: "response_active",
+            activeResponseIdRedacted: redactResponseId(id),
+          }));
+          safeLog("jack_gpt_response_created", { has_id: Boolean(id) });
           break;
+        }
         case "response.output_audio.delta":
         case "response.output_audio_transcript.delta":
         case "response.output_text.delta":
@@ -453,26 +463,60 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
 
         case "response.done":
+        case "response.cancelled":
+        case "response.failed":
+        case "response.incomplete": {
+          responseInProgressRef.current = false;
+          activeResponseIdRef.current = null;
+          lastResponseDoneAtRef.current = Date.now();
           setState("listening");
-          safeLog("jack_gpt_response_received");
+          setDiagnostics((d) => ({
+            ...d,
+            responseState: "idle",
+            activeResponseIdRedacted: null,
+            lastResponseDoneAt: lastResponseDoneAtRef.current,
+          }));
+          safeLog("jack_gpt_response_done", { type: msg.type });
+          if (pendingResponseCreateRef.current) flushPendingResponse();
           break;
+        }
 
         // Tool/function calls — GA + legacy
         case "response.function_call_arguments.done":
           if (msg.call_id && msg.name) {
+            setDiagnostics((d) => ({ ...d, responseState: "tool_waiting" }));
             void handleToolCall(msg.call_id, msg.name, msg.arguments ?? "");
           }
           break;
         case "response.output_item.done": {
           const item = msg.item;
           if (item?.type === "function_call" && item.call_id && item.name) {
+            setDiagnostics((d) => ({ ...d, responseState: "tool_waiting" }));
             void handleToolCall(item.call_id, item.name, item.arguments ?? "");
           }
           break;
         }
 
         case "error": {
-          const m = msg.error?.message ?? "Errore realtime";
+          const err = msg.error ?? {};
+          if (isActiveResponseInProgressError(err)) {
+            // Non-critical: overlap was rejected by the server. Reconcile lifecycle.
+            responseInProgressRef.current = true;
+            const friendly = "Jack stava ancora rispondendo: ho evitato una risposta duplicata.";
+            pushLog({ kind: "warning", text: friendly });
+            setDiagnostics((d) => ({
+              ...d,
+              responseState: activeResponseIdRef.current ? "response_active" : "response_active_unknown",
+              lastErrorKind: "active_response_in_progress",
+              lastSafeError: friendly,
+              duplicateResponseHandledCount: d.duplicateResponseHandledCount + 1,
+            }));
+            safeLog("jack_gpt_active_response_error_handled", {
+              has_active_id: Boolean(activeResponseIdRef.current),
+            });
+            break;
+          }
+          const m = err.message ?? "Errore realtime";
           pushLog({ kind: "error", text: m });
           setLastError(m);
           setDiagnostics((d) => ({ ...d, lastSafeError: m.slice(0, 160) }));
@@ -482,7 +526,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
       }
     },
-    [handleToolCall, safeLog, pushLog],
+    [handleToolCall, safeLog, pushLog, flushPendingResponse],
   );
 
   /** Connect WebRTC using a successfully-created realtime session (GA endpoint). */
