@@ -139,11 +139,54 @@ export async function getMasterSnapshot(id: string) {
   return data ? mapRow(data as Row) : null;
 }
 
+/** Parse a label like "1.10" / "v1.10" / "1.10-draft" → {major, minor} or null */
+export function parseVersionLabel(
+  label: string | null | undefined,
+): { major: number; minor: number } | null {
+  if (!label) return null;
+  const cleaned = label.trim().replace(/^v/i, "").replace(/-draft$/i, "");
+  const m = cleaned.match(/^(\d+)\.(\d+)$/);
+  if (!m) return null;
+  return { major: Number(m[1]), minor: Number(m[2]) };
+}
+
+/** Canonical display label derived ONLY from structured DB fields. */
+export function getSnapshotVersionLabel(
+  snapshot: Pick<MasterSnapshotVersion, "version_label" | "version_status">,
+): string {
+  const parsed = parseVersionLabel(snapshot.version_label);
+  if (!parsed) return snapshot.version_label || "?";
+  const base = `${parsed.major}.${parsed.minor}`;
+  return snapshot.version_status === "draft_update" ? `${base}-draft` : base;
+}
+
+/** Highest non-draft label across the provided versions, or null. */
+function maxApprovedVersion(
+  versions: MasterSnapshotVersion[],
+): { major: number; minor: number } | null {
+  let best: { major: number; minor: number } | null = null;
+  for (const v of versions) {
+    if (v.version_status === "draft_update") continue;
+    const p = parseVersionLabel(v.version_label);
+    if (!p) continue;
+    if (!best || p.major > best.major || (p.major === best.major && p.minor > best.minor)) {
+      best = p;
+    }
+  }
+  return best;
+}
+
+/** Next deterministic version label given the full history. */
+export function computeNextVersionLabel(versions: MasterSnapshotVersion[]): string {
+  const best = maxApprovedVersion(versions);
+  if (!best) return "1.0";
+  return `${best.major}.${best.minor + 1}`;
+}
+
 function nextVersionLabel(current: string | null): string {
-  if (!current) return "1.0";
-  const m = current.match(/^(\d+)\.(\d+)$/);
-  if (!m) return `${current}.1`;
-  return `${m[1]}.${Number(m[2]) + 1}`;
+  const p = parseVersionLabel(current);
+  if (!p) return "1.0";
+  return `${p.major}.${p.minor + 1}`;
 }
 
 export type ProposeUpdateInput = {
