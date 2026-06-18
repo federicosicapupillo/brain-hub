@@ -42,6 +42,7 @@ import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authe
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
 import { Route as AuthenticatedEmailDailyBriefRouteImport } from './routes/_authenticated/email-daily-brief'
 import { Route as AuthenticatedDriveKnowledgeRouteImport } from './routes/_authenticated/drive-knowledge'
+import { Route as AuthenticatedDailyBriefRouteImport } from './routes/_authenticated/daily-brief'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
 import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
@@ -251,6 +252,11 @@ const AuthenticatedDriveKnowledgeRoute =
     path: '/drive-knowledge',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDailyBriefRoute = AuthenticatedDailyBriefRouteImport.update({
+  id: '/daily-brief',
+  path: '/daily-brief',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedConnettoriRoute = AuthenticatedConnettoriRouteImport.update({
   id: '/connettori',
   path: '/connettori',
@@ -422,6 +428,7 @@ export interface FileRoutesByFullPath {
   '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
+  '/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -481,6 +488,7 @@ export interface FileRoutesByTo {
   '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
+  '/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
   '/fonti': typeof AuthenticatedFontiRoute
@@ -542,6 +550,7 @@ export interface FileRoutesById {
   '/_authenticated/company-home': typeof AuthenticatedCompanyHomeRoute
   '/_authenticated/company-os': typeof AuthenticatedCompanyOsRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
+  '/_authenticated/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/_authenticated/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/_authenticated/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
@@ -605,6 +614,7 @@ export interface FileRouteTypes {
     | '/company-home'
     | '/company-os'
     | '/connettori'
+    | '/daily-brief'
     | '/drive-knowledge'
     | '/email-daily-brief'
     | '/fonti'
@@ -664,6 +674,7 @@ export interface FileRouteTypes {
     | '/company-home'
     | '/company-os'
     | '/connettori'
+    | '/daily-brief'
     | '/drive-knowledge'
     | '/email-daily-brief'
     | '/fonti'
@@ -724,6 +735,7 @@ export interface FileRouteTypes {
     | '/_authenticated/company-home'
     | '/_authenticated/company-os'
     | '/_authenticated/connettori'
+    | '/_authenticated/daily-brief'
     | '/_authenticated/drive-knowledge'
     | '/_authenticated/email-daily-brief'
     | '/_authenticated/fonti'
@@ -1010,6 +1022,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDriveKnowledgeRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/daily-brief': {
+      id: '/_authenticated/daily-brief'
+      path: '/daily-brief'
+      fullPath: '/daily-brief'
+      preLoaderRoute: typeof AuthenticatedDailyBriefRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/connettori': {
       id: '/_authenticated/connettori'
       path: '/connettori'
@@ -1240,6 +1259,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCompanyHomeRoute: typeof AuthenticatedCompanyHomeRoute
   AuthenticatedCompanyOsRoute: typeof AuthenticatedCompanyOsRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
+  AuthenticatedDailyBriefRoute: typeof AuthenticatedDailyBriefRoute
   AuthenticatedDriveKnowledgeRoute: typeof AuthenticatedDriveKnowledgeRoute
   AuthenticatedEmailDailyBriefRoute: typeof AuthenticatedEmailDailyBriefRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
@@ -1291,6 +1311,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCompanyHomeRoute: AuthenticatedCompanyHomeRoute,
   AuthenticatedCompanyOsRoute: AuthenticatedCompanyOsRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
+  AuthenticatedDailyBriefRoute: AuthenticatedDailyBriefRoute,
   AuthenticatedDriveKnowledgeRoute: AuthenticatedDriveKnowledgeRoute,
   AuthenticatedEmailDailyBriefRoute: AuthenticatedEmailDailyBriefRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
