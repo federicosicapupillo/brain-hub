@@ -624,6 +624,113 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [toolFn, safeLog, pushLog, safeCreateResponse, injectNaturalContext],
   );
 
+  // v3.19.6 — confirm pending preview through the server bridge.
+  const confirmPendingPreview = useCallback(
+    async (
+      source: "ui_button" | "voice_router",
+      userTranscript?: string | null,
+    ) => {
+      const preview = pendingPreviewRef.current;
+      if (!preview) {
+        safeLog("jack_action_confirmation_rejected_no_pending_preview", {
+          source,
+          reason: "no_pending_preview_in_client",
+        });
+        pushLog({
+          kind: "warning",
+          text: "Non ho una proposta pendente da confermare.",
+        });
+        return;
+      }
+      setConfirmingAction(true);
+      try {
+        const res = await confirmFromPreviewFn({
+          data: {
+            preview,
+            idempotency_key: preview.idempotency_key,
+            brain_id: preview.brain_id ?? brainId ?? null,
+            confirmation_source: source,
+            user_transcript: userTranscript ?? null,
+          },
+        });
+        if (res.ok && res.action_id) {
+          safeLog("jack_controlled_action_created_from_preview", {
+            confirmation_source: source,
+            risk_level: preview.risk_level,
+            source: preview.source,
+            deduplicated: Boolean(res.deduplicated),
+          });
+          pushLog({
+            kind: "system",
+            text: res.deduplicated
+              ? "Action già esistente: nessuna duplicata creata."
+              : "Action creata in coda (suggested).",
+          });
+          pendingPreviewRef.current = null;
+          setPendingActionPreview(null);
+          // Inform Jack via a function_call_output? No — we instead send a
+          // synthetic conversation item so the model can acknowledge.
+          const dc = dcRef.current;
+          if (dc && dc.readyState === "open") {
+            try {
+              dc.send(
+                JSON.stringify({
+                  type: "conversation.item.create",
+                  item: {
+                    type: "message",
+                    role: "system",
+                    content: [
+                      {
+                        type: "input_text",
+                        text: `Action confermata e creata in Action Queue (status: suggested, id ${res.action_id.slice(
+                          0,
+                          6,
+                        )}…). Conferma a Federico in modo naturale.`,
+                      },
+                    ],
+                  },
+                }),
+              );
+            } catch {
+              /* noop */
+            }
+            safeCreateResponse("action_confirmed", { queueIfBusy: true });
+          }
+        } else {
+          safeLog("jack_action_confirmation_failed", {
+            confirmation_source: source,
+            reason: res.reason ?? "unknown",
+          });
+          pushLog({
+            kind: "warning",
+            text: res.safe_message ?? "Conferma non riuscita.",
+          });
+        }
+      } catch (err) {
+        safeLog("jack_action_confirmation_failed", {
+          confirmation_source: source,
+          detail: String((err as Error).message ?? err).slice(0, 160),
+        });
+        pushLog({ kind: "error", text: "Errore durante la conferma." });
+      } finally {
+        setConfirmingAction(false);
+      }
+    },
+    [confirmFromPreviewFn, brainId, safeLog, pushLog, safeCreateResponse],
+  );
+
+  const cancelPendingPreview = useCallback(() => {
+    if (!pendingPreviewRef.current) return;
+    safeLog("jack_pending_action_preview_cancelled", {
+      source: pendingPreviewRef.current.source,
+    });
+    pendingPreviewRef.current = null;
+    setPendingActionPreview(null);
+    pushLog({ kind: "system", text: "Proposta annullata." });
+  }, [safeLog, pushLog]);
+
+
+
   const handleDcMessage = useCallback(
     (ev: MessageEvent<string>) => {
       let msg: RealtimeEvent;
