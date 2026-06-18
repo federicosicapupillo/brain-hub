@@ -381,8 +381,9 @@ function BlockPreview({ id, brainId }: { id: BlockId; brainId: string }) {
   }
   if (id === "project_health_check" && brainId) {
     return (
-      <div className="md:col-span-2">
+      <div className="md:col-span-2 space-y-3">
         <ProjectHealthCheck brainId={brainId} />
+        <OperationalHealthVisibility brainId={brainId} />
       </div>
     );
   }
