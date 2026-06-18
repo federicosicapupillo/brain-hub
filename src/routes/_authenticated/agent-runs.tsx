@@ -484,9 +484,15 @@ function AgentRunsPage() {
               <RunRow
                 key={r.id}
                 run={r}
+                isOpen={search.run === r.id}
                 agentName={
                   agents.find((a) => a.id === r.agent_id)?.name ?? r.agent_id
                 }
+                onOpen={() => {
+                  void navigate({
+                    search: (prev: Search) => ({ ...prev, run: r.id }),
+                  });
+                }}
                 onArchive={async () => {
                   await archiveAgentRun(r.id);
                   await invalidate();
