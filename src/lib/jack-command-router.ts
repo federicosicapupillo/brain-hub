@@ -36,6 +36,7 @@ import {
 import {
   buildJackBestAvailableNextAction,
   formatJackBestNextActionSpeech,
+  buildJackDailyStatusFallback,
 } from "@/lib/jack-best-next-action";
 
 export type JackIntent =
