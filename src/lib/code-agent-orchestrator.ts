@@ -803,6 +803,17 @@ export async function createCodeAgentJobFromJackCommand(
   };
 }
 
+// v3.15.6 — Jack-specific sanitized audit event (no transcript / no prompt).
+export async function emitCodeAgentJackJobCreatedEvent(
+  jobId: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  if (!jobId) return;
+  const userId = await currentUserId();
+  if (!userId) return;
+  await logJobEvent(jobId, userId, "code_agent_jack_job_created", payload);
+}
+
 // ---------- Approval / readiness / result lifecycle ----------
 
 /**
