@@ -19,6 +19,11 @@ import {
   createControlledJackAction,
   prepareJackMasterSnapshotUpdate,
 } from "@/lib/jack-controlled-actions.functions";
+import {
+  createCodeAgentJobFromJackCommand,
+  type CodeAgentEngine,
+  type CodeAgentRiskLevel,
+} from "@/lib/code-agent-orchestrator";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
@@ -157,6 +162,36 @@ export const JACK_GPT_TOOLS_SCHEMA = [
         summary: { type: "string", description: "Riepilogo libero di cosa è cambiato oggi." },
       },
       required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "create_code_agent_job",
+    description:
+      "Trasforma un comando di Federico riguardante codice ('correggi questo bug con Codex', 'fai una review con Claude Code', 'fai una PR', 'esegui typecheck', 'fai tutto da solo') in un Code Agent Job controllato. NON esegue codice, NON chiama Codex/Claude API, NON fa commit/push/PR. Classifica job_type, sceglie engine, stima rischio, prepara prompt e richiede approvazione se serve.",
+    parameters: {
+      type: "object",
+      properties: {
+        command_text: { type: "string" },
+        preferred_engine: {
+          type: "string",
+          enum: [
+            "codex_cloud",
+            "codex_cli",
+            "codex_github_action",
+            "claude_code_cli",
+            "claude_code_github_action",
+            "manual_developer",
+            "lovable",
+            "custom",
+          ],
+        },
+        repository_hint: { type: "string" },
+        risk_hint: { type: "string", enum: ["low", "medium", "high"] },
+        project_id: { type: "string" },
+        brain_id: { type: "string" },
+      },
+      required: ["command_text"],
     },
   },
 ] as const;
@@ -409,6 +444,115 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             },
           });
           return { ok: res.ok, payload: res };
+        }
+        case "create_code_agent_job": {
+          const commandText = String(args.command_text ?? "").trim();
+          if (!commandText) return { ok: false, error: "empty_command_text" };
+          const {
+            classifyCodeAgentCommand,
+            selectCodeEngine,
+            buildCodeAgentExecutionPlan,
+            buildCodexTaskPrompt,
+            buildClaudeCodeTaskPrompt,
+            CODE_AGENT_ENGINE_REGISTRY,
+          } = await import("@/lib/code-agent-orchestrator");
+          const ctx = {
+            brainId: (args.brain_id as string | undefined) ?? null,
+            projectId: (args.project_id as string | undefined) ?? null,
+            preferredEngine: (args.preferred_engine as CodeAgentEngine | undefined) ?? null,
+            repositoryHint: (args.repository_hint as string | undefined) ?? null,
+            riskHint: (args.risk_hint as CodeAgentRiskLevel | undefined) ?? null,
+          };
+          const cls = classifyCodeAgentCommand(commandText, ctx);
+          const engine = selectCodeEngine(cls, ctx);
+          const plan = buildCodeAgentExecutionPlan({
+            classification: cls,
+            engine,
+            context: ctx,
+            commandText,
+          });
+          const promptJob = {
+            command_text: commandText,
+            job_type: cls.job_type,
+            risk_level: cls.risk_level,
+            recommended_engine: engine,
+            branch_name: null,
+            repo_scope: ctx.repositoryHint ? { repo_url: ctx.repositoryHint } : {},
+            execution_plan: plan as unknown as Record<string, unknown>,
+            allowed_commands: plan.allowed_commands,
+            forbidden_paths: plan.forbidden_paths,
+            metadata: { repository_hint: ctx.repositoryHint },
+          };
+          const promptText = engine.startsWith("claude_code")
+            ? buildClaudeCodeTaskPrompt(promptJob)
+            : buildCodexTaskPrompt(promptJob);
+          const approvalStatus = cls.unsafe_request
+            ? "needs_strong_approval"
+            : cls.risk_level === "low"
+              ? "auto_approved"
+              : "pending";
+          const status = cls.unsafe_request
+            ? "pending_approval"
+            : cls.risk_level === "low"
+              ? "ready"
+              : "pending_approval";
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const sb = supabase as any;
+          let jobId: string | null = null;
+          try {
+            const res = await sb
+              .from("code_agent_jobs")
+              .insert({
+                user_id: userId,
+                brain_id: ctx.brainId,
+                project_id: ctx.projectId,
+                source: "jack_gpt",
+                command_text: commandText,
+                job_type: cls.job_type,
+                recommended_engine: engine,
+                risk_level: cls.risk_level,
+                requires_approval: cls.requires_approval,
+                status,
+                approval_status: approvalStatus,
+                execution_mode: plan.execution_mode,
+                repo_scope: ctx.repositoryHint ? { repo_url: ctx.repositoryHint } : {},
+                prompt_text: promptText,
+                execution_plan: plan,
+                allowed_commands: plan.allowed_commands,
+                forbidden_paths: plan.forbidden_paths,
+                metadata: { jack_classification: cls },
+              })
+              .select("id")
+              .single();
+            jobId = (res?.data?.id as string) ?? null;
+          } catch {
+            jobId = null;
+          }
+          const engineLabel = CODE_AGENT_ENGINE_REGISTRY[engine].label;
+          const safeMessage = cls.unsafe_request
+            ? "Ho preparato il job, ma chiedi esecuzione automatica: lo blocco come high-risk con approvazione forte richiesta. Non eseguo nulla in autonomia."
+            : cls.risk_level === "high"
+              ? `Ho creato un job high-risk per ${engineLabel}. Serve approvazione forte prima di qualsiasi azione.`
+              : cls.risk_level === "medium"
+                ? `Ho preparato un job per ${engineLabel}. Rischio medio: lo mando in approvazione prima dell'handoff.`
+                : `Ho preparato un job low-risk per ${engineLabel}. Pronto per handoff manuale.`;
+          return {
+            ok: jobId !== null,
+            payload: {
+              job_id: jobId,
+              job_type: cls.job_type,
+              recommended_engine: engine,
+              risk_level: cls.risk_level,
+              requires_approval: cls.requires_approval,
+              status,
+              approval_status: approvalStatus,
+              next_step: jobId
+                ? "Apri /code-agent-jobs per revisione e approvazione."
+                : "Riprova: job non salvato.",
+              safe_message: safeMessage,
+              unsafe_request: cls.unsafe_request,
+            },
+          };
         }
         default:
           return { ok: false, error: "unknown_tool" };

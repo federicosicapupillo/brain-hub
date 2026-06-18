@@ -5,6 +5,7 @@ import { getCalendarKnowledgeWarnings } from "@/lib/calendar-knowledge";
 import { getGithubOperationalWarnings } from "@/lib/github-operational";
 import { getAgentCenterWarnings } from "@/lib/agent-center";
 import { getCodeEngineHandoffWarnings } from "@/lib/code-engine-handoff";
+import { getCodeAgentJobWarnings } from "@/lib/code-agent-orchestrator";
 import { getAgentRunWarnings } from "@/lib/agent-runs";
 import { getTelegramCallbackWarnings } from "@/lib/telegram-callback-qa";
 
@@ -502,6 +503,22 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
   try {
     const cehWarnings = await getCodeEngineHandoffWarnings(brainId ?? null);
     for (const w of cehWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
+  // Code Agent Orchestrator warnings (v3.15) — manual-first, never executes.
+  try {
+    const cajWarnings = await getCodeAgentJobWarnings(brainId ?? null);
+    for (const w of cajWarnings) {
       warnings.push({
         id: w.id,
         level: w.level,
