@@ -25,8 +25,13 @@ import {
   importJackMemoryMarkdown,
   listJackMemoryDocuments,
   logJackMemoryEvent,
+  listJackMemoryEntries,
+  archiveJackMemoryEntry,
+  approveJackMemoryEntry,
+  rejectJackMemoryEntry,
   type ImportJackMemoryResult,
   type JackMemoryDocument,
+  type JackMemoryEntry,
   type SecretWarning,
 } from "@/lib/jack-memory";
 import { toast } from "sonner";
