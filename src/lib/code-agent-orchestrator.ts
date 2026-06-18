@@ -64,10 +64,14 @@ export type CodeAgentJobStatus =
   | "failed";
 
 export type CodeAgentApprovalStatus =
-  | "pending"
+  | "not_required"
   | "auto_approved"
+  | "draft"
+  | "pending"
   | "approved"
   | "rejected"
+  | "expired"
+  | "failed"
   | "needs_strong_approval";
 
 export type CodeAgentExecutionMode =
