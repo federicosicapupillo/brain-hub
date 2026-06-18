@@ -609,19 +609,23 @@ function CodeAgentJobsMiniCard({ brainId }: { brainId: string | null }) {
         </div>
         <div className="grid grid-cols-3 gap-2">
           <Tile label="Repo mancante" value={summary?.buckets.missing_repository ?? 0} tone={(summary?.buckets.missing_repository ?? 0) > 0 ? "red" : undefined} />
+          <Tile label="Repo collegato" value={summary?.buckets.resolved_repository ?? 0} />
           <Tile label="Pronti da inviare" value={summary?.buckets.ready_to_send ?? 0} />
-          <Tile label="Risultati da review" value={summary?.buckets.result_to_review ?? 0} tone={(summary?.buckets.result_to_review ?? 0) > 0 ? "amber" : undefined} />
         </div>
         <div className="grid grid-cols-2 gap-2">
+          <Tile label="Risultati da review" value={summary?.buckets.result_to_review ?? 0} tone={(summary?.buckets.result_to_review ?? 0) > 0 ? "amber" : undefined} />
           <Tile label="Bloccati (QA)" value={qa?.blocked ?? 0} tone={(qa?.blocked ?? 0) > 0 ? "amber" : undefined} />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
           <Tile label="Incoerenti (QA)" value={qa?.inconsistent ?? 0} tone={(qa?.inconsistent ?? 0) > 0 ? "red" : undefined} />
+          <div />
         </div>
         {summary?.lastLabel && (
           <div className="text-[11px] text-muted-foreground">
             Ultimo engine: <span className="font-medium">{summary.lastLabel}</span>
           </div>
         )}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           <Button asChild size="sm" variant="outline">
             <Link to="/code-agent-jobs">
               <ArrowRight className="mr-1 h-3 w-3" /> Jobs
@@ -629,7 +633,12 @@ function CodeAgentJobsMiniCard({ brainId }: { brainId: string | null }) {
           </Button>
           <Button asChild size="sm" variant="outline">
             <Link to="/code-agent-qa">
-              <ArrowRight className="mr-1 h-3 w-3" /> Apri QA Code Agent
+              <ArrowRight className="mr-1 h-3 w-3" /> QA
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/github-operational">
+              <ArrowRight className="mr-1 h-3 w-3" /> Collega repository
             </Link>
           </Button>
         </div>
