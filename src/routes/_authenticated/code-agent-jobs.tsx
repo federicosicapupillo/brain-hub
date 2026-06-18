@@ -398,7 +398,48 @@ function CodeAgentJobsPage() {
 
   // Keep legacy bindings reachable.
   void markCodeAgentJobReady;
-  void createJobFn;
+
+  const resetCreateForm = () => {
+    setNewCommandText("");
+    setNewPreferredEngine("auto");
+    setNewRiskHint("auto");
+    setNewRepositoryHint("");
+    setNewNotes("");
+    setNewDeliveryPreference("auto");
+  };
+
+  const handleCreateJob = async () => {
+    const cmd = newCommandText.trim();
+    if (!cmd) {
+      toast.error("Inserisci il comando/obiettivo del job");
+      return;
+    }
+    setCreateSubmitting(true);
+    try {
+      await createJobFn({
+        data: {
+          commandText: cmd,
+          brainId: brainId ?? null,
+          preferredEngine: newPreferredEngine === "auto" ? null : newPreferredEngine,
+          riskHint: newRiskHint === "auto" ? null : newRiskHint,
+          repositoryHint: newRepositoryHint.trim() ? newRepositoryHint.trim() : null,
+          notes: newNotes.trim() ? newNotes.trim() : null,
+          deliveryPreference:
+            newDeliveryPreference === "auto" ? null : newDeliveryPreference,
+          source: "browser",
+        },
+      });
+      toast.success("Code Agent Job creato");
+      setCreateOpen(false);
+      resetCreateForm();
+      refresh();
+    } catch (e) {
+      toast.error(describeTransitionError(e));
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
 
   const handleSaveResult = async () => {
     if (!openDetail) return;
