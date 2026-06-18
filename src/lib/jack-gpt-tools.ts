@@ -750,24 +750,99 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           };
         }
         case "preview_controlled_action": {
-          const commandText = String(args.command_text ?? "").trim();
-          if (!commandText) return { ok: false, error: "empty_command_text" };
-          const res = await createControlledJackAction({
-            data: {
-              command_text: commandText,
-              brain_id: (args.brain_id as string | undefined) ?? null,
-              project_id: (args.project_id as string | undefined) ?? null,
-              notes: (args.notes as string | undefined) ?? null,
-              source_warning_id: (args.source_warning_id as string | undefined) ?? null,
-              confirmed: false,
-            },
+          // v3.19.5 — robust preview. Safe-parse args, never throw on
+          // missing fields: reconstruct title/description/reason from
+          // best-next-action / readiness / static fallback.
+          const normalized = normalizePreviewInput(args);
+          void logSanitizedEvent(supabase, userId, "jack_preview_tool_args_normalized", {
+            brain_id: normalized.brain_id,
+            source: normalized.source,
+            tool_name: "preview_controlled_action",
+            had_title: normalized.title !== null,
+            had_description: normalized.description !== null,
+            had_reason: normalized.reason !== null,
+            has_command_text: normalized.command_text !== null,
+          });
+
+          // Fetch supporting context only if we need to fill gaps.
+          const needsFallback =
+            !normalized.title || !normalized.description || !normalized.reason;
+          const [best, readiness] = needsFallback
+            ? await Promise.all([
+                buildJackBestAvailableNextAction(normalized.brain_id).catch(() => null),
+                getJackReadinessDetails(normalized.brain_id).catch(() => null),
+              ])
+            : [null, null];
+
+          const built = buildPendingJackActionPreview(normalized, {
+            userId,
+            bestNextAction: best
+              ? {
+                  source: best.source,
+                  title: best.title,
+                  reason: best.reason,
+                  description: best.description,
+                  cta_label: best.cta_label,
+                  cta_href: best.cta_href,
+                }
+              : null,
+            readinessTopStep: readiness?.top_missing_steps[0] ?? null,
+          });
+
+          if (!built.ok) {
+            void logSanitizedEvent(supabase, userId, "jack_action_preview_failed", {
+              brain_id: normalized.brain_id,
+              source: normalized.source,
+              tool_name: "preview_controlled_action",
+              reason: built.reason,
+              missing_fields_count: built.required_fields.length,
+            });
+            return {
+              ok: false,
+              blocked: true,
+              reason: built.reason,
+              message: built.message,
+              required_fields: built.required_fields,
+              fallback_cta: built.fallback_cta,
+            };
+          }
+
+          const preview: PendingJackActionPreview = built.preview;
+          const valid = validatePreviewForDisplay(preview);
+          if (!valid) {
+            void logSanitizedEvent(supabase, userId, "jack_action_preview_failed", {
+              brain_id: normalized.brain_id,
+              source: normalized.source,
+              tool_name: "preview_controlled_action",
+              reason: "invalid_preview_for_display",
+              missing_fields_count: 0,
+            });
+            return {
+              ok: false,
+              blocked: true,
+              reason: "preview_data_missing",
+              message: "Preview generata ma incompleta per la lettura vocale.",
+              required_fields: ["title", "reason"],
+              fallback_cta: "/action-queue",
+            };
+          }
+
+          void logSanitizedEvent(supabase, userId, "jack_action_preview_built", {
+            brain_id: normalized.brain_id,
+            source: normalized.source,
+            risk_level: preview.risk_level,
+            reason: built.missing_fields.length > 0 ? "filled_from_fallback" : "from_input",
+            idempotency_key_preview: preview.idempotency_key.slice(0, 32),
+            missing_fields_count: built.missing_fields.length,
+            tool_name: "preview_controlled_action",
           });
           return {
             ok: true,
             payload: {
-              preview: res.preview,
+              preview,
               requires_confirmation: true,
-              idempotency_key: res.idempotency_key,
+              idempotency_key: preview.idempotency_key,
+              missing_fields_filled: built.missing_fields,
               safe_message:
                 "Preview generata. Chiedi conferma esplicita a Federico prima di chiamare create_controlled_action.",
             },
