@@ -177,6 +177,7 @@ function CodeAgentJobsPage() {
   const [newPreferredEngine, setNewPreferredEngine] = useState<CodeAgentEngine | "auto">("auto");
   const [newRiskHint, setNewRiskHint] = useState<CodeAgentRiskLevel | "auto">("auto");
   const [newRepositoryHint, setNewRepositoryHint] = useState("");
+  const [newRepositoryId, setNewRepositoryId] = useState<string>("none");
   const [newNotes, setNewNotes] = useState("");
   const [newDeliveryPreference, setNewDeliveryPreference] = useState<"auto" | "manual" | "telegram">("auto");
 
