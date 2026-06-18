@@ -643,21 +643,21 @@ async function collectAgentRuns(brainId: string | null): Promise<{
     const today = startOfTodayIso();
     let q = supabase
       .from("agent_run_logs")
-      .select("id,status,created_at,brain_id")
+      .select("id,run_status,created_at,brain_id")
       .gte("created_at", today)
       .limit(200);
     if (brainId) q = q.eq("brain_id", brainId);
     const { data } = await q;
-    const rows = (data ?? []) as Array<{ status: string }>;
+    const rows = (data ?? []) as Array<{ run_status: string }>;
     return {
       available: true,
       summary: {
         runs_today: rows.length,
         output_to_review: rows.filter(
           (r) =>
-            r.status === "completed" ||
-            r.status === "needs_review" ||
-            r.status === "pending_review",
+            r.run_status === "completed" ||
+            r.run_status === "needs_review" ||
+            r.run_status === "pending_review",
         ).length,
       },
     };
