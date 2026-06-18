@@ -524,3 +524,38 @@ function Tile({ label, value, tone }: { label: string; value: number; tone?: "am
     </div>
   );
 }
+
+function StepRow({ step }: { step: CodeAgentEndToEndStep }) {
+  const Icon =
+    step.status === "done"
+      ? CheckCircle2
+      : step.status === "blocked"
+        ? XCircle
+        : step.status === "warning"
+          ? AlertTriangle
+          : Circle;
+  const cls =
+    step.status === "done"
+      ? "text-emerald-500"
+      : step.status === "blocked"
+        ? "text-rose-500"
+        : step.status === "warning"
+          ? "text-amber-500"
+          : "text-muted-foreground";
+  return (
+    <li className="flex items-start gap-2 text-sm">
+      <Icon className={`mt-0.5 h-4 w-4 ${cls}`} />
+      <div className="flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span>{step.label}</span>
+          {step.nextActionLabel && step.nextActionTarget && (
+            <Button asChild size="sm" variant="ghost">
+              <Link to={step.nextActionTarget}>{step.nextActionLabel}</Link>
+            </Button>
+          )}
+        </div>
+        <div className="text-xs text-muted-foreground">{step.reason}</div>
+      </div>
+    </li>
+  );
+}
