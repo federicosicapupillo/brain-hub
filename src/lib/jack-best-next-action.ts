@@ -225,8 +225,8 @@ export async function buildJackBestAvailableNextAction(
       return {
         source: "remediation",
         title: firstOpen.title,
-        description: firstOpen.description ?? firstOpen.title,
-        reason: firstOpen.reason ?? "Remediation aperta.",
+        description: firstOpen.explanation || firstOpen.title,
+        reason: firstOpen.why_it_matters || "Remediation aperta.",
         cta_label: firstOpen.cta_label,
         cta_href: firstOpen.cta_href,
         can_create_action: true,
