@@ -930,7 +930,43 @@ function CodeAgentJobsPage() {
               </div>
             </div>
             <div>
-              <Label className="text-xs">Repository hint</Label>
+              <Label className="text-xs">Repository (registry)</Label>
+              {repos.length === 0 ? (
+                <div className="rounded border border-dashed p-2 text-xs text-muted-foreground space-y-1">
+                  <div>Nessun repository registrato.</div>
+                  <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                    <Link to="/github-operational">
+                      <GitBranch className="mr-1 h-3 w-3" /> Apri GitHub Operational
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={newRepositoryId}
+                  onValueChange={setNewRepositoryId}
+                  disabled={createSubmitting}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nessuno (auto / hint)</SelectItem>
+                    {repos.map((r) => {
+                      const name = r.repository_owner
+                        ? `${r.repository_owner}/${r.repository_name ?? ""}`
+                        : r.repository_name ?? r.repository_url;
+                      return (
+                        <SelectItem key={r.id} value={r.id}>
+                          {name}
+                          {r.default_branch ? ` · ${r.default_branch}` : ""}
+                          {r.connected_status ? ` · ${r.connected_status}` : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs">Repository hint (fallback testuale)</Label>
               <Input
                 value={newRepositoryHint}
                 onChange={(e) => setNewRepositoryHint(e.target.value)}
