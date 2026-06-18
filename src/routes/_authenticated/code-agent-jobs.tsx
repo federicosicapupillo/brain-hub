@@ -917,18 +917,42 @@ function OperatingStateBox({ job }: { job: CodeAgentJob }) {
 }
 
 function SafetyBox() {
+  const checks: Array<{ label: string; ok: boolean }> = [
+    { label: "Creazione browser: server function", ok: true },
+    { label: "Creazione Jack: server function", ok: true },
+    { label: "Repository update: server function", ok: true },
+    { label: "Transizioni: server function", ok: true },
+    { label: "Result/Review/Snapshot: server function", ok: true },
+    { label: "Runner reale: non attivo", ok: true },
+    { label: "Codex/Claude API: non attive", ok: true },
+    { label: "Telegram automatico: non attivo", ok: true },
+  ];
   return (
-    <div className="rounded border border-dashed bg-background/50 p-3 text-[11px] text-muted-foreground">
-      <div className="mb-1 flex items-center gap-2 font-semibold text-foreground">
-        <ShieldOff className="h-3.5 w-3.5" /> Cosa Brain Hub non farà
+    <div className="space-y-2">
+      <div className="rounded border border-emerald-500/30 bg-emerald-500/5 p-3 text-[11px]">
+        <div className="mb-1 flex items-center gap-2 font-semibold text-emerald-700">
+          <ShieldCheck className="h-3.5 w-3.5" /> Stato sicurezza Code Agent
+        </div>
+        <ul className="grid grid-cols-1 gap-0.5 pl-1 sm:grid-cols-2">
+          {checks.map((c) => (
+            <li key={c.label} className="flex items-center gap-1.5 text-emerald-700">
+              <CheckCircle2 className="h-3 w-3 shrink-0" /> <span>{c.label}</span>
+            </li>
+          ))}
+        </ul>
       </div>
-      <ul className="list-disc pl-5 space-y-0.5">
-        <li>Non esegue codice né apre terminale</li>
-        <li>Non modifica file nel repository</li>
-        <li>Non fa commit / push / merge / PR / deploy</li>
-        <li>Non invia Telegram automaticamente</li>
-        <li>Prepara solo prompt, stati, review e azioni controllate</li>
-      </ul>
+      <div className="rounded border border-dashed bg-background/50 p-3 text-[11px] text-muted-foreground">
+        <div className="mb-1 flex items-center gap-2 font-semibold text-foreground">
+          <ShieldOff className="h-3.5 w-3.5" /> Cosa Brain Hub non farà
+        </div>
+        <ul className="list-disc pl-5 space-y-0.5">
+          <li>Non esegue codice né apre terminale</li>
+          <li>Non modifica file nel repository</li>
+          <li>Non fa commit / push / merge / PR / deploy</li>
+          <li>Non invia Telegram automaticamente</li>
+          <li>Prepara solo prompt, stati, review e azioni controllate</li>
+        </ul>
+      </div>
     </div>
   );
 }
