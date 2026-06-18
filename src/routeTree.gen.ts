@@ -31,6 +31,7 @@ import { Route as AuthenticatedLoopQaRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedLogsRouteImport } from './routes/_authenticated/logs'
 import { Route as AuthenticatedLiveRouteImport } from './routes/_authenticated/live'
 import { Route as AuthenticatedKnowledgeMapRouteImport } from './routes/_authenticated/knowledge-map'
+import { Route as AuthenticatedJackMemoryRouteImport } from './routes/_authenticated/jack-memory'
 import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authenticated/impostazioni'
 import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticated/importa'
 import { Route as AuthenticatedHealthCheckRouteImport } from './routes/_authenticated/health-check'
@@ -190,6 +191,11 @@ const AuthenticatedKnowledgeMapRoute =
     path: '/knowledge-map',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedJackMemoryRoute = AuthenticatedJackMemoryRouteImport.update({
+  id: '/jack-memory',
+  path: '/jack-memory',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedImpostazioniRoute =
   AuthenticatedImpostazioniRouteImport.update({
     id: '/impostazioni',
@@ -440,6 +446,7 @@ export interface FileRoutesByFullPath {
   '/health-check': typeof AuthenticatedHealthCheckRoute
   '/importa': typeof AuthenticatedImportaRouteWithChildren
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
+  '/jack-memory': typeof AuthenticatedJackMemoryRoute
   '/knowledge-map': typeof AuthenticatedKnowledgeMapRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -499,6 +506,7 @@ export interface FileRoutesByTo {
   '/guida': typeof AuthenticatedGuidaRoute
   '/health-check': typeof AuthenticatedHealthCheckRoute
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
+  '/jack-memory': typeof AuthenticatedJackMemoryRoute
   '/knowledge-map': typeof AuthenticatedKnowledgeMapRoute
   '/live': typeof AuthenticatedLiveRoute
   '/logs': typeof AuthenticatedLogsRoute
@@ -562,6 +570,7 @@ export interface FileRoutesById {
   '/_authenticated/health-check': typeof AuthenticatedHealthCheckRoute
   '/_authenticated/importa': typeof AuthenticatedImportaRouteWithChildren
   '/_authenticated/impostazioni': typeof AuthenticatedImpostazioniRoute
+  '/_authenticated/jack-memory': typeof AuthenticatedJackMemoryRoute
   '/_authenticated/knowledge-map': typeof AuthenticatedKnowledgeMapRoute
   '/_authenticated/live': typeof AuthenticatedLiveRoute
   '/_authenticated/logs': typeof AuthenticatedLogsRoute
@@ -626,6 +635,7 @@ export interface FileRouteTypes {
     | '/health-check'
     | '/importa'
     | '/impostazioni'
+    | '/jack-memory'
     | '/knowledge-map'
     | '/live'
     | '/logs'
@@ -685,6 +695,7 @@ export interface FileRouteTypes {
     | '/guida'
     | '/health-check'
     | '/impostazioni'
+    | '/jack-memory'
     | '/knowledge-map'
     | '/live'
     | '/logs'
@@ -747,6 +758,7 @@ export interface FileRouteTypes {
     | '/_authenticated/health-check'
     | '/_authenticated/importa'
     | '/_authenticated/impostazioni'
+    | '/_authenticated/jack-memory'
     | '/_authenticated/knowledge-map'
     | '/_authenticated/live'
     | '/_authenticated/logs'
@@ -943,6 +955,13 @@ declare module '@tanstack/react-router' {
       path: '/knowledge-map'
       fullPath: '/knowledge-map'
       preLoaderRoute: typeof AuthenticatedKnowledgeMapRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/jack-memory': {
+      id: '/_authenticated/jack-memory'
+      path: '/jack-memory'
+      fullPath: '/jack-memory'
+      preLoaderRoute: typeof AuthenticatedJackMemoryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/impostazioni': {
@@ -1271,6 +1290,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedHealthCheckRoute: typeof AuthenticatedHealthCheckRoute
   AuthenticatedImportaRoute: typeof AuthenticatedImportaRouteWithChildren
   AuthenticatedImpostazioniRoute: typeof AuthenticatedImpostazioniRoute
+  AuthenticatedJackMemoryRoute: typeof AuthenticatedJackMemoryRoute
   AuthenticatedKnowledgeMapRoute: typeof AuthenticatedKnowledgeMapRoute
   AuthenticatedLiveRoute: typeof AuthenticatedLiveRoute
   AuthenticatedLogsRoute: typeof AuthenticatedLogsRoute
@@ -1323,6 +1343,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedHealthCheckRoute: AuthenticatedHealthCheckRoute,
   AuthenticatedImportaRoute: AuthenticatedImportaRouteWithChildren,
   AuthenticatedImpostazioniRoute: AuthenticatedImpostazioniRoute,
+  AuthenticatedJackMemoryRoute: AuthenticatedJackMemoryRoute,
   AuthenticatedKnowledgeMapRoute: AuthenticatedKnowledgeMapRoute,
   AuthenticatedLiveRoute: AuthenticatedLiveRoute,
   AuthenticatedLogsRoute: AuthenticatedLogsRoute,

@@ -17,6 +17,11 @@ import {
   type BrainRef,
   type ProjectResolution,
 } from "@/lib/project-aliases";
+import {
+  getJackMemoryContext,
+  getCurrentJackMemoryDocument,
+  extractProjectAliasesFromMemory,
+} from "@/lib/jack-memory";
 
 export type JackIntent =
   | "daily_status"
@@ -29,6 +34,7 @@ export type JackIntent =
   | "project_next_actions"
   | "project_recent_activity"
   | "multi_project_status"
+  | "identity"
   | "unknown";
 
 export type JackCommandCTA = {
@@ -153,6 +159,19 @@ const INTENT_PATTERNS: Record<Exclude<JackIntent, "unknown">, string[]> = {
     "quali progetti sono bloccati",
     "stato dei progetti",
   ],
+  identity: [
+    "chi sono io",
+    "chi sono",
+    "chi è federico",
+    "chi e federico",
+    "presentati",
+    "chi sei",
+    "cosa sai di me",
+    "cosa sai su di me",
+    "cosa devi sapere di me",
+    "regole jack",
+    "memoria jack",
+  ],
 };
 
 function normalize(t: string): string {
@@ -238,9 +257,26 @@ export async function resolveJackCommandIntent(input: {
     // Resolve potential project mention (used by project_* intents and as upgrade signal)
     const brains = context.brains ?? [];
     const mention = extractProjectMention(transcript);
-    const resolution: ProjectResolution = mention && brains.length > 0
+    let resolution: ProjectResolution = mention && brains.length > 0
       ? resolveProjectAlias(mention, brains)
       : { kind: "none" };
+
+    // Fallback: try memory-derived aliases if direct resolution failed
+    if (resolution.kind === "none" && mention && brains.length > 0) {
+      try {
+        const memDoc = await getCurrentJackMemoryDocument();
+        if (memDoc) {
+          const memAliases = extractProjectAliasesFromMemory(memDoc.content_markdown);
+          const hit = memAliases.find((a) => mention.toLowerCase().includes(a.alias));
+          if (hit) {
+            resolution = resolveProjectAlias(hit.target, brains);
+          }
+        }
+      } catch {
+        // best-effort
+      }
+    }
+
     const projectInfo: ResolvedProjectInfo = {
       brain: resolution.kind === "resolved" ? resolution.brain : null,
       resolution,
@@ -278,6 +314,8 @@ export async function resolveJackCommandIntent(input: {
         return await respondTelegram(context, matched);
       case "master_snapshot":
         return await respondMasterSnapshot(context, matched);
+      case "identity":
+        return await respondIdentity(matched);
       default:
         return {
           intent: "unknown",
@@ -981,5 +1019,45 @@ export async function logJackVoiceCommandEvent(
     } as never);
   } catch {
     // non-blocking
+  }
+}
+
+// ---------------- Identity intent (Jack Memory) ----------------
+
+async function respondIdentity(matched: string[]): Promise<JackCommandResult> {
+  try {
+    const ctxMem = await getJackMemoryContext({
+      scopes: ["identity", "behavior"],
+      maxChars: 800,
+    });
+    if (ctxMem.status === "missing" || !ctxMem.excerpt) {
+      return {
+        intent: "identity",
+        matched_phrases: matched,
+        response_text:
+          "Non ho ancora una memoria personale configurata. Importa il tuo Jack Memory Core dalla pagina Jack Memory per darmi contesto.",
+        cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+        source: "jack_memory_missing",
+      };
+    }
+    const text =
+      "Ecco quello che so di te dalla memoria operativa. " +
+      ctxMem.excerpt.replace(/\n+/g, " ").slice(0, 700);
+    return {
+      intent: "identity",
+      matched_phrases: matched,
+      response_text: text,
+      cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+      source: "jack_memory",
+    };
+  } catch {
+    return {
+      intent: "identity",
+      matched_phrases: matched,
+      response_text:
+        "Non sono riuscito a leggere la memoria operativa. Apri Jack Memory per verificarla.",
+      cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+      source: "error",
+    };
   }
 }
