@@ -1305,20 +1305,19 @@ export async function createActionFromAgentAiResult(
   runId: string,
 ): Promise<AutomationAction> {
   const run = await getAgentRun(runId);
-  if (!run.ai_result_text) throw new Error("Nessun risultato AI salvato");
+  if (!run.ai_result_text || !run.ai_result_text.trim()) {
+    throw new Error("Prima salva un risultato AI.");
+  }
   const agent = await getAgent(run.agent_id);
-  const preview = run.output_json as Partial<AgentRunPreview>;
+  // Source of truth: ai_result_text only. No fallback to prompt/preview/run summary.
   const extracted = extractSuggestedActionFromAiResult(run.ai_result_text);
 
-  // Real risk = AI-declared risk if present, else heuristic, else run.
-  const inferredRisk = (extracted.risk_level ??
-    preview.suggested_action?.risk_level ??
-    run.risk_level ??
-    "low") as RiskLevel;
+  // Real risk = AI-declared risk only. Default low if absent. Never read from
+  // run.risk_level / preview.suggested_action (those are heuristic, not AI).
+  const inferredRisk = (extracted.risk_level ?? "low") as RiskLevel;
   const agentMaxRisk = (agent.max_risk_level ?? "low") as RiskLevel;
   const exceeds = riskRank(inferredRisk) > riskRank(agentMaxRisk);
   const action_type = (extracted.action_type ??
-    preview.suggested_action?.action_type ??
     "agent_recommendation") as ActionType;
   const aiPriority = extracted.priority;
   const priority: PriorityLevel = exceeds ? "high" : (aiPriority ?? "medium");
