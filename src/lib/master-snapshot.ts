@@ -290,6 +290,41 @@ export async function createInitialMasterSnapshot(
   return mapRow(data as Row);
 }
 
+export type CreateDraftFromMarkdownInput = {
+  brainId?: string | null;
+  reason: string;
+  summary?: string;
+  markdown: string;
+  title?: string;
+};
+
+export async function createDraftFromMarkdown(
+  input: CreateDraftFromMarkdownInput,
+): Promise<MasterSnapshotVersion> {
+  await logMasterSnapshotEvent(
+    "master_snapshot_markdown_import_started",
+    input.reason,
+    { brain_id: input.brainId ?? null, length: input.markdown.length },
+  );
+  const draft = await proposeMasterSnapshotUpdate({
+    brainId: input.brainId ?? null,
+    reason: input.reason,
+    summary: input.summary,
+    source: "import",
+    changes: {
+      what_changed: "Import markdown completo",
+    },
+    markdownContent: input.markdown,
+    title: input.title,
+  });
+  await logMasterSnapshotEvent(
+    "master_snapshot_markdown_import_draft_created",
+    input.reason,
+    { draft_id: draft.id, length: input.markdown.length },
+  );
+  return draft;
+}
+
 export async function logMasterSnapshotEvent(
   action: MasterSnapshotEvent,
   notes: string,
