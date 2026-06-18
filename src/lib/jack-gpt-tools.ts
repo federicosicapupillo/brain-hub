@@ -191,32 +191,10 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       required: [],
     },
   },
-  {
-    type: "function",
-    name: "create_controlled_action",
-    description:
-      "Crea una action suggerita controllata SOLO DOPO conferma esplicita di Federico (es. 'sì, confermo', 'creala', 'procedi'). Richiede confirmed:true e idempotency_key ricevuta da preview_controlled_action. Se chiamata senza conferma esplicita viene bloccata server-side. NON esegue mai operazioni esterne.",
-    parameters: {
-      type: "object",
-      properties: {
-        command_text: { type: "string", description: "Testo del comando vocale di Federico." },
-        brain_id: { type: "string" },
-        project_id: { type: "string" },
-        delivery_preference: { type: "string", enum: ["telegram", "ui_only"] },
-        notes: { type: "string" },
-        confirmed: {
-          type: "boolean",
-          description: "DEVE essere true. Settarlo a true SOLO dopo conferma verbale esplicita di Federico (es. 'sì confermo', 'creala', 'procedi'). Frasi ambigue come 'ok', 'va bene', 'preparamela', 'dimmi' NON sono conferme valide.",
-        },
-        idempotency_key: {
-          type: "string",
-          description: "Idempotency key ricevuta da preview_controlled_action. Garantisce che la stessa proposta non venga creata due volte.",
-        },
-        source_warning_id: { type: "string" },
-      },
-      required: ["command_text", "confirmed"],
-    },
-  },
+  // v3.19.6 — create_controlled_action REMOVED from model-facing tool list.
+  // Writes happen ONLY via UI button or deterministic voice router after
+  // explicit user confirmation. The model can only call preview tools.
+
   {
     type: "function",
     name: "prepare_master_snapshot_update",
