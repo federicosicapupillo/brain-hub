@@ -6,7 +6,7 @@
 // ============================================================
 
 import { useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -380,10 +380,18 @@ export function JackVoiceCommand({ brainId, briefId }: Props) {
           </div>
           <p className="text-sm whitespace-pre-wrap">{result.response_text}</p>
           {result.cta ? (
-            <Button asChild size="sm" variant="outline">
-              <Link to={result.cta.to} search={result.cta.search ?? undefined}>
-                {result.cta.label}
-              </Link>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const cta = result.cta!;
+                navigate({
+                  to: cta.to,
+                  search: cta.search ?? undefined,
+                } as never);
+              }}
+            >
+              {result.cta.label}
             </Button>
           ) : null}
         </div>
