@@ -6,6 +6,7 @@ import { getGithubOperationalWarnings } from "@/lib/github-operational";
 import { getAgentCenterWarnings } from "@/lib/agent-center";
 import { getCodeEngineHandoffWarnings } from "@/lib/code-engine-handoff";
 import { getAgentRunWarnings } from "@/lib/agent-runs";
+import { getTelegramCallbackWarnings } from "@/lib/telegram-callback-qa";
 
 
 
@@ -28,6 +29,7 @@ export type LoopWarning = {
   title: string;
   description: string;
   cta?: { label: string; to: string };
+  category?: string;
 };
 
 export type LoopChainNode =
@@ -470,6 +472,23 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
         title: w.title,
         description: w.description,
         cta: w.cta,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
+  // Telegram callback warnings (v3.7.1) — read-only, no external calls
+  try {
+    const tgWarnings = await getTelegramCallbackWarnings(brainId ?? null);
+    for (const w of tgWarnings) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+        category: w.category,
       });
     }
   } catch {
