@@ -80,7 +80,7 @@ function getSpeechRecognitionCtor():
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export function JackVoiceCommand({ brainId, briefId }: Props) {
+export function JackVoiceCommand({ brainId, briefId, currentBrief }: Props) {
   const synthFn = useServerFn(synthesizeJackVoiceFromText);
   const playedFn = useServerFn(markJackVoicePlayed);
   const navigate = useNavigate();
