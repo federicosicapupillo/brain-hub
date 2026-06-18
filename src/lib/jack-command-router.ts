@@ -36,6 +36,7 @@ import {
 import {
   buildJackBestAvailableNextAction,
   formatJackBestNextActionSpeech,
+  buildJackDailyStatusFallback,
 } from "@/lib/jack-best-next-action";
 
 export type JackIntent =
@@ -427,29 +428,76 @@ async function respondDailyStatus(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const { brief, source } = await resolveBrief(ctx);
-  if (!brief) {
+  try {
+    const fb = await buildJackDailyStatusFallback(ctx.brainId);
+    void logJackVoiceCommandEvent(
+      "jack_daily_status_fallback_used",
+      `Daily status fallback used=${fb.fallback_used} has_brief=${fb.has_daily_brief}`,
+      {
+        brain_id: ctx.brainId,
+        has_daily_brief: fb.has_daily_brief,
+        fallback_used: fb.fallback_used,
+        best_next_action_source: fb.best_next_action?.source ?? null,
+        operational_status: fb.operational_status ?? null,
+      },
+    );
+    if (!fb.has_daily_brief) {
+      void logJackVoiceCommandEvent(
+        "jack_daily_brief_missing",
+        "Daily Brief assente per oggi",
+        { brain_id: ctx.brainId },
+      );
+      if (
+        fb.best_next_action ||
+        (fb.operational_status && fb.operational_status !== "healthy") ||
+        (fb.readiness_details && fb.readiness_details.status !== "ready") ||
+        (fb.remediation_summary && fb.remediation_summary.open > 0)
+      ) {
+        void logJackVoiceCommandEvent(
+          "jack_operational_status_used_without_daily_brief",
+          `Operational fallback source=${fb.best_next_action?.source ?? "none"}`,
+          {
+            brain_id: ctx.brainId,
+            source: fb.best_next_action?.source ?? null,
+            operational_status: fb.operational_status ?? null,
+          },
+        );
+      }
+    }
     return {
       intent: "daily_status",
       matched_phrases: matched,
-      response_text:
-        "Non c'è ancora un briefing per oggi. Apri il Daily Brief e clicca Genera per crearlo.",
+      response_text: fb.speech,
       cta: ctaDaily(ctx),
-      source: "daily_brief_missing",
+      source: fb.has_daily_brief
+        ? "daily_status:brief+best_next_action"
+        : `daily_status:fallback:${fb.best_next_action?.source ?? "none"}`,
+    };
+  } catch {
+    const { brief, source } = await resolveBrief(ctx);
+    if (!brief) {
+      return {
+        intent: "daily_status",
+        matched_phrases: matched,
+        response_text:
+          "Non c'è ancora un briefing per oggi. Apri il Daily Brief e clicca Genera per crearlo.",
+        cta: ctaDaily(ctx),
+        source: "daily_brief_missing",
+      };
+    }
+    const text =
+      brief.voice_summary_text?.trim() ||
+      summarizeBriefShort(brief) ||
+      brief.executive_summary?.slice(0, 600) ||
+      "Briefing presente ma vuoto.";
+    return {
+      intent: "daily_status",
+      matched_phrases: matched,
+      response_text: text,
+      cta: ctaDaily(ctx),
+      source: `daily_operating_brief:${source}`,
     };
   }
-  const text =
-    brief.voice_summary_text?.trim() ||
-    summarizeBriefShort(brief) ||
-    brief.executive_summary?.slice(0, 600) ||
-    "Briefing presente ma vuoto.";
-  return {
-    intent: "daily_status",
-    matched_phrases: matched,
-    response_text: text,
-    cta: ctaDaily(ctx),
-    source: `daily_operating_brief:${source}`,
-  };
 }
 
 function summarizeBriefShort(b: DailyBriefRow): string {
@@ -1080,7 +1128,10 @@ export type JackVoiceCommandEvent =
   | "jack_best_next_action_built"
   | "jack_action_queue_empty_fallback_used"
   | "jack_daily_brief_next_action_used"
-  | "jack_operational_fallback_used";
+  | "jack_operational_fallback_used"
+  | "jack_daily_status_fallback_used"
+  | "jack_daily_brief_missing"
+  | "jack_operational_status_used_without_daily_brief";
 
 function redactTranscript(t: string): string {
   return t

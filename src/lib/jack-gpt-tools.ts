@@ -28,6 +28,7 @@ import {
 import {
   buildJackBestAvailableNextAction,
   getJackReadinessDetails,
+  buildJackDailyStatusFallback,
 } from "@/lib/jack-best-next-action";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
@@ -37,11 +38,24 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     type: "function",
     name: "get_daily_brief",
     description:
-      "Restituisce il Daily Operating Brief di oggi. Read-only.",
+      "Restituisce il Daily Operating Brief di oggi se presente, sempre arricchito con best_next_action e operational_status. Se il Daily Brief manca, restituisce comunque il fallback operativo (NON dire solo 'genera il Daily Brief'). Read-only.",
     parameters: {
       type: "object",
       properties: {
         brain_id: { type: "string", description: "Brain id opzionale per filtrare." },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "get_operational_status",
+    description:
+      "Stato operativo compatto: presenza Daily Brief, health status/score, best next action, top step di readiness mancanti, contatori remediation. Read-only. Da usare quando l'utente chiede 'a che punto siamo', 'fammi il punto', 'com'è messo Brain Hub'.",
+    parameters: {
+      type: "object",
+      properties: {
+        brain_id: { type: "string" },
       },
       required: [],
     },
@@ -278,6 +292,19 @@ const ALLOWED_TOOL_NAMES: ReadonlySet<string> = new Set(
   JACK_GPT_TOOLS_SCHEMA.map((t) => t.name),
 );
 
+// v3.19.4 — read-only tools (used to log read-tool dedup separately).
+const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "get_daily_brief",
+  "get_operational_status",
+  "get_action_queue_summary",
+  "get_readiness_details",
+  "get_loop_qa_warnings",
+  "get_gmail_summary",
+  "get_project_status",
+  "get_memory_context",
+  "search_jack_memory",
+]);
+
 function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
   if (!raw) return {};
   if (typeof raw === "string") {
@@ -359,10 +386,18 @@ export const runJackGptTool = createServerFn({ method: "POST" })
     const cacheKey = dedupKey(userId, tool_name, args);
     const cached = readDedupedCall(cacheKey);
     if (cached !== null) {
-      void logSanitizedEvent(supabase, userId, "jack_duplicate_tool_call_prevented", {
-        tool_name,
-        brain_id: (args.brain_id as string | undefined) ?? null,
-      });
+      const isReadTool = READ_ONLY_TOOL_NAMES.has(tool_name);
+      void logSanitizedEvent(
+        supabase,
+        userId,
+        isReadTool
+          ? "jack_read_tool_duplicate_prevented"
+          : "jack_duplicate_tool_call_prevented",
+        {
+          tool_name,
+          brain_id: (args.brain_id as string | undefined) ?? null,
+        },
+      );
       return cached;
     }
 
@@ -372,18 +407,105 @@ export const runJackGptTool = createServerFn({ method: "POST" })
       switch (tool_name) {
 
         case "get_daily_brief": {
-          const ctx = await fetchBrainsCtx(supabase as never);
-          ctx.brainId = (args.brain_id as string | undefined) ?? null;
-          const result = await resolveJackCommandIntent({
-            transcript: "a che punto siamo",
-            context: ctx,
+          const brainId = (args.brain_id as string | undefined) ?? null;
+          const fb = await buildJackDailyStatusFallback(brainId);
+          void logSanitizedEvent(supabase, userId, "jack_daily_status_fallback_used", {
+            brain_id: brainId,
+            has_daily_brief: fb.has_daily_brief,
+            fallback_used: fb.fallback_used,
+            source: fb.best_next_action?.source ?? null,
+            tool_name: "get_daily_brief",
+          });
+          if (!fb.has_daily_brief) {
+            void logSanitizedEvent(supabase, userId, "jack_daily_brief_missing", {
+              brain_id: brainId,
+              tool_name: "get_daily_brief",
+            });
+            void logSanitizedEvent(
+              supabase,
+              userId,
+              "jack_operational_status_used_without_daily_brief",
+              {
+                brain_id: brainId,
+                source: fb.best_next_action?.source ?? null,
+                status: fb.operational_status ?? null,
+              },
+            );
+          }
+          return {
+            ok: true,
+            payload: {
+              has_daily_brief: fb.has_daily_brief,
+              fallback_available: true,
+              fallback_used: fb.fallback_used,
+              summary: redactSnippet(fb.speech, 900),
+              daily_brief_summary: fb.daily_brief_summary
+                ? redactSnippet(fb.daily_brief_summary, 700)
+                : null,
+              operational_status: fb.operational_status ?? null,
+              operational_score: fb.operational_score ?? null,
+              best_next_action: fb.best_next_action
+                ? {
+                    source: fb.best_next_action.source,
+                    title: fb.best_next_action.title,
+                    reason: fb.best_next_action.reason,
+                    cta_label: fb.best_next_action.cta_label,
+                    cta_href: fb.best_next_action.cta_href,
+                  }
+                : null,
+              readiness_details: fb.readiness_details
+                ? {
+                    status: fb.readiness_details.status,
+                    missing_count: fb.readiness_details.missing_count,
+                    top_missing_steps: fb.readiness_details.top_missing_steps.map((s) => ({
+                      id: s.id,
+                      label: s.label,
+                      why_it_matters: s.why_it_matters,
+                      suggested_fix: s.suggested_fix,
+                    })),
+                  }
+                : null,
+              remediation_summary: fb.remediation_summary ?? null,
+              brain_id: brainId,
+            },
+          };
+        }
+        case "get_operational_status": {
+          const brainId = (args.brain_id as string | undefined) ?? null;
+          const fb = await buildJackDailyStatusFallback(brainId);
+          void logSanitizedEvent(supabase, userId, "jack_daily_status_fallback_used", {
+            brain_id: brainId,
+            has_daily_brief: fb.has_daily_brief,
+            fallback_used: fb.fallback_used,
+            source: fb.best_next_action?.source ?? null,
+            tool_name: "get_operational_status",
           });
           return {
             ok: true,
             payload: {
-              summary: redactSnippet(result.response_text, 900),
-              source: result.source,
-              brain_id: ctx.brainId,
+              has_daily_brief: fb.has_daily_brief,
+              summary: redactSnippet(fb.speech, 900),
+              operational_status: fb.operational_status ?? null,
+              operational_score: fb.operational_score ?? null,
+              best_next_action: fb.best_next_action
+                ? {
+                    source: fb.best_next_action.source,
+                    title: fb.best_next_action.title,
+                    reason: fb.best_next_action.reason,
+                    cta_label: fb.best_next_action.cta_label,
+                    cta_href: fb.best_next_action.cta_href,
+                  }
+                : null,
+              top_missing_readiness_steps:
+                fb.readiness_details?.top_missing_steps.map((s) => ({
+                  id: s.id,
+                  label: s.label,
+                  severity: s.severity,
+                  why_it_matters: s.why_it_matters,
+                  suggested_fix: s.suggested_fix,
+                })) ?? [],
+              remediation_summary: fb.remediation_summary ?? null,
+              brain_id: brainId,
             },
           };
         }

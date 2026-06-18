@@ -524,3 +524,138 @@ export function formatJackBestNextActionSpeech(
       return best.description;
   }
 }
+
+// ============================================================
+// v3.19.4 — Jack Daily Status Fallback
+// ============================================================
+// When the user asks "a che punto siamo?" Jack should NEVER stop at
+// "Daily Brief mancante". This helper merges the Daily Brief summary
+// (if present) with the operational cascade (best next action,
+// operational health, readiness, remediation closure) so Jack always
+// has something concrete to say.
+//
+// READ-ONLY. No action creation, no external API, no code execution.
+// ============================================================
+
+export type JackDailyStatusRemediationSummary = {
+  open: number;
+  in_action: number;
+  done: number;
+  regressed: number;
+};
+
+export type JackDailyStatusFallback = {
+  brain_id: string | null;
+  has_daily_brief: boolean;
+  daily_brief_summary?: string;
+  fallback_used: boolean;
+  operational_status?: string;
+  operational_score?: number;
+  best_next_action?: JackBestNextAction;
+  readiness_details?: JackReadinessDetails;
+  remediation_summary?: JackDailyStatusRemediationSummary;
+  speech: string;
+};
+
+function summarizeBriefForFallback(brief: DailyBriefRow): string {
+  const txt =
+    brief.voice_summary_text?.trim() ||
+    brief.executive_summary?.trim() ||
+    "";
+  if (txt.length > 0) return txt.length > 600 ? `${txt.slice(0, 599)}…` : txt;
+  const open =
+    (brief.open_actions_summary?.suggested ?? 0) +
+    (brief.open_actions_summary?.pending ?? 0);
+  return `Oggi ${brief.implemented_today?.length ?? 0} azioni completate, ${open} aperte, ${brief.warnings_summary?.total ?? 0} warning attivi.`;
+}
+
+export async function buildJackDailyStatusFallback(
+  brainId?: string | null,
+): Promise<JackDailyStatusFallback> {
+  const scoped = brainId ?? null;
+
+  const [brief, best, health, readiness, closure] = await Promise.all([
+    resolveBriefForBest(scoped),
+    buildJackBestAvailableNextAction(scoped).catch(() => null),
+    getBrainHubOperationalHealth(scoped).catch(() => null),
+    getJackReadinessDetails(scoped).catch(() => null),
+    getRemediationClosureSummary(scoped).catch(() => null),
+  ]);
+
+  const hasBrief = brief !== null;
+  const briefSummary = brief ? summarizeBriefForFallback(brief) : undefined;
+  const fallbackUsed = !hasBrief;
+  const operationalStatus = health?.status;
+  const operationalScore = health?.score;
+  const remediationSummary: JackDailyStatusRemediationSummary | undefined =
+    closure
+      ? {
+          open: closure.open,
+          in_action: closure.action_created + closure.action_in_progress,
+          done: closure.resolved + closure.action_completed,
+          regressed: closure.regressed,
+        }
+      : undefined;
+
+  let speech: string;
+  if (hasBrief) {
+    const head = `Oggi il brief dice: ${briefSummary}`;
+    const nextLine =
+      best && best.source !== "fallback"
+        ? ` La prossima azione più importante è: "${best.title}".`
+        : "";
+    speech = `${head}${nextLine}`.trim();
+  } else {
+    const opPart =
+      operationalStatus && operationalStatus !== "healthy"
+        ? `Stato operativo: ${operationalStatus}${
+            operationalScore !== undefined ? ` (score ${operationalScore})` : ""
+          }.`
+        : operationalStatus === "healthy"
+          ? "Stato operativo: tutto verde."
+          : "";
+    const nextPart =
+      best && best.source !== "fallback"
+        ? ` La prossima priorità è "${best.title}". Ti consiglio di partire da qui.`
+        : "";
+    const readyPart =
+      readiness && readiness.status === "blocked" && readiness.top_missing_steps[0]
+        ? ` Readiness bloccata: primo step da chiudere "${readiness.top_missing_steps[0].label}".`
+        : "";
+    const remPart =
+      remediationSummary && remediationSummary.open > 0
+        ? ` Ci sono ${remediationSummary.open} remediation aperte${
+            remediationSummary.regressed > 0
+              ? ` e ${remediationSummary.regressed} riaperte`
+              : ""
+          }.`
+        : "";
+    const hasAnyOperationalSignal =
+      (best && best.source !== "fallback") ||
+      (operationalStatus && operationalStatus !== "healthy") ||
+      (readiness && readiness.status !== "ready") ||
+      (remediationSummary && remediationSummary.open > 0);
+    if (hasAnyOperationalSignal) {
+      speech =
+        `Non trovo un Daily Brief generato per oggi, ma posso fare comunque il punto operativo. ${opPart}${nextPart}${readyPart}${remPart} Dopo possiamo generare il Daily Brief per salvare il riepilogo.`
+          .replace(/\s+/g, " ")
+          .trim();
+    } else {
+      speech =
+        "Non trovo un Daily Brief generato per oggi e gli altri moduli operativi non segnalano priorità. Apri il Daily Brief e clicca Genera per crearne uno.";
+    }
+  }
+
+  return {
+    brain_id: scoped,
+    has_daily_brief: hasBrief,
+    daily_brief_summary: briefSummary,
+    fallback_used: fallbackUsed,
+    operational_status: operationalStatus,
+    operational_score: operationalScore,
+    best_next_action: best ?? undefined,
+    readiness_details: readiness ?? undefined,
+    remediation_summary: remediationSummary,
+    speech,
+  };
+}
