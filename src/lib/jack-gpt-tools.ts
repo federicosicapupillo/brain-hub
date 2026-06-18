@@ -25,6 +25,10 @@ import {
   type CodeAgentEngine,
   type CodeAgentRiskLevel,
 } from "@/lib/code-agent-orchestrator";
+import {
+  buildJackBestAvailableNextAction,
+  getJackReadinessDetails,
+} from "@/lib/jack-best-next-action";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
@@ -90,13 +94,25 @@ export const JACK_GPT_TOOLS_SCHEMA = [
   {
     type: "function",
     name: "get_action_queue_summary",
-    description: "Riepilogo Action Queue (open, high risk, top azioni).",
+    description:
+      "Riepilogo Action Queue + best next action (readiness, daily brief, remediation). Restituisce anche top_missing_readiness_steps quando il loop è bloccato. Read-only.",
     parameters: {
       type: "object",
       properties: {
         brain_id: { type: "string" },
         project_name: { type: "string" },
       },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "get_readiness_details",
+    description:
+      "Dettagli readiness del loop: status, step mancanti, primi 3 step prioritari con label/area/perché conta/come correggere e CTA. Read-only.",
+    parameters: {
+      type: "object",
+      properties: { brain_id: { type: "string" } },
       required: [],
     },
   },
@@ -249,6 +265,58 @@ function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
   return raw;
 }
 
+// ---------- Duplicate tool-call guard ----------
+// Some GPT runs emit the same tool_call twice in the same turn.
+// Memoize identical (user + tool + args) results for a short TTL
+// to prevent duplicate Supabase reads and duplicate event logs.
+type CachedResult = { at: number; result: unknown };
+const TOOL_CALL_DEDUP_TTL_MS = 3000;
+const toolCallCache = new Map<string, CachedResult>();
+
+function dedupKey(userId: string, toolName: string, args: Record<string, unknown>): string {
+  return `${userId}::${toolName}::${JSON.stringify(args)}`;
+}
+
+function readDedupedCall(key: string): unknown | null {
+  const hit = toolCallCache.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > TOOL_CALL_DEDUP_TTL_MS) {
+    toolCallCache.delete(key);
+    return null;
+  }
+  return hit.result;
+}
+
+function writeDedupedCall(key: string, result: unknown) {
+  toolCallCache.set(key, { at: Date.now(), result });
+  // Light eviction
+  if (toolCallCache.size > 200) {
+    const cutoff = Date.now() - TOOL_CALL_DEDUP_TTL_MS;
+    for (const [k, v] of toolCallCache) {
+      if (v.at < cutoff) toolCallCache.delete(k);
+    }
+  }
+}
+
+async function logSanitizedEvent(
+  supabaseClient: unknown,
+  userId: string,
+  event: string,
+  metadata: Record<string, unknown>,
+) {
+  try {
+    await (supabaseClient as {
+      from: (t: string) => {
+        insert: (v: Record<string, unknown>) => Promise<{ error: unknown }>;
+      };
+    })
+      .from("agent_event_log")
+      .insert({ user_id: userId, event_type: event, metadata });
+  } catch {
+    // best-effort
+  }
+}
+
 export const runJackGptTool = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => d as ToolInput)
@@ -262,7 +330,19 @@ export const runJackGptTool = createServerFn({ method: "POST" })
       return { ok: false, error: "tool_rejected", detail: "unknown_or_disallowed_tool" };
     }
 
-    try {
+    const cacheKey = dedupKey(userId, tool_name, args);
+    const cached = readDedupedCall(cacheKey);
+    if (cached !== null) {
+      void logSanitizedEvent(supabase, userId, "jack_duplicate_tool_call_prevented", {
+        tool_name,
+        brain_id: (args.brain_id as string | undefined) ?? null,
+      });
+      return cached;
+    }
+
+
+    type ToolReturn = { ok: boolean; [k: string]: unknown };
+    const compute = async (): Promise<ToolReturn> => {
       switch (tool_name) {
 
         case "get_daily_brief": {
@@ -358,17 +438,90 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           };
         }
         case "get_action_queue_summary": {
+          const brainId = (args.brain_id as string | undefined) ?? null;
           const ctx = await fetchBrainsCtx(supabase as never);
-          ctx.brainId = (args.brain_id as string | undefined) ?? null;
-          const result = await resolveJackCommandIntent({
-            transcript: "cosa devo fare adesso",
-            context: ctx,
-          });
+          ctx.brainId = brainId;
+          const [result, best, readiness] = await Promise.all([
+            resolveJackCommandIntent({
+              transcript: "cosa devo fare adesso",
+              context: ctx,
+            }),
+            buildJackBestAvailableNextAction(brainId).catch(() => null),
+            getJackReadinessDetails(brainId).catch(() => null),
+          ]);
           return {
             ok: true,
             payload: {
               summary: redactSnippet(result.response_text, 700),
               source: result.source,
+              best_next_action: best
+                ? {
+                    source: best.source,
+                    title: best.title,
+                    reason: best.reason,
+                    cta_label: best.cta_label,
+                    cta_href: best.cta_href,
+                    can_create_action: best.can_create_action,
+                    requires_confirmation: best.requires_confirmation,
+                    action_queue_open_count:
+                      best.meta.action_queue_open_count,
+                  }
+                : null,
+              readiness_details: readiness
+                ? {
+                    status: readiness.status,
+                    missing_count: readiness.missing_count,
+                  }
+                : null,
+              top_missing_readiness_steps:
+                readiness?.top_missing_steps.map((s) => ({
+                  id: s.id,
+                  label: s.label,
+                  area: s.area,
+                  severity: s.severity,
+                  why_it_matters: s.why_it_matters,
+                  suggested_fix: s.suggested_fix,
+                  cta_label: s.cta_label,
+                  cta_href: s.cta_href,
+                })) ?? [],
+            },
+          };
+        }
+        case "get_readiness_details": {
+          const brainId = (args.brain_id as string | undefined) ?? null;
+          void logSanitizedEvent(supabase, userId, "jack_readiness_details_requested", {
+            brain_id: brainId,
+            source: "tool",
+          });
+          const details = await getJackReadinessDetails(brainId);
+          void logSanitizedEvent(supabase, userId, "jack_readiness_details_returned", {
+            brain_id: brainId,
+            status: details.status,
+            missing_count: details.missing_count,
+            top_steps_count: details.top_missing_steps.length,
+          });
+          if (details.missing_count > 0 && details.top_missing_steps.length === 0) {
+            void logSanitizedEvent(supabase, userId, "jack_readiness_details_missing", {
+              brain_id: brainId,
+              missing_count: details.missing_count,
+            });
+          }
+          return {
+            ok: true,
+            payload: {
+              status: details.status,
+              missing_count: details.missing_count,
+              top_missing_steps: details.top_missing_steps.map((s) => ({
+                id: s.id,
+                label: s.label,
+                area: s.area,
+                severity: s.severity,
+                why_it_matters: s.why_it_matters,
+                suggested_fix: s.suggested_fix,
+                cta_label: s.cta_label,
+                cta_href: s.cta_href,
+              })),
+              cta: { label: "Apri Loop QA", to: "/loop-qa" },
             },
           };
         }
@@ -513,12 +666,19 @@ export const runJackGptTool = createServerFn({ method: "POST" })
         default:
           return { ok: false, error: "unknown_tool" };
       }
+    };
+
+    try {
+      const result = await compute();
+      writeDedupedCall(cacheKey, result);
+      return result;
     } catch (err) {
-      return {
+      const result = {
         ok: false,
         error: "tool_failed",
         detail: String((err as Error).message ?? err).slice(0, 200),
       };
+      return result;
     }
   });
 

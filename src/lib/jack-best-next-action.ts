@@ -1,5 +1,6 @@
 // ============================================================
-// Brain Hub v3.19.1 — Jack Best Available Next Action
+// Brain Hub v3.19.2 — Jack Best Available Next Action
+// + Readiness Details Tool Fix
 // ============================================================
 // Cascading fallback so Jack never tells Federico "nessuna azione"
 // when other Brain Hub modules already surface a clear priority.
@@ -13,6 +14,11 @@
 //   6. getRemediationClosureSummary (still-open regressed area)
 //   7. getLoopReadinessHealthBridge blocked
 //   8. fallback: ask to regenerate Daily Brief
+//
+// v3.19.2: when source = readiness (or operational_health with blocked
+// readiness), the response now carries concrete missing step details
+// (label, area, why_it_matters, suggested_fix, cta) so Jack can speak
+// the top missing steps instead of asking the user for hints.
 //
 // READ-ONLY: this helper never creates actions, never calls external
 // APIs (Codex/Claude/Telegram/Gmail/Drive/Calendar/n8n), never executes
@@ -32,7 +38,135 @@ import {
   getRemediationClosureSummary,
   getLoopReadinessHealthBridge,
 } from "@/lib/loop-remediation";
-import { getBrainHubOperationalHealth } from "@/lib/loop-qa";
+import {
+  getBrainHubOperationalHealth,
+  getLoopQaSummary,
+  type LoopWarningArea,
+  type LoopWarningSeverity,
+  type LoopStep,
+} from "@/lib/loop-qa";
+
+// ============================================================
+// Jack Readiness Details — v3.19.2
+// ============================================================
+
+export type JackReadinessStatus = "ready" | "partially_ready" | "blocked";
+
+export type JackReadinessMissingStep = {
+  id: string;
+  label: string;
+  area: LoopWarningArea | "general";
+  severity: LoopWarningSeverity;
+  why_it_matters: string;
+  suggested_fix: string;
+  cta_label: string;
+  cta_href: string;
+};
+
+export type JackReadinessDetails = {
+  brain_id: string | null;
+  status: JackReadinessStatus;
+  ready: boolean;
+  missing_count: number;
+  missing_steps: JackReadinessMissingStep[];
+  top_missing_steps: JackReadinessMissingStep[];
+};
+
+function mapStepIdToArea(stepId: string): LoopWarningArea | "general" {
+  const s = stepId.toLowerCase();
+  if (s.includes("review")) return "code_agent";
+  if (s.includes("knowledge")) return "jack";
+  if (s.includes("roadmap") || s.includes("action") || s.includes("prompt"))
+    return "automation_n8n";
+  if (s.includes("snapshot")) return "master_snapshot";
+  if (s.includes("telegram")) return "telegram";
+  return "general";
+}
+
+function severityForStep(step: LoopStep): LoopWarningSeverity {
+  // Steps 1-4 are foundational (no action / no review / no decision)
+  const m = step.id.match(/^(\d+)/);
+  const n = m ? Number(m[1]) : 0;
+  if (n > 0 && n <= 4) return "critical";
+  return "warning";
+}
+
+function whyStepMatters(step: LoopStep): string {
+  const id = step.id;
+  if (id.startsWith("1_")) return "Senza un'action iniziale il loop non parte.";
+  if (id.startsWith("2_"))
+    return "Senza action completata non c'è un risultato da rivedere.";
+  if (id.startsWith("3_"))
+    return "Senza Result Review non si valida l'output e non si apprende.";
+  if (id.startsWith("4_"))
+    return "Senza decisione sulla review il loop resta sospeso.";
+  if (id.startsWith("5_"))
+    return "Senza learning suggestions non si genera knowledge nuova.";
+  if (id.startsWith("6_"))
+    return "Senza suggestion accettata l'apprendimento non si consolida.";
+  if (id.startsWith("7_"))
+    return "Senza knowledge note il sapere non viene capitalizzato.";
+  if (id.startsWith("8_"))
+    return "Senza roadmap update il piano operativo non si aggiorna.";
+  if (id.startsWith("9_"))
+    return "Senza next prompt il prossimo ciclo non è pronto.";
+  if (id.startsWith("10_"))
+    return "Senza nuova action il loop non si chiude e non riparte.";
+  return "Step necessario per chiudere il loop operativo.";
+}
+
+function suggestedFixForStep(step: LoopStep): string {
+  const cta = step.cta?.label;
+  if (cta) return `${cta} e completa lo step "${step.label}".`;
+  return `Completa lo step "${step.label}".`;
+}
+
+export async function getJackReadinessDetails(
+  brainId?: string | null,
+): Promise<JackReadinessDetails> {
+  const scopedBrain = brainId ?? null;
+  const summary = await getLoopQaSummary(scopedBrain);
+  const missingSteps = summary.steps.filter((s) => s.status === "missing");
+  const ready = missingSteps.length === 0;
+  const status: JackReadinessStatus = ready
+    ? "ready"
+    : missingSteps.length >= 4
+      ? "blocked"
+      : "partially_ready";
+
+  const mapped: JackReadinessMissingStep[] = missingSteps.map((s) => ({
+    id: s.id,
+    label: s.label,
+    area: mapStepIdToArea(s.id),
+    severity: severityForStep(s),
+    why_it_matters: whyStepMatters(s),
+    suggested_fix: suggestedFixForStep(s),
+    cta_label: s.cta?.label ?? "Apri Loop QA",
+    cta_href: s.cta?.to ?? "/loop-qa",
+  }));
+
+  // Sort: critical first, then by original step order
+  const ordered = [...mapped].sort((a, b) => {
+    const sevWeight = (sev: LoopWarningSeverity) =>
+      sev === "critical" ? 0 : sev === "warning" ? 1 : 2;
+    const dw = sevWeight(a.severity) - sevWeight(b.severity);
+    if (dw !== 0) return dw;
+    return a.id.localeCompare(b.id);
+  });
+
+  return {
+    brain_id: scopedBrain,
+    status,
+    ready,
+    missing_count: missingSteps.length,
+    missing_steps: ordered,
+    top_missing_steps: ordered.slice(0, 3),
+  };
+}
+
+// ============================================================
+// Best Next Action
+// ============================================================
 
 export type JackBestNextActionSource =
   | "action_queue"
@@ -41,6 +175,18 @@ export type JackBestNextActionSource =
   | "remediation"
   | "readiness"
   | "fallback";
+
+export type JackBestNextActionMeta = {
+  brain_id: string | null;
+  action_queue_open_count: number;
+  daily_brief_present: boolean;
+  warning_id: string | null;
+  readiness_status?: JackReadinessStatus;
+  missing_steps_count?: number;
+  top_missing_steps?: JackReadinessMissingStep[];
+  first_missing_step?: JackReadinessMissingStep | null;
+  recommended_fix?: string | null;
+};
 
 export type JackBestNextAction = {
   source: JackBestNextActionSource;
@@ -51,12 +197,7 @@ export type JackBestNextAction = {
   cta_href: string;
   can_create_action: boolean;
   requires_confirmation: boolean;
-  meta: {
-    brain_id: string | null;
-    action_queue_open_count: number;
-    daily_brief_present: boolean;
-    warning_id: string | null;
-  };
+  meta: JackBestNextActionMeta;
 };
 
 type ActionRow = {
@@ -99,12 +240,26 @@ function pickDailyBriefNextAction(
   if (!brief) return null;
   const list = Array.isArray(brief.next_actions) ? brief.next_actions : [];
   if (list.length === 0) return null;
-  // Prefer high priority, then medium, then first.
   const high = list.find((a) => a.priority === "high");
   if (high) return high;
   const med = list.find((a) => a.priority === "medium");
   if (med) return med;
   return list[0] ?? null;
+}
+
+function attachReadinessMeta(
+  base: JackBestNextActionMeta,
+  details: JackReadinessDetails | null,
+): JackBestNextActionMeta {
+  if (!details) return base;
+  return {
+    ...base,
+    readiness_status: details.status,
+    missing_steps_count: details.missing_count,
+    top_missing_steps: details.top_missing_steps,
+    first_missing_step: details.top_missing_steps[0] ?? null,
+    recommended_fix: details.top_missing_steps[0]?.suggested_fix ?? null,
+  };
 }
 
 export async function buildJackBestAvailableNextAction(
@@ -164,13 +319,22 @@ export async function buildJackBestAvailableNextAction(
     };
   }
 
-  // 3. Enhanced Next Action (regressed / readiness / critical / warning)
+  // 3. Enhanced Next Action
   try {
     const enhanced = await getEnhancedNextAction(scopedBrain);
     if (enhanced.source !== "fallback") {
+      const isReadiness = enhanced.source === "readiness_blocked";
+      const readiness = isReadiness
+        ? await getJackReadinessDetails(scopedBrain).catch(() => null)
+        : null;
+      const baseMeta: JackBestNextActionMeta = {
+        brain_id: scopedBrain,
+        action_queue_open_count: 0,
+        daily_brief_present: briefPresent,
+        warning_id: enhanced.warning_id,
+      };
       return {
-        source:
-          enhanced.source === "readiness_blocked" ? "readiness" : "remediation",
+        source: isReadiness ? "readiness" : "remediation",
         title: enhanced.label,
         description: enhanced.reason,
         reason: enhanced.reason,
@@ -178,22 +342,31 @@ export async function buildJackBestAvailableNextAction(
         cta_href: enhanced.to,
         can_create_action: enhanced.warning_id !== null,
         requires_confirmation: true,
-        meta: {
-          brain_id: scopedBrain,
-          action_queue_open_count: 0,
-          daily_brief_present: briefPresent,
-          warning_id: enhanced.warning_id,
-        },
+        meta: attachReadinessMeta(baseMeta, readiness),
       };
     }
   } catch {
     // best-effort cascade
   }
 
-  // 4. Operational Health next action
+  // 4. Operational Health
   try {
     const health = await getBrainHubOperationalHealth(scopedBrain);
     if (health.status !== "healthy" && health.nextAction) {
+      // If health is driven by readiness, attach details
+      const bridge = await getLoopReadinessHealthBridge(scopedBrain).catch(
+        () => null,
+      );
+      const readiness =
+        bridge && bridge.status === "blocked"
+          ? await getJackReadinessDetails(scopedBrain).catch(() => null)
+          : null;
+      const baseMeta: JackBestNextActionMeta = {
+        brain_id: scopedBrain,
+        action_queue_open_count: 0,
+        daily_brief_present: briefPresent,
+        warning_id: null,
+      };
       return {
         source: "operational_health",
         title: health.nextAction.label,
@@ -203,19 +376,14 @@ export async function buildJackBestAvailableNextAction(
         cta_href: health.nextAction.to,
         can_create_action: false,
         requires_confirmation: true,
-        meta: {
-          brain_id: scopedBrain,
-          action_queue_open_count: 0,
-          daily_brief_present: briefPresent,
-          warning_id: null,
-        },
+        meta: attachReadinessMeta(baseMeta, readiness),
       };
     }
   } catch {
     // best-effort
   }
 
-  // 5. Remediation Plan first open item
+  // 5. Remediation plan first open
   try {
     const plan = await buildOperationalRemediationPlan(scopedBrain);
     const firstOpen = plan.items.find(
@@ -243,7 +411,7 @@ export async function buildJackBestAvailableNextAction(
     // best-effort
   }
 
-  // 6. Remediation closure summary regressed
+  // 6. Closure regressed
   try {
     const closure = await getRemediationClosureSummary(scopedBrain);
     if (closure.regressed > 0) {
@@ -272,6 +440,15 @@ export async function buildJackBestAvailableNextAction(
   try {
     const bridge = await getLoopReadinessHealthBridge(scopedBrain);
     if (bridge.status === "blocked") {
+      const readiness = await getJackReadinessDetails(scopedBrain).catch(
+        () => null,
+      );
+      const baseMeta: JackBestNextActionMeta = {
+        brain_id: scopedBrain,
+        action_queue_open_count: 0,
+        daily_brief_present: briefPresent,
+        warning_id: null,
+      };
       return {
         source: "readiness",
         title: "Readiness bloccata",
@@ -281,12 +458,7 @@ export async function buildJackBestAvailableNextAction(
         cta_href: "/loop-qa",
         can_create_action: false,
         requires_confirmation: true,
-        meta: {
-          brain_id: scopedBrain,
-          action_queue_open_count: 0,
-          daily_brief_present: briefPresent,
-          warning_id: null,
-        },
+        meta: attachReadinessMeta(baseMeta, readiness),
       };
     }
   } catch {
@@ -314,6 +486,22 @@ export async function buildJackBestAvailableNextAction(
   };
 }
 
+function formatReadinessSpeech(best: JackBestNextAction): string {
+  const count = best.meta.missing_steps_count ?? 0;
+  const top = best.meta.top_missing_steps ?? [];
+  if (count === 0 || top.length === 0) {
+    return "Vedo che la readiness è bloccata, ma il tool non mi ha restituito i dettagli degli step. Apri Loop QA per vedere la checklist.";
+  }
+  const bullets = top
+    .map((s, i) => `${i + 1}. ${s.label} — ${s.why_it_matters}`)
+    .join(" ");
+  const first = top[0];
+  const tail = first
+    ? ` Ti consiglio di partire da "${first.label}". Vuoi che prepari una action suggerita?`
+    : "";
+  return `Il loop è bloccato: mancano ${count} step. I primi da controllare sono: ${bullets}${tail}`;
+}
+
 export function formatJackBestNextActionSpeech(
   best: JackBestNextAction,
 ): string {
@@ -322,12 +510,15 @@ export function formatJackBestNextActionSpeech(
       return `Hai ${best.meta.action_queue_open_count} azioni aperte in Action Queue. Parti da "${best.title}".`;
     case "daily_brief":
       return `Non hai azioni aperte in Action Queue, però il Daily Brief indica come prossima azione: "${best.title}". Ti consiglio di partire da questa. Vuoi che prepari una action suggerita?`;
+    case "readiness":
+      return formatReadinessSpeech(best);
     case "operational_health":
+      if (best.meta.readiness_status === "blocked") {
+        return formatReadinessSpeech(best);
+      }
       return `Non hai azioni aperte, ma il sistema operativo segnala questa priorità: "${best.title}". ${best.reason}`;
     case "remediation":
       return `La prossima correzione consigliata è: "${best.title}", perché ${best.reason}. Posso creare una action suggerita solo se confermi.`;
-    case "readiness":
-      return `Non hai azioni aperte, ma la readiness del loop è bloccata: ${best.description}`;
     case "fallback":
     default:
       return best.description;
