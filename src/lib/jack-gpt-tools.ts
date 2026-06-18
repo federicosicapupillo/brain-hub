@@ -375,8 +375,8 @@ const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_gmail_summary",
   "get_memory_context",
   "preview_controlled_action",
-]);
-const inFlightToolCalls = new Map<string, Promise<unknown>>();
+type InFlightResult = { ok: boolean; [k: string]: unknown };
+const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
 
 async function logSanitizedEvent(
   supabaseClient: unknown,
