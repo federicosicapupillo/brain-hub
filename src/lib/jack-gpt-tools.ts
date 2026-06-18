@@ -94,13 +94,25 @@ export const JACK_GPT_TOOLS_SCHEMA = [
   {
     type: "function",
     name: "get_action_queue_summary",
-    description: "Riepilogo Action Queue (open, high risk, top azioni).",
+    description:
+      "Riepilogo Action Queue + best next action (readiness, daily brief, remediation). Restituisce anche top_missing_readiness_steps quando il loop è bloccato. Read-only.",
     parameters: {
       type: "object",
       properties: {
         brain_id: { type: "string" },
         project_name: { type: "string" },
       },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "get_readiness_details",
+    description:
+      "Dettagli readiness del loop: status, step mancanti, primi 3 step prioritari con label/area/perché conta/come correggere e CTA. Read-only.",
+    parameters: {
+      type: "object",
+      properties: { brain_id: { type: "string" } },
       required: [],
     },
   },
