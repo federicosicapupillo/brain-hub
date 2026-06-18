@@ -28,6 +28,7 @@ import {
   syncPendingCodeAgentApprovals,
   createCodeAgentJobFromBrowser,
   updateCodeAgentJobRepository,
+  emitCodeAgentJackJobCreatedEvent,
   CodeAgentTransitionError,
   type CodeAgentEngine,
   type CodeAgentRiskLevel,
