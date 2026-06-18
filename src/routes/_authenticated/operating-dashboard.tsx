@@ -564,6 +564,7 @@ function OperatingDashboardRoute() {
               <CalendarUpcomingPreview brainId={brainId} compact />
               <GmailMiniCard brainId={brainId} />
               <DailyBriefMiniCard brainId={brainId} />
+              <CodeAgentJobsMiniCard brainId={brainId} />
             </div>
           </div>
         </>
@@ -571,6 +572,50 @@ function OperatingDashboardRoute() {
     </div>
   );
 }
+
+function CodeAgentJobsMiniCard({ brainId }: { brainId: string | null }) {
+  const { data: summary } = useQuery({
+    queryKey: ["code-agent-jobs-mini-summary", brainId],
+    queryFn: async () => {
+      const { getCodeAgentJobSummary, CODE_AGENT_ENGINE_REGISTRY } = await import(
+        "@/lib/code-agent-orchestrator"
+      );
+      const s = await getCodeAgentJobSummary(brainId);
+      const lastLabel = s.lastEngine
+        ? CODE_AGENT_ENGINE_REGISTRY[s.lastEngine as keyof typeof CODE_AGENT_ENGINE_REGISTRY]?.label ?? s.lastEngine
+        : null;
+      return { ...s, lastLabel };
+    },
+  });
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
+          <Cpu className="h-4 w-4" /> Code Agent Jobs
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <Tile label="Aperti" value={summary?.open ?? 0} />
+          <Tile label="In approvazione" value={summary?.awaitingApproval ?? 0} tone={(summary?.awaitingApproval ?? 0) > 0 ? "amber" : undefined} />
+          <Tile label="Da revisionare" value={summary?.awaitingReview ?? 0} tone={(summary?.awaitingReview ?? 0) > 0 ? "amber" : undefined} />
+        </div>
+        {summary?.lastLabel && (
+          <div className="text-[11px] text-muted-foreground">
+            Ultimo engine: <span className="font-medium">{summary.lastLabel}</span>
+          </div>
+        )}
+        <Button asChild size="sm" variant="outline" className="w-full">
+          <Link to="/code-agent-jobs">
+            <ArrowRight className="mr-1 h-3 w-3" /> Apri Code Agent Jobs
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+
 
 function Tile({
   label,

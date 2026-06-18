@@ -1028,6 +1028,155 @@ export type Database = {
           },
         ]
       }
+      code_agent_job_events: {
+        Row: {
+          created_at: string
+          event_data: Json
+          event_type: string
+          id: string
+          job_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json
+          event_type: string
+          id?: string
+          job_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json
+          event_type?: string
+          id?: string
+          job_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "code_agent_job_events_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "code_agent_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      code_agent_jobs: {
+        Row: {
+          action_id: string | null
+          allowed_commands: string[] | null
+          approval_status: string
+          brain_id: string | null
+          branch_name: string | null
+          command_text: string
+          created_at: string
+          execution_mode: string
+          execution_plan: Json
+          external_pr_url: string | null
+          external_run_id: string | null
+          external_task_url: string | null
+          forbidden_paths: string[] | null
+          id: string
+          job_type: string
+          master_snapshot_draft_id: string | null
+          metadata: Json
+          next_action_id: string | null
+          project_id: string | null
+          prompt_text: string | null
+          recommended_engine: string
+          repo_scope: Json
+          repository_id: string | null
+          requires_approval: boolean
+          result_metadata: Json
+          result_review_item_id: string | null
+          result_text: string | null
+          risk_level: string
+          runner_status: string | null
+          selected_engine: string | null
+          source: string
+          status: string
+          telegram_approval_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_id?: string | null
+          allowed_commands?: string[] | null
+          approval_status?: string
+          brain_id?: string | null
+          branch_name?: string | null
+          command_text: string
+          created_at?: string
+          execution_mode?: string
+          execution_plan?: Json
+          external_pr_url?: string | null
+          external_run_id?: string | null
+          external_task_url?: string | null
+          forbidden_paths?: string[] | null
+          id?: string
+          job_type: string
+          master_snapshot_draft_id?: string | null
+          metadata?: Json
+          next_action_id?: string | null
+          project_id?: string | null
+          prompt_text?: string | null
+          recommended_engine: string
+          repo_scope?: Json
+          repository_id?: string | null
+          requires_approval?: boolean
+          result_metadata?: Json
+          result_review_item_id?: string | null
+          result_text?: string | null
+          risk_level?: string
+          runner_status?: string | null
+          selected_engine?: string | null
+          source?: string
+          status?: string
+          telegram_approval_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_id?: string | null
+          allowed_commands?: string[] | null
+          approval_status?: string
+          brain_id?: string | null
+          branch_name?: string | null
+          command_text?: string
+          created_at?: string
+          execution_mode?: string
+          execution_plan?: Json
+          external_pr_url?: string | null
+          external_run_id?: string | null
+          external_task_url?: string | null
+          forbidden_paths?: string[] | null
+          id?: string
+          job_type?: string
+          master_snapshot_draft_id?: string | null
+          metadata?: Json
+          next_action_id?: string | null
+          project_id?: string | null
+          prompt_text?: string | null
+          recommended_engine?: string
+          repo_scope?: Json
+          repository_id?: string | null
+          requires_approval?: boolean
+          result_metadata?: Json
+          result_review_item_id?: string | null
+          result_text?: string | null
+          risk_level?: string
+          runner_status?: string | null
+          selected_engine?: string | null
+          source?: string
+          status?: string
+          telegram_approval_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       code_engine_handoffs: {
         Row: {
           action_id: string | null
