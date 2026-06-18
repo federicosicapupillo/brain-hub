@@ -28,6 +28,10 @@ import {
   createDraftFromMarkdown,
   normalizeSnapshotMarkdownVersion,
   logMasterSnapshotEvent,
+  getSnapshotVersionLabel,
+  getMasterSnapshotVersionWarnings,
+  isLegacyVersionLabel,
+  computeNextVersionLabel,
   type MasterSnapshotVersion,
   type MasterSnapshotStatus,
 } from "@/lib/master-snapshot";
