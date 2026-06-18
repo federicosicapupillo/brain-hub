@@ -248,27 +248,35 @@ export const CODE_AGENT_JOB_TYPE_LABEL: Record<CodeAgentJobType, string> = {
   manual_handoff: "Manual handoff",
 };
 
-export const CODE_AGENT_STATUS_LABEL: Record<CodeAgentJobStatus, string> = {
+export const CODE_AGENT_STATUS_LABEL: Record<string, string> = {
   draft: "Bozza",
   pending_approval: "In attesa approvazione",
   ready: "Pronto",
   sent_to_engine: "Inviato a engine",
+  sent_manually: "Inviato manualmente",
   result_received: "Risultato ricevuto",
   review_created: "Review creata",
+  review_ready: "Review pronta",
+  reviewed: "Revisionato",
   completed: "Completato",
   rejected: "Rifiutato",
+  cancelled: "Annullato",
   failed: "Fallito",
 };
 
-export const CODE_AGENT_STATUS_TONE: Record<CodeAgentJobStatus, string> = {
+export const CODE_AGENT_STATUS_TONE: Record<string, string> = {
   draft: "bg-muted text-muted-foreground border-muted",
   pending_approval: "bg-amber-500/10 text-amber-600 border-amber-500/30",
   ready: "bg-sky-500/10 text-sky-600 border-sky-500/30",
   sent_to_engine: "bg-indigo-500/10 text-indigo-600 border-indigo-500/30",
+  sent_manually: "bg-indigo-500/10 text-indigo-600 border-indigo-500/30",
   result_received: "bg-violet-500/10 text-violet-600 border-violet-500/30",
   review_created: "bg-violet-500/10 text-violet-600 border-violet-500/30",
+  review_ready: "bg-violet-500/10 text-violet-600 border-violet-500/30",
+  reviewed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
   completed: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
   rejected: "bg-red-500/10 text-red-600 border-red-500/30",
+  cancelled: "bg-muted text-muted-foreground border-muted",
   failed: "bg-red-500/10 text-red-600 border-red-500/30",
 };
 
