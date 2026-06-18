@@ -653,6 +653,7 @@ function ActionRow({
   onCancel: () => void;
   onPrepare: () => void;
 }) {
+  const meta = (a.metadata ?? {}) as Record<string, unknown>;
   const terminal = ["executed", "rejected", "cancelled", "failed"].includes(a.status);
   return (
     <div className="rounded-md border border-border/60 bg-background/40 p-3">
@@ -691,6 +692,11 @@ function ActionRow({
                 ×{String((a.metadata as Record<string, unknown>).duplicate_click_count)} duplicati evitati
               </Badge>
             ) : null}
+            {meta.risk_exceeds_agent_permission === true && (
+              <Badge variant="outline" className="text-[10px] border-amber-500/40 text-amber-600">
+                <AlertTriangle className="mr-1 h-3 w-3" /> Rischio &gt; permessi agente
+              </Badge>
+            )}
             <span className="text-[10px] text-muted-foreground">
               · {new Date(a.created_at).toLocaleString()}
             </span>
