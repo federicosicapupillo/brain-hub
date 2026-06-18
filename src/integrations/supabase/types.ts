@@ -1095,6 +1095,7 @@ export type Database = {
           risk_level: string
           runner_status: string | null
           selected_engine: string | null
+          sent_manually_at: string | null
           source: string
           status: string
           telegram_approval_id: string | null
@@ -1132,6 +1133,7 @@ export type Database = {
           risk_level?: string
           runner_status?: string | null
           selected_engine?: string | null
+          sent_manually_at?: string | null
           source?: string
           status?: string
           telegram_approval_id?: string | null
@@ -1169,6 +1171,7 @@ export type Database = {
           risk_level?: string
           runner_status?: string | null
           selected_engine?: string | null
+          sent_manually_at?: string | null
           source?: string
           status?: string
           telegram_approval_id?: string | null
