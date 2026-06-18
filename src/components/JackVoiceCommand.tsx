@@ -33,11 +33,13 @@ import {
   markJackVoicePlayed,
 } from "@/lib/jack-voice.functions";
 import type { DailyBriefRow } from "@/lib/daily-operating-brief";
+import type { BrainRef } from "@/lib/project-aliases";
 
 type Props = {
   brainId?: string | null;
   briefId?: string | null;
   currentBrief?: DailyBriefRow | null;
+  brains?: BrainRef[];
 };
 
 type Phase =
@@ -80,7 +82,7 @@ function getSpeechRecognitionCtor():
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 }
 
-export function JackVoiceCommand({ brainId, briefId, currentBrief }: Props) {
+export function JackVoiceCommand({ brainId, briefId, currentBrief, brains }: Props) {
   const synthFn = useServerFn(synthesizeJackVoiceFromText);
   const playedFn = useServerFn(markJackVoicePlayed);
   const navigate = useNavigate();
@@ -198,7 +200,11 @@ export function JackVoiceCommand({ brainId, briefId, currentBrief }: Props) {
     try {
       const res = await resolveJackCommandIntent({
         transcript: t,
-        context: { brainId: brainId ?? null, currentBrief: currentBrief ?? null },
+        context: {
+          brainId: brainId ?? null,
+          currentBrief: currentBrief ?? null,
+          brains: brains ?? [],
+        },
       });
       setResult(res);
       void logJackVoiceCommandEvent(
@@ -388,6 +394,19 @@ export function JackVoiceCommand({ brainId, briefId, currentBrief }: Props) {
             ) : (
               <span className="text-muted-foreground">brain: tutti</span>
             )}
+            {result.project?.brain ? (
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-700 border-blue-500/30">
+                progetto: {result.project.brain.name}
+              </Badge>
+            ) : result.project?.resolution.kind === "ambiguous" ? (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                progetto ambiguo
+              </Badge>
+            ) : result.project?.mention ? (
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-700 border-amber-500/30">
+                progetto non trovato: {result.project.mention}
+              </Badge>
+            ) : null}
           </div>
           <p className="text-sm whitespace-pre-wrap">{result.response_text}</p>
           {result.cta ? (
