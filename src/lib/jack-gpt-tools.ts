@@ -363,6 +363,21 @@ function writeDedupedCall(key: string, result: unknown) {
   }
 }
 
+// v3.19.5 — in-flight dedup. If an identical (user + tool + args) call is
+// already executing, the second caller joins the same Promise instead of
+// running compute() again. Applied to read tools and preview_controlled_action.
+const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "get_daily_brief",
+  "get_operational_status",
+  "get_action_queue_summary",
+  "get_readiness_details",
+  "get_loop_qa_warnings",
+  "get_gmail_summary",
+  "get_memory_context",
+  "preview_controlled_action",
+]);
+const inFlightToolCalls = new Map<string, Promise<unknown>>();
+
 async function logSanitizedEvent(
   supabaseClient: unknown,
   userId: string,
