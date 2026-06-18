@@ -67,11 +67,36 @@ import {
   GitBranch,
   Info,
   ListChecks,
+  Plus,
   RefreshCw,
   Send,
   ShieldCheck,
   ShieldOff,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+
+const QA_TEST_COMMAND_TEXT = `TEST QA Code Agent — non eseguire codice.
+
+Obiettivo:
+Verificare che il ciclo Code Agent QA funzioni correttamente.
+
+Task richiesto:
+Prepara un handoff manuale per controllare che la route /code-agent-qa sia read-only, mostri correttamente job bloccati, job incoerenti, lifecycle checklist e runner readiness.
+
+Vincoli:
+- Non eseguire codice.
+- Non chiamare API Codex o Claude.
+- Non fare commit.
+- Non fare push.
+- Non aprire PR.
+- Non fare deploy.
+- Non inviare Telegram automaticamente.
+- Usare solo flusso manual-first.
+
+Output atteso:
+- Prompt/handoff manuale pronto.
+- Nessuna esecuzione automatica.
+- Job tracciabile nella QA Console.`;
 
 
 export const Route = createFileRoute("/_authenticated/code-agent-jobs")({
@@ -145,6 +170,15 @@ function CodeAgentJobsPage() {
   const [riskFilter, setRiskFilter] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [resultText, setResultText] = useState("");
+  // v3.16.1 — manual create dialog state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [newCommandText, setNewCommandText] = useState("");
+  const [newPreferredEngine, setNewPreferredEngine] = useState<CodeAgentEngine | "auto">("auto");
+  const [newRiskHint, setNewRiskHint] = useState<CodeAgentRiskLevel | "auto">("auto");
+  const [newRepositoryHint, setNewRepositoryHint] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+  const [newDeliveryPreference, setNewDeliveryPreference] = useState<"auto" | "manual" | "telegram">("auto");
 
   const { data: brains = [] } = useQuery({
     queryKey: ["brains-list"],
@@ -364,7 +398,48 @@ function CodeAgentJobsPage() {
 
   // Keep legacy bindings reachable.
   void markCodeAgentJobReady;
-  void createJobFn;
+
+  const resetCreateForm = () => {
+    setNewCommandText("");
+    setNewPreferredEngine("auto");
+    setNewRiskHint("auto");
+    setNewRepositoryHint("");
+    setNewNotes("");
+    setNewDeliveryPreference("auto");
+  };
+
+  const handleCreateJob = async () => {
+    const cmd = newCommandText.trim();
+    if (!cmd) {
+      toast.error("Inserisci il comando/obiettivo del job");
+      return;
+    }
+    setCreateSubmitting(true);
+    try {
+      await createJobFn({
+        data: {
+          commandText: cmd,
+          brainId: brainId ?? null,
+          preferredEngine: newPreferredEngine === "auto" ? null : newPreferredEngine,
+          riskHint: newRiskHint === "auto" ? null : newRiskHint,
+          repositoryHint: newRepositoryHint.trim() ? newRepositoryHint.trim() : null,
+          notes: newNotes.trim() ? newNotes.trim() : null,
+          deliveryPreference:
+            newDeliveryPreference === "auto" ? null : newDeliveryPreference,
+          source: "browser",
+        },
+      });
+      toast.success("Code Agent Job creato");
+      setCreateOpen(false);
+      resetCreateForm();
+      refresh();
+    } catch (e) {
+      toast.error(describeTransitionError(e));
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
 
   const handleSaveResult = async () => {
     if (!openDetail) return;
@@ -416,10 +491,15 @@ function CodeAgentJobsPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <PageHeader
-        title="Code Agent Jobs — Orchestratore Codex / Claude Code"
-        subtitle="Manual-first. Brain Hub prepara il job, sceglie engine, stima il rischio e richiede approvazione. Nessuna esecuzione automatica, niente commit/push/merge/deploy."
-      />
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <PageHeader
+          title="Code Agent Jobs — Orchestratore Codex / Claude Code"
+          subtitle="Manual-first. Brain Hub prepara il job, sceglie engine, stima il rischio e richiede approvazione. Nessuna esecuzione automatica, niente commit/push/merge/deploy."
+        />
+        <Button onClick={() => setCreateOpen(true)} className="shrink-0">
+          <Plus className="mr-1 h-4 w-4" /> Nuovo Code Agent Job
+        </Button>
+      </div>
 
       <Card>
         <CardHeader>
@@ -512,17 +592,34 @@ function CodeAgentJobsPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center justify-between">
             <span>Jobs ({filtered.length})</span>
-            <Button asChild size="sm" variant="outline">
-              <Link to="/action-queue">
-                <ListChecks className="mr-1 h-3 w-3" /> Action Queue
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-1 h-3 w-3" /> Nuovo Code Agent Job
+              </Button>
+              <Button asChild size="sm" variant="outline">
+                <Link to="/action-queue">
+                  <ListChecks className="mr-1 h-3 w-3" /> Action Queue
+                </Link>
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {filtered.length === 0 && (
-            <div className="rounded border border-dashed p-6 text-center text-sm text-muted-foreground">
-              Nessun job. Chiedi a Jack: "crea un job per Codex per correggere il bug X".
+            <div className="rounded border border-dashed p-6 text-center text-sm text-muted-foreground space-y-3">
+              <div>
+                Nessun job ancora. Puoi crearne uno manualmente oppure chiedere a Jack di prepararlo.
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <Button size="sm" onClick={() => setCreateOpen(true)}>
+                  <Plus className="mr-1 h-3 w-3" /> Nuovo Code Agent Job
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/code-agent-qa">
+                    <ShieldCheck className="mr-1 h-3 w-3" /> Apri Code Agent QA
+                  </Link>
+                </Button>
+              </div>
             </div>
           )}
           {filtered.map((j) => (
@@ -733,6 +830,133 @@ function CodeAgentJobsPage() {
       </Dialog>
 
       <RecentBlocksSection brainId={brainId} />
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(o) => {
+          if (createSubmitting) return;
+          setCreateOpen(o);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Nuovo Code Agent Job
+            </DialogTitle>
+            <DialogDescription>
+              Manual-first. Brain Hub crea solo il job: nessuna esecuzione, nessun commit, nessun deploy, nessuna chiamata a Codex/Claude.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Comando / obiettivo *</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setNewCommandText(QA_TEST_COMMAND_TEXT)}
+                  disabled={createSubmitting}
+                >
+                  Compila test QA
+                </Button>
+              </div>
+              <Textarea
+                rows={6}
+                value={newCommandText}
+                onChange={(e) => setNewCommandText(e.target.value)}
+                placeholder='Es: "Correggi il bug X nel file Y e prepara handoff manuale"'
+                disabled={createSubmitting}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <Label className="text-xs">Engine preferito</Label>
+                <Select
+                  value={newPreferredEngine}
+                  onValueChange={(v) => setNewPreferredEngine(v as CodeAgentEngine | "auto")}
+                  disabled={createSubmitting}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="codex">Codex</SelectItem>
+                    <SelectItem value="claude_code">Claude Code</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Rischio (hint)</Label>
+                <Select
+                  value={newRiskHint}
+                  onValueChange={(v) => setNewRiskHint(v as CodeAgentRiskLevel | "auto")}
+                  disabled={createSubmitting}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Delivery</Label>
+                <Select
+                  value={newDeliveryPreference}
+                  onValueChange={(v) =>
+                    setNewDeliveryPreference(v as "auto" | "manual" | "telegram")
+                  }
+                  disabled={createSubmitting}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="telegram">Telegram (approval)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Repository hint</Label>
+              <Input
+                value={newRepositoryHint}
+                onChange={(e) => setNewRepositoryHint(e.target.value)}
+                placeholder="es: owner/repo oppure nome del progetto"
+                disabled={createSubmitting}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Note (opzionali)</Label>
+              <Textarea
+                rows={3}
+                value={newNotes}
+                onChange={(e) => setNewNotes(e.target.value)}
+                placeholder="Contesto, vincoli, link utili…"
+                disabled={createSubmitting}
+              />
+            </div>
+            <div className="rounded border border-dashed p-2 text-xs text-muted-foreground">
+              Brain: <span className="font-mono">{brainId ?? "(tutti / non specificato)"}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setCreateOpen(false)}
+              disabled={createSubmitting}
+            >
+              Annulla
+            </Button>
+            <Button onClick={handleCreateJob} disabled={createSubmitting || !newCommandText.trim()}>
+              {createSubmitting ? "Creazione…" : "Crea job"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
