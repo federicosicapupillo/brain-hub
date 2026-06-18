@@ -37,6 +37,7 @@ import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
 import { JACK_GPT_PRIVACY_NOTICE } from "@/lib/jack-gpt-instructions";
 import {
   classifyRealtimeStartError,
+  isActiveResponseInProgressError,
   SUGGESTED_REALTIME_MODELS,
   type ClassifiedRealtimeStartError,
 } from "@/lib/jack-gpt-error-classifier";
