@@ -587,7 +587,14 @@ function TelegramWebhookSetupCard() {
     queryFn: () => checkCfg(),
   });
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const webhookUrl = origin ? `${origin.replace(/\/$/, "")}/api/public/telegram/webhook` : "";
+  // Telegram refuses preview-bridge hostnames (id-preview--*.lovable.app)
+  // because they 302 to /auth. Rewrite to the stable public dev host.
+  const stableOrigin = origin.replace(
+    /^https:\/\/id-preview--([0-9a-f-]+)\.lovable\.app$/i,
+    "https://project--$1-dev.lovable.app",
+  );
+  const webhookUrl = stableOrigin ? `${stableOrigin.replace(/\/$/, "")}/api/public/telegram/webhook` : "";
+  const isPreviewBridge = origin !== stableOrigin;
   const botOk = data?.bot_token_configured;
   const secretOk = data?.webhook_secret_configured;
   const ready = !!botOk && !!secretOk;
