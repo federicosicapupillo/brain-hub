@@ -129,7 +129,10 @@ async function insertAction(
     return (res?.data?.id as string) ?? null;
   } catch {
     return null;
+  }
 }
+
+
 
 async function findExistingActionByIdempotencyKey(
   supabase: unknown,
