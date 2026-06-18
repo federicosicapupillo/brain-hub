@@ -67,11 +67,36 @@ import {
   GitBranch,
   Info,
   ListChecks,
+  Plus,
   RefreshCw,
   Send,
   ShieldCheck,
   ShieldOff,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+
+const QA_TEST_COMMAND_TEXT = `TEST QA Code Agent — non eseguire codice.
+
+Obiettivo:
+Verificare che il ciclo Code Agent QA funzioni correttamente.
+
+Task richiesto:
+Prepara un handoff manuale per controllare che la route /code-agent-qa sia read-only, mostri correttamente job bloccati, job incoerenti, lifecycle checklist e runner readiness.
+
+Vincoli:
+- Non eseguire codice.
+- Non chiamare API Codex o Claude.
+- Non fare commit.
+- Non fare push.
+- Non aprire PR.
+- Non fare deploy.
+- Non inviare Telegram automaticamente.
+- Usare solo flusso manual-first.
+
+Output atteso:
+- Prompt/handoff manuale pronto.
+- Nessuna esecuzione automatica.
+- Job tracciabile nella QA Console.`;
 
 
 export const Route = createFileRoute("/_authenticated/code-agent-jobs")({
