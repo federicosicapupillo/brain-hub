@@ -719,3 +719,53 @@ function MvpFactoryProjectBlock({ brainId }: { brainId: string }) {
     </div>
   );
 }
+
+function OperationalHealthVisibility({ brainId }: { brainId: string | null }) {
+  const { data } = useQuery({
+    queryKey: ["project-console-op-health", brainId],
+    queryFn: async () => {
+      const { getBrainHubOperationalHealth, logLoopQaEvent } = await import("@/lib/loop-qa");
+      const h = await getBrainHubOperationalHealth(brainId);
+      void logLoopQaEvent(
+        "project_health_visibility_opened",
+        "Operational health letto da Project Console",
+        { brain_id: brainId, score: h.score, status: h.status },
+      );
+      return h;
+    },
+  });
+  if (!data) return null;
+  const tone =
+    data.status === "blocked"
+      ? "border-red-500/30 bg-red-500/5 text-red-700"
+      : data.status === "needs_attention"
+        ? "border-amber-500/30 bg-amber-500/5 text-amber-700"
+        : data.status === "incomplete"
+          ? "border-sky-500/30 bg-sky-500/5 text-sky-700"
+          : "border-emerald-500/30 bg-emerald-500/5 text-emerald-700";
+  return (
+    <div className={`rounded-md border p-3 text-sm ${tone}`}>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="font-medium">
+            Sistema Brain Hub · health {data.score}/100
+          </div>
+          <div className="text-xs">
+            {data.critical} critical · {data.warning} warning · {data.info} info
+          </div>
+          <div className="text-xs mt-1">
+            Prossima azione: <span className="font-medium">{data.nextAction.label}</span> — {data.nextAction.reason}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button asChild size="sm" variant="outline">
+            <a href="/loop-qa">Apri Loop QA</a>
+          </Button>
+          <Button asChild size="sm">
+            <a href={data.nextAction.to}>{data.nextAction.label}</a>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
