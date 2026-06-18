@@ -836,73 +836,14 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               requires_confirmation: true,
               idempotency_key: preview.idempotency_key,
               missing_fields_filled: built.missing_fields,
+              // v3.19.6 — write tool is NOT exposed to the model.
+              confirmation_methods: ["ui_button", "explicit_voice_confirmation"],
               safe_message:
-                "Preview generata. Chiedi conferma esplicita a Federico prima di chiamare create_controlled_action.",
+                "Preview generata. La creazione richiede conferma esplicita: clic sul pulsante UI 'Conferma creazione action' oppure conferma vocale chiara ('sì confermo', 'creala'). Il modello non può creare la action.",
             },
           };
         }
-        case "create_controlled_action": {
-          const commandText = String(args.command_text ?? "").trim();
-          if (!commandText) return { ok: false, error: "empty_command_text" };
 
-          // v3.19.3 — server-side confirmation gate (never trust the model).
-          const confirmed = args.confirmed === true;
-          if (!confirmed) {
-            void logSanitizedEvent(
-              supabase,
-              userId,
-              "jack_action_creation_blocked_missing_confirmation",
-              {
-                tool_name: "create_controlled_action",
-                brain_id: (args.brain_id as string | undefined) ?? null,
-                reason: "confirmation_required",
-                source: "tool_dispatcher",
-              },
-            );
-            return {
-              ok: false,
-              blocked: true,
-              reason: "confirmation_required",
-              error: "confirmation_required",
-              detail:
-                "create_controlled_action richiede confirmed:true. Usa preview_controlled_action e attendi una conferma esplicita di Federico.",
-            };
-          }
-
-          // Write-tool idempotency dedup (returns the first result, never repeats).
-          const writeKey = `${userId}::write::create_controlled_action::${
-            (args.idempotency_key as string | undefined) ?? JSON.stringify({
-              c: commandText,
-              b: args.brain_id ?? null,
-              p: args.project_id ?? null,
-            })
-          }`;
-          const dup = readDedupedCall(writeKey);
-          if (dup !== null) {
-            void logSanitizedEvent(supabase, userId, "jack_write_tool_duplicate_prevented", {
-              tool_name: "create_controlled_action",
-              brain_id: (args.brain_id as string | undefined) ?? null,
-            });
-            return dup as ToolReturn;
-          }
-
-          const res = await createControlledJackAction({
-            data: {
-              command_text: commandText,
-              brain_id: (args.brain_id as string | undefined) ?? null,
-              project_id: (args.project_id as string | undefined) ?? null,
-              delivery_preference:
-                (args.delivery_preference as "telegram" | "ui_only" | undefined) ?? null,
-              notes: (args.notes as string | undefined) ?? null,
-              source_warning_id: (args.source_warning_id as string | undefined) ?? null,
-              idempotency_key: (args.idempotency_key as string | undefined) ?? null,
-              confirmed: true,
-            },
-          });
-          const out = { ok: res.ok, payload: res };
-          writeDedupedCall(writeKey, out);
-          return out;
-        }
         case "prepare_master_snapshot_update": {
           const res = await prepareJackMasterSnapshotUpdate({
             data: {
