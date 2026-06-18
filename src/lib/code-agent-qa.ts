@@ -609,7 +609,12 @@ export type CodeAgentLoopQaWarning = {
     | "caj-ui-only-guard-risk"
     | "caj-server-transition-blocked"
     | "caj-bulk-sync-errors"
-    | "caj-transition-enforcement-missing";
+    | "caj-transition-enforcement-missing"
+    | "caj-e2e-no-ready-job"
+    | "caj-e2e-blocked-jobs"
+    | "caj-e2e-result-without-review"
+    | "caj-e2e-review-without-next-action"
+    | "caj-e2e-snapshot-ready";
   severity: "info" | "warning" | "critical";
   label: string;
   detail: string;
