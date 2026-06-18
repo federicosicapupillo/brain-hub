@@ -61,12 +61,14 @@ export const startGmailOAuth = createServerFn({ method: "POST" })
     }
 
     // Upsert a connection in 'not_connected' state for this user/brain
-    const { data: existing } = await supabase
+    let existingQ = supabase
       .from("gmail_connection_settings")
       .select("id")
-      .eq("user_id", userId)
-      .is("brain_id", data.brain_id ?? null)
-      .maybeSingle();
+      .eq("user_id", userId);
+    existingQ = data.brain_id
+      ? existingQ.eq("brain_id", data.brain_id)
+      : existingQ.is("brain_id", null);
+    const { data: existing } = await existingQ.maybeSingle();
     let connectionId: string | null =
       (existing as { id: string } | null)?.id ?? null;
     if (!connectionId) {
