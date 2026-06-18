@@ -179,7 +179,29 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastOpenAiStatus: null,
     lastOpenAiRequestId: null,
     sdpEndpointStatus: null,
+    responseState: "idle",
+    activeResponseIdRedacted: null,
+    pendingResponse: false,
+    lastResponseCreateReason: null,
+    lastResponseCreateAt: null,
+    lastResponseDoneAt: null,
+    skippedResponseCreateCount: 0,
+    duplicateResponseHandledCount: 0,
   });
+
+  const responseInProgressRef = useRef(false);
+  const activeResponseIdRef = useRef<string | null>(null);
+  const pendingResponseCreateRef = useRef<{ reason: string } | null>(null);
+  const lastResponseCreateAtRef = useRef<number>(0);
+  const lastResponseDoneAtRef = useRef<number>(0);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const RESPONSE_CREATE_DEBOUNCE_MS = 400;
+
+  function redactResponseId(id: string | null): string | null {
+    if (!id) return null;
+    if (id.length <= 10) return id;
+    return `${id.slice(0, 6)}…${id.slice(-4)}`;
+  }
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const dcRef = useRef<RTCDataChannel | null>(null);
