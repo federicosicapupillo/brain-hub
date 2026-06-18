@@ -25,7 +25,6 @@ import {
   type CodeAgentEngine,
   type CodeAgentRiskLevel,
 } from "@/lib/code-agent-orchestrator";
-import { serverRuntime } from "@/lib/code-agent-server-runtime.server";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
