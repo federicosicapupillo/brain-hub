@@ -21,7 +21,11 @@ export type MasterSnapshotEvent =
   | "master_snapshot_update_rejected"
   | "master_snapshot_version_created"
   | "master_snapshot_markdown_import_started"
-  | "master_snapshot_markdown_import_draft_created";
+  | "master_snapshot_markdown_import_draft_created"
+  | "master_snapshot_version_label_computed"
+  | "master_snapshot_version_mismatch_detected"
+  | "master_snapshot_version_integrity_checked"
+  | "master_snapshot_version_saved";
 
 export type MasterSnapshotChanges = {
   what_changed?: string;
@@ -135,11 +139,54 @@ export async function getMasterSnapshot(id: string) {
   return data ? mapRow(data as Row) : null;
 }
 
+/** Parse a label like "1.10" / "v1.10" / "1.10-draft" → {major, minor} or null */
+export function parseVersionLabel(
+  label: string | null | undefined,
+): { major: number; minor: number } | null {
+  if (!label) return null;
+  const cleaned = label.trim().replace(/^v/i, "").replace(/-draft$/i, "");
+  const m = cleaned.match(/^(\d+)\.(\d+)$/);
+  if (!m) return null;
+  return { major: Number(m[1]), minor: Number(m[2]) };
+}
+
+/** Canonical display label derived ONLY from structured DB fields. */
+export function getSnapshotVersionLabel(
+  snapshot: Pick<MasterSnapshotVersion, "version_label" | "version_status">,
+): string {
+  const parsed = parseVersionLabel(snapshot.version_label);
+  if (!parsed) return snapshot.version_label || "?";
+  const base = `${parsed.major}.${parsed.minor}`;
+  return snapshot.version_status === "draft_update" ? `${base}-draft` : base;
+}
+
+/** Highest non-draft label across the provided versions, or null. */
+function maxApprovedVersion(
+  versions: MasterSnapshotVersion[],
+): { major: number; minor: number } | null {
+  let best: { major: number; minor: number } | null = null;
+  for (const v of versions) {
+    if (v.version_status === "draft_update") continue;
+    const p = parseVersionLabel(v.version_label);
+    if (!p) continue;
+    if (!best || p.major > best.major || (p.major === best.major && p.minor > best.minor)) {
+      best = p;
+    }
+  }
+  return best;
+}
+
+/** Next deterministic version label given the full history. */
+export function computeNextVersionLabel(versions: MasterSnapshotVersion[]): string {
+  const best = maxApprovedVersion(versions);
+  if (!best) return "1.0";
+  return `${best.major}.${best.minor + 1}`;
+}
+
 function nextVersionLabel(current: string | null): string {
-  if (!current) return "1.0";
-  const m = current.match(/^(\d+)\.(\d+)$/);
-  if (!m) return `${current}.1`;
-  return `${m[1]}.${Number(m[2]) + 1}`;
+  const p = parseVersionLabel(current);
+  if (!p) return "1.0";
+  return `${p.major}.${p.minor + 1}`;
 }
 
 export type ProposeUpdateInput = {
@@ -220,7 +267,23 @@ export async function approveMasterSnapshotUpdate(
     await q;
   }
 
-  const newLabel = draft.version_label.replace(/-draft$/, "");
+  // Deterministically compute next label from ALL existing approved versions
+  // (not just the draft's preset label, which may be stale if multiple drafts
+  // were created off the same prior current).
+  const allVersions = await listMasterSnapshots(draft.brain_id);
+  const nextParsed = (() => {
+    const best = maxApprovedVersion(
+      allVersions.filter((v) => v.id !== draftId),
+    );
+    return best ? { major: best.major, minor: best.minor + 1 } : { major: 1, minor: 0 };
+  })();
+  const newLabel = `${nextParsed.major}.${nextParsed.minor}`;
+  await logMasterSnapshotEvent("master_snapshot_version_label_computed", newLabel, {
+    draft_id: draftId,
+    draft_preset_label: draft.version_label,
+    computed_label: newLabel,
+    history_size: allVersions.length,
+  });
   const update: Record<string, unknown> = {
     version_status: "current",
     version_label: newLabel,
@@ -242,6 +305,10 @@ export async function approveMasterSnapshotUpdate(
   });
   await logMasterSnapshotEvent("master_snapshot_version_created", newLabel, {
     version_id: draftId,
+  });
+  await logMasterSnapshotEvent("master_snapshot_version_saved", newLabel, {
+    version_id: draftId,
+    previous_label: draft.version_label,
   });
   return mapRow(data as Row);
 }
@@ -362,4 +429,104 @@ export async function logMasterSnapshotEvent(
     notes,
     metadata,
   } as never);
+}
+
+export type MasterSnapshotVersionWarning = {
+  id:
+    | "master-snapshot-version-mismatch"
+    | "master-snapshot-current-missing"
+    | "master-snapshot-current-duplicate"
+    | "master-snapshot-approved-draft-not-current"
+    | "master-snapshot-version-label-missing"
+    | "master-snapshot-version-label-duplicate";
+  level: "info" | "warning";
+  title: string;
+  description: string;
+};
+
+/** Non-blocking consistency warnings derived from the snapshot history. */
+export function getMasterSnapshotVersionWarnings(
+  versions: MasterSnapshotVersion[],
+): MasterSnapshotVersionWarning[] {
+  const w: MasterSnapshotVersionWarning[] = [];
+  const currents = versions.filter((v) => v.version_status === "current");
+  if (versions.length > 0 && currents.length === 0) {
+    w.push({
+      id: "master-snapshot-current-missing",
+      level: "warning",
+      title: "Nessuna versione corrente",
+      description: "Ci sono versioni nello storico ma nessuna è marcata come current.",
+    });
+  }
+  if (currents.length > 1) {
+    w.push({
+      id: "master-snapshot-current-duplicate",
+      level: "warning",
+      title: "Più versioni current",
+      description: `Trovate ${currents.length} versioni con status current. Approva una nuova bozza per ricompattare.`,
+    });
+  }
+  const approvedDrafts = versions.filter((v) => v.version_status === "approved_update");
+  if (approvedDrafts.length > 0) {
+    w.push({
+      id: "master-snapshot-approved-draft-not-current",
+      level: "info",
+      title: "Bozze approvate non promosse",
+      description: `${approvedDrafts.length} bozze risultano approved_update ma non current.`,
+    });
+  }
+  const labelCounts = new Map<string, number>();
+  let missingLabel = 0;
+  for (const v of versions) {
+    if (v.version_status === "draft_update") continue;
+    const parsed = parseVersionLabel(v.version_label);
+    if (!parsed) {
+      missingLabel++;
+      continue;
+    }
+    const key = `${parsed.major}.${parsed.minor}`;
+    labelCounts.set(key, (labelCounts.get(key) ?? 0) + 1);
+  }
+  if (missingLabel > 0) {
+    w.push({
+      id: "master-snapshot-version-label-missing",
+      level: "warning",
+      title: "Label versione mancante o legacy",
+      description: `${missingLabel} versioni hanno una label non parseable (es. formato legacy).`,
+    });
+  }
+  const duplicates = [...labelCounts.entries()].filter(([, n]) => n > 1);
+  if (duplicates.length > 0) {
+    w.push({
+      id: "master-snapshot-version-label-duplicate",
+      level: "warning",
+      title: "Label versione duplicate",
+      description: `Label duplicate: ${duplicates.map(([k, n]) => `v${k} (×${n})`).join(", ")}.`,
+    });
+  }
+  const current = currents[0] ?? null;
+  if (current) {
+    const expected = computeNextVersionLabel(versions.filter((v) => v.id !== current.id));
+    const parsedExpected = parseVersionLabel(expected);
+    const parsedCurrent = parseVersionLabel(current.version_label);
+    if (parsedExpected && parsedCurrent) {
+      // The current should be >= expected (since expected is "next after history minus current").
+      const expectedNum = parsedExpected.major * 1000 + parsedExpected.minor;
+      const currentNum = parsedCurrent.major * 1000 + parsedCurrent.minor;
+      if (currentNum < expectedNum) {
+        w.push({
+          id: "master-snapshot-version-mismatch",
+          level: "warning",
+          title: "Label versione non allineata allo storico",
+          description: `Storico contiene ${versions.length} versioni; current è v${current.version_label} ma atteso almeno v${expected}.`,
+        });
+      }
+    }
+  }
+  return w;
+}
+
+/** True if the label is parseable (non-legacy). */
+export function isLegacyVersionLabel(label: string | null | undefined): boolean {
+  return parseVersionLabel(label) === null;
 }

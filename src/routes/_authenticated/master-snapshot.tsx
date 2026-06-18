@@ -28,6 +28,10 @@ import {
   createDraftFromMarkdown,
   normalizeSnapshotMarkdownVersion,
   logMasterSnapshotEvent,
+  getSnapshotVersionLabel,
+  getMasterSnapshotVersionWarnings,
+  isLegacyVersionLabel,
+  computeNextVersionLabel,
   type MasterSnapshotVersion,
   type MasterSnapshotStatus,
 } from "@/lib/master-snapshot";
@@ -102,11 +106,20 @@ function MasterSnapshotRoute() {
   );
   const archived = useMemo(
     () =>
-      versions.filter(
-        (v) => v.version_status === "archived" || v.version_status === "approved_update",
-      ),
+      versions
+        .filter(
+          (v) => v.version_status === "archived" || v.version_status === "approved_update",
+        )
+        .slice()
+        .sort((a, b) => {
+          const ax = a.approved_at ?? a.created_at;
+          const bx = b.approved_at ?? b.created_at;
+          return bx.localeCompare(ax);
+        }),
     [versions],
   );
+  const warnings = useMemo(() => getMasterSnapshotVersionWarnings(versions), [versions]);
+  const expectedNext = useMemo(() => computeNextVersionLabel(versions), [versions]);
 
   const [selectedDraftId, setSelectedDraftId] = useState<string | null>(draftFromUrl ?? null);
   useEffect(() => {
@@ -127,8 +140,8 @@ function MasterSnapshotRoute() {
   async function handleApprove() {
     if (!selectedDraft) return;
     try {
-      await approveMasterSnapshotUpdate(selectedDraft.id, editor);
-      toast.success("Nuova versione del Master Snapshot salvata");
+      const saved = await approveMasterSnapshotUpdate(selectedDraft.id, editor);
+      toast.success(`Master Snapshot salvato come v${saved.version_label}`);
       await qc.invalidateQueries({ queryKey: ["master-snapshots"] });
       setSelectedDraftId(null);
     } catch (e) {
@@ -194,7 +207,7 @@ function MasterSnapshotRoute() {
             <div>
               <div className="font-medium">Stai modificando una bozza</div>
               <div className="text-xs text-muted-foreground">
-                v{selectedDraft.version_label} · {selectedDraft.reason ?? "—"}
+                v{getSnapshotVersionLabel(selectedDraft)} · {selectedDraft.reason ?? "—"}
               </div>
             </div>
             <Button asChild size="sm" variant="ghost">
@@ -206,6 +219,32 @@ function MasterSnapshotRoute() {
         </div>
       )}
 
+      {warnings.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Avvisi integrità versione ({warnings.length})</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {warnings.map((w) => (
+              <div
+                key={w.id}
+                className={`rounded-md border p-2 text-xs ${
+                  w.level === "warning"
+                    ? "border-amber-400/40 bg-amber-500/10"
+                    : "border-sky-400/30 bg-sky-500/10"
+                }`}
+              >
+                <div className="font-medium">{w.title}</div>
+                <div className="text-muted-foreground">{w.description}</div>
+              </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground">
+              Prossima versione attesa all'approvazione: v{expectedNext}.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Current version */}
       <Card>
         <CardHeader>
@@ -215,7 +254,12 @@ function MasterSnapshotRoute() {
               Versione corrente — sola lettura
             </CardTitle>
             {current && (
-              <Badge className={STATUS_TONE.current}>v{current.version_label}</Badge>
+              <div className="flex items-center gap-2">
+                {isLegacyVersionLabel(current.version_label) && (
+                  <Badge variant="outline" className="text-[10px]">legacy label</Badge>
+                )}
+                <Badge className={STATUS_TONE.current}>v{getSnapshotVersionLabel(current)}</Badge>
+              </div>
             )}
           </div>
         </CardHeader>
@@ -245,7 +289,7 @@ function MasterSnapshotRoute() {
               </pre>
               <p className="text-xs text-muted-foreground">
                 La versione ufficiale è quella mostrata nella scheda del Master Snapshot
-                (v{current.version_label}). Eventuali righe "Versione documento" nel
+                (v{getSnapshotVersionLabel(current)}). Eventuali righe "Versione documento" nel
                 markdown vengono normalizzate per evitare disallineamenti.
               </p>
               <p className="text-xs text-muted-foreground">
@@ -290,7 +334,7 @@ function MasterSnapshotRoute() {
                       className="w-full text-left"
                     >
                       <div className="flex items-center justify-between">
-                        <Badge className={STATUS_TONE.draft_update}>v{d.version_label}</Badge>
+                        <Badge className={STATUS_TONE.draft_update}>v{getSnapshotVersionLabel(d)}</Badge>
                         <span className="text-[10px] text-muted-foreground">
                           {new Date(d.created_at).toLocaleString()}
                         </span>
@@ -345,12 +389,15 @@ function MasterSnapshotRoute() {
                 <li key={v.id} className="flex items-center justify-between py-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Badge className={STATUS_TONE[v.version_status]}>
-                      v{v.version_label}
+                      v{getSnapshotVersionLabel(v)}
                     </Badge>
+                    {isLegacyVersionLabel(v.version_label) && (
+                      <Badge variant="outline" className="text-[10px]">legacy</Badge>
+                    )}
                     <span>{v.reason ?? "—"}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(v.updated_at).toLocaleString()} · {v.source}
+                    {new Date(v.approved_at ?? v.created_at).toLocaleString()} · {v.source}
                   </span>
                 </li>
               ))}
@@ -380,7 +427,7 @@ function DraftDetail({
     <div className="space-y-3 rounded-md border p-4">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-sm font-semibold">Bozza v{draft.version_label}</div>
+          <div className="text-sm font-semibold">Bozza v{getSnapshotVersionLabel(draft)}</div>
           <div className="text-xs text-muted-foreground">{draft.reason}</div>
         </div>
         <div className="flex gap-2">
