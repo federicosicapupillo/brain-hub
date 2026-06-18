@@ -389,12 +389,15 @@ function MasterSnapshotRoute() {
                 <li key={v.id} className="flex items-center justify-between py-2 text-sm">
                   <div className="flex items-center gap-2">
                     <Badge className={STATUS_TONE[v.version_status]}>
-                      v{v.version_label}
+                      v{getSnapshotVersionLabel(v)}
                     </Badge>
+                    {isLegacyVersionLabel(v.version_label) && (
+                      <Badge variant="outline" className="text-[10px]">legacy</Badge>
+                    )}
                     <span>{v.reason ?? "—"}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {new Date(v.updated_at).toLocaleString()} · {v.source}
+                    {new Date(v.approved_at ?? v.created_at).toLocaleString()} · {v.source}
                   </span>
                 </li>
               ))}
