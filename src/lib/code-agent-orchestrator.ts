@@ -1061,25 +1061,62 @@ export async function getCodeAgentJob(id: string): Promise<CodeAgentJob | null> 
   return (data as CodeAgentJob | null) ?? null;
 }
 
+export type CodeAgentJobSummaryBuckets = {
+  draft: number;
+  missing_repository: number;
+  ambiguous_repository: number;
+  pending_approval: number;
+  ready_to_send: number;
+  sent_without_result: number;
+  result_to_review: number;
+  reviewed: number;
+  failed_or_cancelled: number;
+};
+
 export type CodeAgentJobSummary = {
   total: number;
   open: number;
   awaitingApproval: number;
   awaitingReview: number;
   lastEngine: string | null;
+  buckets: CodeAgentJobSummaryBuckets;
 };
 
 export async function getCodeAgentJobSummary(
   brainId?: string | null,
 ): Promise<CodeAgentJobSummary> {
   const items = await listCodeAgentJobs({ brainId: brainId ?? null });
+  const buckets: CodeAgentJobSummaryBuckets = {
+    draft: 0,
+    missing_repository: 0,
+    ambiguous_repository: 0,
+    pending_approval: 0,
+    ready_to_send: 0,
+    sent_without_result: 0,
+    result_to_review: 0,
+    reviewed: 0,
+    failed_or_cancelled: 0,
+  };
+  for (const j of items) {
+    const res = ((j.metadata?.repository_resolution as { status?: string } | undefined)?.status) ?? null;
+    const requiresRepo = CODE_JOB_TYPES_REQUIRING_REPO.includes(j.job_type as CodeAgentJobType);
+    if (requiresRepo && !j.repository_id && res === "missing") buckets.missing_repository++;
+    if (requiresRepo && !j.repository_id && res === "ambiguous") buckets.ambiguous_repository++;
+    if (j.status === "draft") buckets.draft++;
+    if (j.status === "pending_approval") buckets.pending_approval++;
+    if (j.status === "ready") buckets.ready_to_send++;
+    if ((j.status === "sent_manually" || j.status === "sent_to_engine") && !j.result_text) buckets.sent_without_result++;
+    if (j.status === "result_received" && !j.result_review_item_id) buckets.result_to_review++;
+    if (j.status === "reviewed" || j.status === "review_ready") buckets.reviewed++;
+    if (j.status === "failed" || j.status === "cancelled" || j.status === "rejected") buckets.failed_or_cancelled++;
+  }
   const open = items.filter(
-    (j) => j.status !== "completed" && j.status !== "rejected" && j.status !== "failed",
+    (j) => !CODE_AGENT_TERMINAL_STATUSES.includes(j.status as CodeAgentJobStatus) && j.status !== "completed",
   ).length;
   const awaitingApproval = items.filter((j) => j.status === "pending_approval").length;
   const awaitingReview = items.filter((j) => j.status === "result_received").length;
   const lastEngine = items[0]?.recommended_engine ?? null;
-  return { total: items.length, open, awaitingApproval, awaitingReview, lastEngine };
+  return { total: items.length, open, awaitingApproval, awaitingReview, lastEngine, buckets };
 }
 
 // ---------- Loop QA warnings ----------
