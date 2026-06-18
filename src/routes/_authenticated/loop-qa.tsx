@@ -547,3 +547,188 @@ function CompanyOsRow({ brainId }: { brainId: string | null }) {
     </div>
   );
 }
+
+function RemediationPlanCard({ brainId }: { brainId: string | null }) {
+  const qc = useQueryClient();
+  const { data: plan, isLoading } = useQuery({
+    queryKey: ["loop-remediation-plan", brainId],
+    queryFn: () => buildOperationalRemediationPlan(brainId),
+  });
+
+  async function handleCreateAction(item: RemediationItem) {
+    void logLoopQaEvent("loop_remediation_item_viewed", "Item remediation aperto", {
+      brain_id: brainId,
+      warning_id: item.warning_id,
+      area: item.area,
+      severity: item.severity,
+    });
+    const res = await createRemediationActionForItem(item, brainId);
+    if (!res.ok) {
+      toast.error(`Errore creazione azione: ${res.error}`);
+      return;
+    }
+    if (res.deduplicated) toast.info("Azione già presente in Action Queue.");
+    else toast.success("Azione suggerita creata in Action Queue.");
+    await qc.invalidateQueries({ queryKey: ["loop-remediation-plan", brainId] });
+  }
+
+  function handleCtaOpen(item: RemediationItem) {
+    void logLoopQaEvent("loop_remediation_cta_opened", "CTA remediation aperta", {
+      brain_id: brainId,
+      warning_id: item.warning_id,
+      area: item.area,
+      to: item.cta_href,
+    });
+  }
+
+  if (isLoading || !plan) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Piano di correzione consigliato</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">Calcolo piano…</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (plan.total === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Piano di correzione consigliato</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Nessun warning attivo. Sistema in stato sano.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const top = plan.items.slice(0, 5);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span>Piano di correzione consigliato</span>
+          <span className="flex gap-2 text-xs font-normal text-muted-foreground">
+            <Badge variant="outline">{plan.open} aperti</Badge>
+            <Badge variant="outline">{plan.action_created} con azione</Badge>
+          </span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {plan.next && (
+          <div className="rounded-md border border-primary/40 bg-primary/5 p-3">
+            <div className="flex items-center gap-2 text-xs">
+              <Badge variant="outline">Prossimo intervento</Badge>
+              <Badge variant="outline">{REMEDIATION_AREA_LABEL[plan.next.area]}</Badge>
+              <SeverityBadge severity={plan.next.severity} />
+            </div>
+            <div className="mt-1 text-sm font-medium">{plan.next.title}</div>
+            <div className="text-xs text-muted-foreground">{plan.next.explanation}</div>
+            <div className="mt-1 text-xs">
+              <span className="font-medium">Perché conta: </span>
+              {plan.next.why_it_matters}
+            </div>
+            <div className="mt-1 text-xs">
+              <span className="font-medium">Azione: </span>
+              {plan.next.recommended_action}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button asChild size="sm" onClick={() => handleCtaOpen(plan.next!)}>
+                <a href={plan.next.cta_href}>{plan.next.cta_label}</a>
+              </Button>
+              {plan.next.can_create_action && (
+                <Button size="sm" variant="outline" onClick={() => handleCreateAction(plan.next!)}>
+                  Crea azione suggerita
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          {top.map((it) => (
+            <RemediationRow
+              key={it.id}
+              item={it}
+              onCreate={() => handleCreateAction(it)}
+              onCta={() => handleCtaOpen(it)}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SeverityBadge({ severity }: { severity: "critical" | "warning" | "info" }) {
+  const tone =
+    severity === "critical"
+      ? "bg-red-500/10 text-red-600 border-red-500/30"
+      : severity === "warning"
+        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+        : "bg-sky-500/10 text-sky-600 border-sky-500/30";
+  return (
+    <Badge variant="outline" className={`text-[10px] ${tone}`}>
+      {REMEDIATION_SEVERITY_LABEL[severity]}
+    </Badge>
+  );
+}
+
+function RemediationRow({
+  item,
+  onCreate,
+  onCta,
+}: {
+  item: RemediationItem;
+  onCreate: () => void;
+  onCta: () => void;
+}) {
+  return (
+    <div className="rounded border p-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <SeverityBadge severity={item.severity} />
+            <Badge variant="outline" className="text-[10px]">
+              {REMEDIATION_AREA_LABEL[item.area]}
+            </Badge>
+            {item.status === "action_created" && (
+              <Badge variant="outline" className="text-[10px]">Azione creata</Badge>
+            )}
+            <div className="text-sm font-medium">{item.title}</div>
+          </div>
+          <div className="text-xs text-muted-foreground">{item.explanation}</div>
+          <div className="text-xs mt-1">
+            <span className="font-medium">Perché conta: </span>
+            {item.why_it_matters}
+          </div>
+          <div className="text-xs">
+            <span className="font-medium">Azione consigliata: </span>
+            {item.recommended_action}
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-col gap-1">
+          <Button asChild size="sm" variant="ghost" onClick={onCta}>
+            <a href={item.cta_href}>
+              <ExternalLink className="mr-1 h-3 w-3" />
+              {item.cta_label}
+            </a>
+          </Button>
+          {item.can_create_action && (
+            <Button size="sm" variant="outline" onClick={onCreate}>
+              Crea azione
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
