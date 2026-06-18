@@ -594,6 +594,13 @@ function CodeAgentJobsMiniCard({ brainId }: { brainId: string | null }) {
       return getCodeAgentQaSummary(brainId);
     },
   });
+  const { data: e2e } = useQuery({
+    queryKey: ["code-agent-e2e-mini", brainId],
+    queryFn: async () => {
+      const { getCodeAgentEndToEndSummary } = await import("@/lib/code-agent-qa");
+      return getCodeAgentEndToEndSummary(brainId);
+    },
+  });
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -619,6 +626,11 @@ function CodeAgentJobsMiniCard({ brainId }: { brainId: string | null }) {
         <div className="grid grid-cols-2 gap-2">
           <Tile label="Incoerenti (QA)" value={qa?.inconsistent ?? 0} tone={(qa?.inconsistent ?? 0) > 0 ? "red" : undefined} />
           <div />
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <Tile label="Pronti test manuale" value={e2e?.ready_for_manual_test ?? 0} />
+          <Tile label="Bloccati E2E" value={(e2e?.blocked_repository ?? 0) + (e2e?.blocked_approval ?? 0)} tone={((e2e?.blocked_repository ?? 0) + (e2e?.blocked_approval ?? 0)) > 0 ? "amber" : undefined} />
+          <Tile label="Result da review" value={e2e?.result_without_review ?? 0} tone={(e2e?.result_without_review ?? 0) > 0 ? "amber" : undefined} />
         </div>
         {summary?.lastLabel && (
           <div className="text-[11px] text-muted-foreground">
