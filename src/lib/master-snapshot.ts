@@ -267,7 +267,23 @@ export async function approveMasterSnapshotUpdate(
     await q;
   }
 
-  const newLabel = draft.version_label.replace(/-draft$/, "");
+  // Deterministically compute next label from ALL existing approved versions
+  // (not just the draft's preset label, which may be stale if multiple drafts
+  // were created off the same prior current).
+  const allVersions = await listMasterSnapshots(draft.brain_id);
+  const nextParsed = (() => {
+    const best = maxApprovedVersion(
+      allVersions.filter((v) => v.id !== draftId),
+    );
+    return best ? { major: best.major, minor: best.minor + 1 } : { major: 1, minor: 0 };
+  })();
+  const newLabel = `${nextParsed.major}.${nextParsed.minor}`;
+  await logMasterSnapshotEvent("master_snapshot_version_label_computed", newLabel, {
+    draft_id: draftId,
+    draft_preset_label: draft.version_label,
+    computed_label: newLabel,
+    history_size: allVersions.length,
+  });
   const update: Record<string, unknown> = {
     version_status: "current",
     version_label: newLabel,
@@ -289,6 +305,10 @@ export async function approveMasterSnapshotUpdate(
   });
   await logMasterSnapshotEvent("master_snapshot_version_created", newLabel, {
     version_id: draftId,
+  });
+  await logMasterSnapshotEvent("master_snapshot_version_saved", newLabel, {
+    version_id: draftId,
+    previous_label: draft.version_label,
   });
   return mapRow(data as Row);
 }
