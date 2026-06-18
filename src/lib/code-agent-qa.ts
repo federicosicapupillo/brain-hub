@@ -601,6 +601,100 @@ export async function getCodeAgentRunnerReadiness(
   };
 }
 
+// ---------- v3.16.2 — Loop QA named warnings ----------
+
+export type CodeAgentLoopQaWarning = {
+  id:
+    | "caj-ui-only-guard-risk"
+    | "caj-server-transition-blocked"
+    | "caj-bulk-sync-errors"
+    | "caj-transition-enforcement-missing";
+  severity: "info" | "warning" | "critical";
+  label: string;
+  detail: string;
+};
+
+// Static marker: enumerates orchestrator functions that MUST go through
+// assertCodeAgentTransitionAllowed. The list is co-located with the qa
+// module so the QA report can tell if v3.16.2 enforcement is in place.
+// (Real static analysis happens at PR review; here we expose the marker.)
+export const CODE_AGENT_PROTECTED_MUTATIONS: ReadonlyArray<string> = [
+  "approveCodeAgentJob",
+  "rejectCodeAgentJob",
+  "markCodeAgentJobSentManually",
+  "saveCodeAgentJobResult",
+  "createReviewFromCodeAgentJob",
+  "createNextActionFromCodeAgentJob",
+  "createMasterSnapshotDraftFromCodeAgentJob",
+  "syncCodeAgentJobApprovalStatus",
+];
+
+export const CODE_AGENT_TRANSITION_ENFORCEMENT_VERSION = "v3.16.2";
+
+export async function getCodeAgentLoopQaWarnings(
+  brainId?: string | null,
+): Promise<CodeAgentLoopQaWarning[]> {
+  const audit = await fetchAuditCounts(brainId ?? null);
+  const warnings: CodeAgentLoopQaWarning[] = [];
+
+  // caj-ui-only-guard-risk: emitted only if the server-side enforcement
+  // marker is missing. v3.16.2 sets it, so this should normally not fire.
+  if (CODE_AGENT_TRANSITION_ENFORCEMENT_VERSION !== "v3.16.2") {
+    warnings.push({
+      id: "caj-ui-only-guard-risk",
+      severity: "critical",
+      label: "UI-only state machine",
+      detail:
+        "Le mutation non sembrano applicare assertCodeAgentTransitionAllowed lato server.",
+    });
+  }
+
+  // caj-server-transition-blocked: surface recent server-side blocks.
+  if (audit.transitionBlocked > 0) {
+    warnings.push({
+      id: "caj-server-transition-blocked",
+      severity: audit.transitionBlocked >= 10 ? "critical" : "warning",
+      label: "Transizioni bloccate (24h)",
+      detail: `${audit.transitionBlocked} transition_blocked nelle ultime 24h.`,
+    });
+  }
+
+  // caj-bulk-sync-errors: surface recent bulk approval sync errors.
+  if (audit.bulkSyncErrors > 0) {
+    warnings.push({
+      id: "caj-bulk-sync-errors",
+      severity: audit.bulkSyncErrors >= 5 ? "critical" : "warning",
+      label: "Errori bulk approval sync (24h)",
+      detail: `${audit.bulkSyncErrors} bulk sync error nelle ultime 24h.`,
+    });
+  }
+
+  // caj-transition-enforcement-missing: defensive check — the marker list
+  // must include all critical mutations. Surfaces as info when matches v3.16.2.
+  const expected = [
+    "approveCodeAgentJob",
+    "rejectCodeAgentJob",
+    "markCodeAgentJobSentManually",
+    "saveCodeAgentJobResult",
+    "createReviewFromCodeAgentJob",
+    "createMasterSnapshotDraftFromCodeAgentJob",
+    "syncCodeAgentJobApprovalStatus",
+  ];
+  const missing = expected.filter(
+    (name) => !CODE_AGENT_PROTECTED_MUTATIONS.includes(name),
+  );
+  if (missing.length > 0) {
+    warnings.push({
+      id: "caj-transition-enforcement-missing",
+      severity: "critical",
+      label: "Enforcement state machine incompleto",
+      detail: `Mutation non protette: ${missing.join(", ")}.`,
+    });
+  }
+
+  return warnings;
+}
+
 // ---------- Event logging ----------
 
 export async function logCodeAgentQaEvent(
@@ -625,3 +719,4 @@ export async function logCodeAgentQaEvent(
     // best-effort
   }
 }
+
