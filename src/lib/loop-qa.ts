@@ -398,7 +398,59 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
-  // Calendar warnings (v3.0)
+  // Jack Memory warnings (v3.11)
+  try {
+    const { listJackMemoryDocuments, isJackMemoryStale } = await import("@/lib/jack-memory");
+    const docs = await listJackMemoryDocuments();
+    const current = docs.find((d) => d.status === "current") ?? null;
+    const drafts = docs.filter((d) => d.status === "draft");
+    if (!current && drafts.length === 0) {
+      warnings.push({
+        id: "jack_memory_missing",
+        level: "info",
+        title: "Jack Memory non configurata",
+        description: "Importa Jack Memory Core per dare a Jack contesto identitario e regole operative.",
+        cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+        category: "jack_memory",
+      });
+    }
+    if (!current && drafts.length > 0) {
+      warnings.push({
+        id: "jack_memory_draft_unapproved",
+        level: "warning",
+        title: "Jack Memory in bozza non approvata",
+        description: `Hai ${drafts.length} bozza/e di memoria. Approvane una come corrente.`,
+        cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+        category: "jack_memory",
+      });
+    }
+    if (current && isJackMemoryStale(current, 60)) {
+      warnings.push({
+        id: "jack_memory_stale",
+        level: "info",
+        title: "Jack Memory potenzialmente obsoleta",
+        description: "La memoria corrente ha più di 60 giorni. Valuta un aggiornamento.",
+        cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+        category: "jack_memory",
+      });
+    }
+    if (current) {
+      const meta = (current.metadata ?? {}) as { secret_warnings?: unknown[] };
+      const sw = Array.isArray(meta.secret_warnings) ? meta.secret_warnings : [];
+      if (sw.length > 0) {
+        warnings.push({
+          id: "jack_memory_secret_warnings",
+          level: "warning",
+          title: "Jack Memory contiene warning segreti",
+          description: `Rilevati ${sw.length} possibili pattern sensibili nella memoria corrente.`,
+          cta: { label: "Apri Jack Memory", to: "/jack-memory" },
+          category: "jack_memory",
+        });
+      }
+    }
+  } catch {
+    // non-blocking
+  }
   try {
     const calWarnings = await getCalendarKnowledgeWarnings(brainId ?? null);
     for (const w of calWarnings) {
