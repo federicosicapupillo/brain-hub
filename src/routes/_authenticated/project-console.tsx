@@ -734,6 +734,13 @@ function OperationalHealthVisibility({ brainId }: { brainId: string | null }) {
       return h;
     },
   });
+  const { data: plan } = useQuery({
+    queryKey: ["project-console-remediation", brainId],
+    queryFn: async () => {
+      const { buildOperationalRemediationPlan } = await import("@/lib/loop-remediation");
+      return buildOperationalRemediationPlan(brainId);
+    },
+  });
   if (!data) return null;
   const tone =
     data.status === "blocked"
@@ -743,6 +750,11 @@ function OperationalHealthVisibility({ brainId }: { brainId: string | null }) {
         : data.status === "incomplete"
           ? "border-sky-500/30 bg-sky-500/5 text-sky-700"
           : "border-emerald-500/30 bg-emerald-500/5 text-emerald-700";
+  const next = plan?.next ?? null;
+  const byArea = plan?.by_area;
+  const areaEntries = byArea
+    ? (Object.entries(byArea) as Array<[string, number]>).filter(([, n]) => n > 0)
+    : [];
   return (
     <div className={`rounded-md border p-3 text-sm ${tone}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -753,16 +765,29 @@ function OperationalHealthVisibility({ brainId }: { brainId: string | null }) {
           <div className="text-xs">
             {data.critical} critical · {data.warning} warning · {data.info} info
           </div>
-          <div className="text-xs mt-1">
-            Prossima azione: <span className="font-medium">{data.nextAction.label}</span> — {data.nextAction.reason}
-          </div>
+          {next ? (
+            <div className="text-xs mt-1">
+              Prossimo intervento: <span className="font-medium">{next.title}</span> — {next.recommended_action}
+            </div>
+          ) : (
+            <div className="text-xs mt-1">
+              Prossima azione: <span className="font-medium">{data.nextAction.label}</span> — {data.nextAction.reason}
+            </div>
+          )}
+          {areaEntries.length > 0 && (
+            <div className="text-[10px] mt-1 text-muted-foreground">
+              Interventi aperti per area: {areaEntries.map(([a, n]) => `${a}:${n}`).join(" · ")}
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <Button asChild size="sm" variant="outline">
-            <a href="/loop-qa">Apri Loop QA</a>
+            <a href="/loop-qa">Apri piano correzione</a>
           </Button>
           <Button asChild size="sm">
-            <a href={data.nextAction.to}>{data.nextAction.label}</a>
+            <a href={next ? next.cta_href : data.nextAction.to}>
+              {next ? next.cta_label : data.nextAction.label}
+            </a>
           </Button>
         </div>
       </div>

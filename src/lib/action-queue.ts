@@ -49,7 +49,8 @@ export type ActionSource =
   | "google_calendar"
   | "github_operational"
   | "code_repository"
-  | "agent_center";
+  | "agent_center"
+  | "loop_qa";
 
 
 
@@ -166,6 +167,7 @@ export const SOURCE_LABEL: Record<ActionSource, string> = {
   github_operational: "GitHub Operational",
   code_repository: "Repository codice",
   agent_center: "Agent Center",
+  loop_qa: "Loop QA",
 };
 
 

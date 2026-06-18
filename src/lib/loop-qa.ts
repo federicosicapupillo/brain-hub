@@ -1007,7 +1007,12 @@ export async function logLoopQaEvent(
     | "operational_health_viewed"
     | "loop_qa_warning_aggregated"
     | "loop_qa_next_action_computed"
-    | "project_health_visibility_opened",
+    | "project_health_visibility_opened"
+    | "loop_remediation_plan_built"
+    | "loop_remediation_item_viewed"
+    | "loop_remediation_action_created"
+    | "loop_remediation_item_deduplicated"
+    | "loop_remediation_cta_opened",
   notes: string,
   metadata: Record<string, unknown> = {},
 ) {
