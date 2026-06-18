@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { isSuspectRepositoryRecord } from "@/lib/github-repository-parse";
 import {
   listCodeAgentJobs,
   getCodeAgentJob,
