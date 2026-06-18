@@ -55,8 +55,19 @@ type ConnState =
 
 type MicState = "unknown" | "granted" | "denied" | "unavailable" | "unsupported";
 type SessionMode = "none" | "full" | "minimal";
-type LogKind = "user" | "jack" | "tool" | "system" | "error";
+type LogKind = "user" | "jack" | "tool" | "system" | "error" | "warning";
 type LogEntry = { id: string; ts: number; kind: LogKind; text: string };
+
+type ResponseLifecycleState =
+  | "idle"
+  | "response_starting"
+  | "response_active"
+  | "response_finishing"
+  | "tool_waiting"
+  | "response_active_unknown"
+  | "error";
+
+type SafeCreateResponseOptions = { queueIfBusy?: boolean };
 
 type ActiveSession = Extract<CreateRealtimeSessionResult, { ok: true; probe: false }>;
 
@@ -64,13 +75,14 @@ type RealtimeEvent = {
   type?: string;
   transcript?: string;
   delta?: string;
+  response?: { id?: string; status?: string };
   item?: {
     type?: string;
     call_id?: string;
     name?: string;
     arguments?: string;
   };
-  error?: { message?: string; code?: string };
+  error?: { message?: string; code?: string; type?: string };
   call_id?: string;
   name?: string;
   arguments?: string;
