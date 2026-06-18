@@ -204,6 +204,9 @@ function AgentRunsPage() {
       setCurrentRun(completed);
       await invalidate();
       toast.success("Run salvata");
+      void navigate({
+        search: (prev) => ({ ...prev, run: completed.id }),
+      });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Errore salvataggio");
     } finally {
