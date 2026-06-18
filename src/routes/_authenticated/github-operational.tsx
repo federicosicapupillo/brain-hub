@@ -269,6 +269,33 @@ function RepoRow({
   );
 }
 
+type ParsedGithubUrl = { url: string; owner: string; name: string };
+
+function parseGithubUrl(input: string): ParsedGithubUrl | null {
+  if (!input) return null;
+  // Extract first github.com/owner/repo occurrence from arbitrary text
+  const m = input.match(
+    /https?:\/\/github\.com\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+?)(?:\.git)?(?:[\/#?\s]|$)/i,
+  );
+  if (!m) return null;
+  const owner = m[1];
+  const name = m[2];
+  if (!owner || !name) return null;
+  return {
+    url: `https://github.com/${owner}/${name}`,
+    owner,
+    name,
+  };
+}
+
+function humanizePgError(e: unknown): string {
+  const err = e as { code?: string; message?: string } | null;
+  if (!err) return "Errore salvataggio repository";
+  if (err.code === "23505") return "Repository già presente";
+  if (err.code === "42501") return "Permesso negato dalla RLS";
+  return err.message || "Errore salvataggio repository";
+}
+
 function AddRepoDialog({
   open,
   onOpenChange,
@@ -286,6 +313,7 @@ function AddRepoDialog({
   const [branch, setBranch] = useState("main");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [urlTouched, setUrlTouched] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -294,17 +322,69 @@ function AddRepoDialog({
       setName("");
       setBranch("main");
       setNote("");
+      setUrlTouched(false);
     }
   }, [open]);
 
-  // Auto-derive owner/name from URL
+  const parsed = useMemo(() => parseGithubUrl(url), [url]);
+
+  // Auto-fill owner/name from URL whenever URL changes and yields a valid parse
   useEffect(() => {
-    const m = url.match(/github\.com[/:]([^/]+)\/([^/.]+)/i);
-    if (m) {
-      if (!owner) setOwner(m[1]);
-      if (!name) setName(m[2]);
+    if (parsed) {
+      setOwner(parsed.owner);
+      setName(parsed.name);
     }
-  }, [url, owner, name]);
+  }, [parsed]);
+
+  const urlError =
+    urlTouched && url.trim() && !parsed
+      ? "URL GitHub non valido. Usa il formato https://github.com/owner/repo"
+      : null;
+
+  const canSubmit =
+    !busy && !!parsed && owner.trim().length > 0 && name.trim().length > 0;
+
+  const handleSubmit = async () => {
+    if (!parsed) {
+      toast.error("URL GitHub non valido. Usa il formato https://github.com/owner/repo");
+      return;
+    }
+    const ownerTrim = owner.trim();
+    const nameTrim = name.trim();
+    if (!ownerTrim || !nameTrim) {
+      toast.error("Owner e repository name sono obbligatori");
+      return;
+    }
+    setBusy(true);
+    try {
+      // Pre-check duplicates for same user (RLS scopes select to current user)
+      const { data: existing } = await supabase
+        .from("github_repository_registry")
+        .select("id")
+        .eq("repository_url", parsed.url)
+        .maybeSingle();
+      if (existing) {
+        toast.error("Repository già presente");
+        setBusy(false);
+        return;
+      }
+      await createGithubRepository({
+        brain_id: brainId,
+        repository_url: parsed.url,
+        repository_owner: ownerTrim,
+        repository_name: nameTrim,
+        default_branch: branch.trim() || "main",
+        metadata: note.trim() ? { note: note.trim() } : {},
+      });
+      toast.success("Repository aggiunto");
+      await onCreated();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(humanizePgError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -318,8 +398,17 @@ function AddRepoDialog({
             <Input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
+              onBlur={() => setUrlTouched(true)}
               placeholder="https://github.com/owner/repo"
             />
+            {urlError && (
+              <div className="mt-1 text-xs text-destructive">{urlError}</div>
+            )}
+            {parsed && (
+              <div className="mt-1 text-xs text-muted-foreground">
+                Rilevato: <span className="font-mono">{parsed.owner}/{parsed.name}</span>
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
@@ -341,33 +430,11 @@ function AddRepoDialog({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             Annulla
           </Button>
-          <Button
-            disabled={busy || !url.trim()}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await createGithubRepository({
-                  brain_id: brainId,
-                  repository_url: url.trim(),
-                  repository_owner: owner.trim() || null,
-                  repository_name: name.trim() || null,
-                  default_branch: branch.trim() || null,
-                  metadata: note.trim() ? { note: note.trim() } : {},
-                });
-                toast.success("Repository aggiunto");
-                onOpenChange(false);
-                await onCreated();
-              } catch (e) {
-                toast.error("Errore", { description: (e as Error).message });
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Aggiungi
+          <Button disabled={!canSubmit} onClick={handleSubmit}>
+            {busy ? "Salvataggio…" : "Aggiungi"}
           </Button>
         </DialogFooter>
       </DialogContent>
