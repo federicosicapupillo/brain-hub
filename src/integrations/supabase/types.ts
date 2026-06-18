@@ -1948,6 +1948,63 @@ export type Database = {
           },
         ]
       }
+      jack_voice_generations: {
+        Row: {
+          brain_id: string | null
+          created_at: string
+          daily_operating_brief_id: string | null
+          error_text: string | null
+          generated_at: string | null
+          id: string
+          metadata: Json
+          model_id: string | null
+          played_at: string | null
+          provider: string
+          status: string
+          text_char_count: number
+          text_hash: string
+          updated_at: string
+          user_id: string
+          voice_id_preview: string | null
+        }
+        Insert: {
+          brain_id?: string | null
+          created_at?: string
+          daily_operating_brief_id?: string | null
+          error_text?: string | null
+          generated_at?: string | null
+          id?: string
+          metadata?: Json
+          model_id?: string | null
+          played_at?: string | null
+          provider?: string
+          status?: string
+          text_char_count?: number
+          text_hash: string
+          updated_at?: string
+          user_id: string
+          voice_id_preview?: string | null
+        }
+        Update: {
+          brain_id?: string | null
+          created_at?: string
+          daily_operating_brief_id?: string | null
+          error_text?: string | null
+          generated_at?: string | null
+          id?: string
+          metadata?: Json
+          model_id?: string | null
+          played_at?: string | null
+          provider?: string
+          status?: string
+          text_char_count?: number
+          text_hash?: string
+          updated_at?: string
+          user_id?: string
+          voice_id_preview?: string | null
+        }
+        Relationships: []
+      }
       knowledge_chunks: {
         Row: {
           brain_id: string
