@@ -252,6 +252,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     unsafe: boolean;
     at: number;
   } | null>(null);
+  // v3.19.6 — pending action preview state for the UI confirmation bridge.
+  const [pendingActionPreview, setPendingActionPreview] =
+    useState<PendingJackActionPreview | null>(null);
+  const [confirmingAction, setConfirmingAction] = useState(false);
+  const pendingPreviewRef = useRef<PendingJackActionPreview | null>(null);
+  const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
+
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id" | "ts">) => {
     setLog((prev) => [
