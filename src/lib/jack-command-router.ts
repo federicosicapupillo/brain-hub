@@ -149,7 +149,24 @@ export function getJackCommandSuggestions(): string[] {
 
 export type JackCommandContext = {
   brainId: string | null;
+  currentBrief?: DailyBriefRow | null;
 };
+
+export type ResolvedBrief = {
+  brief: DailyBriefRow | null;
+  source: "current" | "query" | "fallback" | "missing";
+};
+
+async function resolveBrief(ctx: JackCommandContext): Promise<ResolvedBrief> {
+  if (ctx.currentBrief) {
+    return { brief: ctx.currentBrief, source: "current" };
+  }
+  const scoped = await getTodayOperatingBrief(ctx.brainId);
+  if (scoped) return { brief: scoped, source: "query" };
+  const fallback = await getAnyTodayOperatingBriefForUser();
+  if (fallback) return { brief: fallback, source: "fallback" };
+  return { brief: null, source: "missing" };
+}
 
 export async function resolveJackCommandIntent(input: {
   transcript: string;
