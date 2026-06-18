@@ -207,7 +207,7 @@ function MasterSnapshotRoute() {
             <div>
               <div className="font-medium">Stai modificando una bozza</div>
               <div className="text-xs text-muted-foreground">
-                v{selectedDraft.version_label} · {selectedDraft.reason ?? "—"}
+                v{getSnapshotVersionLabel(selectedDraft)} · {selectedDraft.reason ?? "—"}
               </div>
             </div>
             <Button asChild size="sm" variant="ghost">
