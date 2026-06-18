@@ -255,9 +255,17 @@ function CodeAgentJobsPage() {
       case "code_agent_terminal_status":
         return "Questo job è in uno stato finale.";
       case "code_agent_job_not_found":
-        return "Job non trovato.";
+        return "Job non trovato o non accessibile.";
       case "code_agent_user_scope_required":
         return "Devi essere autenticato.";
+      case "code_agent_repository_not_found":
+        return "Repository non trovato o non accessibile.";
+      case "code_agent_repository_user_scope_required":
+        return "Repository fuori dal tuo scope utente.";
+      case "code_agent_repository_update_not_allowed":
+        return "Non puoi modificare il repository di un job già inviato o completato.";
+      case "code_agent_invalid_creation_input":
+        return "Dati insufficienti per creare il job.";
       case "code_agent_transition_not_allowed":
         return msg;
       default:
