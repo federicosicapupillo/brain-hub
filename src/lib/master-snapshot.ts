@@ -21,7 +21,11 @@ export type MasterSnapshotEvent =
   | "master_snapshot_update_rejected"
   | "master_snapshot_version_created"
   | "master_snapshot_markdown_import_started"
-  | "master_snapshot_markdown_import_draft_created";
+  | "master_snapshot_markdown_import_draft_created"
+  | "master_snapshot_version_label_computed"
+  | "master_snapshot_version_mismatch_detected"
+  | "master_snapshot_version_integrity_checked"
+  | "master_snapshot_version_saved";
 
 export type MasterSnapshotChanges = {
   what_changed?: string;
