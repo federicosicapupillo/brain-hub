@@ -783,8 +783,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
 
         case "conversation.item.input_audio_transcription.completed":
-          if (msg.transcript) pushLog({ kind: "user", text: String(msg.transcript) });
+          if (msg.transcript) {
+            const transcript = String(msg.transcript);
+            pushLog({ kind: "user", text: transcript });
+            // v3.19.6 — deterministic voice router: if a pending preview
+            // exists and the real user transcript is an explicit
+            // confirmation, trigger the controlled creation server-side.
+            if (
+              pendingPreviewRef.current &&
+              isExplicitJackConfirmation(transcript)
+            ) {
+              void confirmPendingPreview("voice_router", transcript);
+            }
+          }
           break;
+
 
         case "response.done":
         case "response.cancelled":
