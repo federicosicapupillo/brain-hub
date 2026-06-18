@@ -683,6 +683,9 @@ export async function getGithubOperationalWarnings(
 ): Promise<GithubOperationalWarning[]> {
   const warnings: GithubOperationalWarning[] = [];
   const repos = await listGithubRepositories(brainId ?? null);
+  const allReposInclArchived = await listGithubRepositories(brainId ?? null, {
+    includeArchived: true,
+  });
 
   if (brainId && repos.length === 0) {
     warnings.push({
@@ -705,6 +708,111 @@ export async function getGithubOperationalWarnings(
         cta: { label: "Apri repo", to: "/github-operational" },
       });
     }
+  }
+
+  // v3.16.5 — Registry consistency warnings
+  try {
+    const { isSuspectRepositoryRecord } = await import("@/lib/github-repository-parse");
+    const suspects = allReposInclArchived.filter((r) =>
+      isSuspectRepositoryRecord({
+        repository_url: r.repository_url,
+        repository_owner: r.repository_owner,
+        repository_name: r.repository_name,
+      }),
+    );
+    if (suspects.length > 0) {
+      warnings.push({
+        id: "github-repository-suspect-records",
+        level: "warning",
+        title: `${suspects.length} repository sospetti nel registry`,
+        description:
+          "Record con URL/owner/name non coerenti. Normalizza o archivia dalla pagina GitHub Operational.",
+        cta: { label: "Apri GitHub Operational", to: "/github-operational" },
+      });
+    }
+    type RegistryExtras = {
+      normalized_repository_url?: string | null;
+      archived_at?: string | null;
+    };
+    const activeMissingNormalized = repos.filter((r) => {
+      const ext = r as unknown as RegistryExtras;
+      return !ext.normalized_repository_url;
+    });
+    if (activeMissingNormalized.length > 0) {
+      warnings.push({
+        id: "github-repository-missing-normalized-url",
+        level: "info",
+        title: `${activeMissingNormalized.length} repo senza normalized_repository_url`,
+        description: "Record attivi senza URL normalizzato: la deduplica potrebbe fallire.",
+        cta: { label: "Apri GitHub Operational", to: "/github-operational" },
+      });
+    }
+    // Active jobs referencing archived repos
+    const archivedIds = new Set(
+      allReposInclArchived
+        .filter((r) => (r as unknown as RegistryExtras).archived_at)
+        .map((r) => r.id),
+    );
+    if (archivedIds.size > 0) {
+      let q = supabase
+        .from("code_agent_jobs" as never)
+        .select("id,repository_id,status")
+        .not("repository_id", "is", null)
+        .not("status", "in", "(completed,cancelled,result_saved)");
+      if (brainId) q = q.eq("brain_id", brainId);
+      const { data: jobRows } = await q;
+      const offenders = ((jobRows ?? []) as Array<{ repository_id: string | null }>).filter(
+        (j) => j.repository_id && archivedIds.has(j.repository_id),
+      );
+      if (offenders.length > 0) {
+        warnings.push({
+          id: "github-repository-active-job-uses-archived-repo",
+          level: "warning",
+          title: `${offenders.length} job attivi usano repo archiviati`,
+          description:
+            "Rimappa il repository o archivia il job per evitare azioni su record obsoleti.",
+          cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        });
+      }
+    }
+    // Potential duplicates by normalized URL
+    const normalizedMap = new Map<string, number>();
+    for (const r of repos) {
+      const ext = r as unknown as RegistryExtras;
+      const key = (ext.normalized_repository_url ?? r.repository_url ?? "").toLowerCase();
+      if (!key) continue;
+      normalizedMap.set(key, (normalizedMap.get(key) ?? 0) + 1);
+    }
+    const dups = [...normalizedMap.entries()].filter(([, n]) => n > 1);
+    if (dups.length > 0) {
+      warnings.push({
+        id: "github-repository-duplicates-possible",
+        level: "warning",
+        title: `${dups.length} potenziali duplicati nel registry`,
+        description: "Più record attivi puntano allo stesso repository normalizzato.",
+        cta: { label: "Apri GitHub Operational", to: "/github-operational" },
+      });
+    }
+    // No valid repo but jobs exist
+    if (repos.length === 0) {
+      let q = supabase
+        .from("code_agent_jobs" as never)
+        .select("id", { count: "exact", head: true });
+      if (brainId) q = q.eq("brain_id", brainId);
+      const { count } = await q;
+      if ((count ?? 0) > 0) {
+        warnings.push({
+          id: "github-repository-none-valid-for-code-agent",
+          level: "warning",
+          title: "Code Agent Jobs senza repository validi",
+          description:
+            "Esistono job ma nessun repository valido nel registry: aggiungine uno per sbloccarli.",
+          cta: { label: "Apri GitHub Operational", to: "/github-operational" },
+        });
+      }
+    }
+  } catch {
+    // non-blocking
   }
 
   // Code action senza review

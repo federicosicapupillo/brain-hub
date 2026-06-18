@@ -423,6 +423,7 @@ function OperatingDashboardRoute() {
 
           {/* Health */}
           <ProjectHealthCheck brainId={brainId} />
+          <OperationalHealthMini brainId={brainId} />
 
           {/* 4 snapshot cards */}
           <div className="grid gap-4 lg:grid-cols-2">
@@ -1380,6 +1381,101 @@ function AgentRunsMini({ brainId }: { brainId: string | null }) {
         <Button asChild size="sm" variant="outline" className="w-full">
           <Link to="/agent-runs">Apri Run Console <ArrowRight className="ml-1 h-3 w-3" /></Link>
         </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function OperationalHealthMini({ brainId }: { brainId: string | null }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["brainhub-operational-health", brainId],
+    queryFn: async () => {
+      const { getBrainHubOperationalHealth, logLoopQaEvent } = await import("@/lib/loop-qa");
+      const h = await getBrainHubOperationalHealth(brainId);
+      void logLoopQaEvent("operational_health_viewed", "Mini card aperta", {
+        brain_id: brainId,
+        score: h.score,
+        status: h.status,
+      });
+      return h;
+    },
+  });
+  const status = data?.status ?? "healthy";
+  const tone =
+    status === "blocked"
+      ? "bg-red-500/10 text-red-600 border-red-500/30"
+      : status === "needs_attention"
+        ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+        : status === "incomplete"
+          ? "bg-sky-500/10 text-sky-600 border-sky-500/30"
+          : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+  const label =
+    status === "blocked"
+      ? "Bloccato"
+      : status === "needs_attention"
+        ? "Da controllare"
+        : status === "incomplete"
+          ? "Incompleto"
+          : "Sano";
+  const areaLabel: Record<string, string> = {
+    code_agent: "Code Agent",
+    github_registry: "GitHub Registry",
+    master_snapshot: "Master Snapshot",
+    automation_n8n: "Automation/n8n",
+    telegram: "Telegram",
+    drive_calendar_gmail: "Drive/Calendar/Gmail",
+    jack: "Jack",
+    general: "General",
+  };
+  return (
+    <Card className="lg:col-span-2">
+      <CardHeader>
+        <CardTitle className="flex items-center justify-between gap-2 text-base">
+          <span className="flex items-center gap-2">
+            <Gauge className="h-4 w-4" /> Stato sistema · Loop QA
+          </span>
+          {data && (
+            <Badge variant="outline" className={tone}>
+              {label} · health {data.score}/100
+            </Badge>
+          )}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {isLoading || !data ? (
+          <p className="text-sm text-muted-foreground">Calcolo health…</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              <Tile label="Critical" value={data.critical} tone={data.critical > 0 ? "amber" : undefined} />
+              <Tile label="Warning" value={data.warning} tone={data.warning > 0 ? "amber" : undefined} />
+              <Tile label="Info" value={data.info} />
+            </div>
+            <div className="rounded-md border bg-muted/30 p-2 text-xs">
+              <div className="font-medium">
+                Prossima azione: {data.nextAction.label}
+              </div>
+              <div className="text-muted-foreground">{data.nextAction.reason}</div>
+              {data.topArea && (
+                <div className="mt-1 text-[10px] text-muted-foreground">
+                  Area principale: {areaLabel[data.topArea] ?? data.topArea}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button asChild size="sm" variant="outline" className="flex-1">
+                <Link to="/loop-qa" search={{}}>
+                  Apri Loop QA <ArrowRight className="ml-1 h-3 w-3" />
+                </Link>
+              </Button>
+              <Button asChild size="sm" className="flex-1">
+                <Link to={data.nextAction.to as "/loop-qa"} search={{} as never}>
+                  {data.nextAction.label}
+                </Link>
+              </Button>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );

@@ -28,6 +28,8 @@ import {
   LoopMultiChain,
   getLoopQaSummary,
   logLoopQaEvent,
+  groupLoopWarnings,
+  type LoopWarningArea,
 } from "@/lib/loop-qa";
 import { useServerFn } from "@tanstack/react-start";
 import { getN8nHmacWarnings } from "@/lib/n8n-hmac.functions";
@@ -161,26 +163,64 @@ function LoopQaRoute() {
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <AlertTriangle className="h-4 w-4" /> Warning intelligenti
+                  <AlertTriangle className="h-4 w-4" /> Warning intelligenti per area
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-3">
                 {mergedWarnings.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Nessun warning rilevato.</p>
                 ) : (
-                  mergedWarnings.map((w) => (
-                    <WarningRow
-                      key={w.id}
-                      w={w}
-                      onOpen={(to, label) => {
-                        void logLoopQaEvent("loop_qa_warning_opened", `Warning aperto: ${w.title}`, {
-                          warning_id: w.id,
-                          to,
-                        });
-                        openSection(to, label);
-                      }}
-                    />
-                  ))
+                  (() => {
+                    const grouped = groupLoopWarnings(mergedWarnings);
+                    const order: LoopWarningArea[] = [
+                      "code_agent",
+                      "github_registry",
+                      "master_snapshot",
+                      "automation_n8n",
+                      "telegram",
+                      "drive_calendar_gmail",
+                      "jack",
+                      "general",
+                    ];
+                    const labels: Record<LoopWarningArea, string> = {
+                      code_agent: "Code Agent",
+                      github_registry: "GitHub Registry",
+                      master_snapshot: "Master Snapshot",
+                      automation_n8n: "Automation / n8n",
+                      telegram: "Telegram",
+                      drive_calendar_gmail: "Drive / Calendar / Gmail",
+                      jack: "Jack",
+                      general: "General",
+                    };
+                    return order
+                      .filter((a) => grouped[a].length > 0)
+                      .map((a) => (
+                        <div key={a} className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px]">
+                              {labels[a]}
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground">
+                              {grouped[a].length} warning
+                            </span>
+                          </div>
+                          {grouped[a].map((w) => (
+                            <WarningRow
+                              key={w.id}
+                              w={w}
+                              onOpen={(to, label) => {
+                                void logLoopQaEvent(
+                                  "loop_qa_warning_opened",
+                                  `Warning aperto: ${w.title}`,
+                                  { warning_id: w.id, area: a, to },
+                                );
+                                openSection(to, label);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      ));
+                  })()
                 )}
               </CardContent>
             </Card>
