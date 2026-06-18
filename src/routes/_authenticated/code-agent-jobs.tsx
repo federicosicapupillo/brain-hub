@@ -177,6 +177,7 @@ function CodeAgentJobsPage() {
   const [newPreferredEngine, setNewPreferredEngine] = useState<CodeAgentEngine | "auto">("auto");
   const [newRiskHint, setNewRiskHint] = useState<CodeAgentRiskLevel | "auto">("auto");
   const [newRepositoryHint, setNewRepositoryHint] = useState("");
+  const [newRepositoryId, setNewRepositoryId] = useState<string>("none");
   const [newNotes, setNewNotes] = useState("");
   const [newDeliveryPreference, setNewDeliveryPreference] = useState<"auto" | "manual" | "telegram">("auto");
 
@@ -206,14 +207,18 @@ function CodeAgentJobsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("github_repository_registry")
-        .select("id,repository_name,repository_url,brain_id,project_id")
+        .select("id,repository_name,repository_owner,repository_url,brain_id,project_id,default_branch,last_sync_at,connected_status")
         .order("last_sync_at", { ascending: false });
       return (data ?? []) as Array<{
         id: string;
         repository_name: string | null;
+        repository_owner: string | null;
         repository_url: string;
         brain_id: string | null;
         project_id: string | null;
+        default_branch: string | null;
+        last_sync_at: string | null;
+        connected_status: string;
       }>;
     },
   });
@@ -404,6 +409,7 @@ function CodeAgentJobsPage() {
     setNewPreferredEngine("auto");
     setNewRiskHint("auto");
     setNewRepositoryHint("");
+    setNewRepositoryId("none");
     setNewNotes("");
     setNewDeliveryPreference("auto");
   };
@@ -423,6 +429,7 @@ function CodeAgentJobsPage() {
           preferredEngine: newPreferredEngine === "auto" ? null : newPreferredEngine,
           riskHint: newRiskHint === "auto" ? null : newRiskHint,
           repositoryHint: newRepositoryHint.trim() ? newRepositoryHint.trim() : null,
+          repositoryId: newRepositoryId !== "none" ? newRepositoryId : null,
           notes: newNotes.trim() ? newNotes.trim() : null,
           deliveryPreference:
             newDeliveryPreference === "auto" ? null : newDeliveryPreference,
@@ -610,13 +617,18 @@ function CodeAgentJobsPage() {
               <div>
                 Nessun job ancora. Puoi crearne uno manualmente oppure chiedere a Jack di prepararlo.
               </div>
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-2 flex-wrap">
                 <Button size="sm" onClick={() => setCreateOpen(true)}>
                   <Plus className="mr-1 h-3 w-3" /> Nuovo Code Agent Job
                 </Button>
                 <Button asChild size="sm" variant="outline">
                   <Link to="/code-agent-qa">
                     <ShieldCheck className="mr-1 h-3 w-3" /> Apri Code Agent QA
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link to="/github-operational">
+                    <GitBranch className="mr-1 h-3 w-3" /> GitHub Operational
                   </Link>
                 </Button>
               </div>
@@ -923,7 +935,43 @@ function CodeAgentJobsPage() {
               </div>
             </div>
             <div>
-              <Label className="text-xs">Repository hint</Label>
+              <Label className="text-xs">Repository (registry)</Label>
+              {repos.length === 0 ? (
+                <div className="rounded border border-dashed p-2 text-xs text-muted-foreground space-y-1">
+                  <div>Nessun repository registrato.</div>
+                  <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+                    <Link to="/github-operational">
+                      <GitBranch className="mr-1 h-3 w-3" /> Apri GitHub Operational
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={newRepositoryId}
+                  onValueChange={setNewRepositoryId}
+                  disabled={createSubmitting}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nessuno (auto / hint)</SelectItem>
+                    {repos.map((r) => {
+                      const name = r.repository_owner
+                        ? `${r.repository_owner}/${r.repository_name ?? ""}`
+                        : r.repository_name ?? r.repository_url;
+                      return (
+                        <SelectItem key={r.id} value={r.id}>
+                          {name}
+                          {r.default_branch ? ` · ${r.default_branch}` : ""}
+                          {r.connected_status ? ` · ${r.connected_status}` : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs">Repository hint (fallback testuale)</Label>
               <Input
                 value={newRepositoryHint}
                 onChange={(e) => setNewRepositoryHint(e.target.value)}
@@ -1189,7 +1237,17 @@ function RepoBlock({
   onSetRepo,
 }: {
   job: CodeAgentJob;
-  repos: Array<{ id: string; repository_name: string | null; repository_url: string; brain_id: string | null; project_id: string | null }>;
+  repos: Array<{
+    id: string;
+    repository_name: string | null;
+    repository_owner: string | null;
+    repository_url: string;
+    brain_id: string | null;
+    project_id: string | null;
+    default_branch: string | null;
+    last_sync_at: string | null;
+    connected_status: string;
+  }>;
   onSetRepo: (rid: string) => void;
 }) {
   const resolution = (job.metadata?.repository_resolution as { status?: string; reason?: string } | undefined) ?? null;
@@ -1204,6 +1262,20 @@ function RepoBlock({
   const isRecent =
     !!currentRepo &&
     (resolution as { candidate_source?: string } | null)?.candidate_source === "recent";
+  // updateCodeAgentJobRepositoryFn rejects updates on terminal/sent jobs server-side.
+  // Hide the selector locally to match the server contract.
+  const terminalLike: ReadonlyArray<CodeAgentJobStatus> = [
+    "sent_to_engine",
+    "sent_manually",
+    "result_received",
+    "review_ready",
+    "reviewed",
+    "completed",
+    "failed",
+    "cancelled",
+    "rejected",
+  ];
+  const canChangeRepo = !terminalLike.includes(job.status as CodeAgentJobStatus);
   return (
     <div className="rounded border p-3 space-y-2">
       <div className="flex items-center gap-2">
@@ -1221,39 +1293,72 @@ function RepoBlock({
           <AlertTriangle className="mr-1 inline h-3 w-3" /> Più repository possibili — seleziona manualmente prima di approvare.
         </div>
       )}
-      {status === "resolved" && currentRepo && (
-        <div className="text-xs text-emerald-700">Repository risolto.</div>
-      )}
-      {isRecent && (
-        <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700">
-          Risolto usando repository recente — verifica prima di inviare.
-        </div>
-      )}
       {currentRepo ? (
-        <div className="text-sm">
-          <code>{currentRepo.repository_name ?? currentRepo.repository_url}</code>
+        <div className="space-y-0.5 text-xs">
+          <div className="text-sm">
+            <code>
+              {currentRepo.repository_owner
+                ? `${currentRepo.repository_owner}/${currentRepo.repository_name ?? ""}`
+                : currentRepo.repository_name ?? currentRepo.repository_url}
+            </code>
+          </div>
+          {currentRepo.default_branch && (
+            <div className="text-muted-foreground">
+              Default branch: <code>{currentRepo.default_branch}</code>
+            </div>
+          )}
+          {currentRepo.last_sync_at && (
+            <div className="text-muted-foreground">
+              Ultimo sync: {new Date(currentRepo.last_sync_at).toLocaleString()}
+            </div>
+          )}
         </div>
       ) : (
         <div className="text-xs text-muted-foreground">
           {resolution?.reason ?? "Nessun repository risolto. Seleziona manualmente."}
         </div>
       )}
-      {(status !== "resolved" || !job.repository_id) && repos.length > 0 && (
+      {isRecent && (
+        <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700">
+          Risolto usando repository recente — verifica prima di inviare.
+        </div>
+      )}
+      {canChangeRepo && repos.length > 0 && (
         <div className="flex flex-wrap items-center gap-2">
           <Select onValueChange={(rid) => onSetRepo(rid)}>
             <SelectTrigger className="h-8 w-72 text-xs">
-              <SelectValue placeholder="Scegli repository…" />
+              <SelectValue
+                placeholder={currentRepo ? "Cambia repository…" : "Scegli repository…"}
+              />
             </SelectTrigger>
             <SelectContent>
-              {repos.map((r) => (
-                <SelectItem key={r.id} value={r.id}>
-                  {r.repository_name ?? r.repository_url}
-                </SelectItem>
-              ))}
+              {repos.map((r) => {
+                const name = r.repository_owner
+                  ? `${r.repository_owner}/${r.repository_name ?? ""}`
+                  : r.repository_name ?? r.repository_url;
+                return (
+                  <SelectItem key={r.id} value={r.id}>
+                    {name}
+                    {r.default_branch ? ` · ${r.default_branch}` : ""}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         </div>
       )}
+      {canChangeRepo && repos.length === 0 && (
+        <div className="rounded border border-dashed p-2 text-xs text-muted-foreground">
+          Nessun repository registrato. Collega o sincronizza un repository da GitHub Operational.
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+          <Link to="/github-operational">
+            <GitBranch className="mr-1 h-3 w-3" /> Apri GitHub Operational
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }
