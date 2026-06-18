@@ -617,17 +617,17 @@ async function collectN8n(brainId: string | null): Promise<{
     const since = isoDaysAgo(3);
     let q = supabase
       .from("n8n_execution_logs")
-      .select("id,status,created_at,brain_id")
+      .select("id,success,error_text,created_at,brain_id")
       .gte("created_at", since)
       .limit(200);
     if (brainId) q = q.eq("brain_id", brainId);
     const { data } = await q;
-    const rows = (data ?? []) as Array<{ status: string }>;
+    const rows = (data ?? []) as Array<{ success: boolean | null; error_text: string | null }>;
     return {
       available: true,
       runs_recent: rows.length,
       errors_recent: rows.filter(
-        (r) => r.status === "failed" || r.status === "error",
+        (r) => r.success === false || (r.error_text ?? "").length > 0,
       ).length,
     };
   } catch {
