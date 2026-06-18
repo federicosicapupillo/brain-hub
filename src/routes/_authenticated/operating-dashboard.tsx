@@ -9,6 +9,7 @@ import { RunbooksBlock } from "@/components/RunbooksBlock";
 import { ToolConnectionsBlock } from "@/components/ToolConnectionsBlock";
 import { KnowledgeMapBlock } from "@/components/KnowledgeMapBlock";
 import { CalendarUpcomingPreview } from "@/components/CalendarUpcomingPreview";
+import { GmailMiniCard } from "@/components/GmailMiniCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -560,6 +561,7 @@ function OperatingDashboardRoute() {
               <ToolConnectionsBlock brainId={brainId} />
               <KnowledgeMapBlock brainId={brainId} />
               <CalendarUpcomingPreview brainId={brainId} compact />
+              <GmailMiniCard brainId={brainId} />
             </div>
           </div>
         </>
