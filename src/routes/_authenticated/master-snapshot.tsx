@@ -289,7 +289,7 @@ function MasterSnapshotRoute() {
               </pre>
               <p className="text-xs text-muted-foreground">
                 La versione ufficiale è quella mostrata nella scheda del Master Snapshot
-                (v{current.version_label}). Eventuali righe "Versione documento" nel
+                (v{getSnapshotVersionLabel(current)}). Eventuali righe "Versione documento" nel
                 markdown vengono normalizzate per evitare disallineamenti.
               </p>
               <p className="text-xs text-muted-foreground">
