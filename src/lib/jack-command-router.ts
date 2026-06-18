@@ -33,6 +33,10 @@ import {
   findSimilarMemoryEntries,
   archiveJackMemoryEntry,
 } from "@/lib/jack-memory";
+import {
+  buildJackBestAvailableNextAction,
+  formatJackBestNextActionSpeech,
+} from "@/lib/jack-best-next-action";
 
 export type JackIntent =
   | "daily_status"
@@ -471,63 +475,66 @@ async function respondNextActions(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = (await resolveBrief(ctx)).brief;
-  if (brief && brief.next_actions.length > 0) {
-    const top = brief.next_actions.slice(0, 3);
-    const text =
-      `Prossime ${top.length} azioni: ` +
-      top.map((a, i) => `${i + 1}. ${a.title}`).join(". ") +
-      ". Devi approvarle manualmente in Action Queue.";
-    return {
-      intent: "next_actions",
-      matched_phrases: matched,
-      response_text: text,
-      cta: { label: "Apri Action Queue", to: "/action-queue" },
-      source: "daily_brief.next_actions",
-    };
-  }
-  // Fallback: action queue diretta
   try {
-    let q = supabase
-      .from("automation_actions")
-      .select("title,priority,status")
-      .in("status", ["suggested", "pending_approval", "approved"])
-      .order("created_at", { ascending: false })
-      .limit(3);
-    if (ctx.brainId) q = q.eq("brain_id", ctx.brainId);
-    const { data } = await q;
-    const rows = (data ?? []) as Array<{ title: string }>;
-    if (rows.length === 0) {
-      return {
-        intent: "next_actions",
-        matched_phrases: matched,
-        response_text:
-          "Non vedo prossime azioni aperte. Puoi generare un nuovo Daily Brief per scoprirne di nuove.",
-        cta: ctaDaily(ctx),
-        source: "empty",
-      };
+    const best = await buildJackBestAvailableNextAction(ctx.brainId);
+    void logJackVoiceCommandEvent(
+      "jack_best_next_action_built",
+      `Best next action source=${best.source}`,
+      {
+        brain_id: ctx.brainId,
+        source: best.source,
+        warning_id: best.meta.warning_id,
+        action_queue_open_count: best.meta.action_queue_open_count,
+        daily_brief_present: best.meta.daily_brief_present,
+      },
+    );
+    if (best.source !== "action_queue") {
+      void logJackVoiceCommandEvent(
+        "jack_action_queue_empty_fallback_used",
+        `Action Queue empty, fallback=${best.source}`,
+        { brain_id: ctx.brainId, fallback_source: best.source },
+      );
     }
-    const text =
-      `Hai ${rows.length} azioni in coda: ` +
-      rows.map((r, i) => `${i + 1}. ${r.title}`).join(". ") +
-      ". Da approvare manualmente.";
+    if (best.source === "daily_brief") {
+      void logJackVoiceCommandEvent(
+        "jack_daily_brief_next_action_used",
+        `Daily Brief next_action used: ${best.title}`,
+        { brain_id: ctx.brainId, title: best.title },
+      );
+    }
+    if (
+      best.source === "operational_health" ||
+      best.source === "remediation" ||
+      best.source === "readiness"
+    ) {
+      void logJackVoiceCommandEvent(
+        "jack_operational_fallback_used",
+        `Operational fallback=${best.source}`,
+        {
+          brain_id: ctx.brainId,
+          fallback_source: best.source,
+          warning_id: best.meta.warning_id,
+        },
+      );
+    }
     return {
       intent: "next_actions",
       matched_phrases: matched,
-      response_text: text,
-      cta: { label: "Apri Action Queue", to: "/action-queue" },
-      source: "action_queue",
+      response_text: formatJackBestNextActionSpeech(best),
+      cta: { label: best.cta_label, to: best.cta_href },
+      source: `best_next_action:${best.source}`,
     };
   } catch {
     return {
       intent: "next_actions",
       matched_phrases: matched,
-      response_text: "Non riesco a leggere la coda azioni adesso.",
+      response_text: "Non riesco a leggere lo stato operativo adesso.",
       cta: { label: "Apri Action Queue", to: "/action-queue" },
       source: "error",
     };
   }
 }
+
 
 async function respondEmailSummary(
   ctx: JackCommandContext,
@@ -1069,7 +1076,11 @@ export type JackVoiceCommandEvent =
   | "jack_memory_natural_response_generated"
   | "jack_memory_forget_requested"
   | "jack_memory_secret_warning"
-  | "jack_memory_entry_used";
+  | "jack_memory_entry_used"
+  | "jack_best_next_action_built"
+  | "jack_action_queue_empty_fallback_used"
+  | "jack_daily_brief_next_action_used"
+  | "jack_operational_fallback_used";
 
 function redactTranscript(t: string): string {
   return t
