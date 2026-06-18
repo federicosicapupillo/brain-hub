@@ -26,8 +26,12 @@ import {
   createMasterSnapshotDraftFromCodeAgentJob,
   syncCodeAgentJobApprovalStatus,
   syncPendingCodeAgentApprovals,
+  createCodeAgentJobFromBrowser,
+  updateCodeAgentJobRepository,
   CodeAgentTransitionError,
   type CodeAgentEngine,
+  type CodeAgentRiskLevel,
+  type UnifiedCreateCodeAgentJobResult,
 } from "@/lib/code-agent-orchestrator";
 
 // ---------- Error serialization (crosses RPC boundary) ----------
@@ -192,5 +196,73 @@ export const syncPendingCodeAgentApprovalsFn = createServerFn({ method: "POST" }
     return withGuard(context, async () => {
       const r = await syncPendingCodeAgentApprovals(data.brainId ?? null);
       return r;
+    });
+  });
+
+// ---------- v3.15.5: creation + repository update ----------
+
+const riskEnum = z.enum(["low", "medium", "high"]);
+
+export const createCodeAgentJobFromBrowserFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (d: {
+      commandText: string;
+      brainId?: string | null;
+      projectId?: string | null;
+      repositoryId?: string | null;
+      preferredEngine?: CodeAgentEngine | null;
+      repositoryHint?: string | null;
+      riskHint?: CodeAgentRiskLevel | null;
+      source?: string | null;
+      notes?: string | null;
+      deliveryPreference?: "manual" | "telegram" | null;
+    }) =>
+      z
+        .object({
+          commandText: z.string().min(1).max(1500),
+          brainId: z.string().uuid().nullable().optional(),
+          projectId: z.string().uuid().nullable().optional(),
+          repositoryId: z.string().uuid().nullable().optional(),
+          preferredEngine: engineEnum.nullable().optional(),
+          repositoryHint: z.string().max(500).nullable().optional(),
+          riskHint: riskEnum.nullable().optional(),
+          source: z.string().max(120).nullable().optional(),
+          notes: z.string().max(2000).nullable().optional(),
+          deliveryPreference: z.enum(["manual", "telegram"]).nullable().optional(),
+        })
+        .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    return withGuard(context, async (): Promise<UnifiedCreateCodeAgentJobResult> => {
+      return createCodeAgentJobFromBrowser({
+        command_text: data.commandText,
+        brain_id: data.brainId ?? null,
+        project_id: data.projectId ?? null,
+        repository_id: data.repositoryId ?? null,
+        preferred_engine: data.preferredEngine ?? null,
+        repository_hint: data.repositoryHint ?? null,
+        risk_hint: data.riskHint ?? null,
+        source: data.source ?? "ui_browser",
+        notes: data.notes ?? null,
+        delivery_preference: data.deliveryPreference ?? null,
+      });
+    });
+  });
+
+export const updateCodeAgentJobRepositoryFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { jobId: string; repositoryId: string | null }) =>
+    z
+      .object({
+        jobId: z.string().uuid(),
+        repositoryId: z.string().uuid().nullable(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    return withGuard(context, async () => {
+      await updateCodeAgentJobRepository(data.jobId, data.repositoryId);
+      return { ok: true } as const;
     });
   });

@@ -29,8 +29,6 @@ import {
   listCodeAgentJobs,
   getCodeAgentJob,
   markCodeAgentJobReady,
-  updateCodeAgentJobRepository,
-  createCodeAgentJobFromBrowser,
   getCodeAgentJobSummary,
   getCodeAgentAvailableActions,
   getCodeAgentNextStep,
@@ -55,6 +53,8 @@ import {
   createMasterSnapshotDraftFromCodeAgentJobFn,
   syncCodeAgentJobApprovalStatusFn,
   syncPendingCodeAgentApprovalsFn,
+  createCodeAgentJobFromBrowserFn,
+  updateCodeAgentJobRepositoryFn,
 } from "@/lib/code-agent-orchestrator.functions";
 import {
   AlertTriangle,
@@ -215,6 +215,9 @@ function CodeAgentJobsPage() {
   const snapshotFn = useServerFn(createMasterSnapshotDraftFromCodeAgentJobFn);
   const syncOneFn = useServerFn(syncCodeAgentJobApprovalStatusFn);
   const syncBulkFn = useServerFn(syncPendingCodeAgentApprovalsFn);
+  // v3.15.5 — creation + repository update behind authenticated server fns.
+  const updateRepoFn = useServerFn(updateCodeAgentJobRepositoryFn);
+  const createJobFn = useServerFn(createCodeAgentJobFromBrowserFn);
 
   function describeTransitionError(e: unknown): string {
     // Accept (a) native CodeAgentTransitionError-like instances (legacy local
@@ -252,9 +255,17 @@ function CodeAgentJobsPage() {
       case "code_agent_terminal_status":
         return "Questo job è in uno stato finale.";
       case "code_agent_job_not_found":
-        return "Job non trovato.";
+        return "Job non trovato o non accessibile.";
       case "code_agent_user_scope_required":
         return "Devi essere autenticato.";
+      case "code_agent_repository_not_found":
+        return "Repository non trovato o non accessibile.";
+      case "code_agent_repository_user_scope_required":
+        return "Repository fuori dal tuo scope utente.";
+      case "code_agent_repository_update_not_allowed":
+        return "Non puoi modificare il repository di un job già inviato o completato.";
+      case "code_agent_invalid_creation_input":
+        return "Dati insufficienti per creare il job.";
       case "code_agent_transition_not_allowed":
         return msg;
       default:
@@ -323,11 +334,12 @@ function CodeAgentJobsPage() {
 
   const handleSetRepo = async (jobId: string, repositoryId: string) => {
     try {
-      await updateCodeAgentJobRepository(jobId, repositoryId);
+      await updateRepoFn({ data: { jobId, repositoryId } });
       toast.success("Repository aggiornato sul job");
       refresh();
     } catch (e) {
-      toast.error(describeTransitionError(e)); refresh();
+      toast.error(describeTransitionError(e));
+      refresh();
     }
   };
 
@@ -352,7 +364,7 @@ function CodeAgentJobsPage() {
 
   // Keep legacy bindings reachable.
   void markCodeAgentJobReady;
-  void createCodeAgentJobFromBrowser;
+  void createJobFn;
 
   const handleSaveResult = async () => {
     if (!openDetail) return;
