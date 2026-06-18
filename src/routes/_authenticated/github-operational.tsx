@@ -28,6 +28,7 @@ import {
   listGithubRepositories,
   createGithubRepository,
   archiveGithubRepository,
+  normalizeSuspectRepository,
   listCodeFileMap,
   addCodeFileToMap,
   suggestCodeActionsForRepository,
@@ -36,11 +37,16 @@ import {
   buildClaudeCodePromptForAction,
   buildGithubIssueDraftForAction,
   createGithubOperationalReview,
+  logGithubOperationalEvent,
   ENGINE_LABEL,
   type GithubRepository,
   type CodeActionSuggestion,
   type SupportedEngine,
 } from "@/lib/github-operational";
+import {
+  parseGithubRepositoryInput,
+  isSuspectRepositoryRecord,
+} from "@/lib/github-repository-parse";
 import {
   ExternalLink,
   GitBranch,
