@@ -46,6 +46,8 @@ export type RemediationItem = {
   suggested_action_type: ActionType;
   suggested_action_risk: RiskLevel;
   status: RemediationStatus;
+  linked_action_id: string | null;
+  linked_action_status: string | null;
 };
 
 export type RemediationPlan = {
@@ -54,6 +56,10 @@ export type RemediationPlan = {
   total: number;
   open: number;
   action_created: number;
+  action_in_progress: number;
+  action_completed: number;
+  resolved: number;
+  regressed: number;
   by_area: Record<LoopWarningArea, number>;
   items: RemediationItem[];
   next: RemediationItem | null;
