@@ -64,13 +64,15 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     type: "function",
     name: "create_memory_entry",
     description:
-      "Crea una memory entry quando Federico dice 'memorizza', 'ricorda che'. Se contiene segreti, l'entry viene creata come 'suggested' e richiede conferma manuale.",
+      "Crea/aggiorna una memory entry persistente quando Federico dice 'memorizza', 'ricorda che'. Dedup automatico su preferenze simili. Sensibili → 'suggested', altrimenti 'active'. Restituisce persisted, status e included_in_context.",
     parameters: {
       type: "object",
       properties: {
         content: { type: "string" },
-        category: { type: "string" },
+        category: { type: "string", description: "preference|fact|rule|context" },
         project_name: { type: "string" },
+        brain_id: { type: "string", description: "Brain id se la memoria è specifica di un progetto. Omettere per preferenze personali globali." },
+        scope: { type: "string", enum: ["global", "brain"], description: "Default: global per preferenze personali, brain se brain_id presente." },
       },
       required: ["content"],
     },
