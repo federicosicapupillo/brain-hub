@@ -265,7 +265,7 @@ async function respondNextActions(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const brief = (await resolveBrief(ctx)).brief;
   if (brief && brief.next_actions.length > 0) {
     const top = brief.next_actions.slice(0, 3);
     const text =
@@ -327,7 +327,7 @@ async function respondEmailSummary(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const brief = (await resolveBrief(ctx)).brief;
   const cta: JackCommandCTA = {
     label: "Apri Gmail Connector",
     to: "/gmail-connector",
@@ -360,7 +360,7 @@ async function respondWarnings(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const brief = (await resolveBrief(ctx)).brief;
   const cta: JackCommandCTA = { label: "Apri Loop QA", to: "/loop-qa" };
   if (brief) {
     const w = brief.warnings_summary;
@@ -403,7 +403,7 @@ async function respondTelegram(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const brief = (await resolveBrief(ctx)).brief;
   const cta: JackCommandCTA = {
     label: "Apri Telegram Approvals",
     to: "/telegram-approvals",
