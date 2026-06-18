@@ -46,6 +46,7 @@ import {
   type DailyBriefRow,
   type NextActionItem,
 } from "@/lib/daily-operating-brief";
+import { JackVoicePlayer } from "@/components/JackVoicePlayer";
 
 export const Route = createFileRoute("/_authenticated/daily-brief")({
   head: () => ({
@@ -270,6 +271,13 @@ function DailyBriefRoute() {
                 <p className="text-sm italic text-muted-foreground whitespace-pre-wrap">
                   {brief.voice_summary_text ?? "—"}
                 </p>
+                <div className="mt-3">
+                  <JackVoicePlayer
+                    text={brief.voice_summary_text ?? brief.executive_summary ?? ""}
+                    brainId={brief.brain_id}
+                    briefId={brief.id}
+                  />
+                </div>
               </Section>
               <Section title="Cosa è successo oggi">
                 <p className="text-sm">{brief.today_activity_summary ?? "—"}</p>
