@@ -813,3 +813,90 @@ export const READINESS_STATUS_LABEL: Record<ReadinessStatus, string> = {
   partially_ready: "Parzialmente pronto",
   blocked: "Bloccato",
 };
+
+// ---------- Enhanced next recommended action ----------
+
+export type EnhancedNextAction = {
+  label: string;
+  to: string;
+  reason: string;
+  source: "regressed" | "readiness_blocked" | "completed_but_warning" | "critical_open" | "warning_open" | "fallback";
+  warning_id: string | null;
+};
+
+export async function getEnhancedNextAction(
+  brainId?: string | null,
+): Promise<EnhancedNextAction> {
+  const [plan, bridge] = await Promise.all([
+    buildOperationalRemediationPlan(brainId ?? null),
+    getLoopReadinessHealthBridge(brainId ?? null),
+  ]);
+
+  const regressedCritical = plan.items.find(
+    (i) => i.status === "regressed" && i.severity === "critical",
+  );
+  if (regressedCritical) {
+    return {
+      label: regressedCritical.cta_label,
+      to: regressedCritical.cta_href,
+      reason: `Remediation riaperta: ${regressedCritical.title}`,
+      source: "regressed",
+      warning_id: regressedCritical.warning_id,
+    };
+  }
+
+  if (bridge.status === "blocked") {
+    return {
+      label: "Apri Loop QA",
+      to: "/loop-qa",
+      reason: `Readiness bloccata: ${bridge.total_missing} step mancanti.`,
+      source: "readiness_blocked",
+      warning_id: null,
+    };
+  }
+
+  const regressed = plan.items.find((i) => i.status === "regressed");
+  if (regressed) {
+    return {
+      label: regressed.cta_label,
+      to: regressed.cta_href,
+      reason: `Remediation riaperta: ${regressed.title}`,
+      source: "regressed",
+      warning_id: regressed.warning_id,
+    };
+  }
+
+  const criticalOpen = plan.items.find(
+    (i) => i.status === "open" && i.severity === "critical",
+  );
+  if (criticalOpen) {
+    return {
+      label: criticalOpen.cta_label,
+      to: criticalOpen.cta_href,
+      reason: criticalOpen.title,
+      source: "critical_open",
+      warning_id: criticalOpen.warning_id,
+    };
+  }
+
+  const warningOpen = plan.items.find(
+    (i) => i.status === "open" && i.severity === "warning",
+  );
+  if (warningOpen) {
+    return {
+      label: warningOpen.cta_label,
+      to: warningOpen.cta_href,
+      reason: warningOpen.title,
+      source: "warning_open",
+      warning_id: warningOpen.warning_id,
+    };
+  }
+
+  return {
+    label: "Apri Loop QA",
+    to: "/loop-qa",
+    reason: "Nessuna remediation prioritaria.",
+    source: "fallback",
+    warning_id: null,
+  };
+}
