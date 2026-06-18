@@ -1521,6 +1521,205 @@ export type Database = {
         }
         Relationships: []
       }
+      gmail_connection_settings: {
+        Row: {
+          brain_id: string | null
+          connected_at: string | null
+          created_at: string
+          disconnected_at: string | null
+          google_email: string | null
+          google_user_id: string | null
+          id: string
+          last_sync_at: string | null
+          last_sync_error: string | null
+          last_sync_status: string | null
+          message_count: number
+          metadata: Json
+          scopes: string[]
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          connected_at?: string | null
+          created_at?: string
+          disconnected_at?: string | null
+          google_email?: string | null
+          google_user_id?: string | null
+          id?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          message_count?: number
+          metadata?: Json
+          scopes?: string[]
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          connected_at?: string | null
+          created_at?: string
+          disconnected_at?: string | null
+          google_email?: string | null
+          google_user_id?: string | null
+          id?: string
+          last_sync_at?: string | null
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          message_count?: number
+          metadata?: Json
+          scopes?: string[]
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      gmail_message_map: {
+        Row: {
+          body_preview: string | null
+          brain_id: string | null
+          cc_emails: string[]
+          connection_id: string | null
+          created_at: string
+          detected_category: string | null
+          detected_priority: string | null
+          from_email: string | null
+          from_name: string | null
+          gmail_message_id: string
+          gmail_thread_id: string | null
+          has_attachments: boolean
+          id: string
+          internal_date: string | null
+          is_important: boolean
+          is_unread: boolean
+          label_ids: string[]
+          linked_action_id: string | null
+          metadata: Json
+          snippet: string | null
+          source_query: string | null
+          subject: string | null
+          suggested_action_type: string | null
+          to_emails: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body_preview?: string | null
+          brain_id?: string | null
+          cc_emails?: string[]
+          connection_id?: string | null
+          created_at?: string
+          detected_category?: string | null
+          detected_priority?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          gmail_message_id: string
+          gmail_thread_id?: string | null
+          has_attachments?: boolean
+          id?: string
+          internal_date?: string | null
+          is_important?: boolean
+          is_unread?: boolean
+          label_ids?: string[]
+          linked_action_id?: string | null
+          metadata?: Json
+          snippet?: string | null
+          source_query?: string | null
+          subject?: string | null
+          suggested_action_type?: string | null
+          to_emails?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body_preview?: string | null
+          brain_id?: string | null
+          cc_emails?: string[]
+          connection_id?: string | null
+          created_at?: string
+          detected_category?: string | null
+          detected_priority?: string | null
+          from_email?: string | null
+          from_name?: string | null
+          gmail_message_id?: string
+          gmail_thread_id?: string | null
+          has_attachments?: boolean
+          id?: string
+          internal_date?: string | null
+          is_important?: boolean
+          is_unread?: boolean
+          label_ids?: string[]
+          linked_action_id?: string | null
+          metadata?: Json
+          snippet?: string | null
+          source_query?: string | null
+          subject?: string | null
+          suggested_action_type?: string | null
+          to_emails?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_message_map_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_connection_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gmail_oauth_states: {
+        Row: {
+          brain_id: string | null
+          connection_id: string | null
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          metadata: Json
+          redirect_path: string | null
+          state_token: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          connection_id?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          metadata?: Json
+          redirect_path?: string | null
+          state_token: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          connection_id?: string | null
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          metadata?: Json
+          redirect_path?: string | null
+          state_token?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gmail_oauth_states_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "gmail_connection_settings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_calendar_oauth_states: {
         Row: {
           brain_id: string | null

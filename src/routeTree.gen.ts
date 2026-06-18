@@ -35,6 +35,7 @@ import { Route as AuthenticatedImpostazioniRouteImport } from './routes/_authent
 import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticated/importa'
 import { Route as AuthenticatedHealthCheckRouteImport } from './routes/_authenticated/health-check'
 import { Route as AuthenticatedGuidaRouteImport } from './routes/_authenticated/guida'
+import { Route as AuthenticatedGmailConnectorRouteImport } from './routes/_authenticated/gmail-connector'
 import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authenticated/github-sync'
 import { Route as AuthenticatedGithubOperationalRouteImport } from './routes/_authenticated/github-operational'
 import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authenticated/github-coverage'
@@ -63,6 +64,7 @@ import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 import { Route as AuthenticatedImportaPromptStoriciRouteImport } from './routes/_authenticated/importa.prompt-storici'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
+import { Route as ApiPublicGmailOauthCallbackRouteImport } from './routes/api/public/gmail-oauth/callback'
 import { Route as ApiPublicDriveOauthCallbackRouteImport } from './routes/api/public/drive-oauth/callback'
 import { Route as ApiPublicCalendarOauthCallbackRouteImport } from './routes/api/public/calendar-oauth/callback'
 
@@ -208,6 +210,12 @@ const AuthenticatedGuidaRoute = AuthenticatedGuidaRouteImport.update({
   path: '/guida',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGmailConnectorRoute =
+  AuthenticatedGmailConnectorRouteImport.update({
+    id: '/gmail-connector',
+    path: '/gmail-connector',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedGithubSyncRoute = AuthenticatedGithubSyncRouteImport.update({
   id: '/github-sync',
   path: '/github-sync',
@@ -368,6 +376,12 @@ const ApiPublicTelegramWebhookRoute =
     path: '/api/public/telegram/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicGmailOauthCallbackRoute =
+  ApiPublicGmailOauthCallbackRouteImport.update({
+    id: '/api/public/gmail-oauth/callback',
+    path: '/api/public/gmail-oauth/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicDriveOauthCallbackRoute =
   ApiPublicDriveOauthCallbackRouteImport.update({
     id: '/api/public/drive-oauth/callback',
@@ -406,6 +420,7 @@ export interface FileRoutesByFullPath {
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
+  '/gmail-connector': typeof AuthenticatedGmailConnectorRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/health-check': typeof AuthenticatedHealthCheckRoute
   '/importa': typeof AuthenticatedImportaRouteWithChildren
@@ -436,6 +451,7 @@ export interface FileRoutesByFullPath {
   '/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
+  '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesByTo {
@@ -462,6 +478,7 @@ export interface FileRoutesByTo {
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
+  '/gmail-connector': typeof AuthenticatedGmailConnectorRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/health-check': typeof AuthenticatedHealthCheckRoute
   '/impostazioni': typeof AuthenticatedImpostazioniRoute
@@ -492,6 +509,7 @@ export interface FileRoutesByTo {
   '/importa': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
+  '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRoutesById {
@@ -520,6 +538,7 @@ export interface FileRoutesById {
   '/_authenticated/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/_authenticated/github-operational': typeof AuthenticatedGithubOperationalRoute
   '/_authenticated/github-sync': typeof AuthenticatedGithubSyncRoute
+  '/_authenticated/gmail-connector': typeof AuthenticatedGmailConnectorRoute
   '/_authenticated/guida': typeof AuthenticatedGuidaRoute
   '/_authenticated/health-check': typeof AuthenticatedHealthCheckRoute
   '/_authenticated/importa': typeof AuthenticatedImportaRouteWithChildren
@@ -551,6 +570,7 @@ export interface FileRoutesById {
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
+  '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
 export interface FileRouteTypes {
@@ -580,6 +600,7 @@ export interface FileRouteTypes {
     | '/github-coverage'
     | '/github-operational'
     | '/github-sync'
+    | '/gmail-connector'
     | '/guida'
     | '/health-check'
     | '/importa'
@@ -610,6 +631,7 @@ export interface FileRouteTypes {
     | '/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
+    | '/api/public/gmail-oauth/callback'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -636,6 +658,7 @@ export interface FileRouteTypes {
     | '/github-coverage'
     | '/github-operational'
     | '/github-sync'
+    | '/gmail-connector'
     | '/guida'
     | '/health-check'
     | '/impostazioni'
@@ -666,6 +689,7 @@ export interface FileRouteTypes {
     | '/importa'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
+    | '/api/public/gmail-oauth/callback'
     | '/api/public/telegram/webhook'
   id:
     | '__root__'
@@ -693,6 +717,7 @@ export interface FileRouteTypes {
     | '/_authenticated/github-coverage'
     | '/_authenticated/github-operational'
     | '/_authenticated/github-sync'
+    | '/_authenticated/gmail-connector'
     | '/_authenticated/guida'
     | '/_authenticated/health-check'
     | '/_authenticated/importa'
@@ -724,6 +749,7 @@ export interface FileRouteTypes {
     | '/_authenticated/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
+    | '/api/public/gmail-oauth/callback'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
 }
@@ -734,6 +760,7 @@ export interface RootRouteChildren {
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
   ApiPublicCalendarOauthCallbackRoute: typeof ApiPublicCalendarOauthCallbackRoute
   ApiPublicDriveOauthCallbackRoute: typeof ApiPublicDriveOauthCallbackRoute
+  ApiPublicGmailOauthCallbackRoute: typeof ApiPublicGmailOauthCallbackRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
 
@@ -919,6 +946,13 @@ declare module '@tanstack/react-router' {
       path: '/guida'
       fullPath: '/guida'
       preLoaderRoute: typeof AuthenticatedGuidaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gmail-connector': {
+      id: '/_authenticated/gmail-connector'
+      path: '/gmail-connector'
+      fullPath: '/gmail-connector'
+      preLoaderRoute: typeof AuthenticatedGmailConnectorRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/github-sync': {
@@ -1117,6 +1151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicTelegramWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/gmail-oauth/callback': {
+      id: '/api/public/gmail-oauth/callback'
+      path: '/api/public/gmail-oauth/callback'
+      fullPath: '/api/public/gmail-oauth/callback'
+      preLoaderRoute: typeof ApiPublicGmailOauthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/drive-oauth/callback': {
       id: '/api/public/drive-oauth/callback'
       path: '/api/public/drive-oauth/callback'
@@ -1184,6 +1225,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGithubCoverageRoute: typeof AuthenticatedGithubCoverageRoute
   AuthenticatedGithubOperationalRoute: typeof AuthenticatedGithubOperationalRoute
   AuthenticatedGithubSyncRoute: typeof AuthenticatedGithubSyncRoute
+  AuthenticatedGmailConnectorRoute: typeof AuthenticatedGmailConnectorRoute
   AuthenticatedGuidaRoute: typeof AuthenticatedGuidaRoute
   AuthenticatedHealthCheckRoute: typeof AuthenticatedHealthCheckRoute
   AuthenticatedImportaRoute: typeof AuthenticatedImportaRouteWithChildren
@@ -1233,6 +1275,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGithubCoverageRoute: AuthenticatedGithubCoverageRoute,
   AuthenticatedGithubOperationalRoute: AuthenticatedGithubOperationalRoute,
   AuthenticatedGithubSyncRoute: AuthenticatedGithubSyncRoute,
+  AuthenticatedGmailConnectorRoute: AuthenticatedGmailConnectorRoute,
   AuthenticatedGuidaRoute: AuthenticatedGuidaRoute,
   AuthenticatedHealthCheckRoute: AuthenticatedHealthCheckRoute,
   AuthenticatedImportaRoute: AuthenticatedImportaRouteWithChildren,
@@ -1269,6 +1312,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
   ApiPublicCalendarOauthCallbackRoute: ApiPublicCalendarOauthCallbackRoute,
   ApiPublicDriveOauthCallbackRoute: ApiPublicDriveOauthCallbackRoute,
+  ApiPublicGmailOauthCallbackRoute: ApiPublicGmailOauthCallbackRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
 export const routeTree = rootRouteImport

@@ -495,6 +495,26 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
+  // Gmail / Email connector warnings (v3.8) — read-only, no external calls
+  try {
+    const { getGmailWarnings } = await import("@/lib/gmail-connector");
+    const gw = await getGmailWarnings(brainId ?? null);
+    for (const w of gw) {
+      warnings.push({
+        id: w.id,
+        level: w.level,
+        title: w.title,
+        description: w.description,
+        cta: w.cta,
+        category: w.category,
+      });
+    }
+  } catch {
+    // non-blocking
+  }
+
+
+
 
 
 
