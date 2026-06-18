@@ -8,6 +8,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
   getTodayOperatingBrief,
+  getAnyTodayOperatingBriefForUser,
   type DailyBriefRow,
 } from "@/lib/daily-operating-brief";
 
@@ -148,7 +149,24 @@ export function getJackCommandSuggestions(): string[] {
 
 export type JackCommandContext = {
   brainId: string | null;
+  currentBrief?: DailyBriefRow | null;
 };
+
+export type ResolvedBrief = {
+  brief: DailyBriefRow | null;
+  source: "current" | "query" | "fallback" | "missing";
+};
+
+async function resolveBrief(ctx: JackCommandContext): Promise<ResolvedBrief> {
+  if (ctx.currentBrief) {
+    return { brief: ctx.currentBrief, source: "current" };
+  }
+  const scoped = await getTodayOperatingBrief(ctx.brainId);
+  if (scoped) return { brief: scoped, source: "query" };
+  const fallback = await getAnyTodayOperatingBriefForUser();
+  if (fallback) return { brief: fallback, source: "fallback" };
+  return { brief: null, source: "missing" };
+}
 
 export async function resolveJackCommandIntent(input: {
   transcript: string;
@@ -199,7 +217,7 @@ async function respondDailyStatus(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const { brief, source } = await resolveBrief(ctx);
   if (!brief) {
     return {
       intent: "daily_status",
@@ -220,7 +238,7 @@ async function respondDailyStatus(
     matched_phrases: matched,
     response_text: text,
     cta: ctaDaily(ctx),
-    source: "daily_operating_brief",
+    source: `daily_operating_brief:${source}`,
   };
 }
 
@@ -247,7 +265,7 @@ async function respondNextActions(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const brief = (await resolveBrief(ctx)).brief;
   if (brief && brief.next_actions.length > 0) {
     const top = brief.next_actions.slice(0, 3);
     const text =
@@ -309,7 +327,7 @@ async function respondEmailSummary(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const brief = (await resolveBrief(ctx)).brief;
   const cta: JackCommandCTA = {
     label: "Apri Gmail Connector",
     to: "/gmail-connector",
@@ -342,7 +360,7 @@ async function respondWarnings(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const brief = (await resolveBrief(ctx)).brief;
   const cta: JackCommandCTA = { label: "Apri Loop QA", to: "/loop-qa" };
   if (brief) {
     const w = brief.warnings_summary;
@@ -385,7 +403,7 @@ async function respondTelegram(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const brief = (await resolveBrief(ctx)).brief;
   const cta: JackCommandCTA = {
     label: "Apri Telegram Approvals",
     to: "/telegram-approvals",
