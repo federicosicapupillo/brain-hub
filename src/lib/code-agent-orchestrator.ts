@@ -64,10 +64,14 @@ export type CodeAgentJobStatus =
   | "failed";
 
 export type CodeAgentApprovalStatus =
-  | "pending"
+  | "not_required"
   | "auto_approved"
+  | "draft"
+  | "pending"
   | "approved"
   | "rejected"
+  | "expired"
+  | "failed"
   | "needs_strong_approval";
 
 export type CodeAgentExecutionMode =
@@ -1061,25 +1065,62 @@ export async function getCodeAgentJob(id: string): Promise<CodeAgentJob | null> 
   return (data as CodeAgentJob | null) ?? null;
 }
 
+export type CodeAgentJobSummaryBuckets = {
+  draft: number;
+  missing_repository: number;
+  ambiguous_repository: number;
+  pending_approval: number;
+  ready_to_send: number;
+  sent_without_result: number;
+  result_to_review: number;
+  reviewed: number;
+  failed_or_cancelled: number;
+};
+
 export type CodeAgentJobSummary = {
   total: number;
   open: number;
   awaitingApproval: number;
   awaitingReview: number;
   lastEngine: string | null;
+  buckets: CodeAgentJobSummaryBuckets;
 };
 
 export async function getCodeAgentJobSummary(
   brainId?: string | null,
 ): Promise<CodeAgentJobSummary> {
   const items = await listCodeAgentJobs({ brainId: brainId ?? null });
+  const buckets: CodeAgentJobSummaryBuckets = {
+    draft: 0,
+    missing_repository: 0,
+    ambiguous_repository: 0,
+    pending_approval: 0,
+    ready_to_send: 0,
+    sent_without_result: 0,
+    result_to_review: 0,
+    reviewed: 0,
+    failed_or_cancelled: 0,
+  };
+  for (const j of items) {
+    const res = ((j.metadata?.repository_resolution as { status?: string } | undefined)?.status) ?? null;
+    const requiresRepo = CODE_JOB_TYPES_REQUIRING_REPO.includes(j.job_type as CodeAgentJobType);
+    if (requiresRepo && !j.repository_id && res === "missing") buckets.missing_repository++;
+    if (requiresRepo && !j.repository_id && res === "ambiguous") buckets.ambiguous_repository++;
+    if (j.status === "draft") buckets.draft++;
+    if (j.status === "pending_approval") buckets.pending_approval++;
+    if (j.status === "ready") buckets.ready_to_send++;
+    if ((j.status === "sent_manually" || j.status === "sent_to_engine") && !j.result_text) buckets.sent_without_result++;
+    if (j.status === "result_received" && !j.result_review_item_id) buckets.result_to_review++;
+    if (j.status === "reviewed" || j.status === "review_ready") buckets.reviewed++;
+    if (j.status === "failed" || j.status === "cancelled" || j.status === "rejected") buckets.failed_or_cancelled++;
+  }
   const open = items.filter(
-    (j) => j.status !== "completed" && j.status !== "rejected" && j.status !== "failed",
+    (j) => !CODE_AGENT_TERMINAL_STATUSES.includes(j.status as CodeAgentJobStatus) && j.status !== "completed",
   ).length;
   const awaitingApproval = items.filter((j) => j.status === "pending_approval").length;
   const awaitingReview = items.filter((j) => j.status === "result_received").length;
   const lastEngine = items[0]?.recommended_engine ?? null;
-  return { total: items.length, open, awaitingApproval, awaitingReview, lastEngine };
+  return { total: items.length, open, awaitingApproval, awaitingReview, lastEngine, buckets };
 }
 
 // ---------- Loop QA warnings ----------
@@ -1098,90 +1139,121 @@ export async function getCodeAgentJobWarnings(
   const items = await listCodeAgentJobs({ brainId: brainId ?? null });
   const warns: CodeAgentJobWarning[] = [];
   const now = Date.now();
+  const cta = { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" } as const;
   for (const j of items) {
-    const requiresRepo = CODE_JOB_TYPES_REQUIRING_REPO.includes(j.job_type as CodeAgentJobType);
-    const resolution = ((j.metadata?.repository_resolution as { status?: string } | undefined)?.status) ?? null;
-    if (requiresRepo && !j.repository_id) {
+    if (!(CODE_AGENT_JOB_STATUSES as readonly string[]).includes(j.status)) {
       warns.push({
-        id: `caj-no-repo-${j.id}`,
-        level: "warning",
-        title: "Code Agent Job senza repository",
-        description: "Seleziona un repository prima di approvare o inviare il job.",
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        id: `caj-invalid-status-${j.id}`,
+        level: "error",
+        title: "Status code agent non riconosciuto",
+        description: `Stato "${j.status}" fuori dalla state machine.`,
+        cta,
       });
     }
-    if (resolution === "ambiguous" && !j.repository_id) {
+    if (!(CODE_AGENT_APPROVAL_STATUSES as readonly string[]).includes(j.approval_status)) {
       warns.push({
-        id: `caj-ambig-repo-${j.id}`,
+        id: `caj-invalid-approval-status-${j.id}`,
+        level: "error",
+        title: "Approval status non riconosciuto",
+        description: `Approval "${j.approval_status}" fuori dalla state machine.`,
+        cta,
+      });
+    }
+    const requiresRepo = CODE_JOB_TYPES_REQUIRING_REPO.includes(j.job_type as CodeAgentJobType);
+    const resolution = ((j.metadata?.repository_resolution as { status?: string } | undefined)?.status) ?? null;
+    if (requiresRepo && !j.repository_id && resolution === "missing") {
+      warns.push({
+        id: `caj-blocked-missing-repo-${j.id}`,
         level: "warning",
-        title: "Repository ambiguo per Code Agent Job",
-        description: "Più candidati trovati: seleziona manualmente.",
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        title: "Job code agent bloccato: repository mancante",
+        description: "Seleziona un repository prima di approvare o inviare.",
+        cta,
+      });
+    }
+    if (requiresRepo && !j.repository_id && resolution === "ambiguous") {
+      warns.push({
+        id: `caj-blocked-ambiguous-repo-${j.id}`,
+        level: "warning",
+        title: "Job code agent bloccato: repository ambiguo",
+        description: "Più candidati trovati: scegli quello corretto.",
+        cta,
       });
     }
     if (
+      j.status === "ready" &&
       (j.risk_level === "medium" || j.risk_level === "high") &&
-      j.approval_status === "pending" &&
-      j.status === "pending_approval"
+      !approvalGranted(j as unknown as StateJobLike)
     ) {
       warns.push({
-        id: `caj-pending-${j.id}`,
-        level: j.risk_level === "high" ? "error" : "warning",
-        title: `Code Agent Job in attesa di approvazione (${j.risk_level})`,
-        description: `${CODE_AGENT_JOB_TYPE_LABEL[j.job_type as CodeAgentJobType] ?? j.job_type} su ${CODE_AGENT_ENGINE_REGISTRY[j.recommended_engine as CodeAgentEngine]?.label ?? j.recommended_engine}.`,
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        id: `caj-ready-but-approval-missing-${j.id}`,
+        level: "warning",
+        title: "Job ready ma approvazione mancante",
+        description: "Job medium/high pronto ma approvazione non concessa.",
+        cta,
       });
     }
     if (
       (j.risk_level === "medium" || j.risk_level === "high") &&
       !j.telegram_approval_id &&
-      j.status !== "cancelled" &&
-      j.status !== "rejected"
+      !isCodeAgentJobTerminal(j as unknown as StateJobLike)
     ) {
       warns.push({
         id: `caj-no-telegram-${j.id}`,
         level: "warning",
         title: "Code Agent Job senza approvazione Telegram",
         description: "Job medium/high risk senza richiesta Telegram collegata.",
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        cta,
       });
     }
     const updatedMs = new Date(j.updated_at).getTime();
     const ageHours = (now - updatedMs) / 3_600_000;
     if (j.status === "ready" && ageHours > 24) {
       warns.push({
-        id: `caj-approved-not-sent-${j.id}`,
+        id: `caj-ready-not-sent-${j.id}`,
         level: "info",
-        title: "Job approvato ma mai inviato",
-        description: `Approvato da ${Math.round(ageHours)}h, ancora non inviato a engine.`,
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        title: "Job ready ma mai inviato",
+        description: `Pronto da ${Math.round(ageHours)}h, ancora non inviato a engine.`,
+        cta,
       });
     }
-    if ((j.status === "sent_to_engine" || j.status === "sent_manually") && ageHours > 48 && !j.result_text) {
+    if (
+      (j.status === "sent_to_engine" || j.status === "sent_manually") &&
+      ageHours > 48 &&
+      !j.result_text
+    ) {
       warns.push({
         id: `caj-sent-no-result-${j.id}`,
         level: "warning",
         title: "Job inviato senza risultato",
         description: `Inviato da ${Math.round(ageHours)}h, nessun risultato registrato.`,
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        cta,
       });
     }
     if (j.status === "result_received" && !j.result_review_item_id) {
       warns.push({
-        id: `caj-no-review-${j.id}`,
+        id: `caj-result-no-review-${j.id}`,
         level: "warning",
-        title: "Risultato Code Agent senza Result Review",
+        title: "Risultato senza Result Review",
         description: "Crea una Result Review per il risultato ricevuto.",
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        cta,
+      });
+    }
+    if (j.status === "review_ready" && ageHours > 48) {
+      warns.push({
+        id: `caj-review-ready-not-reviewed-${j.id}`,
+        level: "info",
+        title: "Review pronta ma non completata",
+        description: `Review aperta da ${Math.round(ageHours)}h.`,
+        cta,
       });
     }
     if (j.master_snapshot_draft_id && !j.result_review_item_id) {
       warns.push({
-        id: `caj-snapshot-no-review-${j.id}`,
+        id: `caj-snapshot-before-review-${j.id}`,
         level: "warning",
-        title: "Master Snapshot draft senza Result Review",
-        description: "Crea una Result Review prima di promuovere lo snapshot.",
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        title: "Master Snapshot draft prima della review",
+        description: "Snapshot draft creato senza Result Review completa.",
+        cta,
       });
     }
     if (j.risk_level === "high" && j.approval_status === "needs_strong_approval") {
@@ -1190,16 +1262,7 @@ export async function getCodeAgentJobWarnings(
         level: "error",
         title: "Job high-risk con richiesta esecuzione automatica",
         description: "Bloccato. Serve approvazione forte e handoff manuale.",
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
-      });
-    }
-    if (j.status === "completed" && !j.master_snapshot_draft_id && j.job_type !== "code_review" && j.job_type !== "documentation_update") {
-      warns.push({
-        id: `caj-no-snapshot-${j.id}`,
-        level: "info",
-        title: "Job completato senza aggiornamento Master Snapshot",
-        description: "Valuta se proporre una bozza di Master Snapshot per questo job.",
-        cta: { label: "Apri Code Agent Jobs", to: "/code-agent-jobs" },
+        cta,
       });
     }
   }
@@ -1809,4 +1872,490 @@ export async function syncCodeAgentJobApprovalStatus(
     status: nextStatus,
     telegram_status: telegramStatus,
   };
+}
+
+// ============================================================
+// v3.15.2 — State Machine & Approval Reliability
+// ============================================================
+
+export const CODE_AGENT_JOB_STATUSES = [
+  "draft",
+  "pending_approval",
+  "ready",
+  "sent_to_engine",
+  "sent_manually",
+  "result_received",
+  "review_created",
+  "review_ready",
+  "reviewed",
+  "completed",
+  "rejected",
+  "cancelled",
+  "failed",
+] as const;
+
+export const CODE_AGENT_APPROVAL_STATUSES = [
+  "not_required",
+  "auto_approved",
+  "draft",
+  "pending",
+  "approved",
+  "rejected",
+  "expired",
+  "failed",
+  "needs_strong_approval",
+] as const;
+
+export const CODE_AGENT_TERMINAL_STATUSES: CodeAgentJobStatus[] = [
+  "reviewed",
+  "completed",
+  "rejected",
+  "cancelled",
+  "failed",
+];
+
+export const CODE_AGENT_ACTIVE_STATUSES: CodeAgentJobStatus[] = [
+  "draft",
+  "pending_approval",
+  "ready",
+  "sent_to_engine",
+  "sent_manually",
+  "result_received",
+  "review_created",
+  "review_ready",
+];
+
+const APPROVAL_FINAL: string[] = ["approved", "rejected", "expired", "failed"];
+
+export type CodeAgentTransition = {
+  from: CodeAgentJobStatus;
+  to: CodeAgentJobStatus;
+};
+
+export type CodeAgentNextStep = {
+  code:
+    | "select_repository"
+    | "wait_telegram_approval"
+    | "approve_or_reject"
+    | "send_manually"
+    | "save_result"
+    | "create_review"
+    | "complete_review"
+    | "create_snapshot"
+    | "terminal"
+    | "blocked"
+    | "idle";
+  label: string;
+  message: string;
+};
+
+export type CodeAgentBlockedAction = {
+  action: string;
+  reason: string;
+};
+
+export type CodeAgentAvailableActions = {
+  canApprove: boolean;
+  canReject: boolean;
+  canSyncApproval: boolean;
+  canSendManually: boolean;
+  canSaveResult: boolean;
+  canCreateReview: boolean;
+  canCreateNextAction: boolean;
+  canCreateSnapshot: boolean;
+  blocked: CodeAgentBlockedAction[];
+};
+
+type StateJobLike = Pick<
+  CodeAgentJob,
+  | "status"
+  | "approval_status"
+  | "risk_level"
+  | "job_type"
+  | "repository_id"
+  | "telegram_approval_id"
+  | "result_text"
+  | "result_review_item_id"
+  | "master_snapshot_draft_id"
+  | "metadata"
+>;
+
+export function normalizeCodeAgentJobStatus(
+  status: string | null,
+): CodeAgentJobStatus {
+  if (!status) return "draft";
+  return (CODE_AGENT_JOB_STATUSES as readonly string[]).includes(status)
+    ? (status as CodeAgentJobStatus)
+    : "draft";
+}
+
+export function normalizeCodeAgentApprovalStatus(
+  status: string | null,
+): CodeAgentApprovalStatus {
+  if (!status) return "pending";
+  return (CODE_AGENT_APPROVAL_STATUSES as readonly string[]).includes(status)
+    ? (status as CodeAgentApprovalStatus)
+    : "pending";
+}
+
+export function isCodeAgentJobTerminal(job: StateJobLike): boolean {
+  return CODE_AGENT_TERMINAL_STATUSES.includes(
+    normalizeCodeAgentJobStatus(job.status as string),
+  );
+}
+
+function repoResolutionStatus(job: StateJobLike): RepoResolutionStatus | null {
+  const meta = job.metadata ?? {};
+  const r = (meta.repository_resolution as { status?: string } | undefined)?.status ?? null;
+  if (r === "resolved" || r === "ambiguous" || r === "missing") return r;
+  return null;
+}
+
+function repoRequired(job: StateJobLike): boolean {
+  return CODE_JOB_TYPES_REQUIRING_REPO.includes(job.job_type as CodeAgentJobType);
+}
+
+function repoBlocking(job: StateJobLike): boolean {
+  if (!repoRequired(job)) return false;
+  if (job.repository_id) return false;
+  const res = repoResolutionStatus(job);
+  return res === "missing" || res === "ambiguous" || res === null;
+}
+
+function approvalRequired(job: StateJobLike): boolean {
+  return job.risk_level === "medium" || job.risk_level === "high";
+}
+
+function approvalGranted(job: StateJobLike): boolean {
+  const a = normalizeCodeAgentApprovalStatus(job.approval_status as string);
+  return a === "approved" || a === "auto_approved" || a === "not_required";
+}
+
+export function isCodeAgentJobBlocked(job: StateJobLike): boolean {
+  if (isCodeAgentJobTerminal(job)) return false;
+  if (repoBlocking(job)) return true;
+  if (approvalRequired(job) && !approvalGranted(job)) return true;
+  return false;
+}
+
+export function canApproveCodeAgentJob(job: StateJobLike): boolean {
+  if (isCodeAgentJobTerminal(job)) return false;
+  if (job.status !== "pending_approval" && job.status !== "draft") return false;
+  if (repoBlocking(job)) return false;
+  const a = normalizeCodeAgentApprovalStatus(job.approval_status as string);
+  return a === "pending" || a === "draft" || a === "needs_strong_approval";
+}
+
+export function canRejectCodeAgentJob(job: StateJobLike): boolean {
+  if (isCodeAgentJobTerminal(job)) return false;
+  if (job.status === "reviewed") return false;
+  return true;
+}
+
+export function canSyncCodeAgentApproval(job: StateJobLike): boolean {
+  if (!job.telegram_approval_id) return false;
+  if (isCodeAgentJobTerminal(job)) return false;
+  const a = normalizeCodeAgentApprovalStatus(job.approval_status as string);
+  if (APPROVAL_FINAL.includes(a) && a !== "pending") {
+    // Already final, but allow if status didn't catch up
+    return false;
+  }
+  return true;
+}
+
+export function canSendCodeAgentJobManually(job: StateJobLike): boolean {
+  if (isCodeAgentJobTerminal(job)) return false;
+  if (repoBlocking(job)) return false;
+  if (approvalRequired(job) && !approvalGranted(job)) return false;
+  return job.status === "ready" || job.status === "sent_manually";
+}
+
+export function canSaveCodeAgentJobResult(job: StateJobLike): boolean {
+  if (isCodeAgentJobTerminal(job)) return false;
+  if (job.result_text) return false;
+  return (
+    job.status === "ready" ||
+    job.status === "sent_to_engine" ||
+    job.status === "sent_manually"
+  );
+}
+
+export function canCreateReviewFromCodeAgentJob(job: StateJobLike): boolean {
+  if (isCodeAgentJobTerminal(job)) return false;
+  if (!job.result_text) return false;
+  if (job.result_review_item_id) return false;
+  return true;
+}
+
+export function canCreateMasterSnapshotFromCodeAgentJob(job: StateJobLike): boolean {
+  if (!job.result_text) return false;
+  if (job.master_snapshot_draft_id) return false;
+  return true;
+}
+
+export function canCreateNextActionFromCodeAgentJob(job: StateJobLike): boolean {
+  if (isCodeAgentJobTerminal(job)) return false;
+  return !!job.result_text;
+}
+
+export function getCodeAgentJobPhase(job: StateJobLike): string {
+  if (isCodeAgentJobTerminal(job)) return "terminal";
+  if (repoBlocking(job)) return "blocked_repository";
+  if (job.status === "pending_approval") return "awaiting_approval";
+  if (job.status === "ready") return "ready_to_send";
+  if (job.status === "sent_to_engine" || job.status === "sent_manually")
+    return job.result_text ? "result_pending_review" : "awaiting_result";
+  if (job.status === "result_received") return "result_to_review";
+  if (job.status === "review_ready" || job.status === "review_created")
+    return "review_in_progress";
+  return job.status as string;
+}
+
+export function getCodeAgentNextStep(job: StateJobLike): CodeAgentNextStep {
+  if (isCodeAgentJobTerminal(job)) {
+    return { code: "terminal", label: "Stato terminale", message: "Nessuna azione necessaria." };
+  }
+  if (repoBlocking(job)) {
+    const res = repoResolutionStatus(job);
+    return {
+      code: "select_repository",
+      label: "Scegli repository",
+      message:
+        res === "ambiguous"
+          ? "Più repository possibili: scegli quello giusto prima di proseguire."
+          : "Repository mancante: collega un repo prima di approvare o inviare.",
+    };
+  }
+  if (approvalRequired(job) && !approvalGranted(job)) {
+    if (job.telegram_approval_id) {
+      return {
+        code: "wait_telegram_approval",
+        label: "Attendi approvazione Telegram",
+        message: "Serve approvazione Telegram prima dell'invio manuale.",
+      };
+    }
+    return {
+      code: "approve_or_reject",
+      label: "Approva o rifiuta",
+      message: "Approva o rifiuta il job prima di proseguire.",
+    };
+  }
+  if (job.status === "ready") {
+    return {
+      code: "send_manually",
+      label: "Invia manualmente",
+      message: "Pronto per invio manuale a Codex/Claude Code.",
+    };
+  }
+  if ((job.status === "sent_manually" || job.status === "sent_to_engine") && !job.result_text) {
+    return {
+      code: "save_result",
+      label: "Salva risultato",
+      message: "Incolla il risultato ricevuto dall'engine.",
+    };
+  }
+  if (job.status === "result_received" && !job.result_review_item_id) {
+    return {
+      code: "create_review",
+      label: "Crea Result Review",
+      message: "Risultato ricevuto: crea una Result Review.",
+    };
+  }
+  if (job.status === "review_ready") {
+    return {
+      code: "complete_review",
+      label: "Completa review",
+      message: "Review pronta: completa la revisione prima dello snapshot.",
+    };
+  }
+  if (job.result_text && !job.master_snapshot_draft_id) {
+    return {
+      code: "create_snapshot",
+      label: "Master Snapshot draft",
+      message: "Puoi proporre una bozza Master Snapshot (solo dopo review).",
+    };
+  }
+  return { code: "idle", label: "Nessuna azione consigliata", message: "" };
+}
+
+export function getCodeAgentAvailableActions(
+  job: StateJobLike,
+): CodeAgentAvailableActions {
+  const blocked: CodeAgentBlockedAction[] = [];
+  const repoOk = !repoBlocking(job);
+  if (!repoOk) blocked.push({ action: "send_manually", reason: "Scegli repository prima di proseguire" });
+  if (approvalRequired(job) && !approvalGranted(job)) {
+    blocked.push({
+      action: "send_manually",
+      reason: "Serve approvazione Telegram prima dell'invio manuale",
+    });
+  }
+  if (!job.result_text) {
+    blocked.push({ action: "create_review", reason: "Manca il risultato" });
+    blocked.push({ action: "create_snapshot", reason: "Manca il risultato" });
+  }
+  if (isCodeAgentJobTerminal(job)) {
+    blocked.push({ action: "approve", reason: "Job in stato terminale" });
+  }
+  return {
+    canApprove: canApproveCodeAgentJob(job),
+    canReject: canRejectCodeAgentJob(job),
+    canSyncApproval: canSyncCodeAgentApproval(job),
+    canSendManually: canSendCodeAgentJobManually(job),
+    canSaveResult: canSaveCodeAgentJobResult(job),
+    canCreateReview: canCreateReviewFromCodeAgentJob(job),
+    canCreateNextAction: canCreateNextActionFromCodeAgentJob(job),
+    canCreateSnapshot: canCreateMasterSnapshotFromCodeAgentJob(job),
+    blocked,
+  };
+}
+
+export class CodeAgentTransitionError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.code = code;
+    this.name = "CodeAgentTransitionError";
+  }
+}
+
+export function assertCodeAgentTransitionAllowed(
+  job: StateJobLike,
+  targetStatus: CodeAgentJobStatus,
+  actionName: string,
+): void {
+  if (isCodeAgentJobTerminal(job)) {
+    throw new CodeAgentTransitionError(
+      "code_agent_terminal_status",
+      `Azione "${actionName}" non ammessa: job in stato terminale (${job.status}).`,
+    );
+  }
+  switch (actionName) {
+    case "approve":
+      if (!canApproveCodeAgentJob(job)) {
+        if (repoBlocking(job))
+          throw new CodeAgentTransitionError(
+            "code_agent_repository_required",
+            "Approvazione bloccata: scegli repository prima.",
+          );
+        throw new CodeAgentTransitionError(
+          "code_agent_transition_not_allowed",
+          `Approva non ammessa nello stato ${job.status}/${job.approval_status}.`,
+        );
+      }
+      break;
+    case "reject":
+      if (!canRejectCodeAgentJob(job))
+        throw new CodeAgentTransitionError(
+          "code_agent_transition_not_allowed",
+          `Rifiuta non ammesso nello stato ${job.status}.`,
+        );
+      break;
+    case "sync_approval":
+      if (!job.telegram_approval_id)
+        throw new CodeAgentTransitionError(
+          "code_agent_transition_not_allowed",
+          "Nessuna richiesta Telegram collegata al job.",
+        );
+      break;
+    case "send_manually":
+      if (repoBlocking(job))
+        throw new CodeAgentTransitionError(
+          "code_agent_repository_required",
+          "Invio manuale bloccato: repository mancante o ambiguo.",
+        );
+      if (approvalRequired(job) && !approvalGranted(job))
+        throw new CodeAgentTransitionError(
+          "code_agent_approval_required",
+          "Invio manuale bloccato: serve approvazione per job medium/high.",
+        );
+      if (!canSendCodeAgentJobManually(job))
+        throw new CodeAgentTransitionError(
+          "code_agent_transition_not_allowed",
+          `Invio manuale non ammesso nello stato ${job.status}.`,
+        );
+      break;
+    case "save_result":
+      if (!canSaveCodeAgentJobResult(job))
+        throw new CodeAgentTransitionError(
+          "code_agent_transition_not_allowed",
+          `Salvataggio risultato non ammesso (status=${job.status}, result già presente?).`,
+        );
+      break;
+    case "create_review":
+      if (!job.result_text)
+        throw new CodeAgentTransitionError(
+          "code_agent_result_required",
+          "Risultato mancante: non posso creare Result Review.",
+        );
+      break;
+    case "create_snapshot":
+      if (!job.result_text)
+        throw new CodeAgentTransitionError(
+          "code_agent_result_required",
+          "Risultato mancante: non posso creare bozza Master Snapshot.",
+        );
+      break;
+    default:
+      break;
+  }
+  void targetStatus;
+}
+
+// ---------- Bulk approval sync ----------
+
+export type CodeAgentBulkApprovalSyncResult = {
+  checked: number;
+  approved: number;
+  rejected: number;
+  expired: number;
+  failed: number;
+  unchanged: number;
+};
+
+export async function syncPendingCodeAgentApprovals(
+  brainId?: string | null,
+): Promise<CodeAgentBulkApprovalSyncResult> {
+  const userId = await currentUserId();
+  const summary: CodeAgentBulkApprovalSyncResult = {
+    checked: 0,
+    approved: 0,
+    rejected: 0,
+    expired: 0,
+    failed: 0,
+    unchanged: 0,
+  };
+  if (!userId) return summary;
+  const items = await listCodeAgentJobs({ brainId: brainId ?? null });
+  const targets = items.filter(
+    (j) =>
+      !!j.telegram_approval_id &&
+      !isCodeAgentJobTerminal(j) &&
+      !APPROVAL_FINAL.includes(
+        normalizeCodeAgentApprovalStatus(j.approval_status as string),
+      ),
+  );
+  if (targets.length === 0) return summary;
+  await logJobEvent(targets[0].id, userId, "code_agent_bulk_approval_sync_started", {
+    target_count: targets.length,
+    brain_id: brainId ?? null,
+  });
+  for (const j of targets) {
+    summary.checked++;
+    try {
+      const r = await syncCodeAgentJobApprovalStatus(j.id);
+      const ts = r.telegram_status;
+      if (ts === "approved") summary.approved++;
+      else if (ts === "rejected") summary.rejected++;
+      else if (ts === "expired") summary.expired++;
+      else if (ts === "failed") summary.failed++;
+      else summary.unchanged++;
+    } catch {
+      summary.failed++;
+    }
+  }
+  await logJobEvent(targets[0].id, userId, "code_agent_bulk_approval_sync_completed", {
+    ...summary,
+  });
+  return summary;
 }

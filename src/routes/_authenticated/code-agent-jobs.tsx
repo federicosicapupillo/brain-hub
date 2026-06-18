@@ -33,12 +33,15 @@ import {
   markCodeAgentJobSentManually,
   updateCodeAgentJobRepository,
   syncCodeAgentJobApprovalStatus,
+  syncPendingCodeAgentApprovals,
   saveCodeAgentJobResult,
   createReviewFromCodeAgentJob,
   createNextActionFromCodeAgentJob,
   createMasterSnapshotDraftFromCodeAgentJob,
   createCodeAgentJobFromBrowser,
   getCodeAgentJobSummary,
+  getCodeAgentAvailableActions,
+  getCodeAgentNextStep,
   CODE_AGENT_ENGINE_REGISTRY,
   CODE_AGENT_JOB_TYPE_LABEL,
   CODE_AGENT_STATUS_LABEL,
@@ -51,6 +54,7 @@ import {
   type CodeAgentRiskLevel,
 } from "@/lib/code-agent-orchestrator";
 import {
+  AlertTriangle,
   ArrowRight,
   CheckCircle2,
   CheckSquare,
@@ -58,9 +62,12 @@ import {
   ExternalLink,
   FileText,
   GitBranch,
+  Info,
   ListChecks,
+  RefreshCw,
   Send,
   ShieldCheck,
+  ShieldOff,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/code-agent-jobs")({
@@ -183,6 +190,18 @@ function CodeAgentJobsPage() {
     try {
       const r = await syncCodeAgentJobApprovalStatus(j.id);
       toast.success(`Sync · status=${r.status}`);
+      refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  const handleBulkSync = async () => {
+    try {
+      const r = await syncPendingCodeAgentApprovals(brainId);
+      toast.success(
+        `Sync · ${r.checked} controllati, ${r.approved} approvati, ${r.rejected} rifiutati, ${r.unchanged} invariati`,
+      );
       refresh();
     } catch (e) {
       toast.error((e as Error).message);
@@ -338,11 +357,29 @@ function CodeAgentJobsPage() {
       </Card>
 
       {summary && (
-        <div className="grid gap-3 sm:grid-cols-4">
-          <Tile label="Totali" value={summary.total} />
-          <Tile label="Aperti" value={summary.open} />
-          <Tile label="In attesa approvazione" value={summary.awaitingApproval} />
-          <Tile label="Da revisionare" value={summary.awaitingReview} />
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-4">
+            <Tile label="Totali" value={summary.total} />
+            <Tile label="Aperti" value={summary.open} />
+            <Tile label="In attesa approvazione" value={summary.awaitingApproval} />
+            <Tile label="Da revisionare" value={summary.awaitingReview} />
+          </div>
+          <div className="grid gap-2 text-xs sm:grid-cols-3 lg:grid-cols-9">
+            <BucketTile label="Draft" value={summary.buckets.draft} />
+            <BucketTile label="Repo mancante" value={summary.buckets.missing_repository} tone={summary.buckets.missing_repository > 0 ? "red" : undefined} />
+            <BucketTile label="Repo ambiguo" value={summary.buckets.ambiguous_repository} tone={summary.buckets.ambiguous_repository > 0 ? "amber" : undefined} />
+            <BucketTile label="In approvazione" value={summary.buckets.pending_approval} tone={summary.buckets.pending_approval > 0 ? "amber" : undefined} />
+            <BucketTile label="Pronti per invio" value={summary.buckets.ready_to_send} />
+            <BucketTile label="Inviati senza risultato" value={summary.buckets.sent_without_result} tone={summary.buckets.sent_without_result > 0 ? "amber" : undefined} />
+            <BucketTile label="Risultato da review" value={summary.buckets.result_to_review} tone={summary.buckets.result_to_review > 0 ? "amber" : undefined} />
+            <BucketTile label="Reviewed" value={summary.buckets.reviewed} />
+            <BucketTile label="Failed/cancelled" value={summary.buckets.failed_or_cancelled} />
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" variant="outline" onClick={() => void handleBulkSync()}>
+              <RefreshCw className="mr-1 h-3 w-3" /> Sync approval pending
+            </Button>
+          </div>
         </div>
       )}
 
@@ -431,6 +468,9 @@ function CodeAgentJobsPage() {
                 </Badge>
               </div>
 
+              {/* Operating state box */}
+              <OperatingStateBox job={openDetail} />
+
               {/* Repository resolution */}
               <RepoBlock
                 job={openDetail}
@@ -446,6 +486,7 @@ function CodeAgentJobsPage() {
                     variant="ghost"
                     className="ml-2 h-6 text-xs"
                     onClick={() => void handleSyncApproval(openDetail)}
+                    disabled={!getCodeAgentAvailableActions(openDetail).canSyncApproval}
                   >
                     Sync stato approvazione
                   </Button>
@@ -462,41 +503,41 @@ function CodeAgentJobsPage() {
                 <Textarea readOnly value={openDetail.prompt_text ?? ""} className="h-64 font-mono text-xs" />
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                {openDetail.status === "pending_approval" && openDetail.approval_status !== "rejected" && (
-                  <>
-                    <Button size="sm" onClick={() => void handleApprove(openDetail)}>
+              {(() => {
+                const actions = getCodeAgentAvailableActions(openDetail);
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" disabled={!actions.canApprove} onClick={() => void handleApprove(openDetail)}>
                       <CheckCircle2 className="mr-1 h-3 w-3" /> Approva
                     </Button>
-                    <Button size="sm" variant="destructive" onClick={() => void handleReject(openDetail)}>
+                    <Button size="sm" variant="destructive" disabled={!actions.canReject} onClick={() => void handleReject(openDetail)}>
                       Rifiuta
                     </Button>
-                  </>
-                )}
-                <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
-                  <Copy className="mr-1 h-3 w-3" /> Copia prompt Codex
-                </Button>
-                <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
-                  <Copy className="mr-1 h-3 w-3" /> Copia prompt Claude Code
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={openDetail.status === "pending_approval" || openDetail.status === "draft" || openDetail.status === "cancelled"}
-                  onClick={() => void handleSentManually(openDetail, "codex_cloud")}
-                >
-                  <Send className="mr-1 h-3 w-3" /> Segna inviato a Codex
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={openDetail.status === "pending_approval" || openDetail.status === "draft" || openDetail.status === "cancelled"}
-                  onClick={() => void handleSentManually(openDetail, "claude_code_cli")}
-                >
-                  <Send className="mr-1 h-3 w-3" /> Segna inviato a Claude Code
-                </Button>
-              </div>
-
+                    <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
+                      <Copy className="mr-1 h-3 w-3" /> Copia prompt Codex
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => void handleCopy(openDetail)}>
+                      <Copy className="mr-1 h-3 w-3" /> Copia prompt Claude Code
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!actions.canSendManually}
+                      onClick={() => void handleSentManually(openDetail, "codex_cloud")}
+                    >
+                      <Send className="mr-1 h-3 w-3" /> Segna inviato a Codex
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!actions.canSendManually}
+                      onClick={() => void handleSentManually(openDetail, "claude_code_cli")}
+                    >
+                      <Send className="mr-1 h-3 w-3" /> Segna inviato a Claude Code
+                    </Button>
+                  </div>
+                );
+              })()}
 
               <div>
                 <Label className="text-xs">Incolla risultato</Label>
@@ -505,41 +546,47 @@ function CodeAgentJobsPage() {
                   onChange={(e) => setResultText(e.target.value)}
                   placeholder="Incolla qui il diff / output / log…"
                   className="h-40 font-mono text-xs"
-                  disabled={!!openDetail.result_text}
+                  disabled={!getCodeAgentAvailableActions(openDetail).canSaveResult}
                 />
                 {!openDetail.result_text && (
-                  <Button size="sm" className="mt-2" onClick={() => void handleSaveResult()}>
+                  <Button
+                    size="sm"
+                    className="mt-2"
+                    disabled={!getCodeAgentAvailableActions(openDetail).canSaveResult}
+                    onClick={() => void handleSaveResult()}
+                  >
                     Salva risultato
                   </Button>
                 )}
               </div>
 
-              {openDetail.result_text && (
-                <div className="flex flex-wrap gap-2">
-                  {!openDetail.result_review_item_id && (
-                    <Button size="sm" variant="outline" onClick={() => void handleReview(openDetail)}>
+              {(() => {
+                const actions = getCodeAgentAvailableActions(openDetail);
+                if (!openDetail.result_text) return null;
+                return (
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" disabled={!actions.canCreateReview} onClick={() => void handleReview(openDetail)}>
                       <CheckSquare className="mr-1 h-3 w-3" /> Crea Result Review
                     </Button>
-                  )}
-                  {!openDetail.next_action_id && (
-                    <Button size="sm" variant="outline" onClick={() => void handleNext(openDetail)}>
+                    <Button size="sm" variant="outline" disabled={!actions.canCreateNextAction || !!openDetail.next_action_id} onClick={() => void handleNext(openDetail)}>
                       <ArrowRight className="mr-1 h-3 w-3" /> Crea Next Action
                     </Button>
-                  )}
-                  {!openDetail.master_snapshot_draft_id && (
-                    <Button size="sm" variant="outline" onClick={() => void handleSnapshot(openDetail)}>
+                    <Button size="sm" variant="outline" disabled={!actions.canCreateSnapshot} onClick={() => void handleSnapshot(openDetail)}>
                       <FileText className="mr-1 h-3 w-3" /> Master Snapshot draft
                     </Button>
-                  )}
-                  {openDetail.result_review_item_id && (
-                    <Button asChild size="sm" variant="outline">
-                      <Link to="/result-review">
-                        <ExternalLink className="mr-1 h-3 w-3" /> Apri Result Review
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              )}
+                    {openDetail.result_review_item_id && (
+                      <Button asChild size="sm" variant="outline">
+                        <Link to="/result-review">
+                          <ExternalLink className="mr-1 h-3 w-3" /> Apri Result Review
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Safety box */}
+              <SafetyBox />
             </div>
           )}
           <DialogFooter className="flex flex-wrap gap-2">
@@ -574,6 +621,101 @@ function Tile({ label, value }: { label: string; value: number }) {
   );
 }
 
+function BucketTile({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "amber" | "red";
+}) {
+  const cls =
+    tone === "red"
+      ? "border-red-500/30 bg-red-500/5"
+      : tone === "amber"
+        ? "border-amber-500/30 bg-amber-500/5"
+        : "border-border/60";
+  return (
+    <div className={`rounded border p-2 ${cls}`}>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-lg font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function OperatingStateBox({ job }: { job: CodeAgentJob }) {
+  const actions = getCodeAgentAvailableActions(job);
+  const next = getCodeAgentNextStep(job);
+  const resolution = (job.metadata?.repository_resolution as { status?: string } | undefined) ?? null;
+  const repoStatus = resolution?.status ?? (job.repository_id ? "resolved" : "missing");
+  return (
+    <div className="rounded border bg-muted/30 p-3 space-y-2">
+      <div className="flex items-center gap-2 text-xs font-semibold">
+        <Info className="h-3.5 w-3.5" /> Stato operativo
+      </div>
+      <div className="grid gap-2 text-xs sm:grid-cols-3">
+        <div>
+          <div className="text-muted-foreground">Stato</div>
+          <div className="font-medium">{CODE_AGENT_STATUS_LABEL[job.status as CodeAgentJobStatus] ?? job.status}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Approval</div>
+          <div className="font-medium">{job.approval_status}</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground">Repository</div>
+          <div className="font-medium">{repoStatus}</div>
+        </div>
+      </div>
+      {next.code !== "idle" && next.code !== "terminal" && (
+        <div className="rounded border bg-background/60 p-2 text-xs">
+          <span className="font-medium">Prossimo step: </span>
+          {next.message || next.label}
+        </div>
+      )}
+      {actions.blocked.length > 0 && (
+        <div className="space-y-1">
+          {actions.blocked.map((b, i) => (
+            <div key={i} className="flex items-start gap-1 text-[11px] text-amber-700">
+              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+              <span>
+                <code className="text-[10px]">{b.action}</code> — {b.reason}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap gap-1 text-[10px]">
+        {actions.canApprove && <Badge variant="outline">approva</Badge>}
+        {actions.canReject && <Badge variant="outline">rifiuta</Badge>}
+        {actions.canSyncApproval && <Badge variant="outline">sync approval</Badge>}
+        {actions.canSendManually && <Badge variant="outline">invio manuale</Badge>}
+        {actions.canSaveResult && <Badge variant="outline">salva risultato</Badge>}
+        {actions.canCreateReview && <Badge variant="outline">crea review</Badge>}
+        {actions.canCreateSnapshot && <Badge variant="outline">snapshot draft</Badge>}
+      </div>
+    </div>
+  );
+}
+
+function SafetyBox() {
+  return (
+    <div className="rounded border border-dashed bg-background/50 p-3 text-[11px] text-muted-foreground">
+      <div className="mb-1 flex items-center gap-2 font-semibold text-foreground">
+        <ShieldOff className="h-3.5 w-3.5" /> Cosa Brain Hub non farà
+      </div>
+      <ul className="list-disc pl-5 space-y-0.5">
+        <li>Non esegue codice né apre terminale</li>
+        <li>Non modifica file nel repository</li>
+        <li>Non fa commit / push / merge / PR / deploy</li>
+        <li>Non invia Telegram automaticamente</li>
+        <li>Prepara solo prompt, stati, review e azioni controllate</li>
+      </ul>
+    </div>
+  );
+}
+
 function RepoBlock({
   job,
   repos,
@@ -592,6 +734,9 @@ function RepoBlock({
         ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
         : "bg-red-500/10 text-red-600 border-red-500/30";
   const currentRepo = repos.find((r) => r.id === job.repository_id) ?? null;
+  const isRecent =
+    !!currentRepo &&
+    (resolution as { candidate_source?: string } | null)?.candidate_source === "recent";
   return (
     <div className="rounded border p-3 space-y-2">
       <div className="flex items-center gap-2">
@@ -599,6 +744,24 @@ function RepoBlock({
         <span className="text-xs font-medium">Repository</span>
         <Badge variant="outline" className={tone}>{status}</Badge>
       </div>
+      {status === "missing" && (
+        <div className="rounded border border-red-500/30 bg-red-500/5 p-2 text-xs text-red-700">
+          <AlertTriangle className="mr-1 inline h-3 w-3" /> Repository mancante — Brain Hub non invierà prompt tecnici finché il repository non è confermato.
+        </div>
+      )}
+      {status === "ambiguous" && (
+        <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700">
+          <AlertTriangle className="mr-1 inline h-3 w-3" /> Più repository possibili — seleziona manualmente prima di approvare.
+        </div>
+      )}
+      {status === "resolved" && currentRepo && (
+        <div className="text-xs text-emerald-700">Repository risolto.</div>
+      )}
+      {isRecent && (
+        <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700">
+          Risolto usando repository recente — verifica prima di inviare.
+        </div>
+      )}
       {currentRepo ? (
         <div className="text-sm">
           <code>{currentRepo.repository_name ?? currentRepo.repository_url}</code>
