@@ -933,6 +933,7 @@ export async function createMasterSnapshotDraftFromCodeAgentJob(
   if (!userId) throw new Error("auth_required");
   const job = await loadJob(jobId, userId);
   if (!job) throw new Error("job_not_found");
+  if (!job.result_text) throw new Error("master_snapshot_requires_result");
 
   // Look up current snapshot (best effort).
   let baseMd = "# Brain Hub — Master Project Snapshot\n";
