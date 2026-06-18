@@ -47,6 +47,7 @@ import {
   type NextActionItem,
 } from "@/lib/daily-operating-brief";
 import { JackVoicePlayer } from "@/components/JackVoicePlayer";
+import { JackVoiceCommand } from "@/components/JackVoiceCommand";
 
 export const Route = createFileRoute("/_authenticated/daily-brief")({
   head: () => ({
@@ -219,6 +220,10 @@ function DailyBriefRoute() {
           <Link to="/master-snapshot">Aggiorna Master Snapshot</Link>
         </Button>
       </div>
+
+      <JackVoiceCommand brainId={brainId} briefId={brief?.id ?? null} />
+
+
 
       {!brief ? (
         <Card>
