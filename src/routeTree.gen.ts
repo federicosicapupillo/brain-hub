@@ -49,6 +49,7 @@ import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
 import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
 import { Route as AuthenticatedCodeHandoffsRouteImport } from './routes/_authenticated/code-handoffs'
+import { Route as AuthenticatedCodeAgentQaRouteImport } from './routes/_authenticated/code-agent-qa'
 import { Route as AuthenticatedCodeAgentJobsRouteImport } from './routes/_authenticated/code-agent-jobs'
 import { Route as AuthenticatedClipboardAiRouteImport } from './routes/_authenticated/clipboard-ai'
 import { Route as AuthenticatedClientOnboardingRouteImport } from './routes/_authenticated/client-onboarding'
@@ -292,6 +293,12 @@ const AuthenticatedCodeHandoffsRoute =
     path: '/code-handoffs',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCodeAgentQaRoute =
+  AuthenticatedCodeAgentQaRouteImport.update({
+    id: '/code-agent-qa',
+    path: '/code-agent-qa',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCodeAgentJobsRoute =
   AuthenticatedCodeAgentJobsRouteImport.update({
     id: '/code-agent-jobs',
@@ -437,6 +444,7 @@ export interface FileRoutesByFullPath {
   '/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/code-agent-jobs': typeof AuthenticatedCodeAgentJobsRoute
+  '/code-agent-qa': typeof AuthenticatedCodeAgentQaRoute
   '/code-handoffs': typeof AuthenticatedCodeHandoffsRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-home': typeof AuthenticatedCompanyHomeRoute
@@ -499,6 +507,7 @@ export interface FileRoutesByTo {
   '/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/code-agent-jobs': typeof AuthenticatedCodeAgentJobsRoute
+  '/code-agent-qa': typeof AuthenticatedCodeAgentQaRoute
   '/code-handoffs': typeof AuthenticatedCodeHandoffsRoute
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-home': typeof AuthenticatedCompanyHomeRoute
@@ -563,6 +572,7 @@ export interface FileRoutesById {
   '/_authenticated/client-onboarding': typeof AuthenticatedClientOnboardingRoute
   '/_authenticated/clipboard-ai': typeof AuthenticatedClipboardAiRoute
   '/_authenticated/code-agent-jobs': typeof AuthenticatedCodeAgentJobsRoute
+  '/_authenticated/code-agent-qa': typeof AuthenticatedCodeAgentQaRoute
   '/_authenticated/code-handoffs': typeof AuthenticatedCodeHandoffsRoute
   '/_authenticated/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/_authenticated/company-home': typeof AuthenticatedCompanyHomeRoute
@@ -629,6 +639,7 @@ export interface FileRouteTypes {
     | '/client-onboarding'
     | '/clipboard-ai'
     | '/code-agent-jobs'
+    | '/code-agent-qa'
     | '/code-handoffs'
     | '/company-blueprint'
     | '/company-home'
@@ -691,6 +702,7 @@ export interface FileRouteTypes {
     | '/client-onboarding'
     | '/clipboard-ai'
     | '/code-agent-jobs'
+    | '/code-agent-qa'
     | '/code-handoffs'
     | '/company-blueprint'
     | '/company-home'
@@ -754,6 +766,7 @@ export interface FileRouteTypes {
     | '/_authenticated/client-onboarding'
     | '/_authenticated/clipboard-ai'
     | '/_authenticated/code-agent-jobs'
+    | '/_authenticated/code-agent-qa'
     | '/_authenticated/code-handoffs'
     | '/_authenticated/company-blueprint'
     | '/_authenticated/company-home'
@@ -1096,6 +1109,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCodeHandoffsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/code-agent-qa': {
+      id: '/_authenticated/code-agent-qa'
+      path: '/code-agent-qa'
+      fullPath: '/code-agent-qa'
+      preLoaderRoute: typeof AuthenticatedCodeAgentQaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/code-agent-jobs': {
       id: '/_authenticated/code-agent-jobs'
       path: '/code-agent-jobs'
@@ -1294,6 +1314,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedClientOnboardingRoute: typeof AuthenticatedClientOnboardingRoute
   AuthenticatedClipboardAiRoute: typeof AuthenticatedClipboardAiRoute
   AuthenticatedCodeAgentJobsRoute: typeof AuthenticatedCodeAgentJobsRoute
+  AuthenticatedCodeAgentQaRoute: typeof AuthenticatedCodeAgentQaRoute
   AuthenticatedCodeHandoffsRoute: typeof AuthenticatedCodeHandoffsRoute
   AuthenticatedCompanyBlueprintRoute: typeof AuthenticatedCompanyBlueprintRoute
   AuthenticatedCompanyHomeRoute: typeof AuthenticatedCompanyHomeRoute
@@ -1348,6 +1369,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedClientOnboardingRoute: AuthenticatedClientOnboardingRoute,
   AuthenticatedClipboardAiRoute: AuthenticatedClipboardAiRoute,
   AuthenticatedCodeAgentJobsRoute: AuthenticatedCodeAgentJobsRoute,
+  AuthenticatedCodeAgentQaRoute: AuthenticatedCodeAgentQaRoute,
   AuthenticatedCodeHandoffsRoute: AuthenticatedCodeHandoffsRoute,
   AuthenticatedCompanyBlueprintRoute: AuthenticatedCompanyBlueprintRoute,
   AuthenticatedCompanyHomeRoute: AuthenticatedCompanyHomeRoute,

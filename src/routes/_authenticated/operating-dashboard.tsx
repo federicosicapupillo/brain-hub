@@ -587,6 +587,13 @@ function CodeAgentJobsMiniCard({ brainId }: { brainId: string | null }) {
       return { ...s, lastLabel };
     },
   });
+  const { data: qa } = useQuery({
+    queryKey: ["code-agent-qa-mini", brainId],
+    queryFn: async () => {
+      const { getCodeAgentQaSummary } = await import("@/lib/code-agent-qa");
+      return getCodeAgentQaSummary(brainId);
+    },
+  });
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -606,23 +613,31 @@ function CodeAgentJobsMiniCard({ brainId }: { brainId: string | null }) {
           <Tile label="Risultati da review" value={summary?.buckets.result_to_review ?? 0} tone={(summary?.buckets.result_to_review ?? 0) > 0 ? "amber" : undefined} />
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <Tile label="Inviati senza risultato" value={summary?.buckets.sent_without_result ?? 0} tone={(summary?.buckets.sent_without_result ?? 0) > 0 ? "amber" : undefined} />
-          <Tile label="Falliti/annullati" value={summary?.buckets.failed_or_cancelled ?? 0} tone={(summary?.buckets.failed_or_cancelled ?? 0) > 0 ? "red" : undefined} />
+          <Tile label="Bloccati (QA)" value={qa?.blocked ?? 0} tone={(qa?.blocked ?? 0) > 0 ? "amber" : undefined} />
+          <Tile label="Incoerenti (QA)" value={qa?.inconsistent ?? 0} tone={(qa?.inconsistent ?? 0) > 0 ? "red" : undefined} />
         </div>
         {summary?.lastLabel && (
           <div className="text-[11px] text-muted-foreground">
             Ultimo engine: <span className="font-medium">{summary.lastLabel}</span>
           </div>
         )}
-        <Button asChild size="sm" variant="outline" className="w-full">
-          <Link to="/code-agent-jobs">
-            <ArrowRight className="mr-1 h-3 w-3" /> Apri Code Agent Jobs
-          </Link>
-        </Button>
+        <div className="grid grid-cols-2 gap-2">
+          <Button asChild size="sm" variant="outline">
+            <Link to="/code-agent-jobs">
+              <ArrowRight className="mr-1 h-3 w-3" /> Jobs
+            </Link>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <Link to="/code-agent-qa">
+              <ArrowRight className="mr-1 h-3 w-3" /> Apri QA Code Agent
+            </Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
 }
+
 
 
 

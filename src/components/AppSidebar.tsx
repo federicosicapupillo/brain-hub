@@ -63,6 +63,7 @@ const items = [
   { title: "Agent Center", url: "/agent-center", icon: ShieldCheck },
   { title: "Code Handoffs", url: "/code-handoffs", icon: Bot },
   { title: "Code Agent Jobs", url: "/code-agent-jobs", icon: Cpu },
+  { title: "Code Agent QA", url: "/code-agent-qa", icon: ShieldCheck },
   { title: "Agent Run Console", url: "/agent-runs", icon: Play },
 
   { title: "Health Check", url: "/health-check", icon: Stethoscope },

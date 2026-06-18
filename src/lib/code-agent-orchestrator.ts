@@ -1449,8 +1449,29 @@ export async function getCodeAgentJobWarnings(
   }
 
 
+  // v3.16 — best-effort end-to-end QA warning (brain-scoped).
+  try {
+    const qa = await import("@/lib/code-agent-qa");
+    const [bl, inc] = await Promise.all([
+      qa.getCodeAgentBlockedJobs(brainId ?? null),
+      qa.getCodeAgentInconsistentJobs(brainId ?? null),
+    ]);
+    if (bl.length + inc.length >= 5) {
+      warns.push({
+        id: "caj-end-to-end-incomplete",
+        level: "info",
+        title: "Ciclo Code Agent end-to-end incompleto",
+        description: `${bl.length} job bloccati, ${inc.length} job incoerenti. Apri Code Agent QA per la diagnosi.`,
+        cta: { label: "Apri Code Agent QA", to: "/code-agent-qa" },
+      });
+    }
+  } catch {
+    // best-effort
+  }
+
   return warns;
 }
+
 
 // ============================================================
 // v3.15.1 — Repo Resolver, Unified Create, Approval Sync,
