@@ -34,6 +34,13 @@ import {
 } from "@/lib/loop-qa";
 import { useServerFn } from "@tanstack/react-start";
 import { getN8nHmacWarnings } from "@/lib/n8n-hmac.functions";
+import {
+  buildOperationalRemediationPlan,
+  createRemediationActionForItem,
+  REMEDIATION_AREA_LABEL,
+  REMEDIATION_SEVERITY_LABEL,
+  type RemediationItem,
+} from "@/lib/loop-remediation";
 
 export const Route = createFileRoute("/_authenticated/loop-qa")({
   head: () => ({
