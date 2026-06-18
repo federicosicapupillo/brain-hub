@@ -269,28 +269,15 @@ function RepoRow({
   );
 }
 
-type ParsedGithubUrl = { url: string; owner: string; name: string };
-
-function parseGithubUrl(input: string): ParsedGithubUrl | null {
-  if (!input) return null;
-  // Extract first github.com/owner/repo occurrence from arbitrary text
-  const m = input.match(
-    /https?:\/\/github\.com\/([A-Za-z0-9._-]+)\/([A-Za-z0-9._-]+?)(?:\.git)?(?:[\/#?\s]|$)/i,
-  );
-  if (!m) return null;
-  const owner = m[1];
-  const name = m[2];
-  if (!owner || !name) return null;
-  return {
-    url: `https://github.com/${owner}/${name}`,
-    owner,
-    name,
-  };
-}
-
 function humanizePgError(e: unknown): string {
-  const err = e as { code?: string; message?: string } | null;
+  const err = e as { code?: string; message?: string; name?: string } | null;
   if (!err) return "Errore salvataggio repository";
+  if (err.name === "GithubRepositoryRegistryError") {
+    if (err.code === "github_repository_already_exists") return "Repository già presente";
+    if (err.code === "github_repository_url_invalid")
+      return "URL GitHub non valido. Usa il formato https://github.com/owner/repo";
+    if (err.code === "not_authenticated") return "Non autenticato";
+  }
   if (err.code === "23505") return "Repository già presente";
   if (err.code === "42501") return "Permesso negato dalla RLS";
   return err.message || "Errore salvataggio repository";
