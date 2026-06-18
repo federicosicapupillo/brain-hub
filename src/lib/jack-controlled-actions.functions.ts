@@ -658,3 +658,250 @@ export const prepareJackMasterSnapshotUpdate = createServerFn({ method: "POST" }
         : "Non sono riuscito a creare la bozza: ho creato una action suggerita per prepararla manualmente.",
     };
   });
+
+// ============================================================
+// v3.19.6 — createControlledJackActionFromPreview
+// ============================================================
+// Confirmed UI bridge. Called ONLY from:
+//   - UI button "Conferma creazione action" (confirmation_source = "ui_button")
+//   - Deterministic voice router after validating the real user transcript
+//     with isExplicitJackConfirmation (confirmation_source = "voice_router")
+// The model has NO direct path to invoke this server function: the write
+// tool is removed from the GPT tool schema and the dispatcher hard-blocks
+// the legacy name. confirmed:true sent by the model alone is meaningless
+// here because the server validates confirmation_source.
+// ============================================================
+
+export type CreateActionFromPreviewInput = {
+  preview: PendingJackActionPreview;
+  idempotency_key: string;
+  brain_id?: string | null;
+  confirmation_source: "ui_button" | "voice_router";
+  user_transcript?: string | null;
+};
+
+export const createControlledJackActionFromPreview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => d as CreateActionFromPreviewInput)
+  .handler(async ({ data, context }): Promise<CreateControlledActionResult> => {
+    const { supabase, userId } = context;
+    const preview = data.preview;
+    const confirmationSource = data.confirmation_source;
+
+    if (
+      confirmationSource !== "ui_button" &&
+      confirmationSource !== "voice_router"
+    ) {
+      await logSanitizedEvent(
+        supabase,
+        userId,
+        "jack_action_confirmation_rejected_no_pending_preview",
+        {
+          reason: "invalid_confirmation_source",
+          brain_id: data.brain_id ?? null,
+        },
+      );
+      return {
+        ok: false,
+        blocked: true,
+        reason: "invalid_confirmation_source",
+        action_id: null,
+        intent: "controlled_action",
+        secondary_intent: null,
+        risk_level: preview?.risk_level ?? "low",
+        requires_approval: true,
+        recommended_tool: "ui",
+        next_step: "Conferma richiesta tramite UI o voice router.",
+        safe_message:
+          "Conferma non valida: la creazione richiede un click sul pulsante UI o conferma vocale chiara.",
+        master_snapshot_draft_id: null,
+        telegram_delivery_id: null,
+        research_handoff: false,
+        missing_information: [],
+        unsafe_request: false,
+      };
+    }
+
+    if (!preview || !preview.title || !preview.idempotency_key) {
+      await logSanitizedEvent(
+        supabase,
+        userId,
+        "jack_action_confirmation_rejected_no_pending_preview",
+        {
+          reason: "missing_pending_preview",
+          confirmation_source: confirmationSource,
+          brain_id: data.brain_id ?? null,
+        },
+      );
+      return {
+        ok: false,
+        blocked: true,
+        reason: "missing_pending_preview",
+        action_id: null,
+        intent: "controlled_action",
+        secondary_intent: null,
+        risk_level: "low",
+        requires_approval: true,
+        recommended_tool: "ui",
+        next_step: "Genera una preview prima di confermare.",
+        safe_message: "Non ho una proposta pendente da confermare.",
+        master_snapshot_draft_id: null,
+        telegram_delivery_id: null,
+        research_handoff: false,
+        missing_information: ["pending_preview"],
+        unsafe_request: false,
+      };
+    }
+
+    if (data.idempotency_key !== preview.idempotency_key) {
+      await logSanitizedEvent(
+        supabase,
+        userId,
+        "jack_action_confirmation_rejected_no_pending_preview",
+        {
+          reason: "idempotency_mismatch",
+          confirmation_source: confirmationSource,
+          brain_id: data.brain_id ?? null,
+        },
+      );
+      return {
+        ok: false,
+        blocked: true,
+        reason: "idempotency_mismatch",
+        action_id: null,
+        intent: "controlled_action",
+        secondary_intent: null,
+        risk_level: preview.risk_level,
+        requires_approval: true,
+        recommended_tool: "ui",
+        next_step: "Rigenera la preview e riprova.",
+        safe_message: "Idempotency key non corrisponde alla preview pendente.",
+        master_snapshot_draft_id: null,
+        telegram_delivery_id: null,
+        research_handoff: false,
+        missing_information: [],
+        unsafe_request: false,
+      };
+    }
+
+    if (
+      confirmationSource === "voice_router" &&
+      !isExplicitJackConfirmationLocal(data.user_transcript)
+    ) {
+      await logSanitizedEvent(
+        supabase,
+        userId,
+        "jack_action_confirmation_rejected_no_pending_preview",
+        {
+          reason: "voice_router_transcript_not_confirmation",
+          confirmation_source: confirmationSource,
+          brain_id: data.brain_id ?? null,
+        },
+      );
+      return {
+        ok: false,
+        blocked: true,
+        reason: "voice_router_transcript_not_confirmation",
+        action_id: null,
+        intent: "controlled_action",
+        secondary_intent: null,
+        risk_level: preview.risk_level,
+        requires_approval: true,
+        recommended_tool: "ui",
+        next_step: "Attendo conferma esplicita.",
+        safe_message:
+          "Non ho rilevato una conferma chiara: nessuna action creata.",
+        master_snapshot_draft_id: null,
+        telegram_delivery_id: null,
+        research_handoff: false,
+        missing_information: [],
+        unsafe_request: false,
+      };
+    }
+
+    await logSanitizedEvent(
+      supabase,
+      userId,
+      confirmationSource === "ui_button"
+        ? "jack_action_confirmed_by_ui"
+        : "jack_action_confirmed_by_voice_router",
+      {
+        brain_id: data.brain_id ?? null,
+        source: preview.source,
+        risk_level: preview.risk_level,
+        idempotency_key_preview: preview.idempotency_key.slice(0, 32),
+        confirmation_source: confirmationSource,
+      },
+    );
+
+    const commandText =
+      (preview.command_preview && preview.command_preview.trim()) || preview.title;
+
+    const res = await createControlledJackAction({
+      data: {
+        command_text: commandText,
+        brain_id: data.brain_id ?? preview.brain_id ?? null,
+        project_id: preview.project_id ?? null,
+        delivery_preference: null,
+        notes: null,
+        source_warning_id: preview.source_warning_id ?? null,
+        idempotency_key: preview.idempotency_key,
+        confirmed: true,
+      },
+    });
+
+    if (res.ok && res.action_id) {
+      await logSanitizedEvent(
+        supabase,
+        userId,
+        "jack_controlled_action_created_from_preview",
+        {
+          brain_id: data.brain_id ?? null,
+          action_id: res.action_id,
+          confirmation_source: confirmationSource,
+          source: preview.source,
+          risk_level: preview.risk_level,
+          idempotency_key_preview: preview.idempotency_key.slice(0, 32),
+          deduplicated: Boolean(res.deduplicated),
+        },
+      );
+    }
+
+    return res;
+  });
+
+// Local guard mirror of isExplicitJackConfirmation. Re-implemented to keep
+// this module's dependency surface narrow at runtime (the same heuristic
+// lives in jack-action-confirmation.ts for the client router).
+function isExplicitJackConfirmationLocal(text: string | null | undefined): boolean {
+  if (!text) return false;
+  const t = text.trim().toLowerCase();
+  if (!t) return false;
+  const ambiguous = [
+    /\bforse\b/i,
+    /\bvediamo\b/i,
+    /\bspiegami\b/i,
+    /\bfammi\s+vedere\b/i,
+    /\bpreparame?la\b/i,
+    /\bdimmi\b/i,
+    /\bmagari\b/i,
+    /\bpenso\b/i,
+  ];
+  if (ambiguous.some((r) => r.test(t))) return false;
+  const explicit = [
+    /\bs[iì]\s*,?\s*conferm[oa]\b/i,
+    /\bconferm[oa]\b/i,
+    /\bprocedi(?:amo)?\b/i,
+    /\bcreala\b/i,
+    /\bcrea\s+l['’]?\s*action\b/i,
+    /\bs[iì]\s*,?\s*crea\b/i,
+    /\bok\s*,?\s*crea\b/i,
+    /\bvai\s*,?\s*crea\b/i,
+    /\bcrea\s+pure\b/i,
+  ];
+  return explicit.some((r) => r.test(t));
+}
+
+// v3.19.6 — also export under canonical name; UI uses isExplicitJackConfirmation
+// from jack-action-confirmation.ts directly for the client router.
+

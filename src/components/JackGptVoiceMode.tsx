@@ -34,6 +34,11 @@ import {
   REALTIME_CLIENT_SECRETS_ENDPOINT,
 } from "@/lib/openai-realtime.functions";
 import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
+import { createControlledJackActionFromPreview } from "@/lib/jack-controlled-actions.functions";
+import {
+  isExplicitJackConfirmation,
+  type PendingJackActionPreview,
+} from "@/lib/jack-action-confirmation";
 import { JACK_GPT_PRIVACY_NOTICE, JACK_GPT_SYSTEM_INSTRUCTIONS } from "@/lib/jack-gpt-instructions";
 import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
 import {
@@ -247,6 +252,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     unsafe: boolean;
     at: number;
   } | null>(null);
+  // v3.19.6 — pending action preview state for the UI confirmation bridge.
+  const [pendingActionPreview, setPendingActionPreview] =
+    useState<PendingJackActionPreview | null>(null);
+  const [confirmingAction, setConfirmingAction] = useState(false);
+  const pendingPreviewRef = useRef<PendingJackActionPreview | null>(null);
+  const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
+
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id" | "ts">) => {
     setLog((prev) => [
@@ -529,8 +541,29 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           void injectNaturalContext("refresh");
         }
       }
+      // v3.19.6 — capture preview into UI state for the confirmation bridge.
+      if (name === "preview_controlled_action" && okFlag) {
+        const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
+        const preview = (payload.preview as PendingJackActionPreview | undefined) ?? null;
+        if (preview && preview.title && preview.idempotency_key) {
+          pendingPreviewRef.current = preview;
+          setPendingActionPreview(preview);
+          safeLog("jack_pending_action_preview_stored", {
+            source: preview.source,
+            risk_level: preview.risk_level,
+            idempotency_key_preview: preview.idempotency_key.slice(0, 32),
+          });
+        }
+      }
+      // v3.19.6 — model is hard-locked from create_controlled_action.
+      if (name === "create_controlled_action") {
+        safeLog("jack_model_write_tool_call_blocked", {
+          tool_name: name,
+          source: "client_dispatcher_observed",
+        });
+      }
       // v3.14: capture controlled-action diagnostics + sanitized events.
-      if (name === "create_controlled_action" || name === "prepare_master_snapshot_update") {
+      if (name === "prepare_master_snapshot_update") {
         const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
         const intent = (payload.intent as string | undefined) ?? null;
         const risk = (payload.risk_level as string | undefined) ?? null;
@@ -591,6 +624,113 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [toolFn, safeLog, pushLog, safeCreateResponse, injectNaturalContext],
   );
 
+  // v3.19.6 — confirm pending preview through the server bridge.
+  const confirmPendingPreview = useCallback(
+    async (
+      source: "ui_button" | "voice_router",
+      userTranscript?: string | null,
+    ) => {
+      const preview = pendingPreviewRef.current;
+      if (!preview) {
+        safeLog("jack_action_confirmation_rejected_no_pending_preview", {
+          source,
+          reason: "no_pending_preview_in_client",
+        });
+        pushLog({
+          kind: "warning",
+          text: "Non ho una proposta pendente da confermare.",
+        });
+        return;
+      }
+      setConfirmingAction(true);
+      try {
+        const res = await confirmFromPreviewFn({
+          data: {
+            preview,
+            idempotency_key: preview.idempotency_key,
+            brain_id: preview.brain_id ?? brainId ?? null,
+            confirmation_source: source,
+            user_transcript: userTranscript ?? null,
+          },
+        });
+        if (res.ok && res.action_id) {
+          safeLog("jack_controlled_action_created_from_preview", {
+            confirmation_source: source,
+            risk_level: preview.risk_level,
+            source: preview.source,
+            deduplicated: Boolean(res.deduplicated),
+          });
+          pushLog({
+            kind: "system",
+            text: res.deduplicated
+              ? "Action già esistente: nessuna duplicata creata."
+              : "Action creata in coda (suggested).",
+          });
+          pendingPreviewRef.current = null;
+          setPendingActionPreview(null);
+          // Inform Jack via a function_call_output? No — we instead send a
+          // synthetic conversation item so the model can acknowledge.
+          const dc = dcRef.current;
+          if (dc && dc.readyState === "open") {
+            try {
+              dc.send(
+                JSON.stringify({
+                  type: "conversation.item.create",
+                  item: {
+                    type: "message",
+                    role: "system",
+                    content: [
+                      {
+                        type: "input_text",
+                        text: `Action confermata e creata in Action Queue (status: suggested, id ${res.action_id.slice(
+                          0,
+                          6,
+                        )}…). Conferma a Federico in modo naturale.`,
+                      },
+                    ],
+                  },
+                }),
+              );
+            } catch {
+              /* noop */
+            }
+            safeCreateResponse("action_confirmed", { queueIfBusy: true });
+          }
+        } else {
+          safeLog("jack_action_confirmation_failed", {
+            confirmation_source: source,
+            reason: res.reason ?? "unknown",
+          });
+          pushLog({
+            kind: "warning",
+            text: res.safe_message ?? "Conferma non riuscita.",
+          });
+        }
+      } catch (err) {
+        safeLog("jack_action_confirmation_failed", {
+          confirmation_source: source,
+          detail: String((err as Error).message ?? err).slice(0, 160),
+        });
+        pushLog({ kind: "error", text: "Errore durante la conferma." });
+      } finally {
+        setConfirmingAction(false);
+      }
+    },
+    [confirmFromPreviewFn, brainId, safeLog, pushLog, safeCreateResponse],
+  );
+
+  const cancelPendingPreview = useCallback(() => {
+    if (!pendingPreviewRef.current) return;
+    safeLog("jack_pending_action_preview_cancelled", {
+      source: pendingPreviewRef.current.source,
+    });
+    pendingPreviewRef.current = null;
+    setPendingActionPreview(null);
+    pushLog({ kind: "system", text: "Proposta annullata." });
+  }, [safeLog, pushLog]);
+
+
+
   const handleDcMessage = useCallback(
     (ev: MessageEvent<string>) => {
       let msg: RealtimeEvent;
@@ -643,8 +783,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
 
         case "conversation.item.input_audio_transcription.completed":
-          if (msg.transcript) pushLog({ kind: "user", text: String(msg.transcript) });
+          if (msg.transcript) {
+            const transcript = String(msg.transcript);
+            pushLog({ kind: "user", text: transcript });
+            // v3.19.6 — deterministic voice router: if a pending preview
+            // exists and the real user transcript is an explicit
+            // confirmation, trigger the controlled creation server-side.
+            if (
+              pendingPreviewRef.current &&
+              isExplicitJackConfirmation(transcript)
+            ) {
+              void confirmPendingPreview("voice_router", transcript);
+            }
+          }
           break;
+
 
         case "response.done":
         case "response.cancelled":
@@ -710,7 +863,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
       }
     },
-    [handleToolCall, safeLog, pushLog, flushPendingResponse],
+    [handleToolCall, safeLog, pushLog, flushPendingResponse, confirmPendingPreview],
   );
 
   /** Connect WebRTC using a successfully-created realtime session (GA endpoint). */
@@ -1286,6 +1439,63 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             </Link>
           </Button>
         </div>
+
+        {pendingActionPreview ? (
+          <Card className="border-amber-500/40 bg-amber-500/5">
+            <CardHeader className="pb-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-amber-600" />
+                  Proposta action — richiede conferma
+                </CardTitle>
+                <Badge variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-300">
+                  Richiede conferma
+                </Badge>
+                <Badge variant="secondary" className="text-xs">
+                  rischio: {pendingActionPreview.risk_level}
+                </Badge>
+              </div>
+              <CardDescription className="text-xs">
+                Jack non può creare action da solo. Conferma con il pulsante o di' "sì, confermo".
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Titolo</div>
+                <div>{pendingActionPreview.title}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Descrizione</div>
+                <div className="text-xs">{pendingActionPreview.description}</div>
+              </div>
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Motivo</div>
+                <div className="text-xs">{pendingActionPreview.reason}</div>
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  size="sm"
+                  onClick={() => void confirmPendingPreview("ui_button")}
+                  disabled={confirmingAction}
+                  className="gap-2"
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  {confirmingAction ? "Creazione…" : "Conferma creazione action"}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={cancelPendingPreview}
+                  disabled={confirmingAction}
+                >
+                  Annulla
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+
 
         <div className="rounded-md border bg-muted/30">
           <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground flex items-center gap-2">
