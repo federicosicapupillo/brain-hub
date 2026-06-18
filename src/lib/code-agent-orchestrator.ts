@@ -1387,6 +1387,7 @@ export async function getCodeAgentJobWarnings(
       .in("event_type", [
         "code_agent_transition_blocked",
         "code_agent_bulk_approval_sync_error",
+        "code_agent_jack_job_create_blocked",
       ])
       .gte("created_at", sinceIso)
       .order("created_at", { ascending: false })
