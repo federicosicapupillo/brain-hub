@@ -30,6 +30,12 @@ import {
   getJackReadinessDetails,
   buildJackDailyStatusFallback,
 } from "@/lib/jack-best-next-action";
+import {
+  normalizePreviewInput,
+  buildPendingJackActionPreview,
+  validatePreviewForDisplay,
+  type PendingJackActionPreview,
+} from "@/lib/jack-action-confirmation";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
@@ -167,17 +173,23 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     type: "function",
     name: "preview_controlled_action",
     description:
-      "Prepara una PREVIEW di una action suggerita SENZA crearla. Sempre safe. Usalo PRIMA di create_controlled_action per mostrare a Federico cosa proponi. Restituisce title, description, reason, risk_level e idempotency_key. NON scrive nulla nel database.",
+      "Prepara una PREVIEW di una action suggerita SENZA crearla. Sempre safe: se mancano title/description/reason il tool li ricostruisce da readiness/best-next-action; non lancia mai tool_failed per campi mancanti. Usalo PRIMA di create_controlled_action per mostrare a Federico cosa proponi. Restituisce title, description, reason, risk_level, source e idempotency_key. NON scrive nulla nel database.",
     parameters: {
       type: "object",
       properties: {
-        command_text: { type: "string", description: "Testo del comando vocale di Federico." },
+        command_text: { type: "string", description: "Testo del comando vocale di Federico (opzionale)." },
         brain_id: { type: "string" },
         project_id: { type: "string" },
+        source: { type: "string", description: "Origine logica della proposta (es. jack_readiness_unblock, jack_voice_controlled)." },
+        title: { type: "string" },
+        description: { type: "string" },
+        reason: { type: "string" },
+        risk_level: { type: "string", enum: ["low", "medium", "high"] },
         source_warning_id: { type: "string" },
+        readiness_step_id: { type: "string" },
         notes: { type: "string" },
       },
-      required: ["command_text"],
+      required: [],
     },
   },
   {
@@ -350,6 +362,22 @@ function writeDedupedCall(key: string, result: unknown) {
     }
   }
 }
+
+// v3.19.5 — in-flight dedup. If an identical (user + tool + args) call is
+// already executing, the second caller joins the same Promise instead of
+// running compute() again. Applied to read tools and preview_controlled_action.
+const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "get_daily_brief",
+  "get_operational_status",
+  "get_action_queue_summary",
+  "get_readiness_details",
+  "get_loop_qa_warnings",
+  "get_gmail_summary",
+  "get_memory_context",
+  "preview_controlled_action",
+]);
+type InFlightResult = { ok: boolean; [k: string]: unknown };
+const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
 
 async function logSanitizedEvent(
   supabaseClient: unknown,
@@ -723,24 +751,99 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           };
         }
         case "preview_controlled_action": {
-          const commandText = String(args.command_text ?? "").trim();
-          if (!commandText) return { ok: false, error: "empty_command_text" };
-          const res = await createControlledJackAction({
-            data: {
-              command_text: commandText,
-              brain_id: (args.brain_id as string | undefined) ?? null,
-              project_id: (args.project_id as string | undefined) ?? null,
-              notes: (args.notes as string | undefined) ?? null,
-              source_warning_id: (args.source_warning_id as string | undefined) ?? null,
-              confirmed: false,
-            },
+          // v3.19.5 — robust preview. Safe-parse args, never throw on
+          // missing fields: reconstruct title/description/reason from
+          // best-next-action / readiness / static fallback.
+          const normalized = normalizePreviewInput(args);
+          void logSanitizedEvent(supabase, userId, "jack_preview_tool_args_normalized", {
+            brain_id: normalized.brain_id,
+            source: normalized.source,
+            tool_name: "preview_controlled_action",
+            had_title: normalized.title !== null,
+            had_description: normalized.description !== null,
+            had_reason: normalized.reason !== null,
+            has_command_text: normalized.command_text !== null,
+          });
+
+          // Fetch supporting context only if we need to fill gaps.
+          const needsFallback =
+            !normalized.title || !normalized.description || !normalized.reason;
+          const [best, readiness] = needsFallback
+            ? await Promise.all([
+                buildJackBestAvailableNextAction(normalized.brain_id).catch(() => null),
+                getJackReadinessDetails(normalized.brain_id).catch(() => null),
+              ])
+            : [null, null];
+
+          const built = buildPendingJackActionPreview(normalized, {
+            userId,
+            bestNextAction: best
+              ? {
+                  source: best.source,
+                  title: best.title,
+                  reason: best.reason,
+                  description: best.description,
+                  cta_label: best.cta_label,
+                  cta_href: best.cta_href,
+                }
+              : null,
+            readinessTopStep: readiness?.top_missing_steps[0] ?? null,
+          });
+
+          if (!built.ok) {
+            void logSanitizedEvent(supabase, userId, "jack_action_preview_failed", {
+              brain_id: normalized.brain_id,
+              source: normalized.source,
+              tool_name: "preview_controlled_action",
+              reason: built.reason,
+              missing_fields_count: built.required_fields.length,
+            });
+            return {
+              ok: false,
+              blocked: true,
+              reason: built.reason,
+              message: built.message,
+              required_fields: built.required_fields,
+              fallback_cta: built.fallback_cta,
+            };
+          }
+
+          const preview: PendingJackActionPreview = built.preview;
+          const valid = validatePreviewForDisplay(preview);
+          if (!valid) {
+            void logSanitizedEvent(supabase, userId, "jack_action_preview_failed", {
+              brain_id: normalized.brain_id,
+              source: normalized.source,
+              tool_name: "preview_controlled_action",
+              reason: "invalid_preview_for_display",
+              missing_fields_count: 0,
+            });
+            return {
+              ok: false,
+              blocked: true,
+              reason: "preview_data_missing",
+              message: "Preview generata ma incompleta per la lettura vocale.",
+              required_fields: ["title", "reason"],
+              fallback_cta: "/action-queue",
+            };
+          }
+
+          void logSanitizedEvent(supabase, userId, "jack_action_preview_built", {
+            brain_id: normalized.brain_id,
+            source: normalized.source,
+            risk_level: preview.risk_level,
+            reason: built.missing_fields.length > 0 ? "filled_from_fallback" : "from_input",
+            idempotency_key_preview: preview.idempotency_key.slice(0, 32),
+            missing_fields_count: built.missing_fields.length,
+            tool_name: "preview_controlled_action",
           });
           return {
             ok: true,
             payload: {
-              preview: res.preview,
+              preview,
               requires_confirmation: true,
-              idempotency_key: res.idempotency_key,
+              idempotency_key: preview.idempotency_key,
+              missing_fields_filled: built.missing_fields,
               safe_message:
                 "Preview generata. Chiedi conferma esplicita a Federico prima di chiamare create_controlled_action.",
             },
@@ -887,18 +990,45 @@ export const runJackGptTool = createServerFn({ method: "POST" })
       }
     };
 
-    try {
-      const result = await compute();
-      writeDedupedCall(cacheKey, result);
-      return result;
-    } catch (err) {
-      const result = {
-        ok: false,
-        error: "tool_failed",
-        detail: String((err as Error).message ?? err).slice(0, 200),
-      };
-      return result;
+    const runCompute = async (): Promise<ToolReturn> => {
+      try {
+        const result = await compute();
+        writeDedupedCall(cacheKey, result);
+        return result;
+      } catch (err) {
+        // v3.19.5 — never bubble unhandled errors as tool_failed when we
+        // can return a structured, recoverable error.
+        return {
+          ok: false,
+          blocked: true,
+          error: "tool_failed",
+          reason: "tool_internal_error",
+          detail: String((err as Error).message ?? err).slice(0, 200),
+        };
+      }
+    };
+
+    // v3.19.5 — in-flight join. If an identical call is already running,
+    // both callers await the same Promise (no double DB hit, no double log).
+    if (JOINABLE_TOOL_NAMES.has(tool_name)) {
+      const existing = inFlightToolCalls.get(cacheKey) as
+        | Promise<ToolReturn>
+        | undefined;
+      if (existing) {
+        void logSanitizedEvent(supabase, userId, "jack_inflight_tool_call_joined", {
+          tool_name,
+          brain_id: (args.brain_id as string | undefined) ?? null,
+        });
+        return await existing;
+      }
+      const p: Promise<ToolReturn> = runCompute().finally(() => {
+        inFlightToolCalls.delete(cacheKey);
+      });
+      inFlightToolCalls.set(cacheKey, p);
+      return await p;
     }
+
+    return await runCompute();
   });
 
 // Log helper — sanitized event row.
