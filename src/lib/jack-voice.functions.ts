@@ -94,13 +94,15 @@ async function callElevenLabs(
     },
     body: JSON.stringify({
       text,
-      model_id: modelId || "eleven_multilingual_v2",
+      model_id: modelId || JACK_VOICE_PROFILE.default_model_id,
       voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.75,
-        style: 0.3,
-        use_speaker_boost: true,
+        stability: JACK_VOICE_PROFILE.voice_settings.stability,
+        similarity_boost: JACK_VOICE_PROFILE.voice_settings.similarity_boost,
+        style: JACK_VOICE_PROFILE.voice_settings.style,
+        use_speaker_boost: JACK_VOICE_PROFILE.voice_settings.use_speaker_boost,
+        speed: JACK_VOICE_PROFILE.voice_settings.speed,
       },
+      instructions: JACK_VOICE_PROFILE.instructions,
     }),
   });
   if (!res.ok) {
