@@ -880,9 +880,11 @@ function CodeAgentJobsPage() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="auto">Auto</SelectItem>
-                    <SelectItem value="codex">Codex</SelectItem>
-                    <SelectItem value="claude_code">Claude Code</SelectItem>
-                    <SelectItem value="manual">Manual</SelectItem>
+                    {ENGINES.map((eng) => (
+                      <SelectItem key={eng} value={eng}>
+                        {CODE_AGENT_ENGINE_REGISTRY[eng]?.label ?? eng}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
