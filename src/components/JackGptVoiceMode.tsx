@@ -34,7 +34,8 @@ import {
   REALTIME_CLIENT_SECRETS_ENDPOINT,
 } from "@/lib/openai-realtime.functions";
 import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
-import { JACK_GPT_PRIVACY_NOTICE } from "@/lib/jack-gpt-instructions";
+import { JACK_GPT_PRIVACY_NOTICE, JACK_GPT_SYSTEM_INSTRUCTIONS } from "@/lib/jack-gpt-instructions";
+import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
 import {
   classifyRealtimeStartError,
   isActiveResponseInProgressError,
@@ -214,6 +215,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const sessionFn = useServerFn(createJackRealtimeSession);
   const toolFn = useServerFn(runJackGptTool);
   const logFn = useServerFn(logJackGptEvent);
+  const contextFn = useServerFn(buildJackNaturalContext);
+
+  const contextSentRef = useRef(false);
+  const lastContextRefreshRef = useRef<number>(0);
+  const [contextStats, setContextStats] = useState<{
+    chars: number;
+    entries: number;
+    priorities: number;
+    refreshedAt: number | null;
+  }>({ chars: 0, entries: 0, priorities: 0, refreshedAt: null });
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id" | "ts">) => {
     setLog((prev) => [
@@ -229,6 +240,57 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       );
     },
     [logFn, brainId],
+  );
+
+  /**
+   * Build and inject the natural-memory context into the live Realtime
+   * session via session.update. Idempotent on initial open; safe to call
+   * again to refresh after a memory mutation. Never sends secrets.
+   */
+  const injectNaturalContext = useCallback(
+    async (reason: "initial" | "refresh"): Promise<void> => {
+      const dc = dcRef.current;
+      if (!dc || dc.readyState !== "open") return;
+      try {
+        const res = await contextFn({ data: { brain_id: brainId } });
+        if (!res.ok) {
+          safeLog("jack_gpt_context_build_failed", { reason, detail: res.detail ?? null });
+          return;
+        }
+        const base = JACK_GPT_SYSTEM_INSTRUCTIONS;
+        const merged = res.summary_text
+          ? `${base}\n\nCONTESTO ATTUALE (aggiornato ${new Date(res.generated_at).toLocaleTimeString()}):\n${res.summary_text}`
+          : base;
+        dc.send(
+          JSON.stringify({
+            type: "session.update",
+            session: { type: "realtime", instructions: merged },
+          }),
+        );
+        contextSentRef.current = true;
+        lastContextRefreshRef.current = Date.now();
+        setContextStats({
+          chars: res.context_chars,
+          entries: res.entry_count,
+          priorities: res.top_priorities.length,
+          refreshedAt: lastContextRefreshRef.current,
+        });
+        safeLog(
+          reason === "initial" ? "jack_gpt_context_injected" : "jack_gpt_context_refreshed",
+          {
+            chars: res.context_chars,
+            entries: res.entry_count,
+            priorities: res.top_priorities.length,
+          },
+        );
+      } catch (err) {
+        safeLog("jack_gpt_context_build_failed", {
+          reason,
+          detail: String((err as Error).message ?? err).slice(0, 120),
+        });
+      }
+    },
+    [contextFn, brainId, safeLog],
   );
 
   /**
@@ -351,6 +413,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     localStreamRef.current = null;
     sessionUpdateSentRef.current = false;
     pendingToolsRef.current = null;
+    contextSentRef.current = false;
+    lastContextRefreshRef.current = 0;
+    setContextStats({ chars: 0, entries: 0, priorities: 0, refreshedAt: null });
     responseInProgressRef.current = false;
     activeResponseIdRef.current = null;
     pendingResponseCreateRef.current = null;
@@ -403,8 +468,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       } catch { /* noop */ }
       // Never fire response.create directly: route through the lifecycle guard.
       safeCreateResponse("tool_result", { queueIfBusy: true });
+      // v3.13: refresh injected context after a successful create_memory_entry
+      // so the next turn sees the new fact without a reconnect.
+      if (name === "create_memory_entry" && okFlag) {
+        void injectNaturalContext("refresh");
+      }
     },
-    [toolFn, safeLog, pushLog, safeCreateResponse],
+    [toolFn, safeLog, pushLog, safeCreateResponse, injectNaturalContext],
   );
 
   const handleDcMessage = useCallback(
@@ -577,6 +647,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             dc.send(JSON.stringify({ type: "session.update", session: sessionPayload }));
             sessionUpdateSentRef.current = true;
             safeLog("jack_gpt_session_update_sent", { mode: session.mode });
+            // v3.13: inject natural memory context as additional instructions.
+            void injectNaturalContext("initial");
           } catch { /* noop */ }
         }
       };
@@ -1125,6 +1197,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <div className="sm:col-span-2"><span className="text-muted-foreground">Last safe error:</span> {diagnostics.lastSafeError ?? "—"}</div>
             <div><span className="text-muted-foreground">Cleanup:</span> {diagnostics.cleanupCount}</div>
             <div><span className="text-muted-foreground">Privacy:</span> {status?.privacy_mode ?? "ephemeral_token_only"}</div>
+            <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Natural memory context</div>
+            <div><span className="text-muted-foreground">Iniettato:</span> {contextStats.refreshedAt ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Caratteri:</span> {contextStats.chars}</div>
+            <div><span className="text-muted-foreground">Entries usate:</span> {contextStats.entries}</div>
+            <div><span className="text-muted-foreground">Priorità:</span> {contextStats.priorities}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Ultimo refresh:</span> {contextStats.refreshedAt ? new Date(contextStats.refreshedAt).toLocaleTimeString() : "—"}</div>
             <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Response lifecycle</div>
             <div><span className="text-muted-foreground">Response state:</span> {diagnostics.responseState}</div>
             <div><span className="text-muted-foreground">Active response id:</span> {diagnostics.activeResponseIdRedacted ?? "—"}</div>
