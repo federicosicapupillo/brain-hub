@@ -1,0 +1,475 @@
+// ============================================================
+// Brain Hub v3.14 — Jack Controlled Actions (server functions)
+// ============================================================
+// Turns voice commands into auditable suggested actions.
+// NEVER executes external operations: it only writes
+//   - automation_actions (status='suggested')
+//   - master_snapshot_versions (status='draft_update')
+//   - telegram_approval_requests (status='draft' / 'ready_to_send')
+// All payloads are sanitized; OPENAI_API_KEY etc. stay server-only.
+// ============================================================
+
+import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  classifyJackCommand,
+  planControlledJackAction,
+  type JackCommandContextHint,
+  type JackControlledPlan,
+} from "@/lib/jack-command-intents";
+
+// ---------- Types ----------
+
+export type CreateControlledActionInput = {
+  command_text: string;
+  brain_id?: string | null;
+  project_id?: string | null;
+  delivery_preference?: "telegram" | "ui_only" | null;
+  notes?: string | null;
+};
+
+export type CreateControlledActionResult = {
+  ok: boolean;
+  action_id: string | null;
+  intent: string;
+  secondary_intent: string | null;
+  risk_level: string;
+  requires_approval: boolean;
+  recommended_tool: string;
+  next_step: string;
+  safe_message: string;
+  master_snapshot_draft_id: string | null;
+  telegram_delivery_id: string | null;
+  research_handoff: boolean;
+  missing_information: string[];
+  unsafe_request: boolean;
+};
+
+export type PrepareMasterSnapshotInput = {
+  brain_id?: string | null;
+  reason?: string | null;
+  summary?: string | null;
+};
+
+export type PrepareMasterSnapshotResult = {
+  ok: boolean;
+  draft_id: string | null;
+  cta_path: string;
+  action_id: string | null;
+  missing_information: string[];
+  safe_message: string;
+};
+
+// ---------- Helpers ----------
+
+type Sb = {
+  from: (t: string) => {
+    select: (cols?: string) => unknown;
+    insert: (v: unknown) => unknown;
+    update?: (v: unknown) => unknown;
+  };
+};
+
+function sanitizeText(input: string, max = 800): string {
+  let out = input ?? "";
+  out = out.replace(/sk-[A-Za-z0-9_-]{16,}/g, "[REDACTED]");
+  out = out.replace(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[REDACTED]");
+  out = out.replace(/\bBearer\s+\S+/gi, "Bearer [REDACTED]");
+  out = out.replace(/\b\d{9,}:[A-Za-z0-9_-]{30,}\b/g, "[REDACTED]");
+  if (out.length > max) out = out.slice(0, max - 1) + "…";
+  return out;
+}
+
+async function hasTelegramConnector(
+  supabase: unknown,
+  userId: string,
+): Promise<boolean> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const res = await sb
+      .from("telegram_connection_settings")
+      .select("id,is_enabled")
+      .eq("user_id", userId)
+      .eq("is_enabled", true)
+      .limit(1);
+    const rows = (res?.data ?? []) as Array<{ id: string }>;
+    return rows.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+async function insertAction(
+  supabase: unknown,
+  userId: string,
+  payload: Record<string, unknown>,
+): Promise<string | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const res = await sb
+      .from("automation_actions")
+      .insert({ ...payload, user_id: userId })
+      .select("id")
+      .single();
+    return (res?.data?.id as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function insertTelegramApproval(
+  supabase: unknown,
+  userId: string,
+  payload: Record<string, unknown>,
+): Promise<string | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const res = await sb
+      .from("telegram_approval_requests")
+      .insert({ ...payload, user_id: userId })
+      .select("id")
+      .single();
+    return (res?.data?.id as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function readLatestDailyBrief(
+  supabase: unknown,
+  userId: string,
+  brainId: string | null,
+): Promise<{
+  brief_date: string | null;
+  executive_summary: string | null;
+  next_actions: unknown;
+} | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    let q = sb
+      .from("daily_operating_briefs")
+      .select("brief_date,executive_summary,next_actions")
+      .eq("user_id", userId)
+      .order("brief_date", { ascending: false })
+      .limit(1);
+    if (brainId) q = q.eq("brain_id", brainId);
+    const res = await q;
+    const row = ((res?.data ?? []) as Array<{
+      brief_date: string;
+      executive_summary: string | null;
+      next_actions: unknown;
+    }>)[0];
+    return row ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function readCurrentMasterSnapshot(
+  supabase: unknown,
+  userId: string,
+  brainId: string | null,
+): Promise<{
+  id: string;
+  title: string;
+  version_label: string;
+  markdown_content: string;
+} | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    let q = sb
+      .from("master_snapshot_versions")
+      .select("id,title,version_label,markdown_content,brain_id")
+      .eq("user_id", userId)
+      .eq("version_status", "current")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (brainId) q = q.eq("brain_id", brainId);
+    const res = await q;
+    const row = ((res?.data ?? []) as Array<{
+      id: string;
+      title: string;
+      version_label: string;
+      markdown_content: string;
+    }>)[0];
+    return row ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function nextDraftLabel(current: string | null): string {
+  if (!current) return "1.0-draft";
+  const m = current.match(/^(\d+)\.(\d+)$/);
+  if (!m) return `${current}.1-draft`;
+  return `${m[1]}.${Number(m[2]) + 1}-draft`;
+}
+
+async function createMasterSnapshotDraft(
+  supabase: unknown,
+  userId: string,
+  brainId: string | null,
+  reason: string,
+  summary: string,
+  daily: { brief_date: string | null; executive_summary: string | null; next_actions: unknown } | null,
+): Promise<string | null> {
+  const current = await readCurrentMasterSnapshot(supabase, userId, brainId);
+  const base = current?.markdown_content ?? "# Brain Hub — Master Project Snapshot\n\n_Documento iniziale._\n";
+  const today = new Date().toISOString().slice(0, 10);
+  const appendBlock = [
+    "",
+    "",
+    `## Aggiornamento ${today} (proposto da Jack Voice)`,
+    "",
+    `**Motivo:** ${sanitizeText(reason, 200)}`,
+    summary ? `\n**Riepilogo richiesto:** ${sanitizeText(summary, 400)}` : "",
+    daily?.executive_summary
+      ? `\n**Daily Brief (${daily.brief_date ?? today}):** ${sanitizeText(daily.executive_summary, 400)}`
+      : "\n**Daily Brief:** non disponibile.",
+    "",
+    "_Bozza — non promossa a corrente. Approvazione manuale richiesta._",
+    "",
+  ].join("\n");
+  const markdown = base + appendBlock;
+  const versionLabel = nextDraftLabel(current?.version_label ?? null);
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any;
+    const res = await sb
+      .from("master_snapshot_versions")
+      .insert({
+        user_id: userId,
+        brain_id: brainId,
+        title: current?.title ?? "Brain Hub — Master Project Snapshot",
+        version_label: versionLabel,
+        version_status: "draft_update",
+        markdown_content: markdown,
+        summary: sanitizeText(summary, 400),
+        reason: sanitizeText(reason, 200),
+        source: "manual",
+        previous_version_id: current?.id ?? null,
+        changes: {
+          what_changed: "Bozza proposta da Jack Voice (controlled)",
+          next_step: "Review manuale in /master-snapshot",
+        },
+        metadata: { source_module: "jack_voice_controlled" },
+      })
+      .select("id")
+      .single();
+    return (res?.data?.id as string) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------- Tool: create_controlled_action ----------
+
+export const createControlledJackAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => d as CreateControlledActionInput)
+  .handler(async ({ data, context }): Promise<CreateControlledActionResult> => {
+    const { supabase, userId } = context;
+    const commandText = sanitizeText(String(data.command_text ?? "").trim(), 1200);
+    const brainId = data.brain_id ?? null;
+    const projectId = data.project_id ?? null;
+
+    const tgConfigured = await hasTelegramConnector(supabase, userId);
+    const hint: JackCommandContextHint = {
+      brainId,
+      hasTelegramConnector: tgConfigured,
+      hasPerplexityConnector: false, // no live integration yet
+    };
+
+    const plan: JackControlledPlan = planControlledJackAction(commandText, hint);
+    const c = plan.classification;
+
+    // Always create the main suggested action.
+    const metadata: Record<string, unknown> = {
+      source_module: "jack_voice_controlled",
+      jack_intent: c.intent,
+      jack_secondary_intent: c.secondary_intent,
+      jack_risk_level: c.risk_level,
+      jack_requires_approval: c.requires_approval,
+      jack_recommended_tool: c.recommended_tool,
+      jack_recommended_flow: c.recommended_flow,
+      jack_delivery: c.delivery,
+      jack_unsafe_request: c.unsafe_request,
+      jack_missing_information: c.missing_information,
+      jack_action_type_semantic: c.action_candidate.action_type,
+      jack_plan_steps: plan.steps,
+      jack_research_brief: plan.research_brief ?? null,
+      jack_master_snapshot_hint: plan.master_snapshot_draft_hint ?? null,
+      jack_telegram_hint: plan.telegram_delivery_hint ?? null,
+      jack_command_preview: sanitizeText(commandText, 280),
+      jack_safe_message: plan.safe_message,
+      jack_next_step: plan.next_step,
+      jack_notes: data.notes ? sanitizeText(data.notes, 280) : null,
+    };
+
+    const actionId = await insertAction(supabase, userId, {
+      brain_id: brainId,
+      project_id: projectId,
+      source: "system_suggestion",
+      action_type: "manual_task",
+      title: c.action_candidate.title,
+      description: sanitizeText(c.action_candidate.description, 600),
+      priority: c.action_candidate.priority,
+      risk_level: c.risk_level,
+      status: "suggested",
+      requires_confirmation: c.requires_approval,
+      metadata,
+    });
+
+    // Optional Telegram delivery handoff (never sends, only prepares).
+    let telegramId: string | null = null;
+    if (c.intent === "telegram_delivery" || c.secondary_intent === "telegram_delivery") {
+      if (tgConfigured) {
+        telegramId = await insertTelegramApproval(supabase, userId, {
+          brain_id: brainId,
+          project_id: projectId,
+          automation_action_id: actionId,
+          approval_type: "manual_action",
+          title: `Jack Voice → ${c.action_candidate.title}`,
+          message_preview: sanitizeText(plan.telegram_delivery_hint?.message_preview ?? commandText, 280),
+          risk_level: c.risk_level,
+          status: "draft",
+          metadata: {
+            source_module: "jack_voice_controlled",
+            jack_intent: c.intent,
+          },
+        });
+      } else {
+        // create a separate "configure telegram" action
+        await insertAction(supabase, userId, {
+          brain_id: brainId,
+          project_id: projectId,
+          source: "system_suggestion",
+          action_type: "manual_task",
+          title: "Configura Telegram delivery",
+          description:
+            "Jack ha rilevato una richiesta di delivery Telegram ma il connettore non è configurato. Attiva il connettore Telegram per abilitare l'approval flow.",
+          priority: "medium",
+          risk_level: "medium",
+          status: "suggested",
+          requires_confirmation: true,
+          metadata: {
+            source_module: "jack_voice_controlled",
+            jack_intent: "telegram_delivery",
+            jack_blocking_reason: "telegram_connector_missing",
+            parent_action_id: actionId,
+          },
+        });
+      }
+    }
+
+    // Master Snapshot draft path: never approves.
+    let snapshotDraftId: string | null = null;
+    if (c.intent === "master_snapshot_update") {
+      const daily = await readLatestDailyBrief(supabase, userId, brainId);
+      snapshotDraftId = await createMasterSnapshotDraft(
+        supabase,
+        userId,
+        brainId,
+        plan.master_snapshot_draft_hint?.reason ?? "Aggiornamento da Jack Voice",
+        plan.master_snapshot_draft_hint?.summary ?? commandText,
+        daily,
+      );
+      if (snapshotDraftId && actionId) {
+        // best-effort link via metadata patch
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          await (supabase as any)
+            .from("automation_actions")
+            .update({
+              metadata: {
+                ...metadata,
+                master_snapshot_draft_id: snapshotDraftId,
+              },
+            })
+            .eq("id", actionId);
+        } catch { /* noop */ }
+      }
+    }
+
+    return {
+      ok: actionId !== null,
+      action_id: actionId,
+      intent: c.intent,
+      secondary_intent: c.secondary_intent,
+      risk_level: c.risk_level,
+      requires_approval: c.requires_approval,
+      recommended_tool: c.recommended_tool,
+      next_step: plan.next_step,
+      safe_message: plan.safe_message,
+      master_snapshot_draft_id: snapshotDraftId,
+      telegram_delivery_id: telegramId,
+      research_handoff: c.intent === "market_research",
+      missing_information: c.missing_information,
+      unsafe_request: c.unsafe_request,
+    };
+  });
+
+// ---------- Tool: prepare_master_snapshot_update ----------
+
+export const prepareJackMasterSnapshotUpdate = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => d as PrepareMasterSnapshotInput)
+  .handler(async ({ data, context }): Promise<PrepareMasterSnapshotResult> => {
+    const { supabase, userId } = context;
+    const brainId = data.brain_id ?? null;
+    const reason = sanitizeText(data.reason ?? "Aggiornamento da Jack Voice", 200);
+    const summary = sanitizeText(data.summary ?? "", 400);
+
+    const daily = await readLatestDailyBrief(supabase, userId, brainId);
+    const missing: string[] = [];
+    if (!daily) missing.push("daily_brief_assente");
+    if (!summary) missing.push("riepilogo_attivita_oggi");
+
+    const draftId = await createMasterSnapshotDraft(
+      supabase,
+      userId,
+      brainId,
+      reason,
+      summary,
+      daily,
+    );
+
+    let actionId: string | null = null;
+    if (!draftId) {
+      // Fallback: create a "prepare master snapshot update" suggested action.
+      actionId = await insertAction(supabase, userId, {
+        brain_id: brainId,
+        source: "system_suggestion",
+        action_type: "manual_task",
+        title: "Preparare aggiornamento Master Snapshot",
+        description:
+          "Jack non è riuscito a creare la bozza automatica. Controlla che ci sia un daily brief e che il Master Snapshot corrente sia disponibile.",
+        priority: "medium",
+        risk_level: "medium",
+        status: "suggested",
+        requires_confirmation: true,
+        metadata: {
+          source_module: "jack_voice_controlled",
+          jack_intent: "master_snapshot_update",
+          jack_blocking_reason: "draft_creation_failed",
+          jack_missing_information: missing,
+        },
+      });
+    }
+
+    return {
+      ok: draftId !== null,
+      draft_id: draftId,
+      cta_path: "/master-snapshot",
+      action_id: actionId,
+      missing_information: missing,
+      safe_message: draftId
+        ? "Bozza Master Snapshot creata. Resta in attesa di approvazione manuale: non l'ho promossa a corrente."
+        : "Non sono riuscito a creare la bozza: ho creato una action suggerita per prepararla manualmente.",
+    };
+  });

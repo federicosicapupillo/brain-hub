@@ -15,6 +15,10 @@ import {
   upsertJackMemoryEntryFromTool,
   verifyJackMemoryPersistence,
 } from "@/lib/jack-memory-persistence";
+import {
+  createControlledJackAction,
+  prepareJackMasterSnapshotUpdate,
+} from "@/lib/jack-controlled-actions.functions";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
@@ -119,6 +123,38 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       type: "object",
       properties: {
         brain_id: { type: "string" },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "create_controlled_action",
+    description:
+      "Trasforma un comando vocale di Federico (es. 'crea il prossimo prompt e mandamelo su Telegram', 'fammi una ricerca aziende su Perplexity', 'aggiorna il master snapshot') in una action suggerita controllata. NON esegue nulla in automatico: crea solo proposte in coda, draft Master Snapshot, handoff Telegram/research. Sempre approval-first.",
+    parameters: {
+      type: "object",
+      properties: {
+        command_text: { type: "string", description: "Testo del comando vocale di Federico." },
+        brain_id: { type: "string" },
+        project_id: { type: "string" },
+        delivery_preference: { type: "string", enum: ["telegram", "ui_only"] },
+        notes: { type: "string" },
+      },
+      required: ["command_text"],
+    },
+  },
+  {
+    type: "function",
+    name: "prepare_master_snapshot_update",
+    description:
+      "Prepara una BOZZA di aggiornamento del Master Snapshot leggendo l'ultimo Daily Brief e l'attività recente. Non promuove mai a 'current', non approva nulla. Restituisce id bozza e CTA verso /master-snapshot.",
+    parameters: {
+      type: "object",
+      properties: {
+        brain_id: { type: "string" },
+        reason: { type: "string" },
+        summary: { type: "string", description: "Riepilogo libero di cosa è cambiato oggi." },
       },
       required: [],
     },
@@ -348,6 +384,31 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               chars: ctx.context_chars,
             },
           };
+        }
+        case "create_controlled_action": {
+          const commandText = String(args.command_text ?? "").trim();
+          if (!commandText) return { ok: false, error: "empty_command_text" };
+          const res = await createControlledJackAction({
+            data: {
+              command_text: commandText,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+              project_id: (args.project_id as string | undefined) ?? null,
+              delivery_preference:
+                (args.delivery_preference as "telegram" | "ui_only" | undefined) ?? null,
+              notes: (args.notes as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "prepare_master_snapshot_update": {
+          const res = await prepareJackMasterSnapshotUpdate({
+            data: {
+              brain_id: (args.brain_id as string | undefined) ?? null,
+              reason: (args.reason as string | undefined) ?? null,
+              summary: (args.summary as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
         }
         default:
           return { ok: false, error: "unknown_tool" };

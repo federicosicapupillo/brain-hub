@@ -235,6 +235,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     at: number;
     reason: string | null;
   } | null>(null);
+  const [lastControlled, setLastControlled] = useState<{
+    intent: string | null;
+    risk: string | null;
+    actionId: string | null;
+    recommendedTool: string | null;
+    deliveryId: string | null;
+    snapshotDraftId: string | null;
+    researchHandoff: boolean;
+    missing: string[];
+    unsafe: boolean;
+    at: number;
+  } | null>(null);
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id" | "ts">) => {
     setLog((prev) => [
@@ -515,6 +527,64 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         }
         if (persisted) {
           void injectNaturalContext("refresh");
+        }
+      }
+      // v3.14: capture controlled-action diagnostics + sanitized events.
+      if (name === "create_controlled_action" || name === "prepare_master_snapshot_update") {
+        const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
+        const intent = (payload.intent as string | undefined) ?? null;
+        const risk = (payload.risk_level as string | undefined) ?? null;
+        const actionId = (payload.action_id as string | null | undefined) ?? null;
+        const recommendedTool = (payload.recommended_tool as string | undefined) ?? null;
+        const deliveryId = (payload.telegram_delivery_id as string | null | undefined) ?? null;
+        const snapshotId =
+          (payload.master_snapshot_draft_id as string | null | undefined) ??
+          (payload.draft_id as string | null | undefined) ??
+          null;
+        const research = Boolean(payload.research_handoff);
+        const missing = Array.isArray(payload.missing_information)
+          ? (payload.missing_information as string[])
+          : [];
+        const unsafe = Boolean(payload.unsafe_request);
+        setLastControlled({
+          intent,
+          risk,
+          actionId,
+          recommendedTool,
+          deliveryId,
+          snapshotDraftId: snapshotId,
+          researchHandoff: research,
+          missing,
+          unsafe,
+          at: Date.now(),
+        });
+        if (intent) safeLog("jack_command_classified", { intent, risk_level: risk });
+        if (actionId) {
+          safeLog("jack_controlled_action_planned", { intent, risk_level: risk });
+          safeLog("jack_controlled_action_created", {
+            action_id_redacted: `${actionId.slice(0, 6)}…`,
+            intent,
+            risk_level: risk,
+          });
+        }
+        if (snapshotId) {
+          safeLog("jack_master_snapshot_update_prepared", {
+            draft_id_redacted: `${snapshotId.slice(0, 6)}…`,
+          });
+        }
+        if (deliveryId) {
+          safeLog("jack_telegram_delivery_requested", {
+            delivery_id_redacted: `${deliveryId.slice(0, 6)}…`,
+          });
+        }
+        if (research) {
+          safeLog("jack_research_handoff_created", {
+            recommended_tool: recommendedTool,
+          });
+        }
+        if (unsafe) safeLog("jack_command_rejected_unsafe", { intent });
+        if (missing.length > 0) {
+          safeLog("jack_command_missing_information", { missing_count: missing.length });
         }
       }
     },
@@ -1254,6 +1324,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <div><span className="text-muted-foreground">In contesto:</span> {lastSavedMemory ? (lastSavedMemory.includedInContext ? "sì" : "no") : "—"}</div>
             <div><span className="text-muted-foreground">Scope:</span> {lastSavedMemory?.scope ?? "—"}</div>
             <div><span className="text-muted-foreground">Reason:</span> {lastSavedMemory?.reason ?? "—"}</div>
+            <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Controlled command (v3.14)</div>
+            <div><span className="text-muted-foreground">Last intent:</span> {lastControlled?.intent ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last risk:</span> {lastControlled?.risk ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last action id:</span> {lastControlled?.actionId ? `${lastControlled.actionId.slice(0, 6)}…` : "—"}</div>
+            <div><span className="text-muted-foreground">Recommended tool:</span> {lastControlled?.recommendedTool ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last delivery req:</span> {lastControlled?.deliveryId ? `${lastControlled.deliveryId.slice(0, 6)}…` : "—"}</div>
+            <div><span className="text-muted-foreground">Last snapshot draft:</span> {lastControlled?.snapshotDraftId ? `${lastControlled.snapshotDraftId.slice(0, 6)}…` : "—"}</div>
+            <div><span className="text-muted-foreground">Research handoff:</span> {lastControlled?.researchHandoff ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Unsafe rifiutato:</span> {lastControlled?.unsafe ? "sì" : "no"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Missing info:</span> {lastControlled?.missing?.length ? lastControlled.missing.join(", ") : "—"}</div>
             <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Response lifecycle</div>
             <div><span className="text-muted-foreground">Response state:</span> {diagnostics.responseState}</div>
             <div><span className="text-muted-foreground">Active response id:</span> {diagnostics.activeResponseIdRedacted ?? "—"}</div>
