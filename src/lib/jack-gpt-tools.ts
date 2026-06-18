@@ -592,12 +592,19 @@ export const runJackGptTool = createServerFn({ method: "POST" })
         default:
           return { ok: false, error: "unknown_tool" };
       }
+    };
+
+    try {
+      const result = await compute();
+      writeDedupedCall(cacheKey, result);
+      return result;
     } catch (err) {
-      return {
+      const result = {
         ok: false,
         error: "tool_failed",
         detail: String((err as Error).message ?? err).slice(0, 200),
       };
+      return result;
     }
   });
 
