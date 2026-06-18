@@ -207,14 +207,18 @@ function CodeAgentJobsPage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("github_repository_registry")
-        .select("id,repository_name,repository_url,brain_id,project_id")
+        .select("id,repository_name,repository_owner,repository_url,brain_id,project_id,default_branch,last_sync_at,connected_status")
         .order("last_sync_at", { ascending: false });
       return (data ?? []) as Array<{
         id: string;
         repository_name: string | null;
+        repository_owner: string | null;
         repository_url: string;
         brain_id: string | null;
         project_id: string | null;
+        default_branch: string | null;
+        last_sync_at: string | null;
+        connected_status: string;
       }>;
     },
   });
