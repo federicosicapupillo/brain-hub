@@ -83,21 +83,11 @@ function isoDaysAgo(n: number): string {
   return new Date(Date.now() - n * 86400000).toISOString();
 }
 
-async function countMessages(
-  connectionId: string,
-  build: (q: ReturnType<typeof supabase.from>) => unknown,
-): Promise<number> {
-  // Helper kept for clarity, not used directly to keep types simple.
-  void connectionId;
-  void build;
-  return 0;
-}
-void countMessages;
-
 export async function getDailyBrief(
   brainId?: string | null,
 ): Promise<DailyBrief> {
   const generatedAt = new Date().toISOString();
+
   const conns = await listGmailConnections(brainId ?? null);
   const conn =
     conns.find((c) => c.status === "connected" || c.status === "active") ??

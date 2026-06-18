@@ -40,6 +40,7 @@ import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authentic
 import { Route as AuthenticatedGithubOperationalRouteImport } from './routes/_authenticated/github-operational'
 import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authenticated/github-coverage'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
+import { Route as AuthenticatedEmailDailyBriefRouteImport } from './routes/_authenticated/email-daily-brief'
 import { Route as AuthenticatedDriveKnowledgeRouteImport } from './routes/_authenticated/drive-knowledge'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
@@ -238,6 +239,12 @@ const AuthenticatedFontiRoute = AuthenticatedFontiRouteImport.update({
   path: '/fonti',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedEmailDailyBriefRoute =
+  AuthenticatedEmailDailyBriefRouteImport.update({
+    id: '/email-daily-brief',
+    path: '/email-daily-brief',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDriveKnowledgeRoute =
   AuthenticatedDriveKnowledgeRouteImport.update({
     id: '/drive-knowledge',
@@ -416,6 +423,7 @@ export interface FileRoutesByFullPath {
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
+  '/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
@@ -474,6 +482,7 @@ export interface FileRoutesByTo {
   '/company-os': typeof AuthenticatedCompanyOsRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
+  '/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
@@ -534,6 +543,7 @@ export interface FileRoutesById {
   '/_authenticated/company-os': typeof AuthenticatedCompanyOsRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
+  '/_authenticated/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
   '/_authenticated/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/_authenticated/github-operational': typeof AuthenticatedGithubOperationalRoute
@@ -596,6 +606,7 @@ export interface FileRouteTypes {
     | '/company-os'
     | '/connettori'
     | '/drive-knowledge'
+    | '/email-daily-brief'
     | '/fonti'
     | '/github-coverage'
     | '/github-operational'
@@ -654,6 +665,7 @@ export interface FileRouteTypes {
     | '/company-os'
     | '/connettori'
     | '/drive-knowledge'
+    | '/email-daily-brief'
     | '/fonti'
     | '/github-coverage'
     | '/github-operational'
@@ -713,6 +725,7 @@ export interface FileRouteTypes {
     | '/_authenticated/company-os'
     | '/_authenticated/connettori'
     | '/_authenticated/drive-knowledge'
+    | '/_authenticated/email-daily-brief'
     | '/_authenticated/fonti'
     | '/_authenticated/github-coverage'
     | '/_authenticated/github-operational'
@@ -983,6 +996,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFontiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/email-daily-brief': {
+      id: '/_authenticated/email-daily-brief'
+      path: '/email-daily-brief'
+      fullPath: '/email-daily-brief'
+      preLoaderRoute: typeof AuthenticatedEmailDailyBriefRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/drive-knowledge': {
       id: '/_authenticated/drive-knowledge'
       path: '/drive-knowledge'
@@ -1221,6 +1241,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCompanyOsRoute: typeof AuthenticatedCompanyOsRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedDriveKnowledgeRoute: typeof AuthenticatedDriveKnowledgeRoute
+  AuthenticatedEmailDailyBriefRoute: typeof AuthenticatedEmailDailyBriefRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
   AuthenticatedGithubCoverageRoute: typeof AuthenticatedGithubCoverageRoute
   AuthenticatedGithubOperationalRoute: typeof AuthenticatedGithubOperationalRoute
@@ -1271,6 +1292,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCompanyOsRoute: AuthenticatedCompanyOsRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedDriveKnowledgeRoute: AuthenticatedDriveKnowledgeRoute,
+  AuthenticatedEmailDailyBriefRoute: AuthenticatedEmailDailyBriefRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
   AuthenticatedGithubCoverageRoute: AuthenticatedGithubCoverageRoute,
   AuthenticatedGithubOperationalRoute: AuthenticatedGithubOperationalRoute,

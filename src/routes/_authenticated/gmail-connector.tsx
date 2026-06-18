@@ -249,7 +249,16 @@ function GmailConnectorRoute() {
         <Badge variant="outline" className="gap-1">
           <ShieldCheck className="h-3 w-3" /> Scope: gmail.readonly
         </Badge>
+        <Button asChild variant="outline" size="sm">
+          <Link
+            to="/email-daily-brief"
+            search={{ brain: brainId ?? undefined }}
+          >
+            Apri Daily Brief
+          </Link>
+        </Button>
       </div>
+
 
       <Card>
         <CardHeader>
