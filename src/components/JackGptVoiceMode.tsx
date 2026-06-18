@@ -1247,6 +1247,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <div><span className="text-muted-foreground">Entries usate:</span> {contextStats.entries}</div>
             <div><span className="text-muted-foreground">Priorità:</span> {contextStats.priorities}</div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Ultimo refresh:</span> {contextStats.refreshedAt ? new Date(contextStats.refreshedAt).toLocaleTimeString() : "—"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Sorgente contesto:</span> persistent_db</div>
+            <div><span className="text-muted-foreground">Ultima memoria salvata:</span> {lastSavedMemory?.id ? `${lastSavedMemory.id.slice(0, 6)}…` : "—"}</div>
+            <div><span className="text-muted-foreground">Stato salvataggio:</span> {lastSavedMemory?.status ?? "—"}{lastSavedMemory?.deduped ? " (dedup)" : ""}</div>
+            <div><span className="text-muted-foreground">Persisted:</span> {lastSavedMemory ? (lastSavedMemory.persisted ? "sì" : "no") : "—"}</div>
+            <div><span className="text-muted-foreground">In contesto:</span> {lastSavedMemory ? (lastSavedMemory.includedInContext ? "sì" : "no") : "—"}</div>
+            <div><span className="text-muted-foreground">Scope:</span> {lastSavedMemory?.scope ?? "—"}</div>
+            <div><span className="text-muted-foreground">Reason:</span> {lastSavedMemory?.reason ?? "—"}</div>
             <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Response lifecycle</div>
             <div><span className="text-muted-foreground">Response state:</span> {diagnostics.responseState}</div>
             <div><span className="text-muted-foreground">Active response id:</span> {diagnostics.activeResponseIdRedacted ?? "—"}</div>
