@@ -10,6 +10,7 @@ import {
   type JackCommandContext,
 } from "@/lib/jack-command-router";
 import { searchJackMemory, detectSecretPatterns } from "@/lib/jack-memory";
+import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
@@ -100,6 +101,19 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     parameters: {
       type: "object",
       properties: { brain_id: { type: "string" } },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "get_memory_context",
+    description:
+      "Restituisce il contesto naturale aggiornato (chi è Federico, brain attivo, progetti, priorità di oggi). Compatto, senza segreti. Usare se serve rinfrescare la memoria conversazionale.",
+    parameters: {
+      type: "object",
+      properties: {
+        brain_id: { type: "string" },
+      },
       required: [],
     },
   },
@@ -305,6 +319,25 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             payload: {
               summary: redactSnippet(result.response_text, 700),
               source: result.source,
+            },
+          };
+        }
+        case "get_memory_context": {
+          const brainId = (args.brain_id as string | undefined) ?? null;
+          const ctx = await buildJackNaturalContext({ data: { brain_id: brainId } });
+          if (!ctx.ok) {
+            return { ok: false, error: "context_failed", detail: ctx.detail ?? null };
+          }
+          return {
+            ok: true,
+            payload: {
+              summary: ctx.summary_text,
+              brain_name: ctx.brain?.name ?? null,
+              projects: ctx.projects.map((p) => p.name),
+              top_priorities: ctx.top_priorities.map((p) => p.title),
+              entry_count: ctx.entry_count,
+              generated_at: ctx.generated_at,
+              chars: ctx.context_chars,
             },
           };
         }

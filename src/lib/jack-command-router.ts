@@ -24,6 +24,7 @@ import {
   buildNaturalIdentityResponse,
   buildNaturalJackRulesResponse,
   buildNaturalProjectMemoryResponse,
+  cleanMemoryMarkdownForSpeech,
   detectMemoryIntent,
   extractMemoryEntryFromTranscript,
   createJackMemoryEntry,
@@ -1113,7 +1114,26 @@ async function respondIdentity(matched: string[]): Promise<JackCommandResult> {
       scopes: ["identity", "behavior"],
       maxChars: 1200,
     });
-    const text = buildNaturalIdentityResponse(ctxMem);
+    let text = buildNaturalIdentityResponse(ctxMem);
+    // v3.13: enrich with active + safe (non-secret) memory entries.
+    try {
+      const entries = await listJackMemoryEntries({ status: "active", limit: 30 });
+      const safe = entries
+        .filter((e) => (e.sensitivity ?? "normal") !== "secret")
+        .slice(0, 4)
+        .map((e) => cleanMemoryMarkdownForSpeech(e.content))
+        .filter(Boolean);
+      if (safe.length > 0) {
+        text = `${text} Inoltre ricordo: ${safe.join("; ")}.`;
+        void logJackVoiceCommandEvent(
+          "jack_classic_memory_entries_used" as JackVoiceCommandEvent,
+          "Entries fuse nella risposta identity",
+          { entries: safe.length },
+        );
+      }
+    } catch {
+      // entries enrichment best-effort
+    }
     void logJackVoiceCommandEvent(
       "jack_memory_natural_response_generated" as JackVoiceCommandEvent,
       "Identity naturale",
