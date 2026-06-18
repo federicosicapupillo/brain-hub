@@ -830,6 +830,133 @@ function CodeAgentJobsPage() {
       </Dialog>
 
       <RecentBlocksSection brainId={brainId} />
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(o) => {
+          if (createSubmitting) return;
+          setCreateOpen(o);
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Nuovo Code Agent Job
+            </DialogTitle>
+            <DialogDescription>
+              Manual-first. Brain Hub crea solo il job: nessuna esecuzione, nessun commit, nessun deploy, nessuna chiamata a Codex/Claude.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs">Comando / obiettivo *</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setNewCommandText(QA_TEST_COMMAND_TEXT)}
+                  disabled={createSubmitting}
+                >
+                  Compila test QA
+                </Button>
+              </div>
+              <Textarea
+                rows={6}
+                value={newCommandText}
+                onChange={(e) => setNewCommandText(e.target.value)}
+                placeholder='Es: "Correggi il bug X nel file Y e prepara handoff manuale"'
+                disabled={createSubmitting}
+              />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div>
+                <Label className="text-xs">Engine preferito</Label>
+                <Select
+                  value={newPreferredEngine}
+                  onValueChange={(v) => setNewPreferredEngine(v as CodeAgentEngine | "auto")}
+                  disabled={createSubmitting}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="codex">Codex</SelectItem>
+                    <SelectItem value="claude_code">Claude Code</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Rischio (hint)</Label>
+                <Select
+                  value={newRiskHint}
+                  onValueChange={(v) => setNewRiskHint(v as CodeAgentRiskLevel | "auto")}
+                  disabled={createSubmitting}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Delivery</Label>
+                <Select
+                  value={newDeliveryPreference}
+                  onValueChange={(v) =>
+                    setNewDeliveryPreference(v as "auto" | "manual" | "telegram")
+                  }
+                  disabled={createSubmitting}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="auto">Auto</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="telegram">Telegram (approval)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Repository hint</Label>
+              <Input
+                value={newRepositoryHint}
+                onChange={(e) => setNewRepositoryHint(e.target.value)}
+                placeholder="es: owner/repo oppure nome del progetto"
+                disabled={createSubmitting}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Note (opzionali)</Label>
+              <Textarea
+                rows={3}
+                value={newNotes}
+                onChange={(e) => setNewNotes(e.target.value)}
+                placeholder="Contesto, vincoli, link utili…"
+                disabled={createSubmitting}
+              />
+            </div>
+            <div className="rounded border border-dashed p-2 text-xs text-muted-foreground">
+              Brain: <span className="font-mono">{brainId ?? "(tutti / non specificato)"}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setCreateOpen(false)}
+              disabled={createSubmitting}
+            >
+              Annulla
+            </Button>
+            <Button onClick={handleCreateJob} disabled={createSubmitting || !newCommandText.trim()}>
+              {createSubmitting ? "Creazione…" : "Crea job"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
