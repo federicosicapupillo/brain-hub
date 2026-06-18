@@ -856,6 +856,99 @@ function DetailItem({ label, value }: { label: string; value: string }) {
   );
 }
 
+function AiRiskMetadataBox({ action }: { action: AutomationAction }) {
+  const meta = (action.metadata ?? {}) as Record<string, unknown>;
+  const hasRiskWarning = meta.risk_exceeds_agent_permission === true;
+  const hasAiExtracted =
+    meta.ai_extracted_title != null ||
+    meta.ai_extracted_action_type != null ||
+    meta.ai_extracted_risk_level != null ||
+    meta.ai_extracted_priority != null;
+
+  if (!hasRiskWarning && !hasAiExtracted) return null;
+
+  return (
+    <div
+      className={`rounded border p-3 text-xs space-y-2 ${
+        hasRiskWarning
+          ? "border-amber-500/40 bg-amber-500/10"
+          : "border-border/60 bg-background/40"
+      }`}
+    >
+      <div className="flex items-center gap-2">
+        {hasRiskWarning ? (
+          <AlertTriangle className="h-4 w-4 text-amber-600" />
+        ) : (
+          <Bot className="h-4 w-4 text-muted-foreground" />
+        )}
+        <span
+          className={`text-[10px] uppercase tracking-wide font-semibold ${
+            hasRiskWarning ? "text-amber-700" : "text-muted-foreground"
+          }`}
+        >
+          {hasRiskWarning
+            ? "Rischio AI superiore ai permessi dell'agente"
+            : "Metadata AI Handoff"}
+        </span>
+      </div>
+
+      {hasRiskWarning && (
+        <div className="text-muted-foreground">
+          Questa action è stata proposta da un output AI con rischio reale superiore al massimo
+          consentito per l'agente. Brain Hub ha preservato il rischio reale e richiede revisione
+          manuale.
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2">
+        {meta.original_risk_level != null && (
+          <DetailItem label="Rischio reale" value={String(meta.original_risk_level)} />
+        )}
+        {meta.agent_max_risk_level != null && (
+          <DetailItem label="Permesso agente" value={String(meta.agent_max_risk_level)} />
+        )}
+        {meta.risk_exceeds_agent_permission != null && (
+          <DetailItem
+            label="Supera permessi"
+            value={meta.risk_exceeds_agent_permission ? "Sì" : "No"}
+          />
+        )}
+        {meta.risk_clamp_reason != null && (
+          <DetailItem label="Motivo" value={String(meta.risk_clamp_reason)} />
+        )}
+        {meta.permission_warning != null && (
+          <DetailItem label="Avviso" value={String(meta.permission_warning)} />
+        )}
+      </div>
+
+      {hasAiExtracted && (
+        <div className="space-y-1">
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Campi estratti dal parser AI
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {meta.ai_extracted_title != null && (
+              <DetailItem label="Extracted title" value={String(meta.ai_extracted_title)} />
+            )}
+            {meta.ai_extracted_action_type != null && (
+              <DetailItem label="Extracted action type" value={String(meta.ai_extracted_action_type)} />
+            )}
+            {meta.ai_extracted_risk_level != null && (
+              <DetailItem label="Extracted risk level" value={String(meta.ai_extracted_risk_level)} />
+            )}
+            {meta.ai_extracted_priority != null && (
+              <DetailItem label="Extracted priority" value={String(meta.ai_extracted_priority)} />
+            )}
+            {meta.ai_extracted_verification != null && (
+              <DetailItem label="Verification" value={String(meta.ai_extracted_verification)} />
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function NewActionDialog({
   open,
   onOpenChange,
