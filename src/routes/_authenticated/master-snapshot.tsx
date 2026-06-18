@@ -26,6 +26,7 @@ import {
   rejectMasterSnapshotUpdate,
   createInitialMasterSnapshot,
   createDraftFromMarkdown,
+  normalizeSnapshotMarkdownVersion,
   logMasterSnapshotEvent,
   type MasterSnapshotVersion,
   type MasterSnapshotStatus,
