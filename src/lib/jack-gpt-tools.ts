@@ -25,6 +25,10 @@ import {
   type CodeAgentEngine,
   type CodeAgentRiskLevel,
 } from "@/lib/code-agent-orchestrator";
+import {
+  buildJackBestAvailableNextAction,
+  getJackReadinessDetails,
+} from "@/lib/jack-best-next-action";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
