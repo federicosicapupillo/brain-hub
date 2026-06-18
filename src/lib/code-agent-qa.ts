@@ -619,7 +619,7 @@ export async function logCodeAgentQaEvent(
       user_id: user.user.id,
       job_id: jobId,
       event_type: eventType,
-      event_data: payload,
+      event_data: JSON.parse(JSON.stringify(payload)),
     });
   } catch {
     // best-effort
