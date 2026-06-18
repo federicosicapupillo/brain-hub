@@ -48,6 +48,7 @@ import {
 } from "@/lib/daily-operating-brief";
 import { JackVoicePlayer } from "@/components/JackVoicePlayer";
 import { JackVoiceCommand } from "@/components/JackVoiceCommand";
+import { JackGptVoiceMode } from "@/components/JackGptVoiceMode";
 
 export const Route = createFileRoute("/_authenticated/daily-brief")({
   head: () => ({
@@ -222,6 +223,8 @@ function DailyBriefRoute() {
       </div>
 
       <JackVoiceCommand brainId={brainId} briefId={brief?.id ?? null} currentBrief={brief} brains={brains} />
+
+      <JackGptVoiceMode brainId={brainId} />
 
 
 
