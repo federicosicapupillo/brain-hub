@@ -1354,6 +1354,90 @@ export type Database = {
           },
         ]
       }
+      daily_operating_briefs: {
+        Row: {
+          agent_summary: Json
+          automation_summary: Json
+          brain_id: string | null
+          brief_date: string
+          calendar_summary: Json
+          created_action_ids: string[]
+          created_at: string
+          drive_summary: Json
+          email_summary: Json
+          executive_summary: string
+          generated_at: string
+          id: string
+          implemented_today: Json
+          metadata: Json
+          next_actions: Json
+          open_actions_summary: Json
+          project_status_summary: string | null
+          source_counts: Json
+          status: string
+          title: string
+          today_activity_summary: string | null
+          updated_at: string
+          user_id: string
+          voice_summary_text: string | null
+          warnings_summary: Json
+        }
+        Insert: {
+          agent_summary?: Json
+          automation_summary?: Json
+          brain_id?: string | null
+          brief_date?: string
+          calendar_summary?: Json
+          created_action_ids?: string[]
+          created_at?: string
+          drive_summary?: Json
+          email_summary?: Json
+          executive_summary: string
+          generated_at?: string
+          id?: string
+          implemented_today?: Json
+          metadata?: Json
+          next_actions?: Json
+          open_actions_summary?: Json
+          project_status_summary?: string | null
+          source_counts?: Json
+          status?: string
+          title: string
+          today_activity_summary?: string | null
+          updated_at?: string
+          user_id: string
+          voice_summary_text?: string | null
+          warnings_summary?: Json
+        }
+        Update: {
+          agent_summary?: Json
+          automation_summary?: Json
+          brain_id?: string | null
+          brief_date?: string
+          calendar_summary?: Json
+          created_action_ids?: string[]
+          created_at?: string
+          drive_summary?: Json
+          email_summary?: Json
+          executive_summary?: string
+          generated_at?: string
+          id?: string
+          implemented_today?: Json
+          metadata?: Json
+          next_actions?: Json
+          open_actions_summary?: Json
+          project_status_summary?: string | null
+          source_counts?: Json
+          status?: string
+          title?: string
+          today_activity_summary?: string | null
+          updated_at?: string
+          user_id?: string
+          voice_summary_text?: string | null
+          warnings_summary?: Json
+        }
+        Relationships: []
+      }
       drive_connection_settings: {
         Row: {
           brain_id: string | null
