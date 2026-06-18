@@ -9,8 +9,12 @@ import {
   resolveJackCommandIntent,
   type JackCommandContext,
 } from "@/lib/jack-command-router";
-import { searchJackMemory, detectSecretPatterns } from "@/lib/jack-memory";
+import { searchJackMemory } from "@/lib/jack-memory";
 import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
+import {
+  upsertJackMemoryEntryFromTool,
+  verifyJackMemoryPersistence,
+} from "@/lib/jack-memory-persistence";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
