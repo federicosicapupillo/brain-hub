@@ -167,17 +167,23 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     type: "function",
     name: "preview_controlled_action",
     description:
-      "Prepara una PREVIEW di una action suggerita SENZA crearla. Sempre safe. Usalo PRIMA di create_controlled_action per mostrare a Federico cosa proponi. Restituisce title, description, reason, risk_level e idempotency_key. NON scrive nulla nel database.",
+      "Prepara una PREVIEW di una action suggerita SENZA crearla. Sempre safe: se mancano title/description/reason il tool li ricostruisce da readiness/best-next-action; non lancia mai tool_failed per campi mancanti. Usalo PRIMA di create_controlled_action per mostrare a Federico cosa proponi. Restituisce title, description, reason, risk_level, source e idempotency_key. NON scrive nulla nel database.",
     parameters: {
       type: "object",
       properties: {
-        command_text: { type: "string", description: "Testo del comando vocale di Federico." },
+        command_text: { type: "string", description: "Testo del comando vocale di Federico (opzionale)." },
         brain_id: { type: "string" },
         project_id: { type: "string" },
+        source: { type: "string", description: "Origine logica della proposta (es. jack_readiness_unblock, jack_voice_controlled)." },
+        title: { type: "string" },
+        description: { type: "string" },
+        reason: { type: "string" },
+        risk_level: { type: "string", enum: ["low", "medium", "high"] },
         source_warning_id: { type: "string" },
+        readiness_step_id: { type: "string" },
         notes: { type: "string" },
       },
-      required: ["command_text"],
+      required: [],
     },
   },
   {
