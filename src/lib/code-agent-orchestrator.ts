@@ -1007,24 +1007,36 @@ export async function createNextActionFromCodeAgentJob(
     "create_next_action",
     "no_change",
   );
-  const action = await createAction({
-    brain_id: job.brain_id,
-    project_id: job.project_id,
-    source: "system_suggestion",
-    action_type: "manual_task",
+  const actionRisk = (job.risk_level as "low" | "medium" | "high") ?? "low";
+  const actionRequiresConfirmation = actionRisk !== "low";
+  const actionPayload = {
+    user_id: userId,
+    source: "system_suggestion" as const,
+    action_type: "manual_task" as const,
     title: `Verifica risultato Code Agent: ${CODE_AGENT_JOB_TYPE_LABEL[job.job_type as CodeAgentJobType] ?? job.job_type}`,
     description: sanitizeText(
       job.result_text ?? "Nessun risultato salvato. Verifica manuale.",
       600,
     ),
     priority: job.risk_level === "high" ? "high" : "medium",
-    risk_level: (job.risk_level as "low" | "medium" | "high"),
+    risk_level: actionRisk,
+    status: actionRequiresConfirmation ? "pending_approval" : "suggested",
+    requires_confirmation: actionRequiresConfirmation,
+    brain_id: job.brain_id,
+    project_id: job.project_id,
     metadata: {
       source_module: "code_agent_orchestrator",
       code_agent_job_id: job.id,
       engine: job.recommended_engine,
     },
-  });
+  };
+  const { data: actionData, error: actionError } = await sb
+    .from("automation_actions" as never)
+    .insert(actionPayload as never)
+    .select()
+    .single();
+  if (actionError) throw new Error(actionError.message);
+  const action = actionData as unknown as AutomationAction;
   await sb
     .from("code_agent_jobs")
     .update({
