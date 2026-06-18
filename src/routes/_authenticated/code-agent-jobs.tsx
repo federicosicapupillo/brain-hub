@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,17 +28,8 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   listCodeAgentJobs,
   getCodeAgentJob,
-  approveCodeAgentJob,
-  rejectCodeAgentJob,
   markCodeAgentJobReady,
-  markCodeAgentJobSentManually,
   updateCodeAgentJobRepository,
-  syncCodeAgentJobApprovalStatus,
-  syncPendingCodeAgentApprovals,
-  saveCodeAgentJobResult,
-  createReviewFromCodeAgentJob,
-  createNextActionFromCodeAgentJob,
-  createMasterSnapshotDraftFromCodeAgentJob,
   createCodeAgentJobFromBrowser,
   getCodeAgentJobSummary,
   getCodeAgentAvailableActions,
@@ -54,6 +46,17 @@ import {
   type CodeAgentRiskLevel,
 } from "@/lib/code-agent-orchestrator";
 import {
+  approveCodeAgentJobFn,
+  rejectCodeAgentJobFn,
+  markCodeAgentJobSentManuallyFn,
+  saveCodeAgentJobResultFn,
+  createReviewFromCodeAgentJobFn,
+  createNextActionFromCodeAgentJobFn,
+  createMasterSnapshotDraftFromCodeAgentJobFn,
+  syncCodeAgentJobApprovalStatusFn,
+  syncPendingCodeAgentApprovalsFn,
+} from "@/lib/code-agent-orchestrator.functions";
+import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
@@ -69,6 +72,7 @@ import {
   ShieldCheck,
   ShieldOff,
 } from "lucide-react";
+
 
 export const Route = createFileRoute("/_authenticated/code-agent-jobs")({
   head: () => ({
