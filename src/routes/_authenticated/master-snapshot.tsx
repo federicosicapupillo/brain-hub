@@ -79,6 +79,7 @@ _Da popolare al primo aggiornamento approvato._
 
 function MasterSnapshotRoute() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const { draft: draftFromUrl } = Route.useSearch();
 
   useEffect(() => {
