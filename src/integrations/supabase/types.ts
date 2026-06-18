@@ -1999,6 +1999,78 @@ export type Database = {
         }
         Relationships: []
       }
+      jack_memory_entries: {
+        Row: {
+          approved_at: string | null
+          archived_at: string | null
+          brain_id: string | null
+          category: string
+          confidence: number | null
+          content: string
+          created_at: string
+          id: string
+          importance: string
+          last_used_at: string | null
+          metadata: Json
+          normalized_content: string | null
+          project_id: string | null
+          project_name: string | null
+          sensitivity: string
+          source: string
+          source_conversation_id: string | null
+          source_message_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          archived_at?: string | null
+          brain_id?: string | null
+          category?: string
+          confidence?: number | null
+          content: string
+          created_at?: string
+          id?: string
+          importance?: string
+          last_used_at?: string | null
+          metadata?: Json
+          normalized_content?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          sensitivity?: string
+          source?: string
+          source_conversation_id?: string | null
+          source_message_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          archived_at?: string | null
+          brain_id?: string | null
+          category?: string
+          confidence?: number | null
+          content?: string
+          created_at?: string
+          id?: string
+          importance?: string
+          last_used_at?: string | null
+          metadata?: Json
+          normalized_content?: string | null
+          project_id?: string | null
+          project_name?: string | null
+          sensitivity?: string
+          source?: string
+          source_conversation_id?: string | null
+          source_message_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       jack_voice_generations: {
         Row: {
           brain_id: string | null

@@ -438,3 +438,418 @@ export function isJackMemoryStale(doc: JackMemoryDocument | null, maxAgeDays = 6
   const ageMs = Date.now() - imported;
   return ageMs > maxAgeDays * 24 * 60 * 60 * 1000;
 }
+
+// ============================================================
+// v3.11.1 — Natural language helpers + conversational entries
+// ============================================================
+
+// ----- Natural response helpers -----
+
+export function cleanMemoryMarkdownForSpeech(input: string): string {
+  if (!input) return "";
+  let t = input;
+  // strip frontmatter
+  t = t.replace(/^---[\s\S]*?---\s*/m, "");
+  // strip [tag] section markers we add internally
+  t = t.replace(/^\s*\[[a-z_]+\]\s*$/gim, "");
+  // strip headings (### Foo)
+  t = t.replace(/^#{1,6}\s+.*$/gm, "");
+  // bold/italic markers
+  t = t.replace(/\*\*(.*?)\*\*/g, "$1").replace(/__(.*?)__/g, "$1");
+  t = t.replace(/\*(.*?)\*/g, "$1").replace(/_(.*?)_/g, "$1");
+  // inline code
+  t = t.replace(/`([^`]+)`/g, "$1");
+  // list bullets -> sentence
+  t = t.replace(/^\s*[-*•]\s+/gm, "");
+  // "Key: value" -> "Key: value" but flatten line breaks
+  t = t.replace(/\r/g, "");
+  t = t.replace(/\n{2,}/g, ". ");
+  t = t.replace(/\n/g, ", ");
+  t = t.replace(/\s+/g, " ").trim();
+  // tidy punctuation
+  t = t.replace(/\s+([,.;:!?])/g, "$1");
+  t = t.replace(/([,.;:])\1+/g, "$1");
+  return t;
+}
+
+function clampForSpeech(s: string, max = 900): string {
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max - 1);
+  const lastDot = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("; "));
+  return (lastDot > max * 0.6 ? cut.slice(0, lastDot + 1) : cut) + "…";
+}
+
+export function buildNaturalIdentityResponse(ctx: JackMemoryContext): string {
+  if (ctx.status === "missing" || !ctx.sections) {
+    return "Non ho ancora una memoria personale configurata. Importala dalla pagina Jack Memory e ti racconto chi sei.";
+  }
+  const s = ctx.sections;
+  const blocks: string[] = [];
+  if (s.identity) blocks.push(cleanMemoryMarkdownForSpeech(s.identity));
+  if (s.background) blocks.push(cleanMemoryMarkdownForSpeech(s.background));
+  if (s.style) blocks.push("Sul tono: " + cleanMemoryMarkdownForSpeech(s.style));
+  const joined = blocks.filter(Boolean).join(". ").replace(/\.\s*\./g, ".");
+  if (!joined) return "Ho la memoria configurata ma non riesco a estrarre una sintesi naturale. Apri Jack Memory per verificare.";
+  return clampForSpeech("Federico, " + joined, 900);
+}
+
+export function buildNaturalJackRulesResponse(ctx: JackMemoryContext): string {
+  if (ctx.status === "missing" || !ctx.sections) {
+    return "Non ho ancora regole personalizzate. Importa il tuo Jack Memory Core per configurarle.";
+  }
+  const s = ctx.sections;
+  const blocks: string[] = [];
+  if (s.behavior) blocks.push(cleanMemoryMarkdownForSpeech(s.behavior));
+  if (s.security) blocks.push("Sulla sicurezza: " + cleanMemoryMarkdownForSpeech(s.security));
+  if (s.privacy) blocks.push("Sulla privacy: " + cleanMemoryMarkdownForSpeech(s.privacy));
+  const joined = blocks.filter(Boolean).join(". ");
+  if (!joined) return "Le regole non sono ancora definite nella memoria. Aggiungile nella sezione comportamento.";
+  return clampForSpeech("Le regole che seguo: " + joined, 900);
+}
+
+export function buildNaturalProjectMemoryResponse(
+  projectName: string,
+  ctx: JackMemoryContext,
+  entries: JackMemoryEntry[] = [],
+): string {
+  const parts: string[] = [];
+  const active = entries.filter((e) => e.status === "active");
+  if (active.length > 0) {
+    parts.push(
+      `Su ${projectName} ricordo ${active.length} ${active.length === 1 ? "nota" : "note"}: ` +
+        active.slice(0, 4).map((e) => cleanMemoryMarkdownForSpeech(e.content)).join("; "),
+    );
+  }
+  if (ctx.sections?.projects) {
+    const slice = cleanMemoryMarkdownForSpeech(ctx.sections.projects);
+    const matched = slice
+      .split(/[.;]/)
+      .map((s) => s.trim())
+      .filter((s) => s.toLowerCase().includes(projectName.toLowerCase().split(" ")[0]))
+      .slice(0, 2)
+      .join(". ");
+    if (matched) parts.push(matched);
+  }
+  if (parts.length === 0) {
+    return `Su ${projectName} non ho ancora memorie operative salvate. Dimmi "memorizza che…" per crearne.`;
+  }
+  return clampForSpeech(parts.join(". "), 900);
+}
+
+export function summarizeMemoryForConversation(
+  ctx: JackMemoryContext,
+  options?: { maxChars?: number },
+): string {
+  if (ctx.status === "missing" || !ctx.sections) return "";
+  const s = ctx.sections;
+  const blocks = [s.identity, s.behavior, s.style, s.projects]
+    .filter(Boolean)
+    .map((b) => cleanMemoryMarkdownForSpeech(b!));
+  return clampForSpeech(blocks.join(". "), options?.maxChars ?? 600);
+}
+
+// ----- Conversational memory entries -----
+
+export type JackMemoryEntryStatus = "active" | "suggested" | "archived" | "rejected";
+export type JackMemoryEntryCategory =
+  | "identity"
+  | "preference"
+  | "project_rule"
+  | "project_context"
+  | "business_context"
+  | "communication_style"
+  | "tooling"
+  | "safety_rule"
+  | "general";
+
+export type JackMemoryEntry = {
+  id: string;
+  user_id: string;
+  brain_id: string | null;
+  project_id: string | null;
+  project_name: string | null;
+  category: JackMemoryEntryCategory;
+  content: string;
+  normalized_content: string | null;
+  source: string;
+  status: JackMemoryEntryStatus;
+  importance: "low" | "normal" | "high";
+  sensitivity: "normal" | "sensitive" | "secret";
+  confidence: number | null;
+  source_conversation_id: string | null;
+  source_message_id: string | null;
+  approved_at: string | null;
+  archived_at: string | null;
+  last_used_at: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateJackMemoryEntryInput = {
+  content: string;
+  category?: JackMemoryEntryCategory;
+  project_name?: string | null;
+  brain_id?: string | null;
+  source?: string;
+  status?: JackMemoryEntryStatus;
+  importance?: "low" | "normal" | "high";
+  sensitivity?: "normal" | "sensitive" | "secret";
+  acknowledgeSecret?: boolean;
+  metadata?: Record<string, unknown>;
+};
+
+const CATEGORY_HINTS: Array<{ cat: JackMemoryEntryCategory; re: RegExp }> = [
+  { cat: "project_rule", re: /(separat[io]|non collegare|tieni distint|regola.*progett|sempre|mai|non fare)/i },
+  { cat: "preference", re: /(preferisc|mi piace|voglio sempre|non voglio|stile|tono)/i },
+  { cat: "communication_style", re: /(rispondi|parla|tono|spiega|breve|conciso|in italiano)/i },
+  { cat: "safety_rule", re: /(non eseguire|non inviare|non cancellare|chiedi conferma|approva)/i },
+  { cat: "tooling", re: /(usa.*(strumento|tool)|n8n|telegram|gmail|drive)/i },
+  { cat: "business_context", re: /(client[ei]|fattur|investit|partner|fornito)/i },
+];
+
+export function classifyMemoryEntry(content: string): JackMemoryEntryCategory {
+  for (const h of CATEGORY_HINTS) if (h.re.test(content)) return h.cat;
+  return "general";
+}
+
+const SENSITIVE_PATTERNS: RegExp[] = [
+  /\bsk-[A-Za-z0-9]{10,}\b/i,
+  /\bBearer\s+\S{10,}/i,
+  /\b(api[_-]?key|apikey|password|passwd|token|secret)\s*[:=]\s*\S{4,}/i,
+  /\beyJ[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\.[A-Za-z0-9_\-]{10,}\b/,
+  /\b\d{9,}:[A-Za-z0-9_\-]{30,}\b/, // telegram token
+  /\b(iban|codice fiscale|carta di credito|cvv)\b/i,
+];
+
+export function detectMemorySensitivity(content: string): "normal" | "sensitive" | "secret" {
+  for (const re of SENSITIVE_PATTERNS) if (re.test(content)) return "secret";
+  if (/\b(diagnos|medic|terapia|avvocato|legale|familiare|figli|moglie|marito)\b/i.test(content)) {
+    return "sensitive";
+  }
+  return "normal";
+}
+
+export function redactMemorySecrets(content: string): string {
+  let out = content;
+  for (const re of SENSITIVE_PATTERNS) out = out.replace(re, "[REDACTED]");
+  return out;
+}
+
+const MEMORY_INTENT_PATTERNS = {
+  save: [
+    /^\s*(jack[,\s]+)?(memorizza|ricorda|salva|tieni a mente|annota|nota)\s+(che|questo|quello|quanto)?\b/i,
+    /^\s*(jack[,\s]+)?da ora in poi\b/i,
+    /^\s*(jack[,\s]+)?aggiorna la memoria\b/i,
+  ],
+  forget: [
+    /^\s*(jack[,\s]+)?(dimentica|cancella|rimuovi|non ricordare(?: pi[uù])?)\b/i,
+  ],
+  search: [
+    /^\s*(jack[,\s]+)?(cosa (ti )?ricordi|cosa sai|che memoria hai|hai memoria)\b/i,
+  ],
+} as const;
+
+export type MemoryIntentKind = "save" | "forget" | "search" | "none";
+
+export function detectMemoryIntent(transcript: string): {
+  kind: MemoryIntentKind;
+  payload: string;
+} {
+  const t = transcript.trim();
+  for (const re of MEMORY_INTENT_PATTERNS.save) {
+    const m = t.match(re);
+    if (m) {
+      const after = t.slice(m[0].length).trim().replace(/^,\s*/, "");
+      return { kind: "save", payload: after || t };
+    }
+  }
+  for (const re of MEMORY_INTENT_PATTERNS.forget) {
+    const m = t.match(re);
+    if (m) {
+      const after = t.slice(m[0].length).trim().replace(/^,\s*/, "");
+      return { kind: "forget", payload: after || t };
+    }
+  }
+  for (const re of MEMORY_INTENT_PATTERNS.search) {
+    const m = t.match(re);
+    if (m) return { kind: "search", payload: t.slice(m[0].length).trim() || t };
+  }
+  return { kind: "none", payload: t };
+}
+
+export function extractMemoryEntryFromTranscript(transcript: string): {
+  content: string;
+  category: JackMemoryEntryCategory;
+  sensitivity: "normal" | "sensitive" | "secret";
+} {
+  const { payload } = detectMemoryIntent(transcript);
+  const content = payload.replace(/^che\s+/i, "").trim();
+  return {
+    content,
+    category: classifyMemoryEntry(content),
+    sensitivity: detectMemorySensitivity(content),
+  };
+}
+
+export async function createJackMemoryEntry(
+  input: CreateJackMemoryEntryInput,
+): Promise<{ kind: "created" | "needs_confirmation"; entry?: JackMemoryEntry; sensitivity?: string }> {
+  const userId = await getUserIdOrThrow();
+  const content = input.content.trim();
+  if (!content) throw new Error("Contenuto memoria vuoto");
+  const sensitivity = input.sensitivity ?? detectMemorySensitivity(content);
+  const category = input.category ?? classifyMemoryEntry(content);
+
+  if (sensitivity === "secret" && !input.acknowledgeSecret) {
+    await logJackMemoryEvent("jack_memory_secret_warning", {
+      reason: "secret_pattern_detected",
+      category,
+    });
+    // store as suggested with redacted preview
+    const { data, error } = await supabase
+      .from("jack_memory_entries" as never)
+      .insert({
+        user_id: userId,
+        content: redactMemorySecrets(content),
+        normalized_content: redactMemorySecrets(content).toLowerCase(),
+        category,
+        sensitivity: "secret",
+        status: "suggested",
+        source: input.source ?? "conversation",
+        importance: input.importance ?? "normal",
+        project_name: input.project_name ?? null,
+        brain_id: input.brain_id ?? null,
+        metadata: { ...(input.metadata ?? {}), secret_redacted: true },
+      } as never)
+      .select("*")
+      .single();
+    if (error) throw error;
+    await logJackMemoryEvent("jack_memory_entry_suggested", {
+      id: (data as JackMemoryEntry).id,
+      reason: "secret",
+    });
+    return { kind: "needs_confirmation", entry: data as JackMemoryEntry, sensitivity };
+  }
+
+  const status: JackMemoryEntryStatus = input.status ?? (sensitivity === "sensitive" ? "suggested" : "active");
+  const { data, error } = await supabase
+    .from("jack_memory_entries" as never)
+    .insert({
+      user_id: userId,
+      content,
+      normalized_content: content.toLowerCase(),
+      category,
+      sensitivity,
+      status,
+      source: input.source ?? "conversation",
+      importance: input.importance ?? "normal",
+      project_name: input.project_name ?? null,
+      brain_id: input.brain_id ?? null,
+      approved_at: status === "active" ? new Date().toISOString() : null,
+      metadata: input.metadata ?? {},
+    } as never)
+    .select("*")
+    .single();
+  if (error) throw error;
+  await logJackMemoryEvent(
+    status === "active" ? "jack_memory_entry_created" : "jack_memory_entry_suggested",
+    { id: (data as JackMemoryEntry).id, category, sensitivity },
+  );
+  return { kind: "created", entry: data as JackMemoryEntry, sensitivity };
+}
+
+export async function suggestJackMemoryEntry(
+  input: CreateJackMemoryEntryInput,
+): Promise<JackMemoryEntry> {
+  const res = await createJackMemoryEntry({ ...input, status: "suggested" });
+  if (!res.entry) throw new Error("Suggerimento memoria non creato");
+  return res.entry;
+}
+
+export async function listJackMemoryEntries(filters?: {
+  status?: JackMemoryEntryStatus | JackMemoryEntryStatus[];
+  category?: JackMemoryEntryCategory;
+  project_name?: string;
+  brain_id?: string | null;
+  limit?: number;
+}): Promise<JackMemoryEntry[]> {
+  let q = supabase
+    .from("jack_memory_entries" as never)
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(filters?.limit ?? 200);
+  if (filters?.status) {
+    if (Array.isArray(filters.status)) q = q.in("status", filters.status as never);
+    else q = q.eq("status", filters.status as never);
+  }
+  if (filters?.category) q = q.eq("category", filters.category as never);
+  if (filters?.project_name) q = q.ilike("project_name", `%${filters.project_name}%`);
+  if (filters?.brain_id !== undefined && filters.brain_id !== null) {
+    q = q.eq("brain_id", filters.brain_id as never);
+  }
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []) as JackMemoryEntry[];
+}
+
+export async function archiveJackMemoryEntry(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("jack_memory_entries" as never)
+    .update({ status: "archived", archived_at: new Date().toISOString() } as never)
+    .eq("id", id);
+  if (error) throw error;
+  await logJackMemoryEvent("jack_memory_entry_archived", { id });
+}
+
+export async function approveJackMemoryEntry(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("jack_memory_entries" as never)
+    .update({ status: "active", approved_at: new Date().toISOString() } as never)
+    .eq("id", id);
+  if (error) throw error;
+  await logJackMemoryEvent("jack_memory_entry_created", { id, via: "approval" });
+}
+
+export async function rejectJackMemoryEntry(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("jack_memory_entries" as never)
+    .update({ status: "rejected" } as never)
+    .eq("id", id);
+  if (error) throw error;
+  await logJackMemoryEvent("jack_memory_entry_rejected", { id });
+}
+
+export async function searchJackMemoryEntries(query: string): Promise<JackMemoryEntry[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const { data, error } = await supabase
+    .from("jack_memory_entries" as never)
+    .select("*")
+    .in("status", ["active", "suggested"] as never)
+    .ilike("normalized_content", `%${q}%`)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  if (error) throw error;
+  return (data ?? []) as JackMemoryEntry[];
+}
+
+export async function findSimilarMemoryEntries(content: string): Promise<JackMemoryEntry[]> {
+  const tokens = content
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 4)
+    .slice(0, 5);
+  if (tokens.length === 0) return [];
+  // OR-search on the most distinctive tokens
+  const orExpr = tokens.map((t) => `normalized_content.ilike.%${t}%`).join(",");
+  const { data, error } = await supabase
+    .from("jack_memory_entries" as never)
+    .select("*")
+    .eq("status", "active" as never)
+    .or(orExpr)
+    .limit(10);
+  if (error) return [];
+  return (data ?? []) as JackMemoryEntry[];
+}
