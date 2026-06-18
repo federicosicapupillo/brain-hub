@@ -409,6 +409,7 @@ function CodeAgentJobsPage() {
     setNewPreferredEngine("auto");
     setNewRiskHint("auto");
     setNewRepositoryHint("");
+    setNewRepositoryId("none");
     setNewNotes("");
     setNewDeliveryPreference("auto");
   };
@@ -428,6 +429,7 @@ function CodeAgentJobsPage() {
           preferredEngine: newPreferredEngine === "auto" ? null : newPreferredEngine,
           riskHint: newRiskHint === "auto" ? null : newRiskHint,
           repositoryHint: newRepositoryHint.trim() ? newRepositoryHint.trim() : null,
+          repositoryId: newRepositoryId !== "none" ? newRepositoryId : null,
           notes: newNotes.trim() ? newNotes.trim() : null,
           deliveryPreference:
             newDeliveryPreference === "auto" ? null : newDeliveryPreference,
