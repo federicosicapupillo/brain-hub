@@ -26,8 +26,12 @@ import {
   createMasterSnapshotDraftFromCodeAgentJob,
   syncCodeAgentJobApprovalStatus,
   syncPendingCodeAgentApprovals,
+  createCodeAgentJobFromBrowser,
+  updateCodeAgentJobRepository,
   CodeAgentTransitionError,
   type CodeAgentEngine,
+  type CodeAgentRiskLevel,
+  type UnifiedCreateCodeAgentJobResult,
 } from "@/lib/code-agent-orchestrator";
 
 // ---------- Error serialization (crosses RPC boundary) ----------
