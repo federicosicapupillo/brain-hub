@@ -49,6 +49,8 @@ import { listToolLinks, normalizeStatus } from "@/lib/tool-connections";
 import { RISK_TONE } from "@/lib/action-queue";
 import { TelegramSettingsSection, TelegramDiagnosticsCard } from "@/components/TelegramSettingsSection";
 import { TelegramSendControls } from "@/components/TelegramSendControls";
+import { useServerFn } from "@tanstack/react-start";
+import { checkTelegramWebhookConfig } from "@/lib/telegram-webhook.functions";
 
 export const Route = createFileRoute("/_authenticated/telegram-approvals")({
   head: () => ({
