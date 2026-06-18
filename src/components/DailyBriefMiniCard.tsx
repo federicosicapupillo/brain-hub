@@ -58,7 +58,8 @@ export function DailyBriefMiniCard({ brainId }: { brainId: string | null }) {
         ) : null}
         <Button asChild variant="outline" size="sm" className="w-full">
           <Link to="/daily-brief" search={{ brain: brainId ?? undefined }}>
-            Apri Daily Brief <ArrowRight className="ml-1 h-3 w-3" />
+            {present ? "Apri e ascolta Jack" : "Apri Daily Brief"}{" "}
+            <ArrowRight className="ml-1 h-3 w-3" />
           </Link>
         </Button>
       </CardContent>
