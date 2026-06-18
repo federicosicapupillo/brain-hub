@@ -1254,8 +1254,8 @@ export async function createNextActionFromAgentAiResult(
   const run = await getAgentRun(runId);
   if (!run.ai_result_text) throw new Error("Nessun risultato AI salvato");
   const agent = await getAgent(run.agent_id);
-  const maxRisk = (agent.max_risk_level ?? "low") as RiskLevel;
-  const risk = pickLowerRisk("low" as RiskLevel, maxRisk);
+  const agentMaxRisk = (agent.max_risk_level ?? "low") as RiskLevel;
+  const risk: RiskLevel = "low";
 
   const action = await createAction({
     source: "agent_center",
@@ -1272,6 +1272,9 @@ export async function createNextActionFromAgentAiResult(
       ai_provider: run.ai_provider ?? null,
       derived_from: "agent_ai_result",
       objective: run.objective,
+      original_risk_level: risk,
+      agent_max_risk_level: agentMaxRisk,
+      risk_exceeds_agent_permission: false,
     },
   });
 
