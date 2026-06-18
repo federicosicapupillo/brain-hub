@@ -17,6 +17,10 @@ import {
   type JackCommandContextHint,
   type JackControlledPlan,
 } from "@/lib/jack-command-intents";
+import {
+  buildJackActionIdempotencyKey,
+  type PendingJackActionPreview,
+} from "@/lib/jack-action-confirmation";
 
 // ---------- Types ----------
 
@@ -26,10 +30,18 @@ export type CreateControlledActionInput = {
   project_id?: string | null;
   delivery_preference?: "telegram" | "ui_only" | null;
   notes?: string | null;
+  // v3.19.3 — confirmation gate
+  confirmed?: boolean;
+  source_warning_id?: string | null;
+  idempotency_key?: string | null;
 };
 
 export type CreateControlledActionResult = {
   ok: boolean;
+  blocked?: boolean;
+  reason?: string;
+  preview?: PendingJackActionPreview | null;
+  deduplicated?: boolean;
   action_id: string | null;
   intent: string;
   secondary_intent: string | null;
@@ -43,6 +55,7 @@ export type CreateControlledActionResult = {
   research_handoff: boolean;
   missing_information: string[];
   unsafe_request: boolean;
+  idempotency_key?: string;
 };
 
 export type PrepareMasterSnapshotInput = {
