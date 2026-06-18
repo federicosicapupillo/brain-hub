@@ -30,6 +30,12 @@ import {
   getJackReadinessDetails,
   buildJackDailyStatusFallback,
 } from "@/lib/jack-best-next-action";
+import {
+  normalizePreviewInput,
+  buildPendingJackActionPreview,
+  validatePreviewForDisplay,
+  type PendingJackActionPreview,
+} from "@/lib/jack-action-confirmation";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
