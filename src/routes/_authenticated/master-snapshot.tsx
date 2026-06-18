@@ -26,6 +26,7 @@ import {
   rejectMasterSnapshotUpdate,
   createInitialMasterSnapshot,
   createDraftFromMarkdown,
+  normalizeSnapshotMarkdownVersion,
   logMasterSnapshotEvent,
   type MasterSnapshotVersion,
   type MasterSnapshotStatus,
@@ -240,8 +241,13 @@ function MasterSnapshotRoute() {
                 <span>· Sorgente: {current.source}</span>
               </div>
               <pre className="max-h-96 overflow-auto rounded-md border bg-muted/40 p-3 text-xs whitespace-pre-wrap">
-                {current.markdown_content}
+                {normalizeSnapshotMarkdownVersion(current.markdown_content)}
               </pre>
+              <p className="text-xs text-muted-foreground">
+                La versione ufficiale è quella mostrata nella scheda del Master Snapshot
+                (v{current.version_label}). Eventuali righe "Versione documento" nel
+                markdown vengono normalizzate per evitare disallineamenti.
+              </p>
               <p className="text-xs text-muted-foreground">
                 Per modificare il Master Snapshot crea una bozza e approvala. Le versioni
                 precedenti restano nello storico.
@@ -516,7 +522,9 @@ function ImportMarkdownButton({ onCreated }: { onCreated: (draftId: string) => v
           <DialogTitle>Crea bozza da Markdown</DialogTitle>
           <DialogDescription>
             Incolla il contenuto completo di un file .md. Verrà creata una nuova bozza —
-            la versione corrente resta invariata finché non approvi.
+            la versione corrente resta invariata finché non approvi. Eventuali righe
+            "Versione documento" verranno normalizzate: la versione ufficiale è quella
+            gestita da Brain Hub e mostrata nella scheda del Master Snapshot.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
