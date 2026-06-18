@@ -334,7 +334,7 @@ function MasterSnapshotRoute() {
                       className="w-full text-left"
                     >
                       <div className="flex items-center justify-between">
-                        <Badge className={STATUS_TONE.draft_update}>v{d.version_label}</Badge>
+                        <Badge className={STATUS_TONE.draft_update}>v{getSnapshotVersionLabel(d)}</Badge>
                         <span className="text-[10px] text-muted-foreground">
                           {new Date(d.created_at).toLocaleString()}
                         </span>
