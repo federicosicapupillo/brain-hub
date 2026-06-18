@@ -114,6 +114,7 @@ export type CodeAgentJob = {
   external_pr_url: string | null;
   external_run_id: string | null;
   metadata: Record<string, unknown>;
+  sent_manually_at: string | null;
   created_at: string;
   updated_at: string;
 };
