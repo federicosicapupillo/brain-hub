@@ -1113,6 +1113,13 @@ export async function saveAgentAiResult(
   return next;
 }
 
+const RISK_ORDER: RiskLevel[] = ["low", "medium", "high"];
+
+function riskRank(r: RiskLevel | string | null | undefined): number {
+  const idx = RISK_ORDER.indexOf((r ?? "low") as RiskLevel);
+  return idx < 0 ? 0 : idx;
+}
+
 export async function createActionFromAgentAiResult(
   runId: string,
 ): Promise<AutomationAction> {
@@ -1120,19 +1127,28 @@ export async function createActionFromAgentAiResult(
   if (!run.ai_result_text) throw new Error("Nessun risultato AI salvato");
   const agent = await getAgent(run.agent_id);
   const preview = run.output_json as Partial<AgentRunPreview>;
-  const heuristicRisk = (preview.suggested_action?.risk_level ?? "low") as RiskLevel;
-  const maxRisk = (agent.max_risk_level ?? "low") as RiskLevel;
-  const risk = pickLowerRisk(heuristicRisk, maxRisk);
+  // Real risk = euristic suggestion (or run risk), NOT clamped to agent.
+  const inferredRisk = (preview.suggested_action?.risk_level ??
+    run.risk_level ??
+    "low") as RiskLevel;
+  const agentMaxRisk = (agent.max_risk_level ?? "low") as RiskLevel;
+  const exceeds = riskRank(inferredRisk) > riskRank(agentMaxRisk);
   const action_type = (preview.suggested_action?.action_type ??
     "agent_recommendation") as ActionType;
+
+  const permissionWarning = exceeds
+    ? "Il rischio reale stimato supera il livello massimo consentito per questo agente. Richiede revisione manuale."
+    : null;
 
   const action = await createAction({
     source: "agent_center",
     action_type,
-    title: `AI handoff: ${run.objective}`,
+    title: exceeds
+      ? `⚠️ AI handoff (oltre permessi agente): ${run.objective}`
+      : `AI handoff: ${run.objective}`,
     description: run.ai_result_text.slice(0, 2000),
-    risk_level: risk,
-    priority: "medium",
+    risk_level: inferredRisk,
+    priority: exceeds ? "high" : "medium",
     brain_id: run.brain_id,
     metadata: {
       agent_run_id: run.id,
@@ -1140,29 +1156,55 @@ export async function createActionFromAgentAiResult(
       ai_provider: run.ai_provider ?? null,
       ai_handoff_status: "action_created",
       objective: run.objective,
+      original_risk_level: inferredRisk,
+      agent_max_risk_level: agentMaxRisk,
+      risk_exceeds_agent_permission: exceeds,
+      risk_clamp_reason: exceeds
+        ? "real_risk_preserved_for_transparency"
+        : null,
+      permission_warning: permissionWarning,
     },
   });
 
+  // Mark run metadata for QA visibility (non-destructive merge).
+  const prevMeta = (run.metadata as Record<string, unknown> | null) ?? {};
   await updateAgentRun(runId, {
     suggested_action_id: action.id,
     ai_handoff_status: "action_created" as AiHandoffStatus,
     run_status: "action_created" as AgentRunStatus,
+    metadata: {
+      ...prevMeta,
+      ai_risk_warning: exceeds,
+      ai_original_risk_level: inferredRisk,
+      ai_agent_max_risk_level: agentMaxRisk,
+    },
   });
   await logEvent(
     "agent_ai_action_created",
     "Action creata da risultato AI agente",
-    { run_id: runId, action_id: action.id, agent_id: agent.id },
+    {
+      run_id: runId,
+      action_id: action.id,
+      agent_id: agent.id,
+      original_risk_level: inferredRisk,
+      agent_max_risk_level: agentMaxRisk,
+      risk_exceeds_agent_permission: exceeds,
+    },
   );
+  if (exceeds) {
+    await logEvent(
+      "agent_ai_risk_warning_created",
+      "Action AI con rischio superiore al max permesso all'agente",
+      {
+        run_id: runId,
+        action_id: action.id,
+        agent_id: agent.id,
+        original_risk_level: inferredRisk,
+        agent_max_risk_level: agentMaxRisk,
+      },
+    );
+  }
   return action;
-}
-
-function pickLowerRisk(a: RiskLevel, b: RiskLevel): RiskLevel {
-  const order: RiskLevel[] = ["low", "medium", "high"];
-  const ia = order.indexOf(a);
-  const ib = order.indexOf(b);
-  if (ia < 0) return b;
-  if (ib < 0) return a;
-  return order[Math.min(ia, ib)];
 }
 
 export async function createReviewFromAgentAiResult(
