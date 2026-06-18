@@ -201,13 +201,38 @@ function CodeAgentJobsPage() {
     void qc.invalidateQueries({ queryKey: ["code-agent-jobs-summary"] });
   };
 
+  function describeTransitionError(e: unknown): string {
+    const err = e as { code?: string; message?: string } | null;
+    const code = err?.code;
+    const msg = err?.message ?? "Errore sconosciuto";
+    switch (code) {
+      case "code_agent_repository_required":
+        return "Repository richiesto prima di procedere.";
+      case "code_agent_approval_required":
+        return "Serve approvazione prima dell'invio manuale.";
+      case "code_agent_result_required":
+        return "Serve un risultato prima di questa azione.";
+      case "code_agent_terminal_status":
+        return "Questo job è in uno stato finale.";
+      case "code_agent_job_not_found":
+        return "Job non trovato.";
+      case "code_agent_user_scope_required":
+        return "Devi essere autenticato.";
+      case "code_agent_transition_not_allowed":
+        return msg;
+      default:
+        return msg;
+    }
+  }
+
   const handleApprove = async (j: CodeAgentJob) => {
     try {
       await approveCodeAgentJob(j.id);
       toast.success("Job approvato — pronto per handoff (nessuna esecuzione)");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e));
+      refresh();
     }
   };
 
@@ -217,29 +242,41 @@ function CodeAgentJobsPage() {
       toast.success("Job rifiutato");
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e));
+      refresh();
     }
   };
 
   const handleSyncApproval = async (j: CodeAgentJob) => {
     try {
       const r = await syncCodeAgentJobApprovalStatus(j.id);
-      toast.success(`Sync · status=${r.status}`);
+      if (r.skipped) {
+        toast.message(`Sync saltato · ${r.skip_reason ?? "stato non sincronizzabile"}`);
+      } else {
+        toast.success(`Sync · status=${r.status}`);
+      }
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e));
+      refresh();
     }
   };
 
   const handleBulkSync = async () => {
     try {
       const r = await syncPendingCodeAgentApprovals(brainId);
+      const errPart = r.errors.length > 0 ? `, ${r.errors.length} errori` : "";
+      const skipPart = r.skipped > 0 ? `, ${r.skipped} saltati` : "";
       toast.success(
-        `Sync · ${r.checked} controllati, ${r.approved} approvati, ${r.rejected} rifiutati, ${r.unchanged} invariati`,
+        `Sync · ${r.checked} controllati, ${r.approved} approvati, ${r.rejected} rifiutati, ${r.unchanged} invariati${skipPart}${errPart}`,
       );
+      if (r.errors.length > 0) {
+        const sample = r.errors.slice(0, 2).map((x) => x.code).join(", ");
+        toast.error(`Errori bulk sync: ${sample}${r.errors.length > 2 ? "…" : ""}`);
+      }
       refresh();
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeTransitionError(e));
     }
   };
 
