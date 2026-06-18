@@ -14,6 +14,7 @@ import {
   type CodeAgentJobStatus,
   type CodeAgentJobType,
 } from "@/lib/code-agent-orchestrator";
+import { isSuspectRepositoryRecord } from "@/lib/github-repository-parse";
 
 type ChecklistStatus = "done" | "warning" | "missing" | "not_applicable";
 
