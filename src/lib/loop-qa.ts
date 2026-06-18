@@ -585,11 +585,107 @@ export async function getLoopQaSummary(brainId?: string | null): Promise<LoopSum
     // non-blocking
   }
 
-
-
-
-
-
+  // Jack Voice controlled-command warnings (v3.14)
+  try {
+    type JackActionRow = {
+      id: string;
+      title: string;
+      status: string;
+      risk_level: string;
+      metadata: Record<string, unknown> | null;
+      created_at: string;
+    };
+    let q = supabase
+      .from("automation_actions")
+      .select("id,title,status,risk_level,metadata,created_at,brain_id")
+      .order("created_at", { ascending: false })
+      .limit(40);
+    if (brainId) q = q.eq("brain_id", brainId);
+    const { data: jackRows } = await q;
+    const rows = ((jackRows ?? []) as unknown as JackActionRow[]).filter((r) => {
+      const m = (r.metadata ?? {}) as Record<string, unknown>;
+      return m.source_module === "jack_voice_controlled";
+    });
+    const unreviewed = rows.filter(
+      (r) => r.status === "suggested" || r.status === "pending_approval",
+    );
+    if (unreviewed.length > 0) {
+      warnings.push({
+        id: "jack_voice_controlled_unreviewed",
+        level: "info",
+        title: "Comandi vocali Jack in attesa di review",
+        description: `Ci sono ${unreviewed.length} action create da Jack Voice non ancora approvate o rifiutate.`,
+        cta: { label: "Apri Action Queue", to: "/action-queue" },
+        category: "jack_voice",
+      });
+    }
+    const tgMissing = rows.filter(
+      (r) =>
+        ((r.metadata ?? {}) as Record<string, unknown>).jack_blocking_reason ===
+        "telegram_connector_missing",
+    );
+    if (tgMissing.length > 0) {
+      warnings.push({
+        id: "jack_voice_telegram_connector_missing",
+        level: "warning",
+        title: "Telegram delivery richiesta senza connettore",
+        description: "Jack ha registrato richieste di delivery Telegram ma il connettore non è configurato.",
+        cta: { label: "Configura Telegram", to: "/tool-connections" },
+        category: "jack_voice",
+      });
+    }
+    const snapshotDrafts = rows.filter(
+      (r) =>
+        ((r.metadata ?? {}) as Record<string, unknown>).master_snapshot_draft_id &&
+        r.status !== "executed" &&
+        r.status !== "approved",
+    );
+    if (snapshotDrafts.length > 0) {
+      warnings.push({
+        id: "jack_voice_master_snapshot_draft_unapproved",
+        level: "info",
+        title: "Bozza Master Snapshot proposta da Jack",
+        description: `${snapshotDrafts.length} bozza/e generate da Jack Voice in attesa di approvazione manuale.`,
+        cta: { label: "Apri Master Snapshot", to: "/master-snapshot" },
+        category: "jack_voice",
+      });
+    }
+    const researchHandoffs = rows.filter(
+      (r) => ((r.metadata ?? {}) as Record<string, unknown>).jack_intent === "market_research",
+    );
+    if (researchHandoffs.length > 0) {
+      const reviewed = researchHandoffs.filter(
+        (r) => r.status === "executed" || r.status === "approved" || r.status === "rejected",
+      );
+      if (reviewed.length < researchHandoffs.length) {
+        warnings.push({
+          id: "jack_voice_research_handoff_pending",
+          level: "info",
+          title: "Research handoff senza Result Review",
+          description: "Esistono handoff di ricerca creati da Jack Voice non ancora chiusi in Result Review.",
+          cta: { label: "Apri Result Review", to: "/result-review" },
+          category: "jack_voice",
+        });
+      }
+    }
+    const highRiskUnapproved = rows.filter(
+      (r) =>
+        r.risk_level === "high" &&
+        (r.status === "suggested" || r.status === "pending_approval"),
+    );
+    if (highRiskUnapproved.length > 0) {
+      warnings.push({
+        id: "jack_voice_high_risk_unapproved",
+        level: "warning",
+        title: "Comando Jack ad alto rischio senza approvazione",
+        description: `${highRiskUnapproved.length} action ad alto rischio originate da Jack Voice attendono review umana.`,
+        cta: { label: "Apri Action Queue", to: "/action-queue" },
+        category: "jack_voice",
+      });
+    }
+  } catch {
+    // non-blocking
+  }
 
 
   // Single chain (legacy) + multi-chain history (v1.9.2)
