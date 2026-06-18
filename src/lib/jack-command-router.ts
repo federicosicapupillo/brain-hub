@@ -217,7 +217,7 @@ async function respondDailyStatus(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = await getTodayOperatingBrief(ctx.brainId);
+  const { brief, source } = await resolveBrief(ctx);
   if (!brief) {
     return {
       intent: "daily_status",
@@ -238,7 +238,7 @@ async function respondDailyStatus(
     matched_phrases: matched,
     response_text: text,
     cta: ctaDaily(ctx),
-    source: "daily_operating_brief",
+    source: `daily_operating_brief:${source}`,
   };
 }
 
