@@ -944,7 +944,12 @@ export type JackVoiceCommandEvent =
   | "jack_voice_intent_resolved"
   | "jack_voice_response_generated"
   | "jack_voice_response_spoken"
-  | "jack_voice_command_failed";
+  | "jack_voice_command_failed"
+  | "jack_project_intent_resolved"
+  | "jack_project_status_requested"
+  | "jack_project_status_response_generated"
+  | "jack_project_alias_ambiguous"
+  | "jack_multi_project_status_requested";
 
 function redactTranscript(t: string): string {
   return t
