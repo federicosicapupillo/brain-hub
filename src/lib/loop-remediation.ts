@@ -1,7 +1,8 @@
 // ============================================================
-// Brain Hub v3.18 — Operational Remediation Planner
+// Brain Hub v3.18/v3.19 — Operational Remediation Planner
 // Transforms Loop QA / Operational Health warnings into a guided
-// remediation plan. Read-only diagnostics + manual Action Queue
+// remediation plan, derives closure states and bridges to
+// validateLoopReadiness. Read-only diagnostics + manual Action Queue
 // integration. No code execution, no external API calls.
 // ============================================================
 
@@ -10,6 +11,7 @@ import {
   annotateWarnings,
   getLoopQaSummary,
   logLoopQaEvent,
+  validateLoopReadiness,
   type LoopWarning,
   type LoopWarningArea,
   type LoopWarningSeverity,
@@ -17,7 +19,14 @@ import {
 } from "@/lib/loop-qa";
 import type { ActionType, AutomationAction, RiskLevel } from "@/lib/action-queue";
 
-export type RemediationStatus = "open" | "action_created" | "resolved" | "ignored";
+export type RemediationStatus =
+  | "open"
+  | "action_created"
+  | "action_in_progress"
+  | "action_completed"
+  | "resolved"
+  | "regressed"
+  | "ignored";
 
 export type RemediationItem = {
   id: string;
