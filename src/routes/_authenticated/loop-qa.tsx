@@ -39,7 +39,9 @@ import {
   createRemediationActionForItem,
   REMEDIATION_AREA_LABEL,
   REMEDIATION_SEVERITY_LABEL,
+  REMEDIATION_STATUS_LABEL,
   type RemediationItem,
+  type RemediationStatus,
 } from "@/lib/loop-remediation";
 
 export const Route = createFileRoute("/_authenticated/loop-qa")({
