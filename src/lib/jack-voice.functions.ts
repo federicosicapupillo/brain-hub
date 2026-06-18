@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createHash } from "crypto";
+import { JACK_VOICE_PROFILE } from "@/lib/jack-voice-profile";
+
 
 const MAX_CHARS = 1800;
 
