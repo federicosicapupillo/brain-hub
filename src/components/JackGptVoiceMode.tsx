@@ -1840,7 +1840,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           try {
             const sessionPayload: Record<string, unknown> = {
               type: "realtime",
-              audio: { output: { voice: "alloy" } },
+              audio: {
+                input: {
+                  transcription: {
+                    model: session.input_transcription_model,
+                    language: session.input_transcription_language,
+                  },
+                },
+                output: { voice: "alloy" },
+              },
             };
             if (session.mode === "minimal") {
               if (session.instructions_for_update) {
@@ -1853,6 +1861,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             }
             dc.send(JSON.stringify({ type: "session.update", session: sessionPayload }));
             sessionUpdateSentRef.current = true;
+            setDiagnostics((d) => ({
+              ...d,
+              inputTranscriptionConfigured: session.input_transcription_configured,
+              inputTranscriptionModel: session.input_transcription_model,
+              inputTranscriptionLanguage: session.input_transcription_language,
+            }));
+            safeLog("jack_realtime_input_transcription_config_checked", {
+              inputTranscriptionConfigured: session.input_transcription_configured,
+              inputTranscriptionModel: session.input_transcription_model,
+              inputTranscriptionLanguage: session.input_transcription_language,
+              event_type: "session.update",
+            });
             safeLog("jack_gpt_session_update_sent", { mode: session.mode });
             // v3.13: inject natural memory context as additional instructions.
             void injectNaturalContext("initial");
