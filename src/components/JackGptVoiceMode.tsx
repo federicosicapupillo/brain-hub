@@ -839,8 +839,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         // GA response lifecycle
         case "response.created": {
           const id = msg.response?.id ?? null;
+          // v3.21.2 — overlap detection: a new response while one is active.
+          if (responseInProgressRef.current && activeResponseIdRef.current && id && activeResponseIdRef.current !== id) {
+            safeLog("jack_audio_response_overlap_prevented", {
+              response_id: redactResponseId(id),
+              dedup_reason: "previous_response_still_active",
+            });
+          }
           responseInProgressRef.current = true;
           activeResponseIdRef.current = id;
+          // reset transcript dedup window for the new response
+          transcriptDedupRef.current = {
+            responseId: id,
+            lastDelta: null,
+            appendedDoneIds: transcriptDedupRef.current.appendedDoneIds,
+          };
           setState("speaking");
           setDiagnostics((d) => ({
             ...d,
@@ -856,15 +869,40 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         // Legacy fallback
         case "response.audio.delta":
         case "response.audio_transcript.delta":
-        case "response.text.delta":
+        case "response.text.delta": {
+          // v3.21.2 — drop identical consecutive transcript deltas
+          const delta = typeof msg.delta === "string" ? msg.delta : null;
+          if (delta) {
+            if (transcriptDedupRef.current.lastDelta === delta) {
+              safeLog("jack_transcript_delta_deduplicated", {
+                response_id: redactResponseId(transcriptDedupRef.current.responseId),
+                dedup_reason: "identical_consecutive_delta",
+              });
+            } else {
+              transcriptDedupRef.current.lastDelta = delta;
+            }
+          }
           setState("speaking");
           break;
+        }
 
         case "response.output_audio_transcript.done":
         case "response.audio_transcript.done":
-        case "response.output_text.done":
-          if (msg.transcript) pushLog({ kind: "jack", text: String(msg.transcript) });
+        case "response.output_text.done": {
+          if (!msg.transcript) break;
+          // v3.21.2 — dedup .done events for the same item to avoid double append
+          const doneKey = `${msg.response_id ?? activeResponseIdRef.current ?? ""}::${msg.item_id ?? ""}`;
+          if (doneKey && transcriptDedupRef.current.appendedDoneIds.has(doneKey)) {
+            safeLog("jack_transcript_delta_deduplicated", {
+              response_id: redactResponseId(activeResponseIdRef.current),
+              dedup_reason: "done_already_appended",
+            });
+            break;
+          }
+          if (doneKey) transcriptDedupRef.current.appendedDoneIds.add(doneKey);
+          pushLog({ kind: "jack", text: String(msg.transcript) });
           break;
+        }
 
         case "conversation.item.input_audio_transcription.completed":
           if (msg.transcript) {
