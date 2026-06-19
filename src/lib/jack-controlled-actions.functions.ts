@@ -711,8 +711,22 @@ export const createControlledJackActionFromPreview = createServerFn({ method: "P
   .inputValidator((d: unknown) => d as CreateActionFromPreviewInput)
   .handler(async ({ data, context }): Promise<CreateControlledActionResult> => {
     const { supabase, userId } = context;
-    const preview = data.preview;
+    const previewId = sanitizeText(data.preview_id ?? data.preview?.preview_id ?? "", 140);
+    const title = sanitizeText(data.title ?? data.preview?.title ?? "", 220);
+    const description = sanitizeText(data.description ?? data.preview?.description ?? "", 900);
+    const reasonText = sanitizeText(data.reason ?? data.preview?.reason ?? "", 500);
+    const riskLevel = data.risk_level ?? data.preview?.risk_level ?? "low";
+    const previewSource = sanitizeText(data.source ?? data.preview?.source ?? "jack_voice_controlled", 120);
+    const idempotencyKey = data.idempotency_key || data.preview?.idempotency_key || "";
+    const brainId = data.brain_id ?? data.preview?.brain_id ?? null;
+    const projectId = data.project_id ?? data.preview?.project_id ?? null;
     const confirmationSource = data.confirmation_source;
+    const eventBase = {
+      preview_id: previewId || null,
+      confirmation_source: confirmationSource,
+      title_hash: title ? hashJackActionText(title) : null,
+      idempotency_key: idempotencyKey ? redactJackIdempotencyKey(idempotencyKey) : null,
+    };
 
     if (
       confirmationSource !== "ui_button" &&
@@ -723,8 +737,9 @@ export const createControlledJackActionFromPreview = createServerFn({ method: "P
         userId,
         "jack_action_confirmation_rejected_no_pending_preview",
         {
+          ...eventBase,
           reason: "invalid_confirmation_source",
-          brain_id: data.brain_id ?? null,
+          brain_id: brainId,
         },
       );
       return {
@@ -732,9 +747,11 @@ export const createControlledJackActionFromPreview = createServerFn({ method: "P
         blocked: true,
         reason: "invalid_confirmation_source",
         action_id: null,
+        action_title: null,
+        preview_id: previewId,
         intent: "controlled_action",
         secondary_intent: null,
-        risk_level: preview?.risk_level ?? "low",
+        risk_level: riskLevel,
         requires_approval: true,
         recommended_tool: "ui",
         next_step: "Conferma richiesta tramite UI o voice router.",
@@ -748,46 +765,51 @@ export const createControlledJackActionFromPreview = createServerFn({ method: "P
       };
     }
 
-    if (!preview || !preview.title || !preview.idempotency_key) {
+    if (!previewId || !title || !description || !reasonText || !idempotencyKey) {
       await logSanitizedEvent(
         supabase,
         userId,
-        "jack_action_confirmation_rejected_no_pending_preview",
+        "jack_action_create_from_preview_failed",
         {
-          reason: "missing_pending_preview",
+          ...eventBase,
+          reason: "missing_preview_fields",
           confirmation_source: confirmationSource,
-          brain_id: data.brain_id ?? null,
+          brain_id: brainId,
         },
       );
       return {
         ok: false,
         blocked: true,
-        reason: "missing_pending_preview",
+        reason: "missing_preview_fields",
         action_id: null,
+        action_title: null,
+        preview_id: previewId,
         intent: "controlled_action",
         secondary_intent: null,
-        risk_level: "low",
+        risk_level: riskLevel,
         requires_approval: true,
         recommended_tool: "ui",
         next_step: "Genera una preview prima di confermare.",
-        safe_message: "Non ho una proposta pendente da confermare.",
+        safe_message: "Ho ricevuto la conferma, ma la preview corrente è incompleta. La proposta resta pronta.",
         master_snapshot_draft_id: null,
         telegram_delivery_id: null,
         research_handoff: false,
-        missing_information: ["pending_preview"],
+        missing_information: ["preview_id", "title", "description", "reason", "idempotency_key"],
         unsafe_request: false,
+        idempotency_key: idempotencyKey,
       };
     }
 
-    if (data.idempotency_key !== preview.idempotency_key) {
+    if (data.preview && data.idempotency_key !== data.preview.idempotency_key) {
       await logSanitizedEvent(
         supabase,
         userId,
-        "jack_action_confirmation_rejected_no_pending_preview",
+        "jack_action_create_from_preview_failed",
         {
+          ...eventBase,
           reason: "idempotency_mismatch",
           confirmation_source: confirmationSource,
-          brain_id: data.brain_id ?? null,
+          brain_id: brainId,
         },
       );
       return {
@@ -795,9 +817,11 @@ export const createControlledJackActionFromPreview = createServerFn({ method: "P
         blocked: true,
         reason: "idempotency_mismatch",
         action_id: null,
+        action_title: null,
+        preview_id: previewId,
         intent: "controlled_action",
         secondary_intent: null,
-        risk_level: preview.risk_level,
+        risk_level: riskLevel,
         requires_approval: true,
         recommended_tool: "ui",
         next_step: "Rigenera la preview e riprova.",
@@ -807,6 +831,7 @@ export const createControlledJackActionFromPreview = createServerFn({ method: "P
         research_handoff: false,
         missing_information: [],
         unsafe_request: false,
+        idempotency_key: idempotencyKey,
       };
     }
 
@@ -817,11 +842,12 @@ export const createControlledJackActionFromPreview = createServerFn({ method: "P
       await logSanitizedEvent(
         supabase,
         userId,
-        "jack_action_confirmation_rejected_no_pending_preview",
+        "jack_action_create_from_preview_failed",
         {
+          ...eventBase,
           reason: "voice_router_transcript_not_confirmation",
           confirmation_source: confirmationSource,
-          brain_id: data.brain_id ?? null,
+          brain_id: brainId,
         },
       );
       return {
@@ -829,9 +855,11 @@ export const createControlledJackActionFromPreview = createServerFn({ method: "P
         blocked: true,
         reason: "voice_router_transcript_not_confirmation",
         action_id: null,
+        action_title: null,
+        preview_id: previewId,
         intent: "controlled_action",
         secondary_intent: null,
-        risk_level: preview.risk_level,
+        risk_level: riskLevel,
         requires_approval: true,
         recommended_tool: "ui",
         next_step: "Attendo conferma esplicita.",
@@ -842,58 +870,152 @@ export const createControlledJackActionFromPreview = createServerFn({ method: "P
         research_handoff: false,
         missing_information: [],
         unsafe_request: false,
+        idempotency_key: idempotencyKey,
       };
     }
 
     await logSanitizedEvent(
       supabase,
       userId,
-      confirmationSource === "ui_button"
-        ? "jack_action_confirmed_by_ui"
-        : "jack_action_confirmed_by_voice_router",
+      "jack_action_create_from_preview_started",
       {
-        brain_id: data.brain_id ?? null,
-        source: preview.source,
-        risk_level: preview.risk_level,
-        idempotency_key_preview: preview.idempotency_key.slice(0, 32),
+        ...eventBase,
+        brain_id: brainId,
+        source: previewSource,
+        risk_level: riskLevel,
         confirmation_source: confirmationSource,
       },
     );
 
-    const commandText =
-      (preview.command_preview && preview.command_preview.trim()) || preview.title;
-
-    const res = await createControlledJackAction({
-      data: {
-        command_text: commandText,
-        brain_id: data.brain_id ?? preview.brain_id ?? null,
-        project_id: preview.project_id ?? null,
-        delivery_preference: null,
-        notes: null,
-        source_warning_id: preview.source_warning_id ?? null,
-        idempotency_key: preview.idempotency_key,
-        confirmed: true,
-      },
-    });
-
-    if (res.ok && res.action_id) {
-      await logSanitizedEvent(
-        supabase,
-        userId,
-        "jack_controlled_action_created_from_preview",
-        {
-          brain_id: data.brain_id ?? null,
-          action_id: res.action_id,
-          confirmation_source: confirmationSource,
-          source: preview.source,
-          risk_level: preview.risk_level,
-          idempotency_key_preview: preview.idempotency_key.slice(0, 32),
-          deduplicated: Boolean(res.deduplicated),
-        },
-      );
+    const existingAction = await findExistingActionByIdempotencyKey(
+      supabase,
+      userId,
+      brainId,
+      idempotencyKey,
+    );
+    if (existingAction) {
+      const mismatch = existingAction.title.trim() !== title.trim();
+      await logSanitizedEvent(supabase, userId, "jack_action_create_from_preview_succeeded", {
+        ...eventBase,
+        action_id: existingAction.id,
+        deduplicated: true,
+        mismatch,
+      });
+      if (mismatch) {
+        await logSanitizedEvent(supabase, userId, "jack_action_created_title_mismatch", {
+          ...eventBase,
+          action_id: existingAction.id,
+          deduplicated: true,
+          mismatch: true,
+        });
+      }
+      return {
+        ok: true,
+        deduplicated: true,
+        action_id: existingAction.id,
+        action_title: existingAction.title,
+        preview_id: previewId,
+        intent: "controlled_action",
+        secondary_intent: null,
+        risk_level: riskLevel,
+        requires_approval: riskLevel !== "low",
+        recommended_tool: "ui",
+        next_step: "Apri Action Queue per verificare la action suggerita.",
+        safe_message: "Action già esistente in coda: nessuna duplicata creata.",
+        master_snapshot_draft_id: null,
+        telegram_delivery_id: null,
+        research_handoff: false,
+        missing_information: [],
+        unsafe_request: false,
+        idempotency_key: idempotencyKey,
+      };
     }
 
-    return res;
+    const metadata = {
+      source_module: "jack_voice_controlled",
+      jack_preview_id: previewId,
+      jack_idempotency_key: idempotencyKey,
+      jack_confirmed: true,
+      confirmation_source: confirmationSource,
+      preview_title: title,
+      jack_reason: reasonText,
+      jack_source: previewSource,
+    };
+    const inserted = await db(supabase)
+      .from("automation_actions")
+      .insert<InsertedAction>({
+        user_id: userId,
+        brain_id: brainId,
+        project_id: projectId,
+        source: "system_suggestion",
+        action_type: "manual_task",
+        title,
+        description,
+        priority: riskLevel === "high" ? "high" : "medium",
+        risk_level: riskLevel,
+        status: "suggested",
+        requires_confirmation: riskLevel !== "low",
+        metadata: toJson(metadata),
+      })
+      .select("id,title")
+      .single();
+
+    if (inserted.error || !inserted.data?.id) {
+      await logSanitizedEvent(supabase, userId, "jack_action_create_from_preview_failed", {
+        ...eventBase,
+        reason: inserted.error?.message ? sanitizeText(inserted.error.message, 120) : "insert_failed",
+        deduplicated: false,
+      });
+      return {
+        ok: false,
+        blocked: true,
+        reason: "insert_failed",
+        action_id: null,
+        action_title: null,
+        preview_id: previewId,
+        intent: "controlled_action",
+        secondary_intent: null,
+        risk_level: riskLevel,
+        requires_approval: riskLevel !== "low",
+        recommended_tool: "ui",
+        next_step: "Riprova la conferma o crea manualmente la action in Action Queue.",
+        safe_message: "Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.",
+        master_snapshot_draft_id: null,
+        telegram_delivery_id: null,
+        research_handoff: false,
+        missing_information: [],
+        unsafe_request: false,
+        idempotency_key: idempotencyKey,
+      };
+    }
+
+    await logSanitizedEvent(supabase, userId, "jack_action_create_from_preview_succeeded", {
+      ...eventBase,
+      action_id: inserted.data.id,
+      deduplicated: false,
+      mismatch: inserted.data.title !== title,
+    });
+
+    return {
+      ok: true,
+      deduplicated: false,
+      action_id: inserted.data.id,
+      action_title: inserted.data.title,
+      preview_id: previewId,
+      intent: "controlled_action",
+      secondary_intent: null,
+      risk_level: riskLevel,
+      requires_approval: riskLevel !== "low",
+      recommended_tool: "ui",
+      next_step: "Apri Action Queue per verificare la action suggerita.",
+      safe_message: "Action creata in Action Queue.",
+      master_snapshot_draft_id: null,
+      telegram_delivery_id: null,
+      research_handoff: false,
+      missing_information: [],
+      unsafe_request: false,
+      idempotency_key: idempotencyKey,
+    };
   });
 
 // Local guard mirror of isExplicitJackConfirmation. Re-implemented to keep
