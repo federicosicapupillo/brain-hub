@@ -18,6 +18,8 @@ import { JACK_GPT_TOOLS_SCHEMA } from "@/lib/jack-gpt-tools";
 // ---------- Constants ----------
 
 const DEFAULT_REALTIME_MODEL = "gpt-realtime";
+export const REALTIME_INPUT_TRANSCRIPTION_MODEL = "gpt-4o-mini-transcribe";
+export const REALTIME_INPUT_TRANSCRIPTION_LANGUAGE = "it";
 
 // Recommended GA realtime model identifiers. Unknown values fall back with a warning.
 const REALTIME_MODEL_ALLOWLIST = [
@@ -115,7 +117,10 @@ export type GaRealtimeSessionConfig = {
   type: "realtime";
   model: string;
   instructions?: string;
-  audio?: { output?: { voice: string } };
+  audio?: {
+    input?: { transcription?: { model: string; language?: string } };
+    output?: { voice: string };
+  };
   tools?: GaRealtimeTool[];
   tool_choice?: "auto" | "none" | "required";
 };
@@ -127,7 +132,15 @@ export function buildRealtimeGaSessionConfig(opts: {
   const cfg: GaRealtimeSessionConfig = {
     type: "realtime",
     model: opts.model,
-    audio: { output: { voice: JACK_GPT_VOICE_DEFAULT } },
+    audio: {
+      input: {
+        transcription: {
+          model: REALTIME_INPUT_TRANSCRIPTION_MODEL,
+          language: REALTIME_INPUT_TRANSCRIPTION_LANGUAGE,
+        },
+      },
+      output: { voice: JACK_GPT_VOICE_DEFAULT },
+    },
   };
   if (!opts.minimal) {
     cfg.instructions = JACK_GPT_SYSTEM_INSTRUCTIONS;
