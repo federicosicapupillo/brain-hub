@@ -420,7 +420,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     | "saved"
     | "restore_found"
     | "restore_missing"
-    | "save_failed";
+    | "save_failed"
+    | "confirmed";
   const [previewPersistenceStatus, setPreviewPersistenceStatus] =
     useState<PreviewPersistenceStatus>("local_only");
   const [previewDbStatus, setPreviewDbStatus] = useState<
