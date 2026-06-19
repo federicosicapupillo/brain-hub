@@ -466,6 +466,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     responseInProgressRef.current = false;
     activeResponseIdRef.current = null;
     pendingResponseCreateRef.current = null;
+    toolCallInFlightCountRef.current = 0;
+    processedToolCallIdsRef.current.clear();
+    lastToolCallKeyRef.current = null;
+    transcriptDedupRef.current = {
+      responseId: null,
+      lastDelta: null,
+      appendedDoneIds: new Set(),
+    };
     if (flushTimerRef.current) {
       clearTimeout(flushTimerRef.current);
       flushTimerRef.current = null;
