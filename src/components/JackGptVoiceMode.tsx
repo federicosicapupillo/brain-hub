@@ -1755,6 +1755,41 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         case "response.output_text.done": {
           if (!msg.transcript) break;
           const transcript = String(msg.transcript);
+          // v3.21.9 — suppress stale assistant output while a voice
+          // confirmation is in flight or for any response that was cancelled.
+          const responseIdForOutput = msg.response_id ?? activeResponseIdRef.current ?? null;
+          const isSuppressedResponse =
+            responseIdForOutput !== null && suppressedResponseIdsRef.current.has(responseIdForOutput);
+          const isStaleClaim =
+            isModelClaimingConfirmation(transcript) ||
+            /ho capito l['’]intenzione|non ho ancora completato/i.test(transcript);
+          if (
+            (suppressRealtimeAssistantOutputRef.current ||
+              voiceConfirmationInFlightRef.current ||
+              isSuppressedResponse) &&
+            isStaleClaim
+          ) {
+            suppressedResponseCountRef.current += 1;
+            safeLog("jack_realtime_stale_assistant_output_suppressed", {
+              response_id: redactResponseId(responseIdForOutput),
+              preview_id: pendingPreviewRef.current?.preview_id ?? null,
+              phrase_hash: hashJackActionText(transcript),
+              transcript_length: transcript.length,
+              reason: isSuppressedResponse
+                ? "response_id_in_suppressed_set"
+                : "voice_confirmation_in_flight",
+              phase: "post_voice_bridge",
+              event_type: msg.type ?? null,
+              suppressed_count: suppressedResponseCountRef.current,
+            });
+            setDiagnostics((d) => ({
+              ...d,
+              staleOutputSuppressed: true,
+              suppressedResponseCount: suppressedResponseCountRef.current,
+            }));
+            break;
+          }
+
           if (
             pendingPreviewRef.current &&
             isModelClaimingConfirmation(transcript) &&
