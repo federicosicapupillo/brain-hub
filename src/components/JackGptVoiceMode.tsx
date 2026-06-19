@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -36,7 +37,10 @@ import {
 import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
 import { createControlledJackActionFromPreview } from "@/lib/jack-controlled-actions.functions";
 import {
+  buildJackPreviewId,
+  hashJackActionText,
   isExplicitJackConfirmation,
+  redactJackIdempotencyKey,
   type PendingJackActionPreview,
 } from "@/lib/jack-action-confirmation";
 import { JACK_GPT_PRIVACY_NOTICE, JACK_GPT_SYSTEM_INSTRUCTIONS } from "@/lib/jack-gpt-instructions";
