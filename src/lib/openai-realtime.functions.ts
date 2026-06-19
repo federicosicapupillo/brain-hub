@@ -202,6 +202,9 @@ export type CreateRealtimeSessionResult =
       instructions_for_update: string | null;
       tools_for_update: GaRealtimeTool[] | null;
       openai_request_id: string | null;
+      input_transcription_configured: true;
+      input_transcription_model: string;
+      input_transcription_language: string;
       probe: false;
     }
   | {
@@ -213,6 +216,9 @@ export type CreateRealtimeSessionResult =
       expires_at: number | null;
       openai_request_id: string | null;
       api_mode: "ga";
+      input_transcription_configured: true;
+      input_transcription_model: string;
+      input_transcription_language: string;
       message: string;
     }
   | {
@@ -319,6 +325,9 @@ export const createJackRealtimeSession = createServerFn({ method: "POST" })
         expires_at: expiresAt,
         openai_request_id: requestId,
         api_mode: "ga",
+        input_transcription_configured: true,
+        input_transcription_model: REALTIME_INPUT_TRANSCRIPTION_MODEL,
+        input_transcription_language: REALTIME_INPUT_TRANSCRIPTION_LANGUAGE,
         message: `Sessione GA creata correttamente per ${model}.`,
       };
     }
@@ -340,5 +349,8 @@ export const createJackRealtimeSession = createServerFn({ method: "POST" })
       instructions_for_update: minimal ? JACK_GPT_SYSTEM_INSTRUCTIONS : null,
       tools_for_update: minimal ? buildRealtimeGaToolsSchema() : null,
       openai_request_id: requestId,
+      input_transcription_configured: true,
+      input_transcription_model: REALTIME_INPUT_TRANSCRIPTION_MODEL,
+      input_transcription_language: REALTIME_INPUT_TRANSCRIPTION_LANGUAGE,
     };
   });
