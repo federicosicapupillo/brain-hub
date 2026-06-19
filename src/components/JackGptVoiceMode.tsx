@@ -916,6 +916,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     });
     pendingPreviewRef.current = null;
     setPendingActionPreview(null);
+    setConfirmationStatus(null);
+    setCreatedActionId(null);
     pushLog({ kind: "system", text: "Proposta annullata." });
   }, [safeLog, pushLog]);
 
@@ -1706,6 +1708,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 <div className="text-xs font-medium text-muted-foreground">Motivo</div>
                 <div className="text-xs">{pendingActionPreview.reason}</div>
               </div>
+              {confirmationStatus ? (
+                <Alert className="border-amber-500/30 bg-amber-500/5">
+                  <AlertTitle className="text-sm">Stato conferma</AlertTitle>
+                  <AlertDescription className="text-xs">{confirmationStatus}</AlertDescription>
+                </Alert>
+              ) : null}
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button
                   size="sm"
@@ -1727,6 +1735,22 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               </div>
             </CardContent>
           </Card>
+        ) : null}
+
+        {!pendingActionPreview && confirmationStatus ? (
+          <Alert className="border-emerald-500/30 bg-emerald-500/5">
+            <ShieldCheck className="h-4 w-4" />
+            <AlertTitle className="text-sm">{confirmationStatus}</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center gap-2 pt-2 text-xs">
+              <span>Verifica disponibile in Action Queue.</span>
+              <Button asChild size="sm" variant="outline" className="gap-2">
+                <Link to="/action-queue" search={{}}>
+                  Apri Action Queue
+                </Link>
+              </Button>
+              {createdActionId ? <span className="text-muted-foreground">ID verificato.</span> : null}
+            </AlertDescription>
+          </Alert>
         ) : null}
 
 
