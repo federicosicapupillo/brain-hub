@@ -403,6 +403,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   // v3.21.7 — voice confirmation bridge
   const voiceConfirmationInFlightRef = useRef<boolean>(false);
   const voiceConfirmationDedupRef = useRef<{ normalized: string; at: number } | null>(null);
+  const lastVoiceBridgeTriggeredAtRef = useRef<number | null>(null);
+  const lastVoiceServerVerifiedAtRef = useRef<number | null>(null);
+  const inputTranscriptionCompletedSeenRef = useRef<boolean>(false);
   const VOICE_CONFIRM_DEDUP_MS = 3000;
   const VOICE_CONFIRM_MAX_PREVIEW_AGE_MS = 10 * 60 * 1000;
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
