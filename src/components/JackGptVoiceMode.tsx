@@ -2099,7 +2099,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Activity className="h-4 w-4 text-sky-600" />
-                Diagnostica conferma action (v3.21.5)
+                Diagnostica conferma action (v3.21.6)
               </CardTitle>
               <CardDescription className="text-xs">
                 Tracciamento del percorso preview → server → verifica.
