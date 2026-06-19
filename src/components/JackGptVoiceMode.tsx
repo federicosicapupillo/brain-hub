@@ -217,7 +217,14 @@ type Diagnostics = {
     | null;
   voiceConfirmationInFlight: boolean;
   voiceConfirmationLastSource: "voice_router" | "ui_button" | null;
+  // v3.21.9 — post-confirmation audio cleanup
+  responseCancelSent: boolean;
+  outputAudioClearSent: boolean;
+  staleOutputSuppressed: boolean;
+  suppressedResponseCount: number;
+  finalControlledMessageShown: boolean;
 };
+
 
 type Props = { brainId?: string | null };
 
