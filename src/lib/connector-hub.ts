@@ -184,6 +184,62 @@ export const CONNECTOR_CATALOG: Array<{
   },
 ];
 
+// ---------- Project key resolver (v3.21.1) ----------
+// Pure, no DB. Normalizes user input ("Brain Hub", "brianhub",
+// "Furia immobiliare") to the canonical project_key used by
+// project_state_snapshots and project_source_mappings.
+
+export const PROJECT_KEY_ALIASES: Readonly<Record<string, string>> = {
+  "brain hub": "brain_hub",
+  "brainhub": "brain_hub",
+  "brian hub": "brain_hub",
+  "brianhub": "brain_hub",
+  "brain_hub": "brain_hub",
+  "furia": "furia_immobiliare",
+  "furia immobiliare": "furia_immobiliare",
+  "furia_immobiliare": "furia_immobiliare",
+  "sica radar": "sica_industrial_radar",
+  "sica industrial radar": "sica_industrial_radar",
+  "sica_industrial_radar": "sica_industrial_radar",
+  "sica immobiliare industriale": "sica_immobiliare_industriale",
+  "sica_immobiliare_industriale": "sica_immobiliare_industriale",
+  "pupillo": "pupillo",
+  "studio nikla": "studio_nikla",
+  "studio_nikla": "studio_nikla",
+  "nikla": "studio_nikla",
+  "retail ai": "retail_ai_capannoni",
+  "retail ai capannoni": "retail_ai_capannoni",
+  "retail_ai_capannoni": "retail_ai_capannoni",
+  "ideapilot": "ideapilot",
+  "idea pilot": "ideapilot",
+};
+
+function normalizeProjectInput(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/^progetto\s+/i, "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Resolve a user-supplied project label to a canonical project_key.
+ * Returns null when no alias matches; caller may fall back to a
+ * project_state_snapshots lookup.
+ */
+export function resolveProjectKeyAlias(input: string | null | undefined): string | null {
+  if (!input) return null;
+  const norm = normalizeProjectInput(input);
+  if (!norm) return null;
+  if (PROJECT_KEY_ALIASES[norm]) return PROJECT_KEY_ALIASES[norm];
+  const underscored = norm.replace(/\s+/g, "_");
+  if (PROJECT_KEY_ALIASES[underscored]) return PROJECT_KEY_ALIASES[underscored];
+  if (/^[a-z0-9_]+$/.test(underscored)) return underscored;
+  return null;
+}
+
 // ---------- Events ----------
 
 export async function logConnectorHubEvent(
