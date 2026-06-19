@@ -1025,12 +1025,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           kind: "warning",
           text: "Non ho una proposta pendente da confermare.",
         });
-        return;
+        return "rejected" as const;
       }
-      if (confirmingPreviewIdRef.current === preview.preview_id) return;
+      if (confirmingPreviewIdRef.current === preview.preview_id) return "rejected" as const;
       confirmingPreviewIdRef.current = preview.preview_id;
       setConfirmingAction(true);
-      setConfirmationStatus(`Conferma ricevuta, sto creando la action: ${preview.title}`);
+      setConfirmationStatus(`Sto verificando la conferma e creando la action: ${preview.title}`);
 
       const previewIdRedacted = `${preview.preview_id.slice(0, 8)}…`;
       const baseResult: LastActionCreateResult = {
@@ -1063,7 +1063,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       safeLog("jack_action_create_from_preview_started", baseEvent);
       pushLog({
         kind: "system",
-        text: `Conferma ricevuta, sto creando la action: ${preview.title}`,
+        text: `Verifico la conferma e creo la action: ${preview.title}`,
       });
 
       try {
@@ -1139,7 +1139,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               res.safe_message ??
               "La conferma è arrivata, ma il server non ha creato la action. La proposta resta pronta.",
           });
-          return;
+          return "failed" as const;
         }
 
         const titleMatches = res.action_title.trim() === preview.title.trim();
@@ -1170,7 +1170,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             kind: "error",
             text: "Errore: la action creata non corrisponde alla preview corrente. La proposta resta pronta.",
           });
-          return;
+          return "failed" as const;
         }
 
         safeLog("jack_action_create_from_preview_succeeded", {
@@ -1237,7 +1237,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             kind: "warning",
             text: `Action creata (${actionIdRedacted}) ma non visibile sotto l'utente corrente. Controlla filtri o brain.`,
           });
-          return;
+          if (source === "voice_router") {
+            pushLog({
+              kind: "jack",
+              text: "Ho ricevuto la conferma, ma non sono riuscito a verificare la creazione della action.",
+            });
+          }
+          return "missing" as const;
         }
 
         // Verify it actually shows up in the current /action-queue list
@@ -1261,6 +1267,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           source: verified.source,
           visible_in_current_list: visibleInCurrentList,
         });
+        safeLog("jack_voice_confirmation_server_verified", {
+          ...baseEvent,
+          action_id: res.action_id,
+          verification_status: "verification_found",
+        });
+        lastVoiceServerVerifiedAtRef.current = Date.now();
         setLastActionCreateResult((prev) =>
           prev
             ? {
@@ -1290,14 +1302,33 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         );
         setCreatedActionId(res.action_id);
         setPreviewDbStatus("confirmed");
+        setPreviewPersistenceStatus("confirmed");
         safeLog("jack_action_preview_confirmed", {
           ...baseEvent,
           action_id_redacted: actionIdRedacted,
           deduplicated: res.deduplicated,
         });
-        pendingPreviewRef.current = null;
-        setPendingActionPreview(null);
-        setPreviewPersistenceStatus("local_only");
+        try {
+          pendingPreviewRef.current = null;
+          setPendingActionPreview(null);
+          safeLog("jack_voice_confirmation_pending_cleared", {
+            ...baseEvent,
+            action_id: res.action_id,
+            verification_status: "verification_found",
+          });
+        } catch (clearErr) {
+          safeLog("jack_voice_confirmation_pending_clear_failed", {
+            ...baseEvent,
+            action_id: res.action_id,
+            error_code: clearErr instanceof Error ? clearErr.name : "unknown",
+          });
+        }
+        if (source === "voice_router") {
+          pushLog({
+            kind: "jack",
+            text: "Conferma completata. Ho creato la action in Action Queue.",
+          });
+        }
 
         const dc = dcRef.current;
         if (dc && dc.readyState === "open") {
@@ -1322,6 +1353,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           }
           safeCreateResponse("action_confirmed", { queueIfBusy: true });
         }
+        return "verified" as const;
       } catch (err) {
         const detail = String((err as Error).message ?? err).slice(0, 160);
         safeLog("jack_confirm_pending_preview_server_call_failed", {
@@ -1352,6 +1384,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           kind: "error",
           text: "Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.",
         });
+        if (source === "voice_router") {
+          pushLog({
+            kind: "jack",
+            text: "Ho ricevuto la conferma, ma non sono riuscito a verificare la creazione della action.",
+          });
+        }
+        return "failed" as const;
       } finally {
         setConfirmingAction(false);
         confirmingPreviewIdRef.current = null;
