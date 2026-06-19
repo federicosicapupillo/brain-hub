@@ -452,6 +452,10 @@ const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_connector_hub_summary",
   "get_project_connectors",
   "get_connector_warnings",
+  "get_email_brief",
+  "list_important_emails",
+  "summarize_email",
+  "summarize_email_thread",
 ]);
 
 function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
@@ -519,6 +523,11 @@ const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_connector_hub_summary",
   "get_project_connectors",
   "get_connector_warnings",
+  "get_email_brief",
+  "list_important_emails",
+  "summarize_email",
+  "summarize_email_thread",
+  "preview_email_action",
 ]);
 type InFlightResult = { ok: boolean; [k: string]: unknown };
 const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
