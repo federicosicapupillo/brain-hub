@@ -35,6 +35,12 @@ import {
   validatePreviewForDisplay,
   type PendingJackActionPreview,
 } from "@/lib/jack-action-confirmation";
+import {
+  getProjectStateSnapshot,
+  getProjectNextAction,
+  getMultiProjectOverview,
+  buildJackMultiProjectContext,
+} from "@/lib/project-state-sync";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
