@@ -22,6 +22,7 @@ import {
   seedConnectorRegistry,
   createProjectSourceMapping,
   deleteProjectSourceMapping,
+  seedPupilloQuickMappings,
   logConnectorHubEvent,
   type ConnectorKey,
   type ConnectorRegistryRow,
