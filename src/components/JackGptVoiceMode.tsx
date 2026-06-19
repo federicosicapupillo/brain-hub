@@ -45,8 +45,10 @@ import {
 } from "@/lib/jack-action-previews.functions";
 import {
   buildJackPreviewId,
+  detectVoiceConfirmationIntent,
   hashJackActionText,
   isExplicitJackConfirmation,
+  normalizeVoiceConfirmationText,
   redactJackIdempotencyKey,
   type PendingJackActionPreview,
 } from "@/lib/jack-action-confirmation";
