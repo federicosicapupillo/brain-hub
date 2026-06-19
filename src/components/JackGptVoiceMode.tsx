@@ -2509,10 +2509,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               <div><span className="text-muted-foreground">Visibile in lista:</span> {lastActionCreateResult.visibleInCurrentList === null ? "—" : lastActionCreateResult.visibleInCurrentList ? "sì" : "no (filtro/brain)"}</div>
               <div><span className="text-muted-foreground">Preview persistence:</span> {previewPersistenceStatus}</div>
               <div><span className="text-muted-foreground">Preview DB status:</span> {previewDbStatus ?? "—"}</div>
-              <div className="sm:col-span-2 border-t pt-1 mt-1 text-[11px] font-medium text-muted-foreground">Bridge vocale (v3.21.7)</div>
+              <div className="sm:col-span-2 border-t pt-1 mt-1 text-[11px] font-medium text-muted-foreground">Bridge vocale (v3.21.8)</div>
+              <div><span className="text-muted-foreground">Input transcription:</span> {diagnostics.inputTranscriptionConfigured ? "configurata" : "non configurata"}</div>
+              <div><span className="text-muted-foreground">STT model:</span> {diagnostics.inputTranscriptionModel ?? REALTIME_INPUT_TRANSCRIPTION_MODEL}</div>
               <div><span className="text-muted-foreground">Transcript rilevato:</span> {diagnostics.lastVoiceTranscriptDetected ? "sì" : "—"}</div>
               <div><span className="text-muted-foreground">Intent vocale:</span> {diagnostics.lastVoiceConfirmationIntent ? "conferma" : "—"}</div>
               <div><span className="text-muted-foreground">Voce in corso:</span> {diagnostics.voiceConfirmationInFlight ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Response soppressa:</span> {diagnostics.voiceConfirmationResponseSuppressed ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Falsa conferma modello:</span> {diagnostics.modelClaimedConfirmationWithoutBridge ? "rilevata" : "—"}</div>
               <div><span className="text-muted-foreground">Voce ignorata:</span> {
                 diagnostics.lastVoiceConfirmationIgnoredReason === "no_pending_preview" ? "nessuna action pending" :
                 diagnostics.lastVoiceConfirmationIgnoredReason === "duplicate" ? "duplicato/in corso" :
