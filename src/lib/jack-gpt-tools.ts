@@ -35,6 +35,7 @@ import {
   validatePreviewForDisplay,
   type PendingJackActionPreview,
 } from "@/lib/jack-action-confirmation";
+import { resolveProjectKeyAlias } from "@/lib/connector-hub";
 
 // ---------- OpenAI tool schema (sent to Realtime session) ----------
 
