@@ -1382,15 +1382,104 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           if (msg.transcript) {
             const transcript = String(msg.transcript);
             pushLog({ kind: "user", text: transcript });
-            // v3.19.6 — deterministic voice router: if a pending preview
-            // exists and the real user transcript is an explicit
-            // confirmation, trigger the controlled creation server-side.
-            if (
-              pendingPreviewRef.current &&
-              isExplicitJackConfirmation(transcript)
-            ) {
-              void confirmPendingPreview("voice_router", transcript);
+            // v3.21.7 — deterministic voice confirmation bridge.
+            const normalized = normalizeVoiceConfirmationText(transcript);
+            const phraseHash = hashJackActionText(normalized);
+            const intent = detectVoiceConfirmationIntent(transcript);
+            const preview = pendingPreviewRef.current;
+            const baseMeta = {
+              has_pending_preview: Boolean(preview),
+              preview_id: preview?.preview_id ?? null,
+              normalized_intent: intent,
+              confirmation_source: "voice" as const,
+              transcript_length: transcript.length,
+              phrase_hash: phraseHash,
+            };
+            safeLog("jack_voice_confirmation_transcript_received", baseMeta);
+            setDiagnostics((d) => ({
+              ...d,
+              lastVoiceTranscriptDetected: true,
+              lastVoiceConfirmationIntent: intent,
+              lastVoiceConfirmationIgnoredReason: intent ? d.lastVoiceConfirmationIgnoredReason : "ambiguous",
+            }));
+
+            if (!intent) {
+              safeLog("jack_voice_confirmation_ignored_ambiguous", {
+                ...baseMeta,
+                reason: "no_explicit_phrase",
+              });
+              break;
             }
+
+            if (!preview) {
+              safeLog("jack_voice_confirmation_ignored_no_preview", {
+                ...baseMeta,
+                reason: "no_pending_preview",
+              });
+              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "no_pending_preview" }));
+              pushLog({ kind: "warning", text: "Conferma vocale rilevata, ma non ho una proposta pendente." });
+              break;
+            }
+
+            // Dedup identical transcript within window
+            const now = Date.now();
+            const dedup = voiceConfirmationDedupRef.current;
+            if (dedup && dedup.normalized === normalized && now - dedup.at < VOICE_CONFIRM_DEDUP_MS) {
+              safeLog("jack_voice_confirmation_ignored_duplicate", {
+                ...baseMeta,
+                reason: "duplicate_transcript_within_window",
+              });
+              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "duplicate" }));
+              break;
+            }
+            voiceConfirmationDedupRef.current = { normalized, at: now };
+
+            if (voiceConfirmationInFlightRef.current || confirmingPreviewIdRef.current) {
+              safeLog("jack_voice_confirmation_ignored_duplicate", {
+                ...baseMeta,
+                reason: "confirmation_already_in_flight",
+              });
+              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "in_flight" }));
+              break;
+            }
+
+            // Guard: preview must not be too old (10 min window)
+            const createdAtMs = Date.parse(preview.created_at);
+            if (Number.isFinite(createdAtMs) && now - createdAtMs > VOICE_CONFIRM_MAX_PREVIEW_AGE_MS) {
+              safeLog("jack_voice_confirmation_ignored_ambiguous", {
+                ...baseMeta,
+                reason: "preview_too_old",
+              });
+              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "preview_too_old" }));
+              pushLog({ kind: "warning", text: "Proposta troppo vecchia, rigenerala prima di confermare." });
+              break;
+            }
+
+            voiceConfirmationInFlightRef.current = true;
+            setDiagnostics((d) => ({
+              ...d,
+              voiceConfirmationInFlight: true,
+              voiceConfirmationLastSource: "voice_router",
+              lastVoiceConfirmationIgnoredReason: "none",
+            }));
+            safeLog("jack_voice_confirmation_detected", baseMeta);
+            safeLog("jack_voice_confirmation_confirm_started", baseMeta);
+            pushLog({ kind: "system", text: "Conferma vocale rilevata." });
+
+            void (async () => {
+              try {
+                await confirmPendingPreview("voice_router", transcript);
+                safeLog("jack_voice_confirmation_confirm_completed", baseMeta);
+              } catch (err) {
+                safeLog("jack_voice_confirmation_confirm_failed", {
+                  ...baseMeta,
+                  error_code: err instanceof Error ? err.name : "unknown",
+                });
+              } finally {
+                voiceConfirmationInFlightRef.current = false;
+                setDiagnostics((d) => ({ ...d, voiceConfirmationInFlight: false }));
+              }
+            })();
           }
           break;
 
