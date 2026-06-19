@@ -121,16 +121,13 @@ async function hasTelegramConnector(
   userId: string,
 ): Promise<boolean> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    const res = await sb
+    const res = await db(supabase)
       .from("telegram_connection_settings")
-      .select("id,is_enabled")
+      .select<{ id: string }>("id")
       .eq("user_id", userId)
       .eq("is_enabled", true)
       .limit(1);
-    const rows = (res?.data ?? []) as Array<{ id: string }>;
-    return rows.length > 0;
+    return (res.data ?? []).length > 0;
   } catch {
     return false;
   }
@@ -142,14 +139,12 @@ async function insertAction(
   payload: Record<string, unknown>,
 ): Promise<string | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    const res = await sb
+    const res = await db(supabase)
       .from("automation_actions")
-      .insert({ ...payload, user_id: userId })
-      .select("id")
+      .insert<InsertedAction>({ ...payload, user_id: userId })
+      .select("id,title")
       .single();
-    return (res?.data?.id as string) ?? null;
+    return res.data?.id ?? null;
   } catch {
     return null;
   }
@@ -162,21 +157,18 @@ async function findExistingActionByIdempotencyKey(
   userId: string,
   brainId: string | null,
   idempotencyKey: string,
-): Promise<string | null> {
+): Promise<ExistingAction | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    let q = sb
+    let q = db(supabase)
       .from("automation_actions")
-      .select("id,status,metadata")
+      .select<ExistingAction>("id,title,metadata")
       .eq("user_id", userId)
       .eq("metadata->>jack_idempotency_key", idempotencyKey)
       .not("status", "in", "(completed,cancelled,failed,rejected,archived)")
       .limit(1);
     if (brainId) q = q.eq("brain_id", brainId);
     const res = await q;
-    const rows = (res?.data ?? []) as Array<{ id: string }>;
-    return rows[0]?.id ?? null;
+    return res.data?.[0] ?? null;
   } catch {
     return null;
   }
@@ -189,10 +181,17 @@ async function logSanitizedEvent(
   metadata: Record<string, unknown>,
 ): Promise<void> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
-      .from("agent_event_log")
-      .insert({ user_id: userId, event_type: event, metadata });
+    await db(supabase)
+      .from("app_logs")
+      .insert<{ id: string }>({
+        user_id: userId,
+        action: event,
+        message: event,
+        severity: "info",
+        metadata: toJson(metadata),
+      })
+      .select("id")
+      .single();
   } catch {
     // best-effort
   }
