@@ -40,6 +40,7 @@ import {
   type SimpleProgressStep,
 } from "@/lib/company-simple-home";
 import { CalendarUpcomingPreview } from "@/components/CalendarUpcomingPreview";
+import { ProjectStateMiniCard } from "@/components/ProjectStateMiniCard";
 
 type CompanyHomeSearch = { brain?: string };
 
