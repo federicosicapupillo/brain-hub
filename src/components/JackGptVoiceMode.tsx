@@ -148,6 +148,19 @@ type Diagnostics = {
   lastResponseDoneAt: number | null;
   skippedResponseCreateCount: number;
   duplicateResponseHandledCount: number;
+  // v3.21.7 — voice confirmation bridge diagnostics
+  lastVoiceTranscriptDetected: boolean;
+  lastVoiceConfirmationIntent: boolean;
+  lastVoiceConfirmationIgnoredReason:
+    | "none"
+    | "no_pending_preview"
+    | "duplicate"
+    | "ambiguous"
+    | "in_flight"
+    | "preview_too_old"
+    | null;
+  voiceConfirmationInFlight: boolean;
+  voiceConfirmationLastSource: "voice_router" | "ui_button" | null;
 };
 
 type Props = { brainId?: string | null };
