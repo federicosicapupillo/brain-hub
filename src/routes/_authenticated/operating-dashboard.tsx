@@ -568,6 +568,7 @@ function OperatingDashboardRoute() {
               <GmailMiniCard brainId={brainId} />
               <DailyBriefMiniCard brainId={brainId} />
               <ProjectStateMiniCard brainId={brainId} />
+              <ConnectorHubMiniCard />
               <CodeAgentJobsMiniCard brainId={brainId} />
             </div>
           </div>
