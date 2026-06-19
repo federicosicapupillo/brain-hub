@@ -97,6 +97,12 @@ function ProjectStatePage() {
           <RefreshCw className="mr-2 h-4 w-4" />
           Ricarica
         </Button>
+        <Button asChild variant="outline">
+          <Link to="/connector-hub">
+            <Plus className="mr-2 h-4 w-4" />
+            Apri Connector Hub
+          </Link>
+        </Button>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as typeof priorityFilter)}>
