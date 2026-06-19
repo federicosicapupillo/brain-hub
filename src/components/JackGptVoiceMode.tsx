@@ -219,6 +219,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastResponseDoneAt: null,
     skippedResponseCreateCount: 0,
     duplicateResponseHandledCount: 0,
+    lastVoiceTranscriptDetected: false,
+    lastVoiceConfirmationIntent: false,
+    lastVoiceConfirmationIgnoredReason: null,
+    voiceConfirmationInFlight: false,
+    voiceConfirmationLastSource: null,
   });
 
   const responseInProgressRef = useRef(false);
