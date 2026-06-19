@@ -336,6 +336,10 @@ const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_project_status",
   "get_memory_context",
   "search_jack_memory",
+  "get_project_state",
+  "get_all_project_states",
+  "get_project_next_action",
+  "get_multi_project_overview",
 ]);
 
 function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
