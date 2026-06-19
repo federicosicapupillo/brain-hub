@@ -928,6 +928,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           responseInProgressRef.current = false;
           activeResponseIdRef.current = null;
           lastResponseDoneAtRef.current = Date.now();
+          // v3.21.2 — reset tool-batch counter so next turn starts clean.
+          toolCallInFlightCountRef.current = 0;
+          // Bound the processed callId set
+          if (processedToolCallIdsRef.current.size > 200) {
+            processedToolCallIdsRef.current.clear();
+          }
           setState("listening");
           setDiagnostics((d) => ({
             ...d,
