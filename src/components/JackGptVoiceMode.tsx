@@ -1599,6 +1599,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       }
       if (msg.type) {
         setDiagnostics((d) => ({ ...d, lastEventType: msg.type ?? d.lastEventType }));
+        trackRealtimeEventType(msg.type, msg.transcript ?? msg.delta ?? null);
       }
       switch (msg.type) {
         // GA + legacy session lifecycle
@@ -1608,6 +1609,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
         case "input_audio_buffer.speech_started":
           setState("listening");
+          break;
+
+        case "input_audio_buffer.speech_stopped":
+        case "output_audio_buffer.stopped":
+        case "response.output_audio.done":
           break;
 
         // GA response lifecycle
@@ -1664,6 +1670,35 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         case "response.audio_transcript.done":
         case "response.output_text.done": {
           if (!msg.transcript) break;
+          const transcript = String(msg.transcript);
+          if (
+            pendingPreviewRef.current &&
+            isModelClaimingConfirmation(transcript) &&
+            (!inputTranscriptionCompletedSeenRef.current || !lastVoiceBridgeTriggeredAtRef.current)
+          ) {
+            safeLog("jack_voice_confirmation_model_claim_without_bridge", {
+              preview_id: pendingPreviewRef.current.preview_id,
+              has_pending_preview: true,
+              bridge_triggered: Boolean(lastVoiceBridgeTriggeredAtRef.current),
+              transcript_length: transcript.length,
+              phrase_hash: hashJackActionText(transcript),
+              safe_message: "model_claimed_confirmation_without_bridge",
+            });
+            setDiagnostics((d) => ({
+              ...d,
+              modelClaimedConfirmationWithoutBridge: true,
+              lastModelClaimAt: Date.now(),
+            }));
+            pushLog({
+              kind: "warning",
+              text: "Il modello ha dichiarato una conferma senza bridge verificato: non creo action.",
+            });
+            pushLog({
+              kind: "jack",
+              text: "Ho capito l’intenzione, ma non ho ancora completato la conferma controllata. Usa il pulsante o ripeti ‘confermo’.",
+            });
+            break;
+          }
           // v3.21.2 — dedup .done events for the same item to avoid double append
           const doneKey = `${msg.response_id ?? activeResponseIdRef.current ?? ""}::${msg.item_id ?? ""}`;
           if (doneKey && transcriptDedupRef.current.appendedDoneIds.has(doneKey)) {
@@ -1674,112 +1709,26 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             break;
           }
           if (doneKey) transcriptDedupRef.current.appendedDoneIds.add(doneKey);
-          pushLog({ kind: "jack", text: String(msg.transcript) });
+          pushLog({ kind: "jack", text: transcript });
           break;
         }
+
+        case "conversation.item.input_audio_transcription.delta":
+          break;
+
+        case "conversation.item.input_audio_transcription.failed":
+          safeLog("jack_realtime_input_transcription_failed", {
+            event_type: msg.type,
+            error_code: msg.error?.code ?? msg.error?.type ?? "unknown",
+            safe_message: msg.error?.message?.slice(0, 120) ?? null,
+          });
+          break;
 
         case "conversation.item.input_audio_transcription.completed":
           if (msg.transcript) {
             const transcript = String(msg.transcript);
             pushLog({ kind: "user", text: transcript });
-            // v3.21.7 — deterministic voice confirmation bridge.
-            const normalized = normalizeVoiceConfirmationText(transcript);
-            const phraseHash = hashJackActionText(normalized);
-            const intent = detectVoiceConfirmationIntent(transcript);
-            const preview = pendingPreviewRef.current;
-            const baseMeta = {
-              has_pending_preview: Boolean(preview),
-              preview_id: preview?.preview_id ?? null,
-              normalized_intent: intent,
-              confirmation_source: "voice" as const,
-              transcript_length: transcript.length,
-              phrase_hash: phraseHash,
-            };
-            safeLog("jack_voice_confirmation_transcript_received", baseMeta);
-            setDiagnostics((d) => ({
-              ...d,
-              lastVoiceTranscriptDetected: true,
-              lastVoiceConfirmationIntent: intent,
-              lastVoiceConfirmationIgnoredReason: intent ? d.lastVoiceConfirmationIgnoredReason : "ambiguous",
-            }));
-
-            if (!intent) {
-              safeLog("jack_voice_confirmation_ignored_ambiguous", {
-                ...baseMeta,
-                reason: "no_explicit_phrase",
-              });
-              break;
-            }
-
-            if (!preview) {
-              safeLog("jack_voice_confirmation_ignored_no_preview", {
-                ...baseMeta,
-                reason: "no_pending_preview",
-              });
-              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "no_pending_preview" }));
-              pushLog({ kind: "warning", text: "Conferma vocale rilevata, ma non ho una proposta pendente." });
-              break;
-            }
-
-            // Dedup identical transcript within window
-            const now = Date.now();
-            const dedup = voiceConfirmationDedupRef.current;
-            if (dedup && dedup.normalized === normalized && now - dedup.at < VOICE_CONFIRM_DEDUP_MS) {
-              safeLog("jack_voice_confirmation_ignored_duplicate", {
-                ...baseMeta,
-                reason: "duplicate_transcript_within_window",
-              });
-              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "duplicate" }));
-              break;
-            }
-            voiceConfirmationDedupRef.current = { normalized, at: now };
-
-            if (voiceConfirmationInFlightRef.current || confirmingPreviewIdRef.current) {
-              safeLog("jack_voice_confirmation_ignored_duplicate", {
-                ...baseMeta,
-                reason: "confirmation_already_in_flight",
-              });
-              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "in_flight" }));
-              break;
-            }
-
-            // Guard: preview must not be too old (10 min window)
-            const createdAtMs = Date.parse(preview.created_at);
-            if (Number.isFinite(createdAtMs) && now - createdAtMs > VOICE_CONFIRM_MAX_PREVIEW_AGE_MS) {
-              safeLog("jack_voice_confirmation_ignored_ambiguous", {
-                ...baseMeta,
-                reason: "preview_too_old",
-              });
-              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "preview_too_old" }));
-              pushLog({ kind: "warning", text: "Proposta troppo vecchia, rigenerala prima di confermare." });
-              break;
-            }
-
-            voiceConfirmationInFlightRef.current = true;
-            setDiagnostics((d) => ({
-              ...d,
-              voiceConfirmationInFlight: true,
-              voiceConfirmationLastSource: "voice_router",
-              lastVoiceConfirmationIgnoredReason: "none",
-            }));
-            safeLog("jack_voice_confirmation_detected", baseMeta);
-            safeLog("jack_voice_confirmation_confirm_started", baseMeta);
-            pushLog({ kind: "system", text: "Conferma vocale rilevata." });
-
-            void (async () => {
-              try {
-                await confirmPendingPreview("voice_router", transcript);
-                safeLog("jack_voice_confirmation_confirm_completed", baseMeta);
-              } catch (err) {
-                safeLog("jack_voice_confirmation_confirm_failed", {
-                  ...baseMeta,
-                  error_code: err instanceof Error ? err.name : "unknown",
-                });
-              } finally {
-                voiceConfirmationInFlightRef.current = false;
-                setDiagnostics((d) => ({ ...d, voiceConfirmationInFlight: false }));
-              }
-            })();
+            handleVoiceConfirmationTranscript(transcript, msg.type);
           }
           break;
 
@@ -1854,7 +1803,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
       }
     },
-    [handleToolCall, safeLog, pushLog, flushPendingResponse, confirmPendingPreview],
+    [handleToolCall, safeLog, pushLog, flushPendingResponse, handleVoiceConfirmationTranscript, trackRealtimeEventType],
   );
 
   /** Connect WebRTC using a successfully-created realtime session (GA endpoint). */
