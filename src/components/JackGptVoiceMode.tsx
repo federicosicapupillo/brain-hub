@@ -896,7 +896,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 ...prev,
                 phase: "server_ok",
                 actionIdRedacted,
-                actionTitle: res.action_title,
+                actionTitle: res.action_title ?? null,
                 deduplicated: Boolean(res.deduplicated),
                 titleMatches,
               }
