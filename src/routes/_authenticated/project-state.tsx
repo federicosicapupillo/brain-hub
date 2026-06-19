@@ -83,8 +83,7 @@ function ProjectStatePage() {
     <div className="space-y-6 p-6">
       <PageHeader
         title="Project State"
-        description="Stato sintetico di tutti i progetti collegati a Jack. Aggiornabile manualmente."
-        icon={FolderKanban}
+        subtitle="Stato sintetico di tutti i progetti collegati a Jack. Aggiornabile manualmente."
       />
 
       <div className="flex flex-wrap items-center gap-3">

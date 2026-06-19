@@ -20,6 +20,7 @@ import { Route as AuthenticatedRunbooksRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedRoadmapRouteImport } from './routes/_authenticated/roadmap'
 import { Route as AuthenticatedResultReviewRouteImport } from './routes/_authenticated/result-review'
 import { Route as AuthenticatedProssimeAzioniRouteImport } from './routes/_authenticated/prossime-azioni'
+import { Route as AuthenticatedProjectStateRouteImport } from './routes/_authenticated/project-state'
 import { Route as AuthenticatedProjectLoopRouteImport } from './routes/_authenticated/project-loop'
 import { Route as AuthenticatedProjectConsoleRouteImport } from './routes/_authenticated/project-console'
 import { Route as AuthenticatedProgettiRouteImport } from './routes/_authenticated/progetti'
@@ -130,6 +131,12 @@ const AuthenticatedProssimeAzioniRoute =
   AuthenticatedProssimeAzioniRouteImport.update({
     id: '/prossime-azioni',
     path: '/prossime-azioni',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProjectStateRoute =
+  AuthenticatedProjectStateRouteImport.update({
+    id: '/project-state',
+    path: '/project-state',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedProjectLoopRoute =
@@ -474,6 +481,7 @@ export interface FileRoutesByFullPath {
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/project-console': typeof AuthenticatedProjectConsoleRoute
   '/project-loop': typeof AuthenticatedProjectLoopRoute
+  '/project-state': typeof AuthenticatedProjectStateRoute
   '/prossime-azioni': typeof AuthenticatedProssimeAzioniRoute
   '/result-review': typeof AuthenticatedResultReviewRoute
   '/roadmap': typeof AuthenticatedRoadmapRoute
@@ -536,6 +544,7 @@ export interface FileRoutesByTo {
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/project-console': typeof AuthenticatedProjectConsoleRoute
   '/project-loop': typeof AuthenticatedProjectLoopRoute
+  '/project-state': typeof AuthenticatedProjectStateRoute
   '/prossime-azioni': typeof AuthenticatedProssimeAzioniRoute
   '/result-review': typeof AuthenticatedResultReviewRoute
   '/roadmap': typeof AuthenticatedRoadmapRoute
@@ -602,6 +611,7 @@ export interface FileRoutesById {
   '/_authenticated/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/_authenticated/project-console': typeof AuthenticatedProjectConsoleRoute
   '/_authenticated/project-loop': typeof AuthenticatedProjectLoopRoute
+  '/_authenticated/project-state': typeof AuthenticatedProjectStateRoute
   '/_authenticated/prossime-azioni': typeof AuthenticatedProssimeAzioniRoute
   '/_authenticated/result-review': typeof AuthenticatedResultReviewRoute
   '/_authenticated/roadmap': typeof AuthenticatedRoadmapRoute
@@ -669,6 +679,7 @@ export interface FileRouteTypes {
     | '/progetti'
     | '/project-console'
     | '/project-loop'
+    | '/project-state'
     | '/prossime-azioni'
     | '/result-review'
     | '/roadmap'
@@ -731,6 +742,7 @@ export interface FileRouteTypes {
     | '/progetti'
     | '/project-console'
     | '/project-loop'
+    | '/project-state'
     | '/prossime-azioni'
     | '/result-review'
     | '/roadmap'
@@ -796,6 +808,7 @@ export interface FileRouteTypes {
     | '/_authenticated/progetti'
     | '/_authenticated/project-console'
     | '/_authenticated/project-loop'
+    | '/_authenticated/project-state'
     | '/_authenticated/prossime-azioni'
     | '/_authenticated/result-review'
     | '/_authenticated/roadmap'
@@ -904,6 +917,13 @@ declare module '@tanstack/react-router' {
       path: '/prossime-azioni'
       fullPath: '/prossime-azioni'
       preLoaderRoute: typeof AuthenticatedProssimeAzioniRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/project-state': {
+      id: '/_authenticated/project-state'
+      path: '/project-state'
+      fullPath: '/project-state'
+      preLoaderRoute: typeof AuthenticatedProjectStateRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/project-loop': {
@@ -1344,6 +1364,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProgettiRoute: typeof AuthenticatedProgettiRouteWithChildren
   AuthenticatedProjectConsoleRoute: typeof AuthenticatedProjectConsoleRoute
   AuthenticatedProjectLoopRoute: typeof AuthenticatedProjectLoopRoute
+  AuthenticatedProjectStateRoute: typeof AuthenticatedProjectStateRoute
   AuthenticatedProssimeAzioniRoute: typeof AuthenticatedProssimeAzioniRoute
   AuthenticatedResultReviewRoute: typeof AuthenticatedResultReviewRoute
   AuthenticatedRoadmapRoute: typeof AuthenticatedRoadmapRoute
@@ -1399,6 +1420,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProgettiRoute: AuthenticatedProgettiRouteWithChildren,
   AuthenticatedProjectConsoleRoute: AuthenticatedProjectConsoleRoute,
   AuthenticatedProjectLoopRoute: AuthenticatedProjectLoopRoute,
+  AuthenticatedProjectStateRoute: AuthenticatedProjectStateRoute,
   AuthenticatedProssimeAzioniRoute: AuthenticatedProssimeAzioniRoute,
   AuthenticatedResultReviewRoute: AuthenticatedResultReviewRoute,
   AuthenticatedRoadmapRoute: AuthenticatedRoadmapRoute,
