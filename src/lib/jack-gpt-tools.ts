@@ -240,6 +240,50 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       required: ["command_text"],
     },
   },
+  {
+    type: "function",
+    name: "get_project_state",
+    description:
+      "Stato sintetico di un singolo progetto (Project State Snapshot): stato attuale, ultima cosa completata, prossima azione, blockers, priorità, freshness. Read-only.",
+    parameters: {
+      type: "object",
+      properties: { project_key: { type: "string" } },
+      required: ["project_key"],
+    },
+  },
+  {
+    type: "function",
+    name: "get_all_project_states",
+    description:
+      "Elenco compatto di tutti i Project State Snapshot dell'utente con stato, priorità, freshness e prossima azione. Read-only.",
+    parameters: {
+      type: "object",
+      properties: { brain_id: { type: "string" } },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "get_project_next_action",
+    description:
+      "Prossima azione definita per un progetto (Project State). Read-only.",
+    parameters: {
+      type: "object",
+      properties: { project_key: { type: "string" } },
+      required: ["project_key"],
+    },
+  },
+  {
+    type: "function",
+    name: "get_multi_project_overview",
+    description:
+      "Overview multi-progetto: totali, attivi, alta priorità, da aggiornare, parcheggiati, e progetto consigliato come prossimo focus. Read-only.",
+    parameters: {
+      type: "object",
+      properties: { brain_id: { type: "string" } },
+      required: [],
+    },
+  },
 ] as const;
 
 // ---------- Helpers ----------
