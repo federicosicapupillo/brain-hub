@@ -23,6 +23,7 @@ import {
   createProjectSourceMapping,
   deleteProjectSourceMapping,
   seedPupilloQuickMappings,
+  seedMissingProjectsQuickMappings,
   logConnectorHubEvent,
   type ConnectorKey,
   type ConnectorRegistryRow,
@@ -142,6 +143,23 @@ function ConnectorHubPage() {
     }
   };
 
+  const [seedingMissing, setSeedingMissing] = useState(false);
+  const onSeedMissing = async () => {
+    setSeedingMissing(true);
+    try {
+      const res = await seedMissingProjectsQuickMappings();
+      toast.success(
+        `Progetti mancanti — mapping creati: ${res.created}, già esistenti: ${res.skipped} (su ${res.total}).`,
+      );
+      await qc.invalidateQueries({ queryKey: ["connector-hub", "mappings"] });
+    } catch (e) {
+      toast.error(`Errore quick mapping progetti mancanti: ${(e as Error).message}`);
+    } finally {
+      setSeedingMissing(false);
+    }
+  };
+
+
   // Mapping form state
   const [mProject, setMProject] = useState<string>("");
   const [mConnector, setMConnector] = useState<ConnectorKey | "">("");
@@ -236,6 +254,15 @@ function ConnectorHubPage() {
             <Button onClick={onSeedPupillo} disabled={seedingPupillo} size="sm">
               <Plus className={`mr-2 h-4 w-4 ${seedingPupillo ? "animate-pulse" : ""}`} />
               Crea mapping Pupillo
+            </Button>
+            <Button
+              onClick={onSeedMissing}
+              disabled={seedingMissing}
+              size="sm"
+              variant="outline"
+            >
+              <Plus className={`mr-2 h-4 w-4 ${seedingMissing ? "animate-pulse" : ""}`} />
+              Crea mapping progetti mancanti
             </Button>
           </div>
         </CardContent>

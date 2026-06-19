@@ -707,6 +707,135 @@ export async function seedPupilloQuickMappings(): Promise<QuickSeedResult> {
   return seedProjectQuickMappings("pupillo", PUPILLO_QUICK_MAPPINGS);
 }
 
+export const IDEAPILOT_QUICK_MAPPINGS: ReadonlyArray<QuickMappingSpec> = [
+  {
+    project_key: "ideapilot",
+    connector_key: "github",
+    source_type: "repository",
+    source_label: "project-pilotai",
+    source_ref: "federicosicapupillo/project-pilotai",
+    source_url: "https://github.com/federicosicapupillo/project-pilotai",
+    metadata: { note: "Repository del progetto IdeaPilot / project pilot AI" },
+  },
+  {
+    project_key: "ideapilot",
+    connector_key: "lovable_manual",
+    source_type: "project_summary",
+    source_label: "IdeaPilot Lovable summaries",
+    source_ref: "lovable_ideapilot",
+    source_url: null,
+    metadata: { note: "Riepiloghi Lovable manuali del progetto IdeaPilot" },
+  },
+];
+
+export const RETAIL_AI_CAPANNONI_QUICK_MAPPINGS: ReadonlyArray<QuickMappingSpec> = [
+  {
+    project_key: "retail_ai_capannoni",
+    connector_key: "lovable_manual",
+    source_type: "project_summary",
+    source_label: "Retail AI chiamate capannoni summaries",
+    source_ref: "lovable_retail_ai_capannoni",
+    source_url: null,
+    metadata: {
+      note: "Riepiloghi e configurazioni manuali del progetto Retail AI per chiamate capannoni",
+    },
+  },
+  {
+    project_key: "retail_ai_capannoni",
+    connector_key: "google_drive",
+    source_type: "folder",
+    source_label: "Retail AI script chiamate capannoni",
+    source_ref: "retail_ai_drive_folder",
+    source_url: null,
+    metadata: {
+      note: "Cartella Drive opzionale per script, appunti, esiti chiamate e materiali Retail AI capannoni",
+    },
+  },
+  {
+    project_key: "retail_ai_capannoni",
+    connector_key: "obsidian",
+    source_type: "vault_folder",
+    source_label: "Note Retail AI capannoni",
+    source_ref: "obsidian_retail_ai_capannoni",
+    source_url: null,
+    metadata: {
+      note: "Placeholder manuale per note Obsidian su script e configurazione chiamate capannoni",
+    },
+  },
+];
+
+export const STUDIO_NIKLA_QUICK_MAPPINGS: ReadonlyArray<QuickMappingSpec> = [
+  {
+    project_key: "studio_nikla",
+    connector_key: "lovable_manual",
+    source_type: "project_summary",
+    source_label: "Studio Nikla Lovable summaries",
+    source_ref: "lovable_studio_nikla",
+    source_url: null,
+    metadata: { note: "Riepiloghi Lovable manuali del progetto Studio Nikla" },
+  },
+  {
+    project_key: "studio_nikla",
+    connector_key: "google_drive",
+    source_type: "folder",
+    source_label: "Studio Nikla documenti progetto",
+    source_ref: "studio_nikla_drive_folder",
+    source_url: null,
+    metadata: {
+      note: "Cartella Drive opzionale per materiali, appunti, domande, report e documenti del progetto Studio Nikla",
+    },
+  },
+];
+
+export type MultiQuickSeedResult = {
+  scope: string;
+  project_keys: ReadonlyArray<string>;
+  created: number;
+  skipped: number;
+  total: number;
+  per_project: ReadonlyArray<QuickSeedResult>;
+};
+
+/**
+ * Seed quick mappings for the currently-missing projects (IdeaPilot,
+ * Retail AI capannoni, Studio Nikla). Idempotent per project.
+ */
+export async function seedMissingProjectsQuickMappings(): Promise<MultiQuickSeedResult> {
+  const groups: ReadonlyArray<{ key: string; specs: ReadonlyArray<QuickMappingSpec> }> = [
+    { key: "ideapilot", specs: IDEAPILOT_QUICK_MAPPINGS },
+    { key: "retail_ai_capannoni", specs: RETAIL_AI_CAPANNONI_QUICK_MAPPINGS },
+    { key: "studio_nikla", specs: STUDIO_NIKLA_QUICK_MAPPINGS },
+  ];
+
+  const per_project: QuickSeedResult[] = [];
+  let created = 0;
+  let skipped = 0;
+  let total = 0;
+  for (const g of groups) {
+    const res = await seedProjectQuickMappings(g.key, g.specs);
+    per_project.push(res);
+    created += res.created;
+    skipped += res.skipped;
+    total += res.total;
+  }
+
+  await logConnectorHubEvent("project_source_mapping_quick_seeded", {
+    scope: "missing_projects",
+    project_keys: groups.map((g) => g.key),
+    created_count: created,
+    skipped_count: skipped,
+  });
+
+  return {
+    scope: "missing_projects",
+    project_keys: groups.map((g) => g.key),
+    created,
+    skipped,
+    total,
+    per_project,
+  };
+}
+
 // ---------- Summaries / warnings ----------
 
 export type ConnectorWarning = {
