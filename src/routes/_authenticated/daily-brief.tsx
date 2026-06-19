@@ -228,7 +228,37 @@ function DailyBriefRoute() {
 
 
 
-      {!brief ? (
+      {briefQ.isError ? (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardHeader>
+            <CardTitle>Daily Brief non disponibile</CardTitle>
+            <CardDescription>
+              Non riusciamo a caricare il briefing di oggi. Il resto della pagina resta utilizzabile.
+              <br />
+              <span className="text-xs text-muted-foreground">
+                error_code: DAILY_BRIEF_FETCH_FAILED
+              </span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void briefQ.refetch()}
+              disabled={briefQ.isFetching}
+            >
+              Riprova
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleGenerate}
+              disabled={busy}
+            >
+              <Wand2 className="mr-2 h-4 w-4" /> Genera briefing di oggi
+            </Button>
+          </CardContent>
+        </Card>
+      ) : !brief ? (
         <Card>
           <CardHeader>
             <CardTitle>Nessun briefing per oggi</CardTitle>
