@@ -1410,6 +1410,51 @@ export type Database = {
         }
         Relationships: []
       }
+      connector_registry: {
+        Row: {
+          connector_key: string
+          connector_name: string
+          connector_type: string
+          created_at: string
+          id: string
+          last_error: string | null
+          last_sync_at: string | null
+          metadata: Json
+          permission_level: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connector_key: string
+          connector_name: string
+          connector_type: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          metadata?: Json
+          permission_level?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connector_key?: string
+          connector_name?: string
+          connector_type?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          last_sync_at?: string | null
+          metadata?: Json
+          permission_level?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       connectors: {
         Row: {
           config: Json
@@ -3110,6 +3155,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      project_source_mappings: {
+        Row: {
+          brain_id: string | null
+          connector_key: string
+          created_at: string
+          id: string
+          last_seen_at: string | null
+          metadata: Json
+          project_key: string
+          source_label: string
+          source_ref: string | null
+          source_type: string
+          source_url: string | null
+          sync_status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          connector_key: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string | null
+          metadata?: Json
+          project_key: string
+          source_label: string
+          source_ref?: string | null
+          source_type: string
+          source_url?: string | null
+          sync_status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          connector_key?: string
+          created_at?: string
+          id?: string
+          last_seen_at?: string | null
+          metadata?: Json
+          project_key?: string
+          source_label?: string
+          source_ref?: string | null
+          source_type?: string
+          source_url?: string | null
+          sync_status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       project_state_snapshots: {
         Row: {
