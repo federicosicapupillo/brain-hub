@@ -11,6 +11,8 @@
 // ============================================================
 
 export type PendingJackActionPreview = {
+  preview_id: string;
+  created_at: string;
   intent: "create_controlled_action";
   title: string;
   description: string;
@@ -78,6 +80,21 @@ function tinyHash(s: string): string {
     h = Math.imul(h, 0x01000193);
   }
   return (h >>> 0).toString(36);
+}
+
+export function hashJackActionText(input: string): string {
+  return tinyHash(input.trim().toLowerCase());
+}
+
+export function redactJackIdempotencyKey(idempotencyKey: string): string {
+  const trimmed = idempotencyKey.trim();
+  return `${tinyHash(trimmed)}:${trimmed.slice(0, 24)}`;
+}
+
+export function buildJackPreviewId(idempotencyKey: string, createdAt: string): string {
+  const randomId = globalThis.crypto?.randomUUID?.();
+  if (randomId) return `jack_preview:${randomId}`;
+  return `jack_preview:${tinyHash(`${idempotencyKey}:${createdAt}:${Math.random()}`)}`;
 }
 
 export type IdempotencyKeyParts = {
@@ -296,7 +313,10 @@ export function buildPendingJackActionPreview(
     title,
   });
 
+  const createdAt = new Date().toISOString();
   const preview: PendingJackActionPreview = {
+    preview_id: buildJackPreviewId(idempotency_key, createdAt),
+    created_at: createdAt,
     intent: "create_controlled_action",
     title,
     description,
@@ -309,7 +329,7 @@ export function buildPendingJackActionPreview(
     brain_id: input.brain_id,
     project_id: input.project_id,
     command_preview: input.command_text ?? "",
-    generated_at: new Date().toISOString(),
+    generated_at: createdAt,
     source_warning_id: input.source_warning_id,
     readiness_step_id: input.readiness_step_id,
     cta_label,
