@@ -3111,6 +3111,72 @@ export type Database = {
           },
         ]
       }
+      project_state_snapshots: {
+        Row: {
+          blockers: string[]
+          brain_id: string | null
+          created_at: string
+          current_state: string
+          freshness_status: string
+          id: string
+          last_completed: string | null
+          last_state_update_at: string
+          linked_tools: Json
+          metadata: Json
+          next_action: string | null
+          priority: string
+          project_id: string | null
+          project_key: string
+          project_name: string
+          source_summary: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blockers?: string[]
+          brain_id?: string | null
+          created_at?: string
+          current_state?: string
+          freshness_status?: string
+          id?: string
+          last_completed?: string | null
+          last_state_update_at?: string
+          linked_tools?: Json
+          metadata?: Json
+          next_action?: string | null
+          priority?: string
+          project_id?: string | null
+          project_key: string
+          project_name: string
+          source_summary?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blockers?: string[]
+          brain_id?: string | null
+          created_at?: string
+          current_state?: string
+          freshness_status?: string
+          id?: string
+          last_completed?: string | null
+          last_state_update_at?: string
+          linked_tools?: Json
+          metadata?: Json
+          next_action?: string | null
+          priority?: string
+          project_id?: string | null
+          project_key?: string
+          project_name?: string
+          source_summary?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       project_tool_links: {
         Row: {
           brain_id: string
