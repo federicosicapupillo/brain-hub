@@ -81,6 +81,8 @@ type RealtimeEvent = {
   type?: string;
   transcript?: string;
   delta?: string;
+  response_id?: string;
+  item_id?: string;
   response?: { id?: string; status?: string };
   item?: {
     type?: string;
@@ -202,6 +204,17 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const lastResponseDoneAtRef = useRef<number>(0);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const RESPONSE_CREATE_DEBOUNCE_MS = 400;
+
+  // v3.21.2 — tool-call dedup + batching + transcript dedup
+  const toolCallInFlightCountRef = useRef<number>(0);
+  const processedToolCallIdsRef = useRef<Set<string>>(new Set());
+  const lastToolCallKeyRef = useRef<{ key: string; at: number } | null>(null);
+  const TOOL_CALL_CLIENT_DEDUP_MS = 3000;
+  const transcriptDedupRef = useRef<{
+    responseId: string | null;
+    lastDelta: string | null;
+    appendedDoneIds: Set<string>;
+  }>({ responseId: null, lastDelta: null, appendedDoneIds: new Set() });
 
   function redactResponseId(id: string | null): string | null {
     if (!id) return null;
@@ -453,6 +466,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     responseInProgressRef.current = false;
     activeResponseIdRef.current = null;
     pendingResponseCreateRef.current = null;
+    toolCallInFlightCountRef.current = 0;
+    processedToolCallIdsRef.current.clear();
+    lastToolCallKeyRef.current = null;
+    transcriptDedupRef.current = {
+      responseId: null,
+      lastDelta: null,
+      appendedDoneIds: new Set(),
+    };
     if (flushTimerRef.current) {
       clearTimeout(flushTimerRef.current);
       flushTimerRef.current = null;
@@ -471,8 +492,57 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
   const handleToolCall = useCallback(
     async (callId: string, name: string, argsRaw: string) => {
+      // v3.21.2 — per-callId dedup (model occasionally re-emits the same call)
+      if (processedToolCallIdsRef.current.has(callId)) {
+        safeLog("jack_client_duplicate_tool_call_ignored", {
+          tool_name: name,
+          dedup_reason: "call_id_already_processed",
+        });
+        return;
+      }
+      // v3.21.2 — short-TTL identical (name+args) dedup
+      const key = `${name}::${argsRaw ?? ""}`;
+      const last = lastToolCallKeyRef.current;
+      const now = Date.now();
+      if (last && last.key === key && now - last.at < TOOL_CALL_CLIENT_DEDUP_MS) {
+        processedToolCallIdsRef.current.add(callId);
+        safeLog("jack_client_duplicate_tool_call_ignored", {
+          tool_name: name,
+          dedup_reason: "identical_args_within_ttl",
+        });
+        // Still must satisfy the model with an output for this call_id
+        // so the response can complete; reuse a structured "deduped" marker.
+        const dc = dcRef.current;
+        if (dc && dc.readyState === "open") {
+          try {
+            dc.send(
+              JSON.stringify({
+                type: "conversation.item.create",
+                item: {
+                  type: "function_call_output",
+                  call_id: callId,
+                  output: JSON.stringify({
+                    ok: true,
+                    deduped: true,
+                    note: "duplicate_tool_call_ignored",
+                  }),
+                },
+              }),
+            );
+          } catch { /* noop */ }
+        }
+        return;
+      }
+      processedToolCallIdsRef.current.add(callId);
+      lastToolCallKeyRef.current = { key, at: now };
+      toolCallInFlightCountRef.current += 1;
+
       pushLog({ kind: "tool", text: `→ ${name}` });
       setDiagnostics((d) => ({ ...d, lastToolCalled: name }));
+      safeLog("jack_realtime_tool_call_started", {
+        tool_name: name,
+        call_id: callId.slice(0, 8),
+      });
       safeLog("jack_gpt_tool_called", { name });
       const result = await toolFn({
         data: { tool_name: name, arguments: argsRaw ?? "" },
@@ -485,8 +555,17 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         kind: "tool",
         text: `← ${name}: ${okFlag ? "ok" : `errore ${(result as { error?: string }).error ?? ""}`}`,
       });
+      safeLog("jack_realtime_tool_call_completed", {
+        tool_name: name,
+        call_id: callId.slice(0, 8),
+        ok: okFlag,
+      });
       safeLog("jack_gpt_tool_completed", { name, ok: okFlag });
       const dc = dcRef.current;
+      toolCallInFlightCountRef.current = Math.max(
+        0,
+        toolCallInFlightCountRef.current - 1,
+      );
       if (!dc || dc.readyState !== "open") return;
       try {
         dc.send(
@@ -500,8 +579,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           }),
         );
       } catch { /* noop */ }
-      // Never fire response.create directly: route through the lifecycle guard.
-      safeCreateResponse("tool_result", { queueIfBusy: true });
+      // v3.21.2 — single response.create per tool batch. Only the last
+      // completing tool fires it; queueIfBusy + debounce in safeCreateResponse
+      // collapse near-simultaneous attempts.
+      if (toolCallInFlightCountRef.current === 0) {
+        safeLog("jack_tool_response_batch_flushed", {
+          tool_name: name,
+          batch_size: processedToolCallIdsRef.current.size,
+        });
+        safeCreateResponse("tool_result", { queueIfBusy: true });
+      } else {
+        safeLog("jack_response_create_deduplicated", {
+          dedup_reason: "tool_batch_pending",
+          tool_name: name,
+        });
+      }
       // v3.13.1: capture persistence diagnostics + refresh injected context.
       if (name === "create_memory_entry") {
         const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
@@ -755,8 +847,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         // GA response lifecycle
         case "response.created": {
           const id = msg.response?.id ?? null;
+          // v3.21.2 — overlap detection: a new response while one is active.
+          if (responseInProgressRef.current && activeResponseIdRef.current && id && activeResponseIdRef.current !== id) {
+            safeLog("jack_audio_response_overlap_prevented", {
+              response_id: redactResponseId(id),
+              dedup_reason: "previous_response_still_active",
+            });
+          }
           responseInProgressRef.current = true;
           activeResponseIdRef.current = id;
+          // reset transcript dedup window for the new response
+          transcriptDedupRef.current = {
+            responseId: id,
+            lastDelta: null,
+            appendedDoneIds: transcriptDedupRef.current.appendedDoneIds,
+          };
           setState("speaking");
           setDiagnostics((d) => ({
             ...d,
@@ -772,15 +877,40 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         // Legacy fallback
         case "response.audio.delta":
         case "response.audio_transcript.delta":
-        case "response.text.delta":
+        case "response.text.delta": {
+          // v3.21.2 — drop identical consecutive transcript deltas
+          const delta = typeof msg.delta === "string" ? msg.delta : null;
+          if (delta) {
+            if (transcriptDedupRef.current.lastDelta === delta) {
+              safeLog("jack_transcript_delta_deduplicated", {
+                response_id: redactResponseId(transcriptDedupRef.current.responseId),
+                dedup_reason: "identical_consecutive_delta",
+              });
+            } else {
+              transcriptDedupRef.current.lastDelta = delta;
+            }
+          }
           setState("speaking");
           break;
+        }
 
         case "response.output_audio_transcript.done":
         case "response.audio_transcript.done":
-        case "response.output_text.done":
-          if (msg.transcript) pushLog({ kind: "jack", text: String(msg.transcript) });
+        case "response.output_text.done": {
+          if (!msg.transcript) break;
+          // v3.21.2 — dedup .done events for the same item to avoid double append
+          const doneKey = `${msg.response_id ?? activeResponseIdRef.current ?? ""}::${msg.item_id ?? ""}`;
+          if (doneKey && transcriptDedupRef.current.appendedDoneIds.has(doneKey)) {
+            safeLog("jack_transcript_delta_deduplicated", {
+              response_id: redactResponseId(activeResponseIdRef.current),
+              dedup_reason: "done_already_appended",
+            });
+            break;
+          }
+          if (doneKey) transcriptDedupRef.current.appendedDoneIds.add(doneKey);
+          pushLog({ kind: "jack", text: String(msg.transcript) });
           break;
+        }
 
         case "conversation.item.input_audio_transcription.completed":
           if (msg.transcript) {
@@ -806,6 +936,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           responseInProgressRef.current = false;
           activeResponseIdRef.current = null;
           lastResponseDoneAtRef.current = Date.now();
+          // v3.21.2 — reset tool-batch counter so next turn starts clean.
+          toolCallInFlightCountRef.current = 0;
+          // Bound the processed callId set
+          if (processedToolCallIdsRef.current.size > 200) {
+            processedToolCallIdsRef.current.clear();
+          }
           setState("listening");
           setDiagnostics((d) => ({
             ...d,
