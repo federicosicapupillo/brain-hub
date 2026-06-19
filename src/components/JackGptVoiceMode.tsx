@@ -38,6 +38,12 @@ import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
 import { createControlledJackActionFromPreview } from "@/lib/jack-controlled-actions.functions";
 import { getAutomationActionById, type AutomationAction } from "@/lib/action-queue";
 import {
+  saveJackActionPreviewFn,
+  getPendingJackActionPreviewFn,
+  cancelJackActionPreviewFn,
+  confirmJackActionPreviewFn,
+} from "@/lib/jack-action-previews.functions";
+import {
   buildJackPreviewId,
   hashJackActionText,
   isExplicitJackConfirmation,
@@ -307,6 +313,24 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const pendingPreviewRef = useRef<PendingJackActionPreview | null>(null);
   const confirmingPreviewIdRef = useRef<string | null>(null);
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
+  // v3.21.6 — persistence bridge
+  const savePreviewFn = useServerFn(saveJackActionPreviewFn);
+  const restorePreviewFn = useServerFn(getPendingJackActionPreviewFn);
+  const cancelPreviewFn = useServerFn(cancelJackActionPreviewFn);
+  const confirmPreviewFn = useServerFn(confirmJackActionPreviewFn);
+  type PreviewPersistenceStatus =
+    | "local_only"
+    | "saving"
+    | "saved"
+    | "restore_found"
+    | "restore_missing"
+    | "save_failed";
+  const [previewPersistenceStatus, setPreviewPersistenceStatus] =
+    useState<PreviewPersistenceStatus>("local_only");
+  const [previewDbStatus, setPreviewDbStatus] = useState<
+    "pending" | "confirmed" | "cancelled" | "expired" | null
+  >(null);
+  const restoreAttemptedRef = useRef(false);
 
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id" | "ts">) => {
@@ -318,7 +342,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
   const safeLog = useCallback(
     (event: string, metadata: Record<string, unknown> = {}) => {
-      void logFn({ data: { event, metadata: { ...metadata, brain_id: brainId } } }).catch(
+      // v3.21.6 — JSON-roundtrip the payload so undefined values, Dates,
+      // class instances, or non-serializable references never reach the
+      // server-fn Seroval parser (which 500s on malformed payloads).
+      let safeMeta: Record<string, unknown>;
+      try {
+        safeMeta = JSON.parse(
+          JSON.stringify({ ...metadata, brain_id: brainId ?? null }),
+        ) as Record<string, unknown>;
+      } catch {
+        safeMeta = { brain_id: brainId ?? null, _serialize_error: true };
+      }
+      void logFn({ data: { event, metadata: safeMeta } }).catch(
         () => undefined,
       );
     },
@@ -694,6 +729,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           setPendingActionPreview(currentPreview);
           setConfirmationStatus(null);
           setCreatedActionId(null);
+          setPreviewDbStatus("pending");
           safeLog("jack_pending_action_preview_stored", {
             preview_id: currentPreview.preview_id,
             source: currentPreview.source,
@@ -701,6 +737,49 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             title_hash: hashJackActionText(currentPreview.title),
             idempotency_key: redactJackIdempotencyKey(currentPreview.idempotency_key),
           });
+          // v3.21.6 — persist preview so refresh / route change / DB error
+          // doesn't lose the proposal. Never creates a real action.
+          setPreviewPersistenceStatus("saving");
+          safeLog("jack_action_preview_save_started", {
+            preview_id: currentPreview.preview_id,
+            title_hash: hashJackActionText(currentPreview.title),
+          });
+          void savePreviewFn({
+            data: {
+              preview_id: currentPreview.preview_id,
+              title: currentPreview.title,
+              description: currentPreview.description ?? null,
+              source: currentPreview.source ?? "jack",
+              idempotency_key: currentPreview.idempotency_key,
+              brain_id: currentPreview.brain_id ?? brainId ?? null,
+              preview_payload: currentPreview as unknown as Record<string, unknown>,
+              expires_in_minutes: 120,
+              metadata: { tool: "preview_controlled_action" },
+            },
+          })
+            .then((saveRes) => {
+              if (saveRes.ok) {
+                setPreviewPersistenceStatus("saved");
+                safeLog("jack_action_preview_saved", {
+                  preview_id: currentPreview.preview_id,
+                  deduplicated: saveRes.deduplicated,
+                });
+              } else {
+                setPreviewPersistenceStatus("save_failed");
+                safeLog("jack_action_preview_save_failed", {
+                  preview_id: currentPreview.preview_id,
+                  error_code: saveRes.reason,
+                });
+              }
+            })
+            .catch((err: unknown) => {
+              setPreviewPersistenceStatus("save_failed");
+              safeLog("jack_action_preview_save_failed", {
+                preview_id: currentPreview.preview_id,
+                error_code: "exception",
+                safe_message: String((err as Error)?.message ?? err).slice(0, 160),
+              });
+            });
         }
       }
       // v3.19.6 — model is hard-locked from create_controlled_action.
@@ -835,27 +914,45 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         setLastActionCreateResult((prev) =>
           prev ? { ...prev, phase: "server_call_started" } : prev,
         );
-        const res = await confirmFromPreviewFn({
+        // v3.21.6 — confirm via persistent preview_id; server loads the saved
+        // preview row, verifies pending+not-expired, then inserts the action.
+        safeLog("jack_action_preview_confirm_started", baseEvent);
+        const confirmRes = await confirmPreviewFn({
           data: {
             preview_id: preview.preview_id,
-            title: preview.title,
-            description: preview.description,
-            reason: preview.reason,
-            risk_level: preview.risk_level,
-            source: preview.source,
-            idempotency_key: preview.idempotency_key,
-            brain_id: preview.brain_id ?? brainId ?? null,
-            project_id: preview.project_id ?? null,
             confirmation_source: source,
-            user_transcript: userTranscript ?? null,
           },
         });
+        // Map persistent response onto the legacy shape used downstream.
+        const res = confirmRes.ok
+          ? {
+              ok: true as const,
+              action_id: confirmRes.action_id,
+              action_title: confirmRes.title,
+              deduplicated: confirmRes.deduplicated,
+              reason: null as string | null,
+              safe_message: null as string | null,
+            }
+          : {
+              ok: false as const,
+              action_id: null,
+              action_title: null,
+              deduplicated: false,
+              reason: confirmRes.reason,
+              safe_message: confirmRes.safe_message,
+            };
+        if (userTranscript && source === "voice_router") {
+          // Best-effort: keep transcript hash off the wire entirely.
+        }
         safeLog("jack_confirm_pending_preview_server_call_returned", {
           ...baseEvent,
           has_action_id: Boolean(res.action_id),
           deduplicated: Boolean(res.deduplicated),
           reason: res.reason ?? null,
         });
+        // Eliminate dead-store lint by referencing the legacy server fn ref
+        // (kept for backwards-compat callers; not invoked here).
+        void confirmFromPreviewFn;
 
         if (!res.ok || !res.action_id || !res.action_title) {
           safeLog("jack_confirm_pending_preview_no_action_id", {

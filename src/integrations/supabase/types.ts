@@ -2154,6 +2154,72 @@ export type Database = {
           },
         ]
       }
+      jack_action_previews: {
+        Row: {
+          action_type: string | null
+          brain_id: string | null
+          cancelled_at: string | null
+          confirmed_action_id: string | null
+          confirmed_at: string | null
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          idempotency_key: string | null
+          metadata: Json
+          preview_id: string
+          preview_payload: Json
+          priority: string | null
+          source: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_type?: string | null
+          brain_id?: string | null
+          cancelled_at?: string | null
+          confirmed_action_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json
+          preview_id: string
+          preview_payload?: Json
+          priority?: string | null
+          source?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string | null
+          brain_id?: string | null
+          cancelled_at?: string | null
+          confirmed_action_id?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          idempotency_key?: string | null
+          metadata?: Json
+          preview_id?: string
+          preview_payload?: Json
+          priority?: string | null
+          source?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       jack_memory_documents: {
         Row: {
           approved_at: string | null
