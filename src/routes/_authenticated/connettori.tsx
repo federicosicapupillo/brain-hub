@@ -28,6 +28,8 @@ import { Switch } from "@/components/ui/switch";
 
 import { supabase } from "@/integrations/supabase/client";
 import { listConnectors, type Connector } from "@/lib/workspace-api";
+import { useServerFn } from "@tanstack/react-start";
+import { getGmailOauthStatus, startGmailOAuth } from "@/lib/gmail-oauth.functions";
 
 export const Route = createFileRoute("/_authenticated/connettori")({
   head: () => ({
