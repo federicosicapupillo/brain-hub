@@ -84,6 +84,7 @@ const items = [
   { title: "Jack Memory", url: "/jack-memory", icon: BrainCog },
   { title: "Cervelli", url: "/", icon: Brain },
   { title: "Progetti", url: "/progetti", icon: FolderKanban },
+  { title: "Project State", url: "/project-state", icon: FolderKanban },
   { title: "Prossime Azioni", url: "/prossime-azioni", icon: ListChecks },
   { title: "Allineamento", url: "/allineamento", icon: GitBranch },
   { title: "Importa", url: "/importa", icon: Inbox },
