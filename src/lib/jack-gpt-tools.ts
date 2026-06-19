@@ -970,6 +970,145 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             },
           };
         }
+
+        case "get_project_state": {
+          const projectKey = String(args.project_key ?? "").trim();
+          if (!projectKey) return { ok: false, error: "missing_project_key" };
+          const { data: row } = await (supabase as never as {
+            from: (t: string) => {
+              select: (c: string) => {
+                eq: (c: string, v: string) => {
+                  maybeSingle: () => Promise<{ data: unknown }>;
+                };
+              };
+            };
+          })
+            .from("project_state_snapshots")
+            .select("project_key,project_name,status,priority,current_state,last_completed,next_action,blockers,freshness_status,last_state_update_at")
+            .eq("project_key", projectKey)
+            .maybeSingle();
+          void logSanitizedEvent(supabase, userId, "jack_project_state_requested", {
+            project_key: projectKey,
+            found: !!row,
+          });
+          if (!row) return { ok: true, payload: { found: false, project_key: projectKey } };
+          const r = row as Record<string, unknown>;
+          return {
+            ok: true,
+            payload: {
+              found: true,
+              project_key: r.project_key,
+              project_name: r.project_name,
+              status: r.status,
+              priority: r.priority,
+              freshness: r.freshness_status,
+              current_state: redactSnippet(String(r.current_state ?? ""), 600),
+              last_completed: r.last_completed ?? null,
+              next_action: r.next_action ?? null,
+              blockers: Array.isArray(r.blockers) ? (r.blockers as string[]).slice(0, 8) : [],
+              last_state_update_at: r.last_state_update_at ?? null,
+            },
+          };
+        }
+
+        case "get_project_next_action": {
+          const projectKey = String(args.project_key ?? "").trim();
+          if (!projectKey) return { ok: false, error: "missing_project_key" };
+          const { data: row } = await (supabase as never as {
+            from: (t: string) => {
+              select: (c: string) => {
+                eq: (c: string, v: string) => {
+                  maybeSingle: () => Promise<{ data: unknown }>;
+                };
+              };
+            };
+          })
+            .from("project_state_snapshots")
+            .select("project_key,project_name,next_action,freshness_status")
+            .eq("project_key", projectKey)
+            .maybeSingle();
+          if (!row) return { ok: true, payload: { found: false, project_key: projectKey } };
+          const r = row as Record<string, unknown>;
+          return {
+            ok: true,
+            payload: {
+              found: true,
+              project_key: r.project_key,
+              project_name: r.project_name,
+              next_action: r.next_action ?? null,
+              freshness: r.freshness_status,
+            },
+          };
+        }
+
+        case "get_all_project_states":
+        case "get_multi_project_overview": {
+          const { data: rowsData } = await (supabase as never as {
+            from: (t: string) => {
+              select: (c: string) => {
+                order: (col: string, opts: { ascending: boolean }) => Promise<{ data: unknown }>;
+              };
+            };
+          })
+            .from("project_state_snapshots")
+            .select("project_key,project_name,status,priority,current_state,last_completed,next_action,blockers,freshness_status,last_state_update_at")
+            .order("updated_at", { ascending: false });
+          const rows = (rowsData ?? []) as Array<Record<string, unknown>>;
+          const priorityOrder: Record<string, number> = { very_high: 0, high: 1, medium: 2, low: 3 };
+          const sorted = [...rows].sort(
+            (a, b) =>
+              (priorityOrder[String(a.priority)] ?? 9) -
+              (priorityOrder[String(b.priority)] ?? 9),
+          );
+          const projects = sorted.map((r) => ({
+            project_key: r.project_key,
+            project_name: r.project_name,
+            status: r.status,
+            priority: r.priority,
+            freshness: r.freshness_status,
+            next_action: r.next_action ?? null,
+            last_completed: r.last_completed ?? null,
+            blockers_count: Array.isArray(r.blockers) ? (r.blockers as unknown[]).length : 0,
+          }));
+          const active = projects.filter((p) => p.status === "active").length;
+          const highPriority = projects.filter((p) => p.priority === "very_high" || p.priority === "high").length;
+          const needsUpdate = projects.filter(
+            (p) => p.freshness === "stale" || p.freshness === "old" || p.freshness === "unknown",
+          ).length;
+          const parked = projects.filter((p) => p.status === "parked").length;
+          const blocked = projects.filter((p) => p.status === "blocked" || p.blockers_count > 0).length;
+          const candidate =
+            projects.find((p) => p.status === "active" && (p.priority === "very_high" || p.priority === "high") && p.next_action) ??
+            projects.find((p) => p.status === "active" && p.next_action) ??
+            null;
+          void logSanitizedEvent(supabase, userId, "jack_multi_project_overview_requested", {
+            tool_name,
+            total: projects.length,
+            active,
+            high_priority: highPriority,
+            needs_update: needsUpdate,
+          });
+          return {
+            ok: true,
+            payload: {
+              total: projects.length,
+              active,
+              high_priority: highPriority,
+              needs_update: needsUpdate,
+              parked,
+              blocked,
+              recommended_next: candidate
+                ? {
+                    project_key: candidate.project_key,
+                    project_name: candidate.project_name,
+                    next_action: candidate.next_action,
+                  }
+                : null,
+              projects,
+            },
+          };
+        }
+
         default:
           return { ok: false, error: "unknown_tool" };
       }
