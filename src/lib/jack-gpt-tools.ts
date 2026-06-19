@@ -296,11 +296,16 @@ export const JACK_GPT_TOOLS_SCHEMA = [
     type: "function",
     name: "get_project_connectors",
     description:
-      "Connettori e fonti mappate per un progetto specifico. Risponde a 'Furia a quali strumenti è collegata?', 'Brain Hub ha GitHub collegato?'. Read-only.",
+      "Connettori e fonti mappate per un progetto. Accetta project_key canonico (es. 'brain_hub'), project_name ('Brain Hub') o query libera ('Brian Hub', 'progetto Furia'). Risolve via alias e snapshot. Read-only.",
     parameters: {
       type: "object",
-      properties: { project_key: { type: "string" } },
-      required: ["project_key"],
+      properties: {
+        project_key: { type: "string" },
+        project_name: { type: "string" },
+        query: { type: "string" },
+        brain_id: { type: "string" },
+      },
+      required: [],
     },
   },
   {
