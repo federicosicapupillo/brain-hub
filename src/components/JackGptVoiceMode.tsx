@@ -277,6 +277,33 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const [confirmingAction, setConfirmingAction] = useState(false);
   const [confirmationStatus, setConfirmationStatus] = useState<string | null>(null);
   const [createdActionId, setCreatedActionId] = useState<string | null>(null);
+  // v3.21.5 — surfaced lifecycle of the preview-confirm bridge for debug UI.
+  type LastActionCreateResult = {
+    at: number;
+    previewIdRedacted: string;
+    confirmationSource: "ui_button" | "voice_router";
+    phase:
+      | "confirm_called"
+      | "server_call_started"
+      | "server_ok"
+      | "server_failed"
+      | "no_action_id"
+      | "verification_started"
+      | "verification_found"
+      | "verification_missing";
+    actionIdRedacted: string | null;
+    actionTitle: string | null;
+    deduplicated: boolean | null;
+    verificationStatus: AutomationAction["status"] | null;
+    verificationSource: AutomationAction["source"] | null;
+    verificationBrainId: string | null;
+    titleMatches: boolean | null;
+    visibleInCurrentList: boolean | null;
+    errorCode: string | null;
+    safeMessage: string | null;
+  };
+  const [lastActionCreateResult, setLastActionCreateResult] =
+    useState<LastActionCreateResult | null>(null);
   const pendingPreviewRef = useRef<PendingJackActionPreview | null>(null);
   const confirmingPreviewIdRef = useRef<string | null>(null);
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
