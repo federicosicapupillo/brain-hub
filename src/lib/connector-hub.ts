@@ -599,6 +599,114 @@ export async function deleteProjectSourceMapping(id: string): Promise<void> {
   });
 }
 
+// ---------- Quick mapping presets ----------
+
+export type QuickMappingSpec = {
+  project_key: string;
+  connector_key: ConnectorKey;
+  source_type: string;
+  source_label: string;
+  source_ref: string | null;
+  source_url: string | null;
+  metadata: Record<string, unknown>;
+};
+
+export const PUPILLO_QUICK_MAPPINGS: ReadonlyArray<QuickMappingSpec> = [
+  {
+    project_key: "pupillo",
+    connector_key: "github",
+    source_type: "repository",
+    source_label: "my-pupillo-app",
+    source_ref: "federicosicapupillo/my-pupillo-app",
+    source_url: "https://github.com/federicosicapupillo/my-pupillo-app",
+    metadata: { note: "Repository principale del progetto Pupillo" },
+  },
+  {
+    project_key: "pupillo",
+    connector_key: "lovable_manual",
+    source_type: "project_summary",
+    source_label: "Pupillo Lovable summaries",
+    source_ref: "lovable_pupillo",
+    source_url: null,
+    metadata: {
+      note: "Riepiloghi Lovable manuali usati per aggiornare lo stato del progetto Pupillo",
+    },
+  },
+  {
+    project_key: "pupillo",
+    connector_key: "google_drive",
+    source_type: "folder",
+    source_label: "Pupillo documenti progetto",
+    source_ref: "pupillo_drive_folder",
+    source_url: null,
+    metadata: {
+      note: "Cartella Drive opzionale per documenti, roadmap, grafiche e materiali del progetto Pupillo",
+    },
+  },
+];
+
+export type QuickSeedResult = {
+  project_key: string;
+  created: number;
+  skipped: number;
+  total: number;
+};
+
+/**
+ * Idempotent: insert any of the project's preset mappings that don't already
+ * exist. Dedup key = (project_key, connector_key, source_type, source_ref).
+ */
+export async function seedProjectQuickMappings(
+  projectKey: string,
+  specs: ReadonlyArray<QuickMappingSpec>,
+): Promise<QuickSeedResult> {
+  const existing = await listProjectSourceMappings(projectKey);
+  const keyOf = (pk: string, ck: string, st: string, ref: string | null) =>
+    `${pk}::${ck}::${st}::${ref ?? ""}`;
+  const seen = new Set(
+    existing.map((r) =>
+      keyOf(r.project_key, r.connector_key, r.source_type, r.source_ref),
+    ),
+  );
+
+  let created = 0;
+  let skipped = 0;
+  for (const s of specs) {
+    if (s.project_key !== projectKey) {
+      skipped += 1;
+      continue;
+    }
+    const k = keyOf(s.project_key, s.connector_key, s.source_type, s.source_ref);
+    if (seen.has(k)) {
+      skipped += 1;
+      continue;
+    }
+    await createProjectSourceMapping({
+      project_key: s.project_key,
+      connector_key: s.connector_key,
+      source_type: s.source_type,
+      source_label: s.source_label,
+      source_ref: s.source_ref,
+      source_url: s.source_url,
+      metadata: s.metadata,
+    });
+    seen.add(k);
+    created += 1;
+  }
+
+  await logConnectorHubEvent("project_source_mapping_quick_seeded", {
+    project_key: projectKey,
+    created_count: created,
+    skipped_count: skipped,
+  });
+
+  return { project_key: projectKey, created, skipped, total: specs.length };
+}
+
+export async function seedPupilloQuickMappings(): Promise<QuickSeedResult> {
+  return seedProjectQuickMappings("pupillo", PUPILLO_QUICK_MAPPINGS);
+}
+
 // ---------- Summaries / warnings ----------
 
 export type ConnectorWarning = {
