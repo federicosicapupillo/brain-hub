@@ -1678,7 +1678,10 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           if (
             pendingPreviewRef.current &&
             isModelClaimingConfirmation(transcript) &&
-            (!inputTranscriptionCompletedSeenRef.current || !lastVoiceBridgeTriggeredAtRef.current)
+            (!inputTranscriptionCompletedSeenRef.current ||
+              !lastVoiceBridgeTriggeredAtRef.current ||
+              !lastVoiceServerVerifiedAtRef.current ||
+              lastVoiceServerVerifiedAtRef.current < lastVoiceBridgeTriggeredAtRef.current)
           ) {
             safeLog("jack_voice_confirmation_model_claim_without_bridge", {
               preview_id: pendingPreviewRef.current.preview_id,
