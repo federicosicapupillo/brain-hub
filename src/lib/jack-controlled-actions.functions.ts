@@ -378,7 +378,10 @@ export const createControlledJackAction = createServerFn({ method: "POST" })
         title: c.action_candidate.title,
       });
 
+    const createdAt = new Date().toISOString();
     const preview: PendingJackActionPreview = {
+      preview_id: buildJackPreviewId(idempotencyKey, createdAt),
+      created_at: createdAt,
       intent: "create_controlled_action",
       title: c.action_candidate.title,
       description: sanitizeText(c.action_candidate.description, 600),
@@ -393,7 +396,7 @@ export const createControlledJackAction = createServerFn({ method: "POST" })
       brain_id: brainId,
       project_id: projectId,
       command_preview: sanitizeText(commandText, 280),
-      generated_at: new Date().toISOString(),
+      generated_at: createdAt,
     };
 
     if (data.confirmed !== true) {
@@ -447,23 +450,23 @@ export const createControlledJackAction = createServerFn({ method: "POST" })
     });
 
     // Idempotency check: reuse existing open action with same key.
-    const existingId = await findExistingActionByIdempotencyKey(
+    const existingAction = await findExistingActionByIdempotencyKey(
       supabase,
       userId,
       brainId,
       idempotencyKey,
     );
-    if (existingId) {
+    if (existingAction) {
       await logSanitizedEvent(supabase, userId, "jack_write_tool_duplicate_prevented", {
         brain_id: brainId,
         tool_name: "create_controlled_action",
         idempotency_key_preview: idempotencyKey.slice(0, 32),
-        action_id: existingId,
+        action_id: existingAction.id,
       });
       return {
         ok: true,
         deduplicated: true,
-        action_id: existingId,
+        action_id: existingAction.id,
         intent: c.intent,
         secondary_intent: c.secondary_intent,
         risk_level: c.risk_level,
