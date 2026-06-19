@@ -143,6 +143,23 @@ function ConnectorHubPage() {
     }
   };
 
+  const [seedingMissing, setSeedingMissing] = useState(false);
+  const onSeedMissing = async () => {
+    setSeedingMissing(true);
+    try {
+      const res = await seedMissingProjectsQuickMappings();
+      toast.success(
+        `Progetti mancanti — mapping creati: ${res.created}, già esistenti: ${res.skipped} (su ${res.total}).`,
+      );
+      await qc.invalidateQueries({ queryKey: ["connector-hub", "mappings"] });
+    } catch (e) {
+      toast.error(`Errore quick mapping progetti mancanti: ${(e as Error).message}`);
+    } finally {
+      setSeedingMissing(false);
+    }
+  };
+
+
   // Mapping form state
   const [mProject, setMProject] = useState<string>("");
   const [mConnector, setMConnector] = useState<ConnectorKey | "">("");
