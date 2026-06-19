@@ -1744,7 +1744,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <AlertDescription className="flex flex-wrap items-center gap-2 pt-2 text-xs">
               <span>Verifica disponibile in Action Queue.</span>
               <Button asChild size="sm" variant="outline" className="gap-2">
-                <Link to="/action-queue" search={{}}>
+                <Link to="/action-queue">
                   Apri Action Queue
                 </Link>
               </Button>
