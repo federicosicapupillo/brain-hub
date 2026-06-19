@@ -1132,8 +1132,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             : `Action creata e verificata: ${res.action_title}`,
         );
         setCreatedActionId(res.action_id);
+        setPreviewDbStatus("confirmed");
+        safeLog("jack_action_preview_confirmed", {
+          ...baseEvent,
+          action_id_redacted: actionIdRedacted,
+          deduplicated: res.deduplicated,
+        });
         pendingPreviewRef.current = null;
         setPendingActionPreview(null);
+        setPreviewPersistenceStatus("local_only");
 
         const dc = dcRef.current;
         if (dc && dc.readyState === "open") {
