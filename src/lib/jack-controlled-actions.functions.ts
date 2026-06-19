@@ -204,14 +204,12 @@ async function insertTelegramApproval(
   payload: Record<string, unknown>,
 ): Promise<string | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    const res = await sb
+    const res = await db(supabase)
       .from("telegram_approval_requests")
-      .insert({ ...payload, user_id: userId })
+      .insert<{ id: string }>({ ...payload, user_id: userId })
       .select("id")
       .single();
-    return (res?.data?.id as string) ?? null;
+    return res.data?.id ?? null;
   } catch {
     return null;
   }
@@ -227,21 +225,19 @@ async function readLatestDailyBrief(
   next_actions: unknown;
 } | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    let q = sb
+    let q = db(supabase)
       .from("daily_operating_briefs")
-      .select("brief_date,executive_summary,next_actions")
+      .select<{
+        brief_date: string;
+        executive_summary: string | null;
+        next_actions: unknown;
+      }>("brief_date,executive_summary,next_actions")
       .eq("user_id", userId)
       .order("brief_date", { ascending: false })
       .limit(1);
     if (brainId) q = q.eq("brain_id", brainId);
     const res = await q;
-    const row = ((res?.data ?? []) as Array<{
-      brief_date: string;
-      executive_summary: string | null;
-      next_actions: unknown;
-    }>)[0];
+    const row = res.data?.[0];
     return row ?? null;
   } catch {
     return null;
@@ -259,23 +255,21 @@ async function readCurrentMasterSnapshot(
   markdown_content: string;
 } | null> {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    let q = sb
+    let q = db(supabase)
       .from("master_snapshot_versions")
-      .select("id,title,version_label,markdown_content,brain_id")
+      .select<{
+        id: string;
+        title: string;
+        version_label: string;
+        markdown_content: string;
+      }>("id,title,version_label,markdown_content,brain_id")
       .eq("user_id", userId)
       .eq("version_status", "current")
       .order("created_at", { ascending: false })
       .limit(1);
     if (brainId) q = q.eq("brain_id", brainId);
     const res = await q;
-    const row = ((res?.data ?? []) as Array<{
-      id: string;
-      title: string;
-      version_label: string;
-      markdown_content: string;
-    }>)[0];
+    const row = res.data?.[0];
     return row ?? null;
   } catch {
     return null;
