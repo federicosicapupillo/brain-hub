@@ -49,6 +49,7 @@ import {
 import { JackVoicePlayer } from "@/components/JackVoicePlayer";
 import { JackVoiceCommand } from "@/components/JackVoiceCommand";
 import { JackGptVoiceMode } from "@/components/JackGptVoiceMode";
+import { GmailMiniCard } from "@/components/GmailMiniCard";
 
 export const Route = createFileRoute("/_authenticated/daily-brief")({
   head: () => ({
