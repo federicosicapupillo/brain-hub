@@ -1456,6 +1456,135 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       });
   }, [restorePreviewFn, brainId, safeLog, pushLog]);
 
+  const handleVoiceConfirmationTranscript = useCallback(
+    (transcript: string, sourceEvent: string): void => {
+      const normalized = normalizeVoiceConfirmationText(transcript);
+      const phraseHash = hashJackActionText(normalized);
+      const intent = detectVoiceConfirmationIntent(transcript);
+      const preview = pendingPreviewRef.current;
+      const baseMeta = {
+        has_pending_preview: Boolean(preview),
+        preview_id: preview?.preview_id ?? null,
+        event_type: sourceEvent,
+        transcript_length: transcript.length,
+        phrase_hash: phraseHash,
+        bridge_triggered: false,
+        confirmation_source: "voice_router" as const,
+      };
+
+      safeLog("jack_voice_confirmation_transcript_received", {
+        ...baseMeta,
+        normalized_intent: intent,
+      });
+      setDiagnostics((d) => ({
+        ...d,
+        lastVoiceTranscriptDetected: true,
+        lastVoiceConfirmationIntent: intent,
+        lastVoiceConfirmationIgnoredReason: intent ? d.lastVoiceConfirmationIgnoredReason : "ambiguous",
+      }));
+
+      if (!intent) {
+        safeLog("jack_voice_confirmation_ignored_ambiguous", {
+          ...baseMeta,
+          error_code: "no_explicit_phrase",
+        });
+        return;
+      }
+
+      if (!preview) {
+        safeLog("jack_voice_confirmation_ignored_no_preview", {
+          ...baseMeta,
+          error_code: "no_pending_preview",
+        });
+        setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "no_pending_preview" }));
+        pushLog({ kind: "warning", text: "Conferma vocale rilevata, ma non ho una proposta pendente." });
+        return;
+      }
+
+      if (preview.confirmation_status !== "pending") {
+        safeLog("jack_voice_confirmation_ignored_duplicate", {
+          ...baseMeta,
+          error_code: "preview_not_pending",
+        });
+        setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "duplicate" }));
+        return;
+      }
+
+      const now = Date.now();
+      const dedup = voiceConfirmationDedupRef.current;
+      if (dedup && dedup.normalized === normalized && now - dedup.at < VOICE_CONFIRM_DEDUP_MS) {
+        safeLog("jack_voice_confirmation_ignored_duplicate", {
+          ...baseMeta,
+          error_code: "duplicate_transcript_within_window",
+        });
+        setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "duplicate" }));
+        return;
+      }
+      voiceConfirmationDedupRef.current = { normalized, at: now };
+
+      if (voiceConfirmationInFlightRef.current || confirmingPreviewIdRef.current) {
+        safeLog("jack_voice_confirmation_ignored_duplicate", {
+          ...baseMeta,
+          error_code: "confirmation_already_in_flight",
+        });
+        setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "in_flight" }));
+        return;
+      }
+
+      const createdAtMs = Date.parse(preview.created_at);
+      if (Number.isFinite(createdAtMs) && now - createdAtMs > VOICE_CONFIRM_MAX_PREVIEW_AGE_MS) {
+        safeLog("jack_voice_confirmation_ignored_ambiguous", {
+          ...baseMeta,
+          error_code: "preview_too_old",
+        });
+        setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "preview_too_old" }));
+        pushLog({ kind: "warning", text: "Proposta troppo vecchia, rigenerala prima di confermare." });
+        return;
+      }
+
+      voiceConfirmationInFlightRef.current = true;
+      lastVoiceBridgeTriggeredAtRef.current = now;
+      const suppressed = suppressActiveRealtimeResponse("voice_confirmation_intent_detected");
+      setDiagnostics((d) => ({
+        ...d,
+        voiceConfirmationInFlight: true,
+        voiceConfirmationLastSource: "voice_router",
+        lastVoiceConfirmationIgnoredReason: "none",
+        lastVoiceBridgeTriggeredAt: now,
+        voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || suppressed,
+      }));
+      safeLog("jack_voice_confirmation_bridge_triggered", {
+        ...baseMeta,
+        bridge_triggered: true,
+      });
+      safeLog("jack_voice_confirmation_detected", {
+        ...baseMeta,
+        bridge_triggered: true,
+      });
+      pushLog({ kind: "system", text: "Conferma vocale intercettata: avvio il percorso controllato." });
+
+      void (async () => {
+        try {
+          const result = await confirmPendingPreview("voice_router", transcript);
+          safeLog("jack_voice_confirmation_confirm_completed", {
+            ...baseMeta,
+            bridge_triggered: true,
+            verification_status: result,
+          });
+        } catch (err) {
+          safeLog("jack_voice_confirmation_confirm_failed", {
+            ...baseMeta,
+            bridge_triggered: true,
+            error_code: err instanceof Error ? err.name : "unknown",
+          });
+        } finally {
+          voiceConfirmationInFlightRef.current = false;
+          setDiagnostics((d) => ({ ...d, voiceConfirmationInFlight: false }));
+        }
+      })();
+    },
+    [confirmPendingPreview, pushLog, safeLog, suppressActiveRealtimeResponse],
+  );
 
 
 
