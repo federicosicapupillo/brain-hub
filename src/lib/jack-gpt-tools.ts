@@ -1190,12 +1190,94 @@ export const runJackGptTool = createServerFn({ method: "POST" })
         }
 
         case "get_project_connectors": {
-          const projectKey = String(args.project_key ?? "").trim();
-          if (!projectKey) return { ok: false, error: "missing_project_key" };
-          const sb = supabase as never as {
+          const requestedRaw =
+            (typeof args.project_key === "string" && args.project_key) ||
+            (typeof args.project_name === "string" && args.project_name) ||
+            (typeof args.query === "string" && args.query) ||
+            "";
+          const requested = String(requestedRaw).trim();
+          if (!requested) {
+            return {
+              ok: false,
+              error: "missing_project",
+              hint: "Specifica project_key, project_name o query.",
+            };
+          }
+          const brainId =
+            typeof args.brain_id === "string" && args.brain_id.length > 0
+              ? args.brain_id
+              : null;
+
+          // 1) alias resolver
+          let resolved = resolveProjectKeyAlias(requested);
+
+          // 2) snapshot fallback (case-insensitive name/key match)
+          const sbSnap = supabase as never as {
             from: (t: string) => {
               select: (c: string) => {
-                eq: (c: string, v: string) => Promise<{ data: unknown }>;
+                or: (expr: string) => {
+                  limit: (n: number) => Promise<{ data: unknown }>;
+                };
+              };
+            };
+          };
+          if (!resolved) {
+            try {
+              const escaped = requested.replace(/[%,()]/g, " ").trim();
+              const snapRes = await sbSnap
+                .from("project_state_snapshots")
+                .select("project_key,project_name")
+                .or(`project_key.ilike.${escaped},project_name.ilike.%${escaped}%`)
+                .limit(1);
+              const rows = (snapRes.data ?? []) as Array<{
+                project_key: string;
+                project_name: string;
+              }>;
+              if (rows[0]?.project_key) resolved = rows[0].project_key;
+            } catch {
+              // best-effort fallback
+            }
+          }
+
+          if (!resolved) {
+            void logSanitizedEvent(
+              supabase,
+              userId,
+              "jack_project_connector_resolver_failed",
+              { requested_project: requested, brain_id: brainId, status: "unresolved" },
+            );
+            return {
+              ok: true,
+              payload: {
+                resolved_project_key: null,
+                requested_project: requested,
+                mapping_count: 0,
+                connectors: [],
+                sources: [],
+                hint: "Progetto non riconosciuto. Apri Connector Hub per mappare le fonti.",
+              },
+            };
+          }
+
+          void logSanitizedEvent(
+            supabase,
+            userId,
+            "jack_project_connector_resolver_used",
+            {
+              requested_project: requested,
+              resolved_project_key: resolved,
+              brain_id: brainId,
+              status: "resolved",
+            },
+          );
+
+          // brain_id filter: include rows where brain_id IS NULL OR equals brainId
+          const sbMap = supabase as never as {
+            from: (t: string) => {
+              select: (c: string) => {
+                eq: (c: string, v: string) => {
+                  or: (expr: string) => Promise<{ data: unknown }>;
+                };
               };
             };
           };
@@ -1204,10 +1286,16 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               select: (c: string) => Promise<{ data: unknown }>;
             };
           };
-          const mapRes = await sb
+          const orExpr = brainId
+            ? `brain_id.is.null,brain_id.eq.${brainId}`
+            : `brain_id.is.null,brain_id.not.is.null`;
+          const mapRes = await sbMap
             .from("project_source_mappings")
-            .select("connector_key,source_type,source_label,source_ref,sync_status,last_seen_at")
-            .eq("project_key", projectKey);
+            .select(
+              "connector_key,source_type,source_label,source_ref,sync_status,last_seen_at,brain_id",
+            )
+            .eq("project_key", resolved)
+            .or(orExpr);
           const regRes = await sb2
             .from("connector_registry")
             .select("connector_key,connector_name,status,permission_level");
@@ -1229,14 +1317,19 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             };
           });
           void logSanitizedEvent(supabase, userId, "jack_project_connectors_requested", {
-            project_key: projectKey,
-            sources: mappings.length,
+            requested_project: requested,
+            resolved_project_key: resolved,
+            brain_id: brainId,
+            mapping_count: mappings.length,
             connectors: connectors.length,
           });
           return {
             ok: true,
             payload: {
-              project_key: projectKey,
+              resolved_project_key: resolved,
+              requested_project: requested,
+              project_key: resolved,
+              mapping_count: mappings.length,
               connectors,
               sources: mappings.map((m) => ({
                 connector_key: m.connector_key,
@@ -1245,6 +1338,10 @@ export const runJackGptTool = createServerFn({ method: "POST" })
                 source_ref: m.source_ref ?? null,
                 sync_status: m.sync_status ?? "not_synced",
               })),
+              hint:
+                mappings.length === 0
+                  ? "Nessuna fonte mappata. Apri Connector Hub per aggiungerla."
+                  : null,
             },
           };
         }
