@@ -967,22 +967,41 @@ export const runJackGptTool = createServerFn({ method: "POST" })
 // Log helper — sanitized event row.
 export const logJackGptEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => d as { event: string; metadata?: Record<string, unknown> })
+  .inputValidator((d: unknown) => {
+    const obj = (d && typeof d === "object" ? (d as Record<string, unknown>) : {}) as {
+      event?: unknown;
+      metadata?: unknown;
+    };
+    const event =
+      typeof obj.event === "string" && obj.event.length > 0 ? obj.event : "jack_gpt_event_unknown";
+    const metadata =
+      obj.metadata && typeof obj.metadata === "object" && !Array.isArray(obj.metadata)
+        ? (obj.metadata as Record<string, unknown>)
+        : {};
+    return { event, metadata };
+  })
   .handler(async ({ data, context }) => {
-    const { event, metadata } = data;
-    const safe = JSON.parse(
-      JSON.stringify(metadata ?? {}).replace(/sk-[A-Za-z0-9_-]{16,}/g, "[REDACTED]"),
-    );
     try {
+      let safe: Record<string, unknown> = {};
+      try {
+        safe = JSON.parse(
+          JSON.stringify(data.metadata).replace(/sk-[A-Za-z0-9_-]{16,}/g, "[REDACTED]"),
+        );
+      } catch {
+        safe = { _serialize_error: true };
+      }
       await (context.supabase as never as {
         from: (t: string) => {
           insert: (v: Record<string, unknown>) => Promise<{ error: unknown }>;
         };
       })
-        .from("agent_event_log")
+        .from("app_logs")
         .insert({
           user_id: context.userId,
-          event_type: event,
+          entity_type: "jack_gpt",
+          action: data.event,
+          message: data.event,
+          severity: "info",
           metadata: safe,
         });
     } catch {
