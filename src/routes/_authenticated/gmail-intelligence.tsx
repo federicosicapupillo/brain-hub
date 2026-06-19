@@ -163,7 +163,7 @@ function GmailIntelligenceRoute() {
     <div className="space-y-6">
       <PageHeader
         title="Gmail Intelligence"
-        description="Email importanti, riassunti read-only e preview action — privacy-safe."
+        subtitle="Email importanti, riassunti read-only e preview action — privacy-safe."
       />
 
       <Card>
