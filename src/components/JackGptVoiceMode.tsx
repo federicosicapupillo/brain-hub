@@ -330,6 +330,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     useState<LastActionCreateResult | null>(null);
   const pendingPreviewRef = useRef<PendingJackActionPreview | null>(null);
   const confirmingPreviewIdRef = useRef<string | null>(null);
+  // v3.21.7 — voice confirmation bridge
+  const voiceConfirmationInFlightRef = useRef<boolean>(false);
+  const voiceConfirmationDedupRef = useRef<{ normalized: string; at: number } | null>(null);
+  const VOICE_CONFIRM_DEDUP_MS = 3000;
+  const VOICE_CONFIRM_MAX_PREVIEW_AGE_MS = 10 * 60 * 1000;
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
   // v3.21.6 — persistence bridge
   const savePreviewFn = useServerFn(saveJackActionPreviewFn);
