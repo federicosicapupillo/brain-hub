@@ -224,6 +224,26 @@ function ConnectorHubPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Quick mapping progetti
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Crea con un click i mapping standard per i progetti principali.
+            L'azione è idempotente: i mapping già presenti non vengono duplicati.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={onSeedPupillo} disabled={seedingPupillo} size="sm">
+              <Plus className={`mr-2 h-4 w-4 ${seedingPupillo ? "animate-pulse" : ""}`} />
+              Crea mapping Pupillo
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
             <Plug className="h-4 w-4" /> Connettori
           </CardTitle>
         </CardHeader>
