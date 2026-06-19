@@ -698,12 +698,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [safeLog],
   );
 
-  const suppressActiveRealtimeResponse = useCallback(
-    (reason: string): boolean => {
-      return cancelRealtimeResponseForControlledConfirmation(reason).cancelSent;
-    },
-    [cancelRealtimeResponseForControlledConfirmation],
-  );
+
+
 
 
   useEffect(() => {
