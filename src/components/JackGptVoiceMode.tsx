@@ -646,12 +646,32 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
         const preview = (payload.preview as PendingJackActionPreview | undefined) ?? null;
         if (preview && preview.title && preview.idempotency_key) {
-          pendingPreviewRef.current = preview;
-          setPendingActionPreview(preview);
+          const createdAt = preview.created_at ?? preview.generated_at ?? new Date().toISOString();
+          const currentPreview: PendingJackActionPreview = {
+            ...preview,
+            preview_id: preview.preview_id ?? buildJackPreviewId(preview.idempotency_key, createdAt),
+            created_at: createdAt,
+            generated_at: preview.generated_at ?? createdAt,
+          };
+          const previous = pendingPreviewRef.current;
+          if (previous) {
+            safeLog("jack_pending_preview_replaced", {
+              previous_preview_id: previous.preview_id,
+              preview_id: currentPreview.preview_id,
+              title_hash: hashJackActionText(currentPreview.title),
+              idempotency_key: redactJackIdempotencyKey(currentPreview.idempotency_key),
+            });
+          }
+          pendingPreviewRef.current = currentPreview;
+          setPendingActionPreview(currentPreview);
+          setConfirmationStatus(null);
+          setCreatedActionId(null);
           safeLog("jack_pending_action_preview_stored", {
-            source: preview.source,
-            risk_level: preview.risk_level,
-            idempotency_key_preview: preview.idempotency_key.slice(0, 32),
+            preview_id: currentPreview.preview_id,
+            source: currentPreview.source,
+            risk_level: currentPreview.risk_level,
+            title_hash: hashJackActionText(currentPreview.title),
+            idempotency_key: redactJackIdempotencyKey(currentPreview.idempotency_key),
           });
         }
       }
