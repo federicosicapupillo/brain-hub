@@ -1200,20 +1200,67 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         confirmingPreviewIdRef.current = null;
       }
     },
-    [confirmFromPreviewFn, brainId, safeLog, pushLog, safeCreateResponse, queryClient],
+    [confirmFromPreviewFn, confirmPreviewFn, brainId, safeLog, pushLog, safeCreateResponse, queryClient],
   );
 
   const cancelPendingPreview = useCallback(() => {
-    if (!pendingPreviewRef.current) return;
-    safeLog("jack_pending_action_preview_cancelled", {
-      source: pendingPreviewRef.current.source,
-    });
+    const current = pendingPreviewRef.current;
+    if (!current) return;
+    safeLog("jack_pending_action_preview_cancelled", { source: current.source });
     pendingPreviewRef.current = null;
     setPendingActionPreview(null);
     setConfirmationStatus(null);
     setCreatedActionId(null);
+    // v3.21.6 — flip persistent row to 'cancelled' (best-effort, never throws).
+    void cancelPreviewFn({ data: { preview_id: current.preview_id } })
+      .then((res) => {
+        if (res.ok) {
+          setPreviewDbStatus("cancelled");
+          setPreviewPersistenceStatus("local_only");
+        }
+      })
+      .catch(() => undefined);
     pushLog({ kind: "system", text: "Proposta annullata." });
-  }, [safeLog, pushLog]);
+  }, [safeLog, pushLog, cancelPreviewFn]);
+
+  // v3.21.6 — restore pending preview on mount so refresh / route change
+  // doesn't force the user to regenerate the proposal.
+  useEffect(() => {
+    if (restoreAttemptedRef.current) return;
+    restoreAttemptedRef.current = true;
+    void restorePreviewFn({ data: { brain_id: brainId ?? null } })
+      .then((res) => {
+        if (!res.ok) return;
+        if (!res.found) {
+          setPreviewPersistenceStatus("restore_missing");
+          safeLog("jack_action_preview_restore_missing", {});
+          return;
+        }
+        // Don't clobber a fresher local preview generated in the meantime.
+        if (pendingPreviewRef.current) return;
+        const restored = res.preview.preview;
+        pendingPreviewRef.current = restored;
+        setPendingActionPreview(restored);
+        setPreviewPersistenceStatus("restore_found");
+        setPreviewDbStatus(res.preview.status);
+        setConfirmationStatus(null);
+        setCreatedActionId(null);
+        safeLog("jack_action_preview_restored", {
+          preview_id: restored.preview_id,
+          status: res.preview.status,
+          title_hash: hashJackActionText(restored.title),
+        });
+        pushLog({
+          kind: "system",
+          text: `Hai una action in attesa di conferma: ${restored.title}`,
+        });
+      })
+      .catch(() => {
+        setPreviewPersistenceStatus("restore_missing");
+      });
+  }, [restorePreviewFn, brainId, safeLog, pushLog]);
+
+
 
 
 
