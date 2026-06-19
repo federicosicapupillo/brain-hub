@@ -1269,12 +1269,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           source: verified.source,
           visible_in_current_list: visibleInCurrentList,
         });
-        safeLog("jack_voice_confirmation_server_verified", {
-          ...baseEvent,
-          action_id: res.action_id,
-          verification_status: "verification_found",
-        });
-        lastVoiceServerVerifiedAtRef.current = Date.now();
+        if (source === "voice_router") {
+          safeLog("jack_voice_confirmation_server_verified", {
+            ...baseEvent,
+            action_id: res.action_id,
+            verification_status: "verification_found",
+          });
+          lastVoiceServerVerifiedAtRef.current = Date.now();
+        }
         setLastActionCreateResult((prev) =>
           prev
             ? {
@@ -1313,17 +1315,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         try {
           pendingPreviewRef.current = null;
           setPendingActionPreview(null);
-          safeLog("jack_voice_confirmation_pending_cleared", {
-            ...baseEvent,
-            action_id: res.action_id,
-            verification_status: "verification_found",
-          });
+          if (source === "voice_router") {
+            safeLog("jack_voice_confirmation_pending_cleared", {
+              ...baseEvent,
+              action_id: res.action_id,
+              verification_status: "verification_found",
+            });
+          }
         } catch (clearErr) {
-          safeLog("jack_voice_confirmation_pending_clear_failed", {
-            ...baseEvent,
-            action_id: res.action_id,
-            error_code: clearErr instanceof Error ? clearErr.name : "unknown",
-          });
+          if (source === "voice_router") {
+            safeLog("jack_voice_confirmation_pending_clear_failed", {
+              ...baseEvent,
+              action_id: res.action_id,
+              error_code: clearErr instanceof Error ? clearErr.name : "unknown",
+            });
+          }
         }
         if (source === "voice_router") {
           pushLog({
