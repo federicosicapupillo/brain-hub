@@ -191,7 +191,7 @@ function ConnectorHubPage() {
     <div className="space-y-6">
       <PageHeader
         title="Connector Hub"
-        description="Stato connettori (read-only o manual-first) e mapping fonti ai progetti."
+        subtitle="Stato connettori (read-only o manual-first) e mapping fonti ai progetti."
       />
 
       <div className="flex flex-wrap items-center gap-2">
