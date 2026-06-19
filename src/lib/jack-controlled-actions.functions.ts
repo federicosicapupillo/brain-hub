@@ -19,8 +19,12 @@ import {
 } from "@/lib/jack-command-intents";
 import {
   buildJackActionIdempotencyKey,
+  buildJackPreviewId,
+  hashJackActionText,
+  redactJackIdempotencyKey,
   type PendingJackActionPreview,
 } from "@/lib/jack-action-confirmation";
+import type { Json } from "@/integrations/supabase/types";
 
 // ---------- Types ----------
 
@@ -75,13 +79,32 @@ export type PrepareMasterSnapshotResult = {
 
 // ---------- Helpers ----------
 
-type Sb = {
-  from: (t: string) => {
-    select: (cols?: string) => unknown;
-    insert: (v: unknown) => unknown;
-    update?: (v: unknown) => unknown;
-  };
+type QueryResult<T> = { data: T | null; error: { message?: string } | null };
+type QueryRows<T> = PromiseLike<QueryResult<T[]>> & {
+  eq: (column: string, value: unknown) => QueryRows<T>;
+  not: (column: string, operator: string, value: unknown) => QueryRows<T>;
+  order: (column: string, options?: { ascending?: boolean }) => QueryRows<T>;
+  limit: (count: number) => QueryRows<T>;
 };
+type InsertSelect<T> = { single: () => PromiseLike<QueryResult<T>> };
+type InsertBuilder<T> = { select: (columns?: string) => InsertSelect<T> };
+type UpdateBuilder = { eq: (column: string, value: unknown) => PromiseLike<QueryResult<unknown>> };
+type TableBuilder = {
+  select: <T>(columns?: string) => QueryRows<T>;
+  insert: <T>(value: unknown) => InsertBuilder<T>;
+  update: (value: unknown) => UpdateBuilder;
+};
+type SupabaseLike = { from: (table: string) => TableBuilder };
+type InsertedAction = { id: string; title: string };
+type ExistingAction = { id: string; title: string; metadata: Json | null };
+
+function db(supabase: unknown): SupabaseLike {
+  return supabase as SupabaseLike;
+}
+
+function toJson(value: Record<string, unknown>): Json {
+  return JSON.parse(JSON.stringify(value)) as Json;
+}
 
 function sanitizeText(input: string, max = 800): string {
   let out = input ?? "";
