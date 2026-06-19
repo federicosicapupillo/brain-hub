@@ -315,6 +315,84 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       "Connettori con warning, errori o non configurati. Risponde a 'Quali connettori hanno problemi?'. Read-only.",
     parameters: { type: "object", properties: {}, required: [] },
   },
+  // v3.22 — Gmail read-only intelligence tools
+  {
+    type: "function",
+    name: "get_email_brief",
+    description:
+      "Brief email: nuove mail nel range, non lette, importanti, top 5 con mittente/oggetto/motivo importanza. Read-only. Mai body completo.",
+    parameters: {
+      type: "object",
+      properties: {
+        brain_id: { type: "string" },
+        date_range: { type: "string", enum: ["today", "7d", "all"] },
+        unread_only: { type: "boolean" },
+        important_only: { type: "boolean" },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "list_important_emails",
+    description:
+      "Lista email importanti (score >= 55) con mittente, oggetto, motivo, progetto sospettato. Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        brain_id: { type: "string" },
+        since: { type: "string", enum: ["today", "7d", "30d", "all"] },
+        project: { type: "string" },
+        limit: { type: "number" },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "summarize_email",
+    description:
+      "Riassunto breve di una specifica email: punti chiave, richieste, date, allegati, action suggerita. Niente invio. Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        gmail_message_id: { type: "string" },
+        selection_index: { type: "number", description: "Indice dalla lista importanti." },
+        brain_id: { type: "string" },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "summarize_email_thread",
+    description:
+      "Riassunto di un intero thread Gmail con elenco messaggi e partecipanti. Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        gmail_thread_id: { type: "string" },
+        brain_id: { type: "string" },
+      },
+      required: ["gmail_thread_id"],
+    },
+  },
+  {
+    type: "function",
+    name: "preview_email_action",
+    description:
+      "Prepara una preview di action a partire da una email. NON scrive nulla; richiede conferma UI o router deterministico.",
+    parameters: {
+      type: "object",
+      properties: {
+        gmail_message_id: { type: "string" },
+        action_type: { type: "string" },
+        reason: { type: "string" },
+        brain_id: { type: "string" },
+      },
+      required: ["gmail_message_id"],
+    },
+  },
 ] as const;
 
 // ---------- Helpers ----------
