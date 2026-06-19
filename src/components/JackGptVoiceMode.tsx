@@ -419,6 +419,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const lastVoiceBridgeTriggeredAtRef = useRef<number | null>(null);
   const lastVoiceServerVerifiedAtRef = useRef<number | null>(null);
   const inputTranscriptionCompletedSeenRef = useRef<boolean>(false);
+  // v3.21.9 — post-confirmation audio cleanup state
+  const suppressRealtimeAssistantOutputRef = useRef<boolean>(false);
+  const suppressedResponseIdsRef = useRef<Set<string>>(new Set());
+  const suppressedResponseCountRef = useRef<number>(0);
+  const voiceConfirmationStartedAtRef = useRef<number | null>(null);
+  const finalControlledMessageShownRef = useRef<boolean>(false);
+
   const VOICE_CONFIRM_DEDUP_MS = 3000;
   const VOICE_CONFIRM_MAX_PREVIEW_AGE_MS = 10 * 60 * 1000;
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
