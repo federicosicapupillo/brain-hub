@@ -241,6 +241,10 @@ function DailyBriefRoute() {
 
       <JackGptVoiceMode brainId={brainId} />
 
+      <section aria-label="Email importanti">
+        <GmailMiniCard brainId={brainId} />
+      </section>
+
 
 
       {briefQ.isError ? (
