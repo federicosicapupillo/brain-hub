@@ -1249,7 +1249,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         }
 
         // Verify it actually shows up in the current /action-queue list
-        // for this user's brain filter, if any.
+        // for this user's current brain filter.
         let visibleInCurrentList: boolean | null = null;
         try {
           const cached = queryClient.getQueriesData<AutomationAction[]>({
