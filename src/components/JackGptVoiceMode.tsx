@@ -203,6 +203,17 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const RESPONSE_CREATE_DEBOUNCE_MS = 400;
 
+  // v3.21.2 — tool-call dedup + batching + transcript dedup
+  const toolCallInFlightCountRef = useRef<number>(0);
+  const processedToolCallIdsRef = useRef<Set<string>>(new Set());
+  const lastToolCallKeyRef = useRef<{ key: string; at: number } | null>(null);
+  const TOOL_CALL_CLIENT_DEDUP_MS = 3000;
+  const transcriptDedupRef = useRef<{
+    responseId: string | null;
+    lastDelta: string | null;
+    appendedDoneIds: Set<string>;
+  }>({ responseId: null, lastDelta: null, appendedDoneIds: new Set() });
+
   function redactResponseId(id: string | null): string | null {
     if (!id) return null;
     if (id.length <= 10) return id;
