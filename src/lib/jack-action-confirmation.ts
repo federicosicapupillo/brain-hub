@@ -38,13 +38,20 @@ export type PendingJackActionPreview = {
 const EXPLICIT_PATTERNS: RegExp[] = [
   /\bs[iì]\s*,?\s*conferm[oa]\b/i,
   /\bconferm[oa]\b/i,
-  /\bprocedi(?:amo)?\b/i,
-  /\bcreala\b/i,
-  /\bcrea\s+l['’]?\s*action\b/i,
+  /\bprocedi(?:amo)?(?:\s+pure)?\b/i,
+  /\bpuoi\s+procedere\b/i,
+  /\bcre[ai]l[oa]\b/i,
+  /\bcrea\s+(?:l['’]?\s*|questa\s+|quest['’]?\s*)?(?:action|azione)\b/i,
+  /\bcrea\s+pure\b/i,
   /\bs[iì]\s*,?\s*crea\b/i,
   /\bok\s*,?\s*crea\b/i,
   /\bvai\s*,?\s*crea\b/i,
-  /\bcrea\s+pure\b/i,
+  /\bapprov(?:a|al[oa])\b/i,
+  /\bva\s+bene\b/i,
+  /\b(?:perfetto|ottimo|bene)\s*,?\s*(?:procedi|crea|conferm[oa])\b/i,
+  /^(?:ok\s*,?\s*)?vai\s*[.!]?\s*$/i,
+  /\bok\s*,?\s*(?:procedi|conferm[oa])\b/i,
+  /^\s*s[iì]\s*[.!]?\s*$/i,
 ];
 
 const AMBIGUOUS_BLOCKLIST: RegExp[] = [
@@ -56,7 +63,21 @@ const AMBIGUOUS_BLOCKLIST: RegExp[] = [
   /\bdimmi\b/i,
   /\bmagari\b/i,
   /\bpenso\b/i,
+  /\bnon\s+(?:ancora|adesso|conferm|crea|procedi)/i,
+  /\baspetta\b/i,
+  /\bannulla\b/i,
+  /\bcancell[ao]\b/i,
 ];
+
+/** Normalize voice transcript: lowercase, strip punctuation, strip "jack" vocative, collapse spaces. */
+export function normalizeVoiceConfirmationText(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s'’ìàèéòù]/gu, " ")
+    .replace(/\bjack\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 /**
  * True ONLY for unambiguous, explicit confirmation phrases.
@@ -64,11 +85,16 @@ const AMBIGUOUS_BLOCKLIST: RegExp[] = [
  */
 export function isExplicitJackConfirmation(text: string | null | undefined): boolean {
   if (!text) return false;
-  const t = text.trim().toLowerCase();
+  const raw = text.trim();
+  if (!raw) return false;
+  const t = normalizeVoiceConfirmationText(raw);
   if (!t) return false;
   if (AMBIGUOUS_BLOCKLIST.some((r) => r.test(t))) return false;
   return EXPLICIT_PATTERNS.some((r) => r.test(t));
 }
+
+/** Alias kept for clarity at voice-router call sites. */
+export const detectVoiceConfirmationIntent = isExplicitJackConfirmation;
 
 // ---------- Idempotency key ----------
 

@@ -45,8 +45,10 @@ import {
 } from "@/lib/jack-action-previews.functions";
 import {
   buildJackPreviewId,
+  detectVoiceConfirmationIntent,
   hashJackActionText,
-  isExplicitJackConfirmation,
+  
+  normalizeVoiceConfirmationText,
   redactJackIdempotencyKey,
   type PendingJackActionPreview,
 } from "@/lib/jack-action-confirmation";
@@ -148,6 +150,19 @@ type Diagnostics = {
   lastResponseDoneAt: number | null;
   skippedResponseCreateCount: number;
   duplicateResponseHandledCount: number;
+  // v3.21.7 — voice confirmation bridge diagnostics
+  lastVoiceTranscriptDetected: boolean;
+  lastVoiceConfirmationIntent: boolean;
+  lastVoiceConfirmationIgnoredReason:
+    | "none"
+    | "no_pending_preview"
+    | "duplicate"
+    | "ambiguous"
+    | "in_flight"
+    | "preview_too_old"
+    | null;
+  voiceConfirmationInFlight: boolean;
+  voiceConfirmationLastSource: "voice_router" | "ui_button" | null;
 };
 
 type Props = { brainId?: string | null };
@@ -206,6 +221,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastResponseDoneAt: null,
     skippedResponseCreateCount: 0,
     duplicateResponseHandledCount: 0,
+    lastVoiceTranscriptDetected: false,
+    lastVoiceConfirmationIntent: false,
+    lastVoiceConfirmationIgnoredReason: null,
+    voiceConfirmationInFlight: false,
+    voiceConfirmationLastSource: null,
   });
 
   const responseInProgressRef = useRef(false);
@@ -312,6 +332,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     useState<LastActionCreateResult | null>(null);
   const pendingPreviewRef = useRef<PendingJackActionPreview | null>(null);
   const confirmingPreviewIdRef = useRef<string | null>(null);
+  // v3.21.7 — voice confirmation bridge
+  const voiceConfirmationInFlightRef = useRef<boolean>(false);
+  const voiceConfirmationDedupRef = useRef<{ normalized: string; at: number } | null>(null);
+  const VOICE_CONFIRM_DEDUP_MS = 3000;
+  const VOICE_CONFIRM_MAX_PREVIEW_AGE_MS = 10 * 60 * 1000;
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
   // v3.21.6 — persistence bridge
   const savePreviewFn = useServerFn(saveJackActionPreviewFn);
@@ -1357,15 +1382,104 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           if (msg.transcript) {
             const transcript = String(msg.transcript);
             pushLog({ kind: "user", text: transcript });
-            // v3.19.6 — deterministic voice router: if a pending preview
-            // exists and the real user transcript is an explicit
-            // confirmation, trigger the controlled creation server-side.
-            if (
-              pendingPreviewRef.current &&
-              isExplicitJackConfirmation(transcript)
-            ) {
-              void confirmPendingPreview("voice_router", transcript);
+            // v3.21.7 — deterministic voice confirmation bridge.
+            const normalized = normalizeVoiceConfirmationText(transcript);
+            const phraseHash = hashJackActionText(normalized);
+            const intent = detectVoiceConfirmationIntent(transcript);
+            const preview = pendingPreviewRef.current;
+            const baseMeta = {
+              has_pending_preview: Boolean(preview),
+              preview_id: preview?.preview_id ?? null,
+              normalized_intent: intent,
+              confirmation_source: "voice" as const,
+              transcript_length: transcript.length,
+              phrase_hash: phraseHash,
+            };
+            safeLog("jack_voice_confirmation_transcript_received", baseMeta);
+            setDiagnostics((d) => ({
+              ...d,
+              lastVoiceTranscriptDetected: true,
+              lastVoiceConfirmationIntent: intent,
+              lastVoiceConfirmationIgnoredReason: intent ? d.lastVoiceConfirmationIgnoredReason : "ambiguous",
+            }));
+
+            if (!intent) {
+              safeLog("jack_voice_confirmation_ignored_ambiguous", {
+                ...baseMeta,
+                reason: "no_explicit_phrase",
+              });
+              break;
             }
+
+            if (!preview) {
+              safeLog("jack_voice_confirmation_ignored_no_preview", {
+                ...baseMeta,
+                reason: "no_pending_preview",
+              });
+              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "no_pending_preview" }));
+              pushLog({ kind: "warning", text: "Conferma vocale rilevata, ma non ho una proposta pendente." });
+              break;
+            }
+
+            // Dedup identical transcript within window
+            const now = Date.now();
+            const dedup = voiceConfirmationDedupRef.current;
+            if (dedup && dedup.normalized === normalized && now - dedup.at < VOICE_CONFIRM_DEDUP_MS) {
+              safeLog("jack_voice_confirmation_ignored_duplicate", {
+                ...baseMeta,
+                reason: "duplicate_transcript_within_window",
+              });
+              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "duplicate" }));
+              break;
+            }
+            voiceConfirmationDedupRef.current = { normalized, at: now };
+
+            if (voiceConfirmationInFlightRef.current || confirmingPreviewIdRef.current) {
+              safeLog("jack_voice_confirmation_ignored_duplicate", {
+                ...baseMeta,
+                reason: "confirmation_already_in_flight",
+              });
+              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "in_flight" }));
+              break;
+            }
+
+            // Guard: preview must not be too old (10 min window)
+            const createdAtMs = Date.parse(preview.created_at);
+            if (Number.isFinite(createdAtMs) && now - createdAtMs > VOICE_CONFIRM_MAX_PREVIEW_AGE_MS) {
+              safeLog("jack_voice_confirmation_ignored_ambiguous", {
+                ...baseMeta,
+                reason: "preview_too_old",
+              });
+              setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "preview_too_old" }));
+              pushLog({ kind: "warning", text: "Proposta troppo vecchia, rigenerala prima di confermare." });
+              break;
+            }
+
+            voiceConfirmationInFlightRef.current = true;
+            setDiagnostics((d) => ({
+              ...d,
+              voiceConfirmationInFlight: true,
+              voiceConfirmationLastSource: "voice_router",
+              lastVoiceConfirmationIgnoredReason: "none",
+            }));
+            safeLog("jack_voice_confirmation_detected", baseMeta);
+            safeLog("jack_voice_confirmation_confirm_started", baseMeta);
+            pushLog({ kind: "system", text: "Conferma vocale rilevata." });
+
+            void (async () => {
+              try {
+                await confirmPendingPreview("voice_router", transcript);
+                safeLog("jack_voice_confirmation_confirm_completed", baseMeta);
+              } catch (err) {
+                safeLog("jack_voice_confirmation_confirm_failed", {
+                  ...baseMeta,
+                  error_code: err instanceof Error ? err.name : "unknown",
+                });
+              } finally {
+                voiceConfirmationInFlightRef.current = false;
+                setDiagnostics((d) => ({ ...d, voiceConfirmationInFlight: false }));
+              }
+            })();
           }
           break;
 
@@ -2119,6 +2233,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               <div><span className="text-muted-foreground">Visibile in lista:</span> {lastActionCreateResult.visibleInCurrentList === null ? "—" : lastActionCreateResult.visibleInCurrentList ? "sì" : "no (filtro/brain)"}</div>
               <div><span className="text-muted-foreground">Preview persistence:</span> {previewPersistenceStatus}</div>
               <div><span className="text-muted-foreground">Preview DB status:</span> {previewDbStatus ?? "—"}</div>
+              <div className="sm:col-span-2 border-t pt-1 mt-1 text-[11px] font-medium text-muted-foreground">Bridge vocale (v3.21.7)</div>
+              <div><span className="text-muted-foreground">Transcript rilevato:</span> {diagnostics.lastVoiceTranscriptDetected ? "sì" : "—"}</div>
+              <div><span className="text-muted-foreground">Intent vocale:</span> {diagnostics.lastVoiceConfirmationIntent ? "conferma" : "—"}</div>
+              <div><span className="text-muted-foreground">Voce in corso:</span> {diagnostics.voiceConfirmationInFlight ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Voce ignorata:</span> {
+                diagnostics.lastVoiceConfirmationIgnoredReason === "no_pending_preview" ? "nessuna action pending" :
+                diagnostics.lastVoiceConfirmationIgnoredReason === "duplicate" ? "duplicato/in corso" :
+                diagnostics.lastVoiceConfirmationIgnoredReason === "ambiguous" ? "frase ambigua" :
+                diagnostics.lastVoiceConfirmationIgnoredReason === "in_flight" ? "conferma già in corso" :
+                diagnostics.lastVoiceConfirmationIgnoredReason === "preview_too_old" ? "preview troppo vecchia" :
+                "—"
+              }</div>
               <div className="sm:col-span-2"><span className="text-muted-foreground">Errore:</span> {lastActionCreateResult.errorCode ?? "—"}</div>
               {lastActionCreateResult.safeMessage ? (
                 <div className="sm:col-span-2"><span className="text-muted-foreground">Messaggio:</span> {lastActionCreateResult.safeMessage}</div>
