@@ -217,14 +217,7 @@ type Diagnostics = {
     | null;
   voiceConfirmationInFlight: boolean;
   voiceConfirmationLastSource: "voice_router" | "ui_button" | null;
-  // v3.21.9 — post-confirmation audio cleanup
-  responseCancelSent: boolean;
-  outputAudioClearSent: boolean;
-  staleOutputSuppressed: boolean;
-  suppressedResponseCount: number;
-  finalControlledMessageShown: boolean;
 };
-
 
 type Props = { brainId?: string | null };
 
@@ -301,13 +294,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastVoiceConfirmationIgnoredReason: null,
     voiceConfirmationInFlight: false,
     voiceConfirmationLastSource: null,
-    responseCancelSent: false,
-    outputAudioClearSent: false,
-    staleOutputSuppressed: false,
-    suppressedResponseCount: 0,
-    finalControlledMessageShown: false,
   });
-
 
   const responseInProgressRef = useRef(false);
   const activeResponseIdRef = useRef<string | null>(null);
@@ -419,13 +406,6 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const lastVoiceBridgeTriggeredAtRef = useRef<number | null>(null);
   const lastVoiceServerVerifiedAtRef = useRef<number | null>(null);
   const inputTranscriptionCompletedSeenRef = useRef<boolean>(false);
-  // v3.21.9 — post-confirmation audio cleanup state
-  const suppressRealtimeAssistantOutputRef = useRef<boolean>(false);
-  const suppressedResponseIdsRef = useRef<Set<string>>(new Set());
-  const suppressedResponseCountRef = useRef<number>(0);
-  const voiceConfirmationStartedAtRef = useRef<number | null>(null);
-  const finalControlledMessageShownRef = useRef<boolean>(false);
-
   const VOICE_CONFIRM_DEDUP_MS = 3000;
   const VOICE_CONFIRM_MAX_PREVIEW_AGE_MS = 10 * 60 * 1000;
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
@@ -634,73 +614,31 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     }, RESPONSE_CREATE_DEBOUNCE_MS);
   }, [safeCreateResponse, safeLog]);
 
-  // v3.21.9 — Safe helper to cancel any in-flight Realtime response and
-  // clear pending output audio when a controlled confirmation takes over.
-  // Never throws; logs sanitized events; no-op when channel is closed.
-  const cancelRealtimeResponseForControlledConfirmation = useCallback(
-    (reason: string): { cancelSent: boolean; clearSent: boolean } => {
+  const suppressActiveRealtimeResponse = useCallback(
+    (reason: string): boolean => {
       const dc = dcRef.current;
-      let cancelSent = false;
-      let clearSent = false;
-      const hadActive = responseInProgressRef.current;
-      const activeIdRedacted = redactResponseId(activeResponseIdRef.current);
+      let suppressed = false;
       pendingResponseCreateRef.current = null;
       setDiagnostics((d) => ({ ...d, pendingResponse: false }));
-      safeLog("jack_realtime_response_cancel_requested", {
-        safe_message: reason,
-        has_active_response: hadActive,
-        response_id: activeIdRedacted,
-      });
-      if (dc && dc.readyState === "open") {
-        if (hadActive) {
-          try {
-            dc.send(JSON.stringify({ type: "response.cancel" }));
-            cancelSent = true;
-            safeLog("jack_realtime_response_cancel_sent", {
-              safe_message: reason,
-              response_id: activeIdRedacted,
-            });
-          } catch (err) {
-            safeLog("jack_realtime_response_cancel_failed", {
-              safe_message: reason,
-              error_code: err instanceof Error ? err.name : "send_failed",
-            });
-          }
-        }
+      if (dc && dc.readyState === "open" && responseInProgressRef.current) {
         try {
-          dc.send(JSON.stringify({ type: "output_audio_buffer.clear" }));
-          clearSent = true;
-          safeLog("jack_realtime_output_audio_clear_sent", { safe_message: reason });
-        } catch (err) {
-          safeLog("jack_realtime_output_audio_clear_failed", {
-            safe_message: reason,
-            error_code: err instanceof Error ? err.name : "send_failed",
-          });
+          dc.send(JSON.stringify({ type: "response.cancel" }));
+          suppressed = true;
+        } catch {
+          suppressed = false;
         }
       }
-      if (cancelSent && activeResponseIdRef.current) {
-        suppressedResponseIdsRef.current.add(activeResponseIdRef.current);
-      }
-      setDiagnostics((d) => ({
-        ...d,
-        responseCancelSent: d.responseCancelSent || cancelSent,
-        outputAudioClearSent: d.outputAudioClearSent || clearSent,
-        voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || cancelSent,
-      }));
-      if (cancelSent) {
+      if (suppressed) {
         safeLog("jack_voice_confirmation_response_suppressed", {
           safe_message: reason,
-          response_id: activeIdRedacted,
+          response_id: redactResponseId(activeResponseIdRef.current),
         });
       }
-      return { cancelSent, clearSent };
+      setDiagnostics((d) => ({ ...d, voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || suppressed }));
+      return suppressed;
     },
     [safeLog],
   );
-
-
-
-
 
   useEffect(() => {
     let active = true;
@@ -1393,73 +1331,37 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             });
           }
         }
-        // v3.21.9 — single controlled local message; cancel any in-flight
-        // Realtime response and clear pending audio so the model can't keep
-        // chattering after the bridge has succeeded. NO additional response.create.
+        if (source === "voice_router") {
+          pushLog({
+            kind: "jack",
+            text: "Conferma completata. Ho creato la action in Action Queue.",
+          });
+        }
+
         const dc = dcRef.current;
         if (dc && dc.readyState === "open") {
-          if (activeResponseIdRef.current) {
-            suppressedResponseIdsRef.current.add(activeResponseIdRef.current);
-          }
-          if (responseInProgressRef.current) {
-            try {
-              dc.send(JSON.stringify({ type: "response.cancel" }));
-              safeLog("jack_realtime_response_cancel_sent", {
-                safe_message: "post_verification_cleanup",
-                response_id: redactResponseId(activeResponseIdRef.current),
-              });
-            } catch (cancelErr) {
-              safeLog("jack_realtime_response_cancel_failed", {
-                safe_message: "post_verification_cleanup",
-                error_code: cancelErr instanceof Error ? cancelErr.name : "send_failed",
-              });
-            }
-          }
           try {
-            dc.send(JSON.stringify({ type: "output_audio_buffer.clear" }));
-            safeLog("jack_realtime_output_audio_clear_sent", {
-              safe_message: "post_verification_cleanup",
-            });
-          } catch (clearErr) {
-            safeLog("jack_realtime_output_audio_clear_failed", {
-              safe_message: "post_verification_cleanup",
-              error_code: clearErr instanceof Error ? clearErr.name : "send_failed",
-            });
+            dc.send(
+              JSON.stringify({
+                type: "conversation.item.create",
+                item: {
+                  type: "message",
+                  role: "system",
+                  content: [
+                    {
+                      type: "input_text",
+                      text: `Action creata e verificata in Action Queue: "${res.action_title}". Solo ora comunica a Federico che la creazione è riuscita.`,
+                    },
+                  ],
+                },
+              }),
+            );
+          } catch {
+            /* noop */
           }
-        }
-        suppressRealtimeAssistantOutputRef.current = false;
-        voiceConfirmationInFlightRef.current = false;
-        activeResponseIdRef.current = null;
-        responseInProgressRef.current = false;
-        if (!finalControlledMessageShownRef.current) {
-          finalControlledMessageShownRef.current = true;
-          if (source === "voice_router") {
-            pushLog({
-              kind: "jack",
-              text: "Conferma completata. Ho creato la action in Action Queue.",
-            });
-          }
-          safeLog("jack_voice_confirmation_final_message_shown", {
-            ...baseEvent,
-            action_id: res.action_id,
-            phase: "verification_found",
-          });
-          setDiagnostics((d) => ({
-            ...d,
-            finalControlledMessageShown: true,
-            voiceConfirmationInFlight: false,
-            activeResponseIdRedacted: null,
-            responseState: "idle",
-          }));
-        } else {
-          safeLog("jack_voice_confirmation_duplicate_success_suppressed", {
-            ...baseEvent,
-            action_id: res.action_id,
-            phase: "verification_found",
-          });
+          safeCreateResponse("action_confirmed", { queueIfBusy: true });
         }
         return "verified" as const;
-
       } catch (err) {
         const detail = String((err as Error).message ?? err).slice(0, 160);
         safeLog("jack_confirm_pending_preview_server_call_failed", {
@@ -1651,28 +1553,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       }
 
       voiceConfirmationInFlightRef.current = true;
-      suppressRealtimeAssistantOutputRef.current = true;
-      voiceConfirmationStartedAtRef.current = now;
-      finalControlledMessageShownRef.current = false;
       lastVoiceBridgeTriggeredAtRef.current = now;
-      if (activeResponseIdRef.current) {
-        suppressedResponseIdsRef.current.add(activeResponseIdRef.current);
-      }
-      const { cancelSent, clearSent } = cancelRealtimeResponseForControlledConfirmation(
-        "voice_confirmation_intent_detected",
-      );
+      const suppressed = suppressActiveRealtimeResponse("voice_confirmation_intent_detected");
       setDiagnostics((d) => ({
         ...d,
         voiceConfirmationInFlight: true,
         voiceConfirmationLastSource: "voice_router",
         lastVoiceConfirmationIgnoredReason: "none",
         lastVoiceBridgeTriggeredAt: now,
-        voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || cancelSent,
-        responseCancelSent: d.responseCancelSent || cancelSent,
-        outputAudioClearSent: d.outputAudioClearSent || clearSent,
-        finalControlledMessageShown: false,
+        voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || suppressed,
       }));
-
       safeLog("jack_voice_confirmation_bridge_triggered", {
         ...baseMeta,
         bridge_triggered: true,
@@ -1703,7 +1593,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         }
       })();
     },
-    [confirmPendingPreview, pushLog, safeLog, cancelRealtimeResponseForControlledConfirmation],
+    [confirmPendingPreview, pushLog, safeLog, suppressActiveRealtimeResponse],
   );
 
 
@@ -1791,41 +1681,6 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         case "response.output_text.done": {
           if (!msg.transcript) break;
           const transcript = String(msg.transcript);
-          // v3.21.9 — suppress stale assistant output while a voice
-          // confirmation is in flight or for any response that was cancelled.
-          const responseIdForOutput = msg.response_id ?? activeResponseIdRef.current ?? null;
-          const isSuppressedResponse =
-            responseIdForOutput !== null && suppressedResponseIdsRef.current.has(responseIdForOutput);
-          const isStaleClaim =
-            isModelClaimingConfirmation(transcript) ||
-            /ho capito l['’]intenzione|non ho ancora completato/i.test(transcript);
-          if (
-            (suppressRealtimeAssistantOutputRef.current ||
-              voiceConfirmationInFlightRef.current ||
-              isSuppressedResponse) &&
-            isStaleClaim
-          ) {
-            suppressedResponseCountRef.current += 1;
-            safeLog("jack_realtime_stale_assistant_output_suppressed", {
-              response_id: redactResponseId(responseIdForOutput),
-              preview_id: pendingPreviewRef.current?.preview_id ?? null,
-              phrase_hash: hashJackActionText(transcript),
-              transcript_length: transcript.length,
-              reason: isSuppressedResponse
-                ? "response_id_in_suppressed_set"
-                : "voice_confirmation_in_flight",
-              phase: "post_voice_bridge",
-              event_type: msg.type ?? null,
-              suppressed_count: suppressedResponseCountRef.current,
-            });
-            setDiagnostics((d) => ({
-              ...d,
-              staleOutputSuppressed: true,
-              suppressedResponseCount: suppressedResponseCountRef.current,
-            }));
-            break;
-          }
-
           if (
             pendingPreviewRef.current &&
             isModelClaimingConfirmation(transcript) &&
@@ -2668,14 +2523,6 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               <div><span className="text-muted-foreground">Voce in corso:</span> {diagnostics.voiceConfirmationInFlight ? "sì" : "no"}</div>
               <div><span className="text-muted-foreground">Response soppressa:</span> {diagnostics.voiceConfirmationResponseSuppressed ? "sì" : "no"}</div>
               <div><span className="text-muted-foreground">Falsa conferma modello:</span> {diagnostics.modelClaimedConfirmationWithoutBridge ? "rilevata" : "—"}</div>
-              <div className="sm:col-span-2 border-t pt-1 mt-1 text-[11px] font-medium text-muted-foreground">Post-conferma audio (v3.21.9)</div>
-              <div><span className="text-muted-foreground">Active response id:</span> {diagnostics.activeResponseIdRedacted ?? "—"}</div>
-              <div><span className="text-muted-foreground">Response cancel sent:</span> {diagnostics.responseCancelSent ? "sì" : "no"}</div>
-              <div><span className="text-muted-foreground">Output audio clear sent:</span> {diagnostics.outputAudioClearSent ? "sì" : "no"}</div>
-              <div><span className="text-muted-foreground">Stale output suppressed:</span> {diagnostics.staleOutputSuppressed ? "sì" : "no"}</div>
-              <div><span className="text-muted-foreground">Suppressed count:</span> {diagnostics.suppressedResponseCount}</div>
-              <div><span className="text-muted-foreground">Final controlled msg:</span> {diagnostics.finalControlledMessageShown ? "sì" : "no"}</div>
-
               <div><span className="text-muted-foreground">Voce ignorata:</span> {
                 diagnostics.lastVoiceConfirmationIgnoredReason === "no_pending_preview" ? "nessuna action pending" :
                 diagnostics.lastVoiceConfirmationIgnoredReason === "duplicate" ? "duplicato/in corso" :
