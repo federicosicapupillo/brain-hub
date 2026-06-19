@@ -634,31 +634,77 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     }, RESPONSE_CREATE_DEBOUNCE_MS);
   }, [safeCreateResponse, safeLog]);
 
-  const suppressActiveRealtimeResponse = useCallback(
-    (reason: string): boolean => {
+  // v3.21.9 — Safe helper to cancel any in-flight Realtime response and
+  // clear pending output audio when a controlled confirmation takes over.
+  // Never throws; logs sanitized events; no-op when channel is closed.
+  const cancelRealtimeResponseForControlledConfirmation = useCallback(
+    (reason: string): { cancelSent: boolean; clearSent: boolean } => {
       const dc = dcRef.current;
-      let suppressed = false;
+      let cancelSent = false;
+      let clearSent = false;
+      const hadActive = responseInProgressRef.current;
+      const activeIdRedacted = redactResponseId(activeResponseIdRef.current);
       pendingResponseCreateRef.current = null;
       setDiagnostics((d) => ({ ...d, pendingResponse: false }));
-      if (dc && dc.readyState === "open" && responseInProgressRef.current) {
+      safeLog("jack_realtime_response_cancel_requested", {
+        safe_message: reason,
+        has_active_response: hadActive,
+        response_id: activeIdRedacted,
+      });
+      if (dc && dc.readyState === "open") {
+        if (hadActive) {
+          try {
+            dc.send(JSON.stringify({ type: "response.cancel" }));
+            cancelSent = true;
+            safeLog("jack_realtime_response_cancel_sent", {
+              safe_message: reason,
+              response_id: activeIdRedacted,
+            });
+          } catch (err) {
+            safeLog("jack_realtime_response_cancel_failed", {
+              safe_message: reason,
+              error_code: err instanceof Error ? err.name : "send_failed",
+            });
+          }
+        }
         try {
-          dc.send(JSON.stringify({ type: "response.cancel" }));
-          suppressed = true;
-        } catch {
-          suppressed = false;
+          dc.send(JSON.stringify({ type: "output_audio_buffer.clear" }));
+          clearSent = true;
+          safeLog("jack_realtime_output_audio_clear_sent", { safe_message: reason });
+        } catch (err) {
+          safeLog("jack_realtime_output_audio_clear_failed", {
+            safe_message: reason,
+            error_code: err instanceof Error ? err.name : "send_failed",
+          });
         }
       }
-      if (suppressed) {
+      if (cancelSent && activeResponseIdRef.current) {
+        suppressedResponseIdsRef.current.add(activeResponseIdRef.current);
+      }
+      setDiagnostics((d) => ({
+        ...d,
+        responseCancelSent: d.responseCancelSent || cancelSent,
+        outputAudioClearSent: d.outputAudioClearSent || clearSent,
+        voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || cancelSent,
+      }));
+      if (cancelSent) {
         safeLog("jack_voice_confirmation_response_suppressed", {
           safe_message: reason,
-          response_id: redactResponseId(activeResponseIdRef.current),
+          response_id: activeIdRedacted,
         });
       }
-      setDiagnostics((d) => ({ ...d, voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || suppressed }));
-      return suppressed;
+      return { cancelSent, clearSent };
     },
     [safeLog],
   );
+
+  const suppressActiveRealtimeResponse = useCallback(
+    (reason: string): boolean => {
+      return cancelRealtimeResponseForControlledConfirmation(reason).cancelSent;
+    },
+    [cancelRealtimeResponseForControlledConfirmation],
+  );
+
 
   useEffect(() => {
     let active = true;
