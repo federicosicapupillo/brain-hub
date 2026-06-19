@@ -1464,6 +1464,67 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           return { ok: true, payload: { warnings, total: warnings.length } };
         }
 
+        case "get_email_brief": {
+          const { getEmailBriefFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await getEmailBriefFn({
+            data: {
+              brain_id: (args.brain_id as string | undefined) ?? null,
+              date_range: (args.date_range as "today" | "7d" | "all" | undefined) ?? "today",
+              unread_only: Boolean(args.unread_only),
+              important_only: args.important_only !== false,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "list_important_emails": {
+          const { listImportantEmailsFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await listImportantEmailsFn({
+            data: {
+              brain_id: (args.brain_id as string | undefined) ?? null,
+              since: (args.since as "today" | "7d" | "30d" | "all" | undefined) ?? "7d",
+              project: (args.project as string | undefined) ?? null,
+              limit: typeof args.limit === "number" ? args.limit : 10,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "summarize_email": {
+          const { summarizeEmailFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await summarizeEmailFn({
+            data: {
+              gmail_message_id: args.gmail_message_id as string | undefined,
+              selection_index:
+                typeof args.selection_index === "number"
+                  ? args.selection_index
+                  : undefined,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "summarize_email_thread": {
+          const { summarizeEmailThreadFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await summarizeEmailThreadFn({
+            data: {
+              gmail_thread_id: args.gmail_thread_id as string | undefined,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "preview_email_action": {
+          const { previewEmailActionFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await previewEmailActionFn({
+            data: {
+              gmail_message_id: args.gmail_message_id as string | undefined,
+              action_type: (args.action_type as string | undefined) ?? undefined,
+              reason: (args.reason as string | undefined) ?? undefined,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+
         default:
           return { ok: false, error: "unknown_tool" };
       }
