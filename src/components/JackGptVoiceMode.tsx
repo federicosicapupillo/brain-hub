@@ -2117,6 +2117,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               <div><span className="text-muted-foreground">Verifica source:</span> {lastActionCreateResult.verificationSource ?? "—"}</div>
               <div><span className="text-muted-foreground">Verifica brain:</span> {lastActionCreateResult.verificationBrainId ? `${lastActionCreateResult.verificationBrainId.slice(0, 6)}…` : "—"}</div>
               <div><span className="text-muted-foreground">Visibile in lista:</span> {lastActionCreateResult.visibleInCurrentList === null ? "—" : lastActionCreateResult.visibleInCurrentList ? "sì" : "no (filtro/brain)"}</div>
+              <div><span className="text-muted-foreground">Preview persistence:</span> {previewPersistenceStatus}</div>
+              <div><span className="text-muted-foreground">Preview DB status:</span> {previewDbStatus ?? "—"}</div>
               <div className="sm:col-span-2"><span className="text-muted-foreground">Errore:</span> {lastActionCreateResult.errorCode ?? "—"}</div>
               {lastActionCreateResult.safeMessage ? (
                 <div className="sm:col-span-2"><span className="text-muted-foreground">Messaggio:</span> {lastActionCreateResult.safeMessage}</div>
