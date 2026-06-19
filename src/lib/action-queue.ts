@@ -270,6 +270,21 @@ export async function listActions(filters: {
   return (data ?? []) as unknown as AutomationAction[];
 }
 
+// v3.21.5 — read a single action by id (RLS scoped to current user).
+// Used by the Jack confirmation bridge to verify a freshly created action
+// is actually visible to the same user before reporting success.
+export async function getAutomationActionById(
+  actionId: string,
+): Promise<AutomationAction | null> {
+  const { data, error } = await supabase
+    .from("automation_actions" as never)
+    .select("*")
+    .eq("id", actionId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data ?? null) as unknown as AutomationAction | null;
+}
+
 async function updateAction(id: string, patch: Partial<AutomationAction>): Promise<AutomationAction> {
   const { data, error } = await supabase
     .from("automation_actions" as never)
