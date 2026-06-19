@@ -47,7 +47,7 @@ import {
   buildJackPreviewId,
   detectVoiceConfirmationIntent,
   hashJackActionText,
-  isExplicitJackConfirmation as _isExplicitJackConfirmation,
+  
   normalizeVoiceConfirmationText,
   redactJackIdempotencyKey,
   type PendingJackActionPreview,
