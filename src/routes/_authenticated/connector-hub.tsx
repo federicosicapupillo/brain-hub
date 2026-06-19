@@ -126,6 +126,22 @@ function ConnectorHubPage() {
     }
   };
 
+  const [seedingPupillo, setSeedingPupillo] = useState(false);
+  const onSeedPupillo = async () => {
+    setSeedingPupillo(true);
+    try {
+      const res = await seedPupilloQuickMappings();
+      toast.success(
+        `Pupillo — mapping creati: ${res.created}, già esistenti: ${res.skipped} (su ${res.total}).`,
+      );
+      await qc.invalidateQueries({ queryKey: ["connector-hub", "mappings"] });
+    } catch (e) {
+      toast.error(`Errore quick mapping Pupillo: ${(e as Error).message}`);
+    } finally {
+      setSeedingPupillo(false);
+    }
+  };
+
   // Mapping form state
   const [mProject, setMProject] = useState<string>("");
   const [mConnector, setMConnector] = useState<ConnectorKey | "">("");
