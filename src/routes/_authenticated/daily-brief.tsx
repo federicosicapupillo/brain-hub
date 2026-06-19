@@ -94,7 +94,22 @@ function DailyBriefRoute() {
 
   const briefQ = useQuery({
     queryKey: ["daily-brief", brainId],
-    queryFn: () => getTodayOperatingBrief(brainId),
+    // v3.21.6 — never let a daily-brief load error bubble to the route boundary.
+    // The structured error card below handles the failed state.
+    queryFn: async () => {
+      try {
+        return await getTodayOperatingBrief(brainId);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[daily-brief] fetch failed", {
+          error_code: "DAILY_BRIEF_FETCH_FAILED",
+          safe_message: String((err as Error)?.message ?? err).slice(0, 160),
+        });
+        throw err;
+      }
+    },
+    throwOnError: false,
+    retry: 1,
   });
 
   const brief: DailyBriefRow | null = briefQ.data ?? null;
