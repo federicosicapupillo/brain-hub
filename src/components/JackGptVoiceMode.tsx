@@ -238,6 +238,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const toolFn = useServerFn(runJackGptTool);
   const logFn = useServerFn(logJackGptEvent);
   const contextFn = useServerFn(buildJackNaturalContext);
+  const queryClient = useQueryClient();
 
   const contextSentRef = useRef(false);
   const lastContextRefreshRef = useRef<number>(0);
@@ -273,7 +274,10 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const [pendingActionPreview, setPendingActionPreview] =
     useState<PendingJackActionPreview | null>(null);
   const [confirmingAction, setConfirmingAction] = useState(false);
+  const [confirmationStatus, setConfirmationStatus] = useState<string | null>(null);
+  const [createdActionId, setCreatedActionId] = useState<string | null>(null);
   const pendingPreviewRef = useRef<PendingJackActionPreview | null>(null);
+  const confirmingPreviewIdRef = useRef<string | null>(null);
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
 
 
