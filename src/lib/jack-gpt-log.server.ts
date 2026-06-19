@@ -53,7 +53,7 @@ export async function writeJackGptEventLog(
       action: data.event,
       message: data.event,
       severity: "info",
-      metadata: safe as never,
+      metadata: safe as Json,
     });
     return { ok: true };
   } catch {
