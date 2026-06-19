@@ -94,7 +94,22 @@ function DailyBriefRoute() {
 
   const briefQ = useQuery({
     queryKey: ["daily-brief", brainId],
-    queryFn: () => getTodayOperatingBrief(brainId),
+    // v3.21.6 — never let a daily-brief load error bubble to the route boundary.
+    // The structured error card below handles the failed state.
+    queryFn: async () => {
+      try {
+        return await getTodayOperatingBrief(brainId);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.warn("[daily-brief] fetch failed", {
+          error_code: "DAILY_BRIEF_FETCH_FAILED",
+          safe_message: String((err as Error)?.message ?? err).slice(0, 160),
+        });
+        throw err;
+      }
+    },
+    throwOnError: false,
+    retry: 1,
   });
 
   const brief: DailyBriefRow | null = briefQ.data ?? null;
@@ -228,7 +243,37 @@ function DailyBriefRoute() {
 
 
 
-      {!brief ? (
+      {briefQ.isError ? (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardHeader>
+            <CardTitle>Daily Brief non disponibile</CardTitle>
+            <CardDescription>
+              Non riusciamo a caricare il briefing di oggi. Il resto della pagina resta utilizzabile.
+              <br />
+              <span className="text-xs text-muted-foreground">
+                error_code: DAILY_BRIEF_FETCH_FAILED
+              </span>
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void briefQ.refetch()}
+              disabled={briefQ.isFetching}
+            >
+              Riprova
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleGenerate}
+              disabled={busy}
+            >
+              <Wand2 className="mr-2 h-4 w-4" /> Genera briefing di oggi
+            </Button>
+          </CardContent>
+        </Card>
+      ) : !brief ? (
         <Card>
           <CardHeader>
             <CardTitle>Nessun briefing per oggi</CardTitle>
