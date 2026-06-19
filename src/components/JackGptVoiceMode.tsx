@@ -91,6 +91,43 @@ type ResponseLifecycleState =
 type SafeCreateResponseOptions = { queueIfBusy?: boolean };
 
 type ActiveSession = Extract<CreateRealtimeSessionResult, { ok: true; probe: false }>;
+type RealtimeTrackedEventType =
+  | "conversation.item.input_audio_transcription.delta"
+  | "conversation.item.input_audio_transcription.completed"
+  | "conversation.item.input_audio_transcription.failed"
+  | "input_audio_buffer.speech_started"
+  | "input_audio_buffer.speech_stopped"
+  | "response.created"
+  | "response.done"
+  | "response.output_audio.done"
+  | "output_audio_buffer.stopped";
+
+const TRACKED_REALTIME_EVENT_TYPES = new Set<string>([
+  "conversation.item.input_audio_transcription.delta",
+  "conversation.item.input_audio_transcription.completed",
+  "conversation.item.input_audio_transcription.failed",
+  "input_audio_buffer.speech_started",
+  "input_audio_buffer.speech_stopped",
+  "response.created",
+  "response.done",
+  "response.output_audio.done",
+  "output_audio_buffer.stopped",
+]);
+
+function isRealtimeTrackedEventType(type: string): type is RealtimeTrackedEventType {
+  return TRACKED_REALTIME_EVENT_TYPES.has(type);
+}
+
+function isModelClaimingConfirmation(text: string): boolean {
+  const normalized = normalizeVoiceConfirmationText(text);
+  return (
+    /\bconferma\s+ricevuta\b/i.test(normalized) ||
+    /\bprocedo\b/i.test(normalized) ||
+    /\bconfermat[oa]\b/i.test(normalized) ||
+    /\baction\s+creat[ao]\b/i.test(normalized) ||
+    /\bazione\s+creat[ao]\b/i.test(normalized)
+  );
+}
 
 type RealtimeEvent = {
   type?: string;
