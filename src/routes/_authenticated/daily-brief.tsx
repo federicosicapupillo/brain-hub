@@ -49,6 +49,7 @@ import {
 import { JackVoicePlayer } from "@/components/JackVoicePlayer";
 import { JackVoiceCommand } from "@/components/JackVoiceCommand";
 import { JackGptVoiceMode } from "@/components/JackGptVoiceMode";
+import { GmailMiniCard } from "@/components/GmailMiniCard";
 
 export const Route = createFileRoute("/_authenticated/daily-brief")({
   head: () => ({
@@ -240,6 +241,10 @@ function DailyBriefRoute() {
       <JackVoiceCommand brainId={brainId} briefId={brief?.id ?? null} currentBrief={brief} brains={brains} />
 
       <JackGptVoiceMode brainId={brainId} />
+
+      <section aria-label="Email importanti">
+        <GmailMiniCard brainId={brainId} />
+      </section>
 
 
 

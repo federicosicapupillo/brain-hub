@@ -315,6 +315,84 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       "Connettori con warning, errori o non configurati. Risponde a 'Quali connettori hanno problemi?'. Read-only.",
     parameters: { type: "object", properties: {}, required: [] },
   },
+  // v3.22 — Gmail read-only intelligence tools
+  {
+    type: "function",
+    name: "get_email_brief",
+    description:
+      "Brief email: nuove mail nel range, non lette, importanti, top 5 con mittente/oggetto/motivo importanza. Read-only. Mai body completo.",
+    parameters: {
+      type: "object",
+      properties: {
+        brain_id: { type: "string" },
+        date_range: { type: "string", enum: ["today", "7d", "all"] },
+        unread_only: { type: "boolean" },
+        important_only: { type: "boolean" },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "list_important_emails",
+    description:
+      "Lista email importanti (score >= 55) con mittente, oggetto, motivo, progetto sospettato. Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        brain_id: { type: "string" },
+        since: { type: "string", enum: ["today", "7d", "30d", "all"] },
+        project: { type: "string" },
+        limit: { type: "number" },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "summarize_email",
+    description:
+      "Riassunto breve di una specifica email: punti chiave, richieste, date, allegati, action suggerita. Niente invio. Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        gmail_message_id: { type: "string" },
+        selection_index: { type: "number", description: "Indice dalla lista importanti." },
+        brain_id: { type: "string" },
+      },
+      required: [],
+    },
+  },
+  {
+    type: "function",
+    name: "summarize_email_thread",
+    description:
+      "Riassunto di un intero thread Gmail con elenco messaggi e partecipanti. Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        gmail_thread_id: { type: "string" },
+        brain_id: { type: "string" },
+      },
+      required: ["gmail_thread_id"],
+    },
+  },
+  {
+    type: "function",
+    name: "preview_email_action",
+    description:
+      "Prepara una preview di action a partire da una email. NON scrive nulla; richiede conferma UI o router deterministico.",
+    parameters: {
+      type: "object",
+      properties: {
+        gmail_message_id: { type: "string" },
+        action_type: { type: "string" },
+        reason: { type: "string" },
+        brain_id: { type: "string" },
+      },
+      required: ["gmail_message_id"],
+    },
+  },
 ] as const;
 
 // ---------- Helpers ----------
@@ -374,6 +452,10 @@ const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_connector_hub_summary",
   "get_project_connectors",
   "get_connector_warnings",
+  "get_email_brief",
+  "list_important_emails",
+  "summarize_email",
+  "summarize_email_thread",
 ]);
 
 function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
@@ -441,6 +523,11 @@ const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_connector_hub_summary",
   "get_project_connectors",
   "get_connector_warnings",
+  "get_email_brief",
+  "list_important_emails",
+  "summarize_email",
+  "summarize_email_thread",
+  "preview_email_action",
 ]);
 type InFlightResult = { ok: boolean; [k: string]: unknown };
 const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
@@ -1375,6 +1462,67 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             warning_count: warnings.length,
           });
           return { ok: true, payload: { warnings, total: warnings.length } };
+        }
+
+        case "get_email_brief": {
+          const { getEmailBriefFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await getEmailBriefFn({
+            data: {
+              brain_id: (args.brain_id as string | undefined) ?? null,
+              date_range: (args.date_range as "today" | "7d" | "all" | undefined) ?? "today",
+              unread_only: Boolean(args.unread_only),
+              important_only: args.important_only !== false,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "list_important_emails": {
+          const { listImportantEmailsFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await listImportantEmailsFn({
+            data: {
+              brain_id: (args.brain_id as string | undefined) ?? null,
+              since: (args.since as "today" | "7d" | "30d" | "all" | undefined) ?? "7d",
+              project: (args.project as string | undefined) ?? null,
+              limit: typeof args.limit === "number" ? args.limit : 10,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "summarize_email": {
+          const { summarizeEmailFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await summarizeEmailFn({
+            data: {
+              gmail_message_id: args.gmail_message_id as string | undefined,
+              selection_index:
+                typeof args.selection_index === "number"
+                  ? args.selection_index
+                  : undefined,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "summarize_email_thread": {
+          const { summarizeEmailThreadFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await summarizeEmailThreadFn({
+            data: {
+              gmail_thread_id: args.gmail_thread_id as string | undefined,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "preview_email_action": {
+          const { previewEmailActionFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await previewEmailActionFn({
+            data: {
+              gmail_message_id: args.gmail_message_id as string | undefined,
+              action_type: (args.action_type as string | undefined) ?? undefined,
+              reason: (args.reason as string | undefined) ?? undefined,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
         }
 
         default:

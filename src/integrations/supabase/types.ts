@@ -1883,16 +1883,22 @@ export type Database = {
           gmail_thread_id: string | null
           has_attachments: boolean
           id: string
+          importance_level: string | null
+          importance_reason: string | null
+          importance_score: number
           internal_date: string | null
           is_important: boolean
           is_unread: boolean
           label_ids: string[]
           linked_action_id: string | null
           metadata: Json
+          project_guess: string | null
           snippet: string | null
           source_query: string | null
           subject: string | null
           suggested_action_type: string | null
+          summary_generated_at: string | null
+          summary_short: string | null
           to_emails: string[]
           updated_at: string
           user_id: string
@@ -1911,16 +1917,22 @@ export type Database = {
           gmail_thread_id?: string | null
           has_attachments?: boolean
           id?: string
+          importance_level?: string | null
+          importance_reason?: string | null
+          importance_score?: number
           internal_date?: string | null
           is_important?: boolean
           is_unread?: boolean
           label_ids?: string[]
           linked_action_id?: string | null
           metadata?: Json
+          project_guess?: string | null
           snippet?: string | null
           source_query?: string | null
           subject?: string | null
           suggested_action_type?: string | null
+          summary_generated_at?: string | null
+          summary_short?: string | null
           to_emails?: string[]
           updated_at?: string
           user_id: string
@@ -1939,16 +1951,22 @@ export type Database = {
           gmail_thread_id?: string | null
           has_attachments?: boolean
           id?: string
+          importance_level?: string | null
+          importance_reason?: string | null
+          importance_score?: number
           internal_date?: string | null
           is_important?: boolean
           is_unread?: boolean
           label_ids?: string[]
           linked_action_id?: string | null
           metadata?: Json
+          project_guess?: string | null
           snippet?: string | null
           source_query?: string | null
           subject?: string | null
           suggested_action_type?: string | null
+          summary_generated_at?: string | null
+          summary_short?: string | null
           to_emails?: string[]
           updated_at?: string
           user_id?: string
