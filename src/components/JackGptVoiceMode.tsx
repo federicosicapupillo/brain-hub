@@ -457,6 +457,40 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [logFn, brainId],
   );
 
+  const trackRealtimeEventType = useCallback(
+    (eventType: string, transcript?: string | null) => {
+      if (!isRealtimeTrackedEventType(eventType)) return;
+      const transcriptText = typeof transcript === "string" ? transcript.trim() : "";
+      const transcriptLength = transcriptText.length || null;
+      const transcriptHash = transcriptText ? hashJackActionText(transcriptText) : null;
+      const receivedAt = eventType === "conversation.item.input_audio_transcription.completed"
+        ? Date.now()
+        : null;
+      if (eventType === "conversation.item.input_audio_transcription.completed") {
+        inputTranscriptionCompletedSeenRef.current = true;
+        safeLog("jack_realtime_input_transcription_completed_seen", {
+          event_type: eventType,
+          transcript_length: transcriptLength ?? 0,
+          phrase_hash: transcriptHash,
+          has_pending_preview: Boolean(pendingPreviewRef.current),
+          preview_id: pendingPreviewRef.current?.preview_id ?? null,
+        });
+      }
+      setDiagnostics((d) => ({
+        ...d,
+        lastInputTranscriptionEventType: eventType,
+        lastInputTranscriptLength: transcriptLength ?? d.lastInputTranscriptLength,
+        lastInputTranscriptHash: transcriptHash ?? d.lastInputTranscriptHash,
+        lastInputTranscriptReceivedAt: receivedAt ?? d.lastInputTranscriptReceivedAt,
+        recentRealtimeEventTypes: [...d.recentRealtimeEventTypes, eventType].slice(-10),
+        inputTranscriptionCompletedSeen:
+          d.inputTranscriptionCompletedSeen || eventType === "conversation.item.input_audio_transcription.completed",
+        inputTranscriptNonEmptySeen: d.inputTranscriptNonEmptySeen || transcriptText.length > 0,
+      }));
+    },
+    [safeLog],
+  );
+
   /**
    * Build and inject the natural-memory context into the live Realtime
    * session via session.update. Idempotent on initial open; safe to call
