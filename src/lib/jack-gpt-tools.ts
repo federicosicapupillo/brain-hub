@@ -1440,7 +1440,6 @@ export const runJackGptTool = createServerFn({ method: "POST" })
 
 // Log helper — sanitized event row.
 export const logJackGptEvent = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => {
     const obj = (d && typeof d === "object" ? (d as Record<string, unknown>) : {}) as {
       event?: unknown;
@@ -1454,8 +1453,30 @@ export const logJackGptEvent = createServerFn({ method: "POST" })
         : {};
     return { event, metadata };
   })
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
+    // Best-effort telemetry: never throw, never 500. Logs only when the
+    // caller is authenticated; silently skips otherwise.
     try {
+      const { getRequest } = await import("@tanstack/react-start/server");
+      const { createClient } = await import("@supabase/supabase-js");
+      const SUPABASE_URL = process.env.SUPABASE_URL;
+      const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
+      if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) return { ok: false, skipped: "env" };
+
+      const request = getRequest();
+      const authHeader = request?.headers?.get("authorization") ?? "";
+      if (!authHeader.startsWith("Bearer ")) return { ok: false, skipped: "no_auth" };
+      const token = authHeader.slice(7);
+      if (!token) return { ok: false, skipped: "no_token" };
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+        global: { headers: { Authorization: `Bearer ${token}` } },
+        auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+      });
+      const { data: claims, error: claimsErr } = await supabase.auth.getClaims(token);
+      const userId = claims?.claims?.sub;
+      if (claimsErr || !userId) return { ok: false, skipped: "invalid_token" };
+
       let safe: Record<string, unknown> = {};
       try {
         safe = JSON.parse(
@@ -1464,22 +1485,17 @@ export const logJackGptEvent = createServerFn({ method: "POST" })
       } catch {
         safe = { _serialize_error: true };
       }
-      await (context.supabase as never as {
-        from: (t: string) => {
-          insert: (v: Record<string, unknown>) => Promise<{ error: unknown }>;
-        };
-      })
-        .from("app_logs")
-        .insert({
-          user_id: context.userId,
-          entity_type: "jack_gpt",
-          action: data.event,
-          message: data.event,
-          severity: "info",
-          metadata: safe,
-        });
+
+      await supabase.from("app_logs").insert({
+        user_id: userId,
+        entity_type: "jack_gpt",
+        action: data.event,
+        message: data.event,
+        severity: "info",
+        metadata: safe,
+      });
     } catch {
-      // best-effort
+      // swallow — telemetry must never break the caller
     }
     return { ok: true };
   });
