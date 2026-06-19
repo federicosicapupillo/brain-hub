@@ -762,30 +762,91 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         });
         return;
       }
+      if (confirmingPreviewIdRef.current === preview.preview_id) return;
+      confirmingPreviewIdRef.current = preview.preview_id;
       setConfirmingAction(true);
+      setConfirmationStatus(`Conferma ricevuta. Creazione action in corso: ${preview.title}`);
+      safeLog("jack_pending_preview_current_confirmed", {
+        preview_id: preview.preview_id,
+        confirmation_source: source,
+        title_hash: hashJackActionText(preview.title),
+        idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
+      });
+      safeLog("jack_action_create_from_preview_started", {
+        preview_id: preview.preview_id,
+        confirmation_source: source,
+        title_hash: hashJackActionText(preview.title),
+        idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
+      });
+      pushLog({
+        kind: "system",
+        text: `Conferma ricevuta. Creazione action in corso: ${preview.title}`,
+      });
       try {
         const res = await confirmFromPreviewFn({
           data: {
-            preview,
+            preview_id: preview.preview_id,
+            title: preview.title,
+            description: preview.description,
+            reason: preview.reason,
+            risk_level: preview.risk_level,
+            source: preview.source,
             idempotency_key: preview.idempotency_key,
             brain_id: preview.brain_id ?? brainId ?? null,
+            project_id: preview.project_id ?? null,
             confirmation_source: source,
             user_transcript: userTranscript ?? null,
           },
         });
-        if (res.ok && res.action_id) {
-          safeLog("jack_controlled_action_created_from_preview", {
+        if (res.ok && res.action_id && res.action_title) {
+          const titleMatches = res.action_title.trim() === preview.title.trim();
+          if (!titleMatches) {
+            safeLog("jack_action_created_title_mismatch", {
+              preview_id: preview.preview_id,
+              action_id: res.action_id,
+              confirmation_source: source,
+              title_hash: hashJackActionText(preview.title),
+              idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
+              deduplicated: Boolean(res.deduplicated),
+              mismatch: true,
+            });
+            setConfirmationStatus("Errore: la action creata non corrisponde alla preview corrente. La proposta resta pronta.");
+            pushLog({
+              kind: "error",
+              text: "Errore: la action creata non corrisponde alla preview corrente. La proposta resta pronta.",
+            });
+            return;
+          }
+          safeLog("jack_action_create_from_preview_succeeded", {
+            preview_id: preview.preview_id,
+            action_id: res.action_id,
             confirmation_source: source,
-            risk_level: preview.risk_level,
-            source: preview.source,
+            title_hash: hashJackActionText(preview.title),
+            idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
             deduplicated: Boolean(res.deduplicated),
+            mismatch: false,
+          });
+          await queryClient.invalidateQueries({ queryKey: ["action-queue"] });
+          safeLog("jack_action_queue_refetch_requested", {
+            preview_id: preview.preview_id,
+            action_id: res.action_id,
+            confirmation_source: source,
+            title_hash: hashJackActionText(preview.title),
+            idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
+            deduplicated: Boolean(res.deduplicated),
+            mismatch: false,
           });
           pushLog({
             kind: "system",
             text: res.deduplicated
-              ? "Action già esistente: nessuna duplicata creata."
-              : "Action creata in coda (suggested).",
+              ? `Action già esistente verificata: ${res.action_title}`
+              : `Action creata: ${res.action_title}`,
           });
+          toast.success(res.deduplicated ? "Action già presente" : "Action creata", {
+            description: res.action_title,
+          });
+          setConfirmationStatus(`Action creata: ${res.action_title}`);
+          setCreatedActionId(res.action_id);
           pendingPreviewRef.current = null;
           setPendingActionPreview(null);
           // Inform Jack via a function_call_output? No — we instead send a
@@ -802,10 +863,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                     content: [
                       {
                         type: "input_text",
-                        text: `Action confermata e creata in Action Queue (status: suggested, id ${res.action_id.slice(
-                          0,
-                          6,
-                        )}…). Conferma a Federico in modo naturale.`,
+                         text: `Action creata e verificata in Action Queue: "${res.action_title}". Solo ora comunica a Federico che la creazione è riuscita.`,
                       },
                     ],
                   },
@@ -817,26 +875,38 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             safeCreateResponse("action_confirmed", { queueIfBusy: true });
           }
         } else {
-          safeLog("jack_action_confirmation_failed", {
+          safeLog("jack_action_create_from_preview_failed", {
+            preview_id: preview.preview_id,
             confirmation_source: source,
+            title_hash: hashJackActionText(preview.title),
+            idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
             reason: res.reason ?? "unknown",
           });
+          setConfirmationStatus("Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.");
           pushLog({
             kind: "warning",
-            text: res.safe_message ?? "Conferma non riuscita.",
+            text: res.safe_message ?? "Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.",
           });
         }
       } catch (err) {
-        safeLog("jack_action_confirmation_failed", {
+        safeLog("jack_action_create_from_preview_failed", {
+          preview_id: preview.preview_id,
           confirmation_source: source,
+          title_hash: hashJackActionText(preview.title),
+          idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
           detail: String((err as Error).message ?? err).slice(0, 160),
         });
-        pushLog({ kind: "error", text: "Errore durante la conferma." });
+        setConfirmationStatus("Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.");
+        pushLog({
+          kind: "error",
+          text: "Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.",
+        });
       } finally {
         setConfirmingAction(false);
+        confirmingPreviewIdRef.current = null;
       }
     },
-    [confirmFromPreviewFn, brainId, safeLog, pushLog, safeCreateResponse],
+    [confirmFromPreviewFn, brainId, safeLog, pushLog, safeCreateResponse, queryClient],
   );
 
   const cancelPendingPreview = useCallback(() => {
