@@ -883,6 +883,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             });
           }
           pendingPreviewRef.current = currentPreview;
+          lastVoiceBridgeTriggeredAtRef.current = null;
+          lastVoiceServerVerifiedAtRef.current = null;
           setPendingActionPreview(currentPreview);
           setConfirmationStatus(null);
           setCreatedActionId(null);
@@ -1436,6 +1438,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         if (pendingPreviewRef.current) return;
         const restored = res.preview.preview;
         pendingPreviewRef.current = restored;
+        lastVoiceBridgeTriggeredAtRef.current = null;
+        lastVoiceServerVerifiedAtRef.current = null;
         setPendingActionPreview(restored);
         setPreviewPersistenceStatus("restore_found");
         setPreviewDbStatus(res.preview.status);
