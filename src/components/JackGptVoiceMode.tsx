@@ -2668,6 +2668,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               <div><span className="text-muted-foreground">Voce in corso:</span> {diagnostics.voiceConfirmationInFlight ? "sì" : "no"}</div>
               <div><span className="text-muted-foreground">Response soppressa:</span> {diagnostics.voiceConfirmationResponseSuppressed ? "sì" : "no"}</div>
               <div><span className="text-muted-foreground">Falsa conferma modello:</span> {diagnostics.modelClaimedConfirmationWithoutBridge ? "rilevata" : "—"}</div>
+              <div className="sm:col-span-2 border-t pt-1 mt-1 text-[11px] font-medium text-muted-foreground">Post-conferma audio (v3.21.9)</div>
+              <div><span className="text-muted-foreground">Active response id:</span> {diagnostics.activeResponseIdRedacted ?? "—"}</div>
+              <div><span className="text-muted-foreground">Response cancel sent:</span> {diagnostics.responseCancelSent ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Output audio clear sent:</span> {diagnostics.outputAudioClearSent ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Stale output suppressed:</span> {diagnostics.staleOutputSuppressed ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Suppressed count:</span> {diagnostics.suppressedResponseCount}</div>
+              <div><span className="text-muted-foreground">Final controlled msg:</span> {diagnostics.finalControlledMessageShown ? "sì" : "no"}</div>
+
               <div><span className="text-muted-foreground">Voce ignorata:</span> {
                 diagnostics.lastVoiceConfirmationIgnoredReason === "no_pending_preview" ? "nessuna action pending" :
                 diagnostics.lastVoiceConfirmationIgnoredReason === "duplicate" ? "duplicato/in corso" :
