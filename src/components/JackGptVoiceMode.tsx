@@ -1619,16 +1619,28 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       }
 
       voiceConfirmationInFlightRef.current = true;
+      suppressRealtimeAssistantOutputRef.current = true;
+      voiceConfirmationStartedAtRef.current = now;
+      finalControlledMessageShownRef.current = false;
       lastVoiceBridgeTriggeredAtRef.current = now;
-      const suppressed = suppressActiveRealtimeResponse("voice_confirmation_intent_detected");
+      if (activeResponseIdRef.current) {
+        suppressedResponseIdsRef.current.add(activeResponseIdRef.current);
+      }
+      const { cancelSent, clearSent } = cancelRealtimeResponseForControlledConfirmation(
+        "voice_confirmation_intent_detected",
+      );
       setDiagnostics((d) => ({
         ...d,
         voiceConfirmationInFlight: true,
         voiceConfirmationLastSource: "voice_router",
         lastVoiceConfirmationIgnoredReason: "none",
         lastVoiceBridgeTriggeredAt: now,
-        voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || suppressed,
+        voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || cancelSent,
+        responseCancelSent: d.responseCancelSent || cancelSent,
+        outputAudioClearSent: d.outputAudioClearSent || clearSent,
+        finalControlledMessageShown: false,
       }));
+
       safeLog("jack_voice_confirmation_bridge_triggered", {
         ...baseMeta,
         bridge_triggered: true,
