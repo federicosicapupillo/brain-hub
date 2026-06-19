@@ -2559,6 +2559,17 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <div className="sm:col-span-2"><span className="text-muted-foreground">Last safe error:</span> {diagnostics.lastSafeError ?? "—"}</div>
             <div><span className="text-muted-foreground">Cleanup:</span> {diagnostics.cleanupCount}</div>
             <div><span className="text-muted-foreground">Privacy:</span> {status?.privacy_mode ?? "ephemeral_token_only"}</div>
+            <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Realtime input transcription</div>
+            <div><span className="text-muted-foreground">Configurata:</span> {diagnostics.inputTranscriptionConfigured ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Lingua:</span> {diagnostics.inputTranscriptionLanguage ?? REALTIME_INPUT_TRANSCRIPTION_LANGUAGE}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Modello:</span> {diagnostics.inputTranscriptionModel ?? REALTIME_INPUT_TRANSCRIPTION_MODEL}</div>
+            <div><span className="text-muted-foreground">Last STT event:</span> {diagnostics.lastInputTranscriptionEventType ?? "—"}</div>
+            <div><span className="text-muted-foreground">Transcript non vuoto:</span> {diagnostics.inputTranscriptNonEmptySeen ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Completed visto:</span> {diagnostics.inputTranscriptionCompletedSeen ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Transcript length:</span> {diagnostics.lastInputTranscriptLength ?? "—"}</div>
+            <div><span className="text-muted-foreground">Transcript hash:</span> {diagnostics.lastInputTranscriptHash ?? "—"}</div>
+            <div><span className="text-muted-foreground">Ricevuto alle:</span> {diagnostics.lastInputTranscriptReceivedAt ? new Date(diagnostics.lastInputTranscriptReceivedAt).toLocaleTimeString() : "—"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Ultimi event type:</span> {diagnostics.recentRealtimeEventTypes.length ? diagnostics.recentRealtimeEventTypes.join(" → ") : "—"}</div>
             <div className="sm:col-span-2 pt-1 border-t mt-1 font-medium text-muted-foreground">Natural memory context</div>
             <div><span className="text-muted-foreground">Iniettato:</span> {contextStats.refreshedAt ? "sì" : "no"}</div>
             <div><span className="text-muted-foreground">Caratteri:</span> {contextStats.chars}</div>
