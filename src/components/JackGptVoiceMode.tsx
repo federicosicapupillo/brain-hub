@@ -36,6 +36,7 @@ import {
 } from "@/lib/openai-realtime.functions";
 import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
 import { createControlledJackActionFromPreview } from "@/lib/jack-controlled-actions.functions";
+import { getAutomationActionById, type AutomationAction } from "@/lib/action-queue";
 import {
   buildJackPreviewId,
   hashJackActionText,
