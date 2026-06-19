@@ -16,7 +16,6 @@ import {
 import { toast } from "sonner";
 import {
   AlertTriangle,
-  FolderKanban,
   RefreshCw,
   Sparkles,
   ListChecks,
