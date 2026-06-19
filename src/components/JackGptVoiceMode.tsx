@@ -1671,7 +1671,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         }
       })();
     },
-    [confirmPendingPreview, pushLog, safeLog, suppressActiveRealtimeResponse],
+    [confirmPendingPreview, pushLog, safeLog, cancelRealtimeResponseForControlledConfirmation],
   );
 
 
