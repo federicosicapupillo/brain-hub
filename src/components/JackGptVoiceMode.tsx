@@ -1938,6 +1938,37 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           </Alert>
         ) : null}
 
+        {lastActionCreateResult ? (
+          <Card className="border-sky-500/30 bg-sky-500/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Activity className="h-4 w-4 text-sky-600" />
+                Diagnostica conferma action (v3.21.5)
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Tracciamento del percorso preview → server → verifica.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div><span className="text-muted-foreground">Fase:</span> {lastActionCreateResult.phase}</div>
+              <div><span className="text-muted-foreground">Fonte conferma:</span> {lastActionCreateResult.confirmationSource}</div>
+              <div><span className="text-muted-foreground">Preview ID:</span> <code className="text-[10px]">{lastActionCreateResult.previewIdRedacted}</code></div>
+              <div><span className="text-muted-foreground">Action ID:</span> {lastActionCreateResult.actionIdRedacted ? <code className="text-[10px]">{lastActionCreateResult.actionIdRedacted}</code> : "—"}</div>
+              <div className="sm:col-span-2"><span className="text-muted-foreground">Titolo action:</span> {lastActionCreateResult.actionTitle ?? "—"}</div>
+              <div><span className="text-muted-foreground">Title match:</span> {lastActionCreateResult.titleMatches === null ? "—" : lastActionCreateResult.titleMatches ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Deduplicated:</span> {lastActionCreateResult.deduplicated === null ? "—" : lastActionCreateResult.deduplicated ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Verifica status:</span> {lastActionCreateResult.verificationStatus ?? "—"}</div>
+              <div><span className="text-muted-foreground">Verifica source:</span> {lastActionCreateResult.verificationSource ?? "—"}</div>
+              <div><span className="text-muted-foreground">Verifica brain:</span> {lastActionCreateResult.verificationBrainId ? `${lastActionCreateResult.verificationBrainId.slice(0, 6)}…` : "—"}</div>
+              <div><span className="text-muted-foreground">Visibile in lista:</span> {lastActionCreateResult.visibleInCurrentList === null ? "—" : lastActionCreateResult.visibleInCurrentList ? "sì" : "no (filtro/brain)"}</div>
+              <div className="sm:col-span-2"><span className="text-muted-foreground">Errore:</span> {lastActionCreateResult.errorCode ?? "—"}</div>
+              {lastActionCreateResult.safeMessage ? (
+                <div className="sm:col-span-2"><span className="text-muted-foreground">Messaggio:</span> {lastActionCreateResult.safeMessage}</div>
+              ) : null}
+            </CardContent>
+          </Card>
+        ) : null}
+
 
 
         <div className="rounded-md border bg-muted/30">
