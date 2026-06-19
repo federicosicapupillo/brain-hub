@@ -81,6 +81,8 @@ type RealtimeEvent = {
   type?: string;
   transcript?: string;
   delta?: string;
+  response_id?: string;
+  item_id?: string;
   response?: { id?: string; status?: string };
   item?: {
     type?: string;
