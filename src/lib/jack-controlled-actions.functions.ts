@@ -47,6 +47,8 @@ export type CreateControlledActionResult = {
   preview?: PendingJackActionPreview | null;
   deduplicated?: boolean;
   action_id: string | null;
+  action_title?: string | null;
+  preview_id?: string;
   intent: string;
   secondary_intent: string | null;
   risk_level: string;
@@ -690,9 +692,16 @@ export const prepareJackMasterSnapshotUpdate = createServerFn({ method: "POST" }
 // ============================================================
 
 export type CreateActionFromPreviewInput = {
-  preview: PendingJackActionPreview;
+  preview?: PendingJackActionPreview;
+  preview_id: string;
+  title: string;
+  description: string;
+  reason: string;
+  risk_level: "low" | "medium" | "high";
+  source: string;
   idempotency_key: string;
   brain_id?: string | null;
+  project_id?: string | null;
   confirmation_source: "ui_button" | "voice_router";
   user_transcript?: string | null;
 };
