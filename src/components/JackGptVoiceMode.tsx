@@ -301,7 +301,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastVoiceConfirmationIgnoredReason: null,
     voiceConfirmationInFlight: false,
     voiceConfirmationLastSource: null,
+    responseCancelSent: false,
+    outputAudioClearSent: false,
+    staleOutputSuppressed: false,
+    suppressedResponseCount: 0,
+    finalControlledMessageShown: false,
   });
+
 
   const responseInProgressRef = useRef(false);
   const activeResponseIdRef = useRef<string | null>(null);
