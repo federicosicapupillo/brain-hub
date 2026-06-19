@@ -189,6 +189,21 @@ type Diagnostics = {
   lastResponseDoneAt: number | null;
   skippedResponseCreateCount: number;
   duplicateResponseHandledCount: number;
+  // v3.21.8 — Realtime input transcription + voice confirmation source of truth
+  inputTranscriptionConfigured: boolean;
+  inputTranscriptionModel: string | null;
+  inputTranscriptionLanguage: string | null;
+  lastInputTranscriptionEventType: RealtimeTrackedEventType | null;
+  lastInputTranscriptLength: number | null;
+  lastInputTranscriptHash: string | null;
+  lastInputTranscriptReceivedAt: number | null;
+  recentRealtimeEventTypes: RealtimeTrackedEventType[];
+  inputTranscriptionCompletedSeen: boolean;
+  inputTranscriptNonEmptySeen: boolean;
+  modelClaimedConfirmationWithoutBridge: boolean;
+  lastModelClaimAt: number | null;
+  lastVoiceBridgeTriggeredAt: number | null;
+  voiceConfirmationResponseSuppressed: boolean;
   // v3.21.7 — voice confirmation bridge diagnostics
   lastVoiceTranscriptDetected: boolean;
   lastVoiceConfirmationIntent: boolean;
