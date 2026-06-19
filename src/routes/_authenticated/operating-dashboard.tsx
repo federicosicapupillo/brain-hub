@@ -11,6 +11,7 @@ import { KnowledgeMapBlock } from "@/components/KnowledgeMapBlock";
 import { CalendarUpcomingPreview } from "@/components/CalendarUpcomingPreview";
 import { GmailMiniCard } from "@/components/GmailMiniCard";
 import { DailyBriefMiniCard } from "@/components/DailyBriefMiniCard";
+import { ProjectStateMiniCard } from "@/components/ProjectStateMiniCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
