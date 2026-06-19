@@ -284,6 +284,31 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       required: [],
     },
   },
+  {
+    type: "function",
+    name: "get_connector_hub_summary",
+    description:
+      "Riepilogo connettori (Drive, Gmail, Calendar, GitHub, Supabase, Obsidian, Telegram, n8n, Lovable manual): totali, connessi, read-only, warning, errori, manuali, fonti mappate, progetti collegati. Read-only.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    type: "function",
+    name: "get_project_connectors",
+    description:
+      "Connettori e fonti mappate per un progetto specifico. Risponde a 'Furia a quali strumenti è collegata?', 'Brain Hub ha GitHub collegato?'. Read-only.",
+    parameters: {
+      type: "object",
+      properties: { project_key: { type: "string" } },
+      required: ["project_key"],
+    },
+  },
+  {
+    type: "function",
+    name: "get_connector_warnings",
+    description:
+      "Connettori con warning, errori o non configurati. Risponde a 'Quali connettori hanno problemi?'. Read-only.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
 ] as const;
 
 // ---------- Helpers ----------
