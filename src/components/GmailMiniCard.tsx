@@ -3,16 +3,22 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Mail, ArrowRight } from "lucide-react";
+import { Mail, ArrowRight, Sparkles } from "lucide-react";
 import { getGmailSummary, type GmailSummary } from "@/lib/gmail-connector";
+import { getGmailBrief, type GmailBrief } from "@/lib/gmail-intelligence";
 
 export function GmailMiniCard({ brainId }: { brainId: string | null }) {
   const [s, setS] = useState<GmailSummary | null>(null);
+  const [b, setB] = useState<GmailBrief | null>(null);
+
   useEffect(() => {
     let alive = true;
     getGmailSummary(brainId ?? null)
       .then((x) => alive && setS(x))
       .catch(() => alive && setS(null));
+    getGmailBrief(brainId ?? null)
+      .then((x) => alive && setB(x))
+      .catch(() => alive && setB(null));
     return () => {
       alive = false;
     };
@@ -33,16 +39,40 @@ export function GmailMiniCard({ brainId }: { brainId: string | null }) {
       <CardContent className="space-y-2 text-sm">
         {s ? (
           <>
-            <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="grid grid-cols-4 gap-2 text-center">
               <Stat label="Oggi" value={s.todayCount} />
-              <Stat label="High" value={s.highPriorityCount} />
+              <Stat label="Non lette" value={b?.today_unread ?? 0} />
+              <Stat label="Important." value={b?.important_today ?? s.highPriorityCount} />
               <Stat label="Action" value={s.actionSuggestedCount} />
             </div>
-            <Button asChild variant="outline" size="sm" className="w-full">
-              <Link to="/gmail-connector" search={{ brain: brainId ?? undefined }}>
-                Apri Gmail Connector <ArrowRight className="ml-1 h-3 w-3" />
-              </Link>
-            </Button>
+            {b && b.top.length > 0 ? (
+              <div className="space-y-1 rounded-md border bg-muted/30 p-2">
+                <div className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                  <Sparkles className="h-3 w-3" /> Top importanti
+                </div>
+                <ul className="space-y-1">
+                  {b.top.slice(0, 3).map((e) => (
+                    <li key={e.id} className="truncate text-xs">
+                      <span className="font-medium">{e.from_name ?? e.from_email ?? "—"}</span>
+                      <span className="mx-1 text-muted-foreground">·</span>
+                      <span className="text-muted-foreground">{e.subject ?? "(senza oggetto)"}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            <div className="flex gap-2">
+              <Button asChild variant="outline" size="sm" className="flex-1">
+                <Link to="/gmail-intelligence" search={{ brain: brainId ?? undefined }}>
+                  Intelligence <ArrowRight className="ml-1 h-3 w-3" />
+                </Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm" className="flex-1">
+                <Link to="/gmail-connector" search={{ brain: brainId ?? undefined }}>
+                  Connector
+                </Link>
+              </Button>
+            </div>
           </>
         ) : (
           <p className="text-muted-foreground">Caricamento…</p>
