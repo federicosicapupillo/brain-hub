@@ -614,6 +614,32 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     }, RESPONSE_CREATE_DEBOUNCE_MS);
   }, [safeCreateResponse, safeLog]);
 
+  const suppressActiveRealtimeResponse = useCallback(
+    (reason: string): boolean => {
+      const dc = dcRef.current;
+      let suppressed = false;
+      pendingResponseCreateRef.current = null;
+      setDiagnostics((d) => ({ ...d, pendingResponse: false }));
+      if (dc && dc.readyState === "open" && responseInProgressRef.current) {
+        try {
+          dc.send(JSON.stringify({ type: "response.cancel" }));
+          suppressed = true;
+        } catch {
+          suppressed = false;
+        }
+      }
+      if (suppressed) {
+        safeLog("jack_voice_confirmation_response_suppressed", {
+          safe_message: reason,
+          response_id: redactResponseId(activeResponseIdRef.current),
+        });
+      }
+      setDiagnostics((d) => ({ ...d, voiceConfirmationResponseSuppressed: d.voiceConfirmationResponseSuppressed || suppressed }));
+      return suppressed;
+    },
+    [safeLog],
+  );
+
   useEffect(() => {
     let active = true;
     statusFn()
