@@ -311,11 +311,9 @@ async function createMasterSnapshotDraft(
   const markdown = base + appendBlock;
   const versionLabel = nextDraftLabel(current?.version_label ?? null);
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any;
-    const res = await sb
+    const res = await db(supabase)
       .from("master_snapshot_versions")
-      .insert({
+      .insert<{ id: string }>({
         user_id: userId,
         brain_id: brainId,
         title: current?.title ?? "Brain Hub — Master Project Snapshot",
@@ -334,7 +332,7 @@ async function createMasterSnapshotDraft(
       })
       .select("id")
       .single();
-    return (res?.data?.id as string) ?? null;
+    return res.data?.id ?? null;
   } catch {
     return null;
   }
