@@ -402,6 +402,9 @@ function CompanyHomeRoute() {
 
         {/* Calendar preview */}
         <CalendarUpcomingPreview brainId={brainId} compact />
+
+        {/* Project State multi-progetto */}
+        <ProjectStateMiniCard brainId={brainId} />
       </div>
 
       <div className="pt-2 text-center">
