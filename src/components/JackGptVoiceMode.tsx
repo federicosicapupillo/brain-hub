@@ -482,8 +482,57 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
   const handleToolCall = useCallback(
     async (callId: string, name: string, argsRaw: string) => {
+      // v3.21.2 — per-callId dedup (model occasionally re-emits the same call)
+      if (processedToolCallIdsRef.current.has(callId)) {
+        safeLog("jack_client_duplicate_tool_call_ignored", {
+          tool_name: name,
+          dedup_reason: "call_id_already_processed",
+        });
+        return;
+      }
+      // v3.21.2 — short-TTL identical (name+args) dedup
+      const key = `${name}::${argsRaw ?? ""}`;
+      const last = lastToolCallKeyRef.current;
+      const now = Date.now();
+      if (last && last.key === key && now - last.at < TOOL_CALL_CLIENT_DEDUP_MS) {
+        processedToolCallIdsRef.current.add(callId);
+        safeLog("jack_client_duplicate_tool_call_ignored", {
+          tool_name: name,
+          dedup_reason: "identical_args_within_ttl",
+        });
+        // Still must satisfy the model with an output for this call_id
+        // so the response can complete; reuse a structured "deduped" marker.
+        const dc = dcRef.current;
+        if (dc && dc.readyState === "open") {
+          try {
+            dc.send(
+              JSON.stringify({
+                type: "conversation.item.create",
+                item: {
+                  type: "function_call_output",
+                  call_id: callId,
+                  output: JSON.stringify({
+                    ok: true,
+                    deduped: true,
+                    note: "duplicate_tool_call_ignored",
+                  }),
+                },
+              }),
+            );
+          } catch { /* noop */ }
+        }
+        return;
+      }
+      processedToolCallIdsRef.current.add(callId);
+      lastToolCallKeyRef.current = { key, at: now };
+      toolCallInFlightCountRef.current += 1;
+
       pushLog({ kind: "tool", text: `→ ${name}` });
       setDiagnostics((d) => ({ ...d, lastToolCalled: name }));
+      safeLog("jack_realtime_tool_call_started", {
+        tool_name: name,
+        call_id: callId.slice(0, 8),
+      });
       safeLog("jack_gpt_tool_called", { name });
       const result = await toolFn({
         data: { tool_name: name, arguments: argsRaw ?? "" },
@@ -496,8 +545,17 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         kind: "tool",
         text: `← ${name}: ${okFlag ? "ok" : `errore ${(result as { error?: string }).error ?? ""}`}`,
       });
+      safeLog("jack_realtime_tool_call_completed", {
+        tool_name: name,
+        call_id: callId.slice(0, 8),
+        ok: okFlag,
+      });
       safeLog("jack_gpt_tool_completed", { name, ok: okFlag });
       const dc = dcRef.current;
+      toolCallInFlightCountRef.current = Math.max(
+        0,
+        toolCallInFlightCountRef.current - 1,
+      );
       if (!dc || dc.readyState !== "open") return;
       try {
         dc.send(
@@ -511,8 +569,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           }),
         );
       } catch { /* noop */ }
-      // Never fire response.create directly: route through the lifecycle guard.
-      safeCreateResponse("tool_result", { queueIfBusy: true });
+      // v3.21.2 — single response.create per tool batch. Only the last
+      // completing tool fires it; queueIfBusy + debounce in safeCreateResponse
+      // collapse near-simultaneous attempts.
+      if (toolCallInFlightCountRef.current === 0) {
+        safeLog("jack_tool_response_batch_flushed", {
+          tool_name: name,
+          batch_size: processedToolCallIdsRef.current.size,
+        });
+        safeCreateResponse("tool_result", { queueIfBusy: true });
+      } else {
+        safeLog("jack_response_create_deduplicated", {
+          dedup_reason: "tool_batch_pending",
+          tool_name: name,
+        });
+      }
       // v3.13.1: capture persistence diagnostics + refresh injected context.
       if (name === "create_memory_entry") {
         const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
