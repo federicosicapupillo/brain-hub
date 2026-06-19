@@ -3,7 +3,7 @@
 // triggering the client import-protection plugin from createServerFn callers.
 import { getRequest } from "@tanstack/react-start/server";
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 
 export type JackGptLogInput = {
   event: string;
