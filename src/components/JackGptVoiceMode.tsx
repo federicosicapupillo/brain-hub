@@ -36,6 +36,7 @@ import {
 } from "@/lib/openai-realtime.functions";
 import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
 import { createControlledJackActionFromPreview } from "@/lib/jack-controlled-actions.functions";
+import { getAutomationActionById, type AutomationAction } from "@/lib/action-queue";
 import {
   buildJackPreviewId,
   hashJackActionText,
@@ -276,6 +277,33 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const [confirmingAction, setConfirmingAction] = useState(false);
   const [confirmationStatus, setConfirmationStatus] = useState<string | null>(null);
   const [createdActionId, setCreatedActionId] = useState<string | null>(null);
+  // v3.21.5 — surfaced lifecycle of the preview-confirm bridge for debug UI.
+  type LastActionCreateResult = {
+    at: number;
+    previewIdRedacted: string;
+    confirmationSource: "ui_button" | "voice_router";
+    phase:
+      | "confirm_called"
+      | "server_call_started"
+      | "server_ok"
+      | "server_failed"
+      | "no_action_id"
+      | "verification_started"
+      | "verification_found"
+      | "verification_missing";
+    actionIdRedacted: string | null;
+    actionTitle: string | null;
+    deduplicated: boolean | null;
+    verificationStatus: AutomationAction["status"] | null;
+    verificationSource: AutomationAction["source"] | null;
+    verificationBrainId: string | null;
+    titleMatches: boolean | null;
+    visibleInCurrentList: boolean | null;
+    errorCode: string | null;
+    safeMessage: string | null;
+  };
+  const [lastActionCreateResult, setLastActionCreateResult] =
+    useState<LastActionCreateResult | null>(null);
   const pendingPreviewRef = useRef<PendingJackActionPreview | null>(null);
   const confirmingPreviewIdRef = useRef<string | null>(null);
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
@@ -744,7 +772,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [toolFn, safeLog, pushLog, safeCreateResponse, injectNaturalContext],
   );
 
-  // v3.19.6 — confirm pending preview through the server bridge.
+  // v3.19.6 / v3.21.5 — confirm pending preview through the server bridge,
+  // then verify the created action is actually readable as the same user.
   const confirmPendingPreview = useCallback(
     async (
       source: "ui_button" | "voice_router",
@@ -765,24 +794,47 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       if (confirmingPreviewIdRef.current === preview.preview_id) return;
       confirmingPreviewIdRef.current = preview.preview_id;
       setConfirmingAction(true);
-      setConfirmationStatus(`Conferma ricevuta. Creazione action in corso: ${preview.title}`);
-      safeLog("jack_pending_preview_current_confirmed", {
+      setConfirmationStatus(`Conferma ricevuta, sto creando la action: ${preview.title}`);
+
+      const previewIdRedacted = `${preview.preview_id.slice(0, 8)}…`;
+      const baseResult: LastActionCreateResult = {
+        at: Date.now(),
+        previewIdRedacted,
+        confirmationSource: source,
+        phase: "confirm_called",
+        actionIdRedacted: null,
+        actionTitle: null,
+        deduplicated: null,
+        verificationStatus: null,
+        verificationSource: null,
+        verificationBrainId: null,
+        titleMatches: null,
+        visibleInCurrentList: null,
+        errorCode: null,
+        safeMessage: null,
+      };
+      setLastActionCreateResult(baseResult);
+
+      const baseEvent = {
         preview_id: preview.preview_id,
         confirmation_source: source,
         title_hash: hashJackActionText(preview.title),
         idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
-      });
-      safeLog("jack_action_create_from_preview_started", {
-        preview_id: preview.preview_id,
-        confirmation_source: source,
-        title_hash: hashJackActionText(preview.title),
-        idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
-      });
+        brain_id: preview.brain_id ?? brainId ?? null,
+      };
+      safeLog("jack_confirm_pending_preview_called", baseEvent);
+      safeLog("jack_pending_preview_current_confirmed", baseEvent);
+      safeLog("jack_action_create_from_preview_started", baseEvent);
       pushLog({
         kind: "system",
-        text: `Conferma ricevuta. Creazione action in corso: ${preview.title}`,
+        text: `Conferma ricevuta, sto creando la action: ${preview.title}`,
       });
+
       try {
+        safeLog("jack_confirm_pending_preview_server_call_started", baseEvent);
+        setLastActionCreateResult((prev) =>
+          prev ? { ...prev, phase: "server_call_started" } : prev,
+        );
         const res = await confirmFromPreviewFn({
           data: {
             preview_id: preview.preview_id,
@@ -798,104 +850,237 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             user_transcript: userTranscript ?? null,
           },
         });
-        if (res.ok && res.action_id && res.action_title) {
-          const titleMatches = res.action_title.trim() === preview.title.trim();
-          if (!titleMatches) {
-            safeLog("jack_action_created_title_mismatch", {
-              preview_id: preview.preview_id,
-              action_id: res.action_id,
-              confirmation_source: source,
-              title_hash: hashJackActionText(preview.title),
-              idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
-              deduplicated: Boolean(res.deduplicated),
-              mismatch: true,
-            });
-            setConfirmationStatus("Errore: la action creata non corrisponde alla preview corrente. La proposta resta pronta.");
-            pushLog({
-              kind: "error",
-              text: "Errore: la action creata non corrisponde alla preview corrente. La proposta resta pronta.",
-            });
-            return;
-          }
-          safeLog("jack_action_create_from_preview_succeeded", {
-            preview_id: preview.preview_id,
-            action_id: res.action_id,
-            confirmation_source: source,
-            title_hash: hashJackActionText(preview.title),
-            idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
-            deduplicated: Boolean(res.deduplicated),
-            mismatch: false,
-          });
-          await queryClient.invalidateQueries({ queryKey: ["action-queue"] });
-          safeLog("jack_action_queue_refetch_requested", {
-            preview_id: preview.preview_id,
-            action_id: res.action_id,
-            confirmation_source: source,
-            title_hash: hashJackActionText(preview.title),
-            idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
-            deduplicated: Boolean(res.deduplicated),
-            mismatch: false,
-          });
-          pushLog({
-            kind: "system",
-            text: res.deduplicated
-              ? `Action già esistente verificata: ${res.action_title}`
-              : `Action creata: ${res.action_title}`,
-          });
-          toast.success(res.deduplicated ? "Action già presente" : "Action creata", {
-            description: res.action_title,
-          });
-          setConfirmationStatus(`Action creata: ${res.action_title}`);
-          setCreatedActionId(res.action_id);
-          pendingPreviewRef.current = null;
-          setPendingActionPreview(null);
-          // Inform Jack via a function_call_output? No — we instead send a
-          // synthetic conversation item so the model can acknowledge.
-          const dc = dcRef.current;
-          if (dc && dc.readyState === "open") {
-            try {
-              dc.send(
-                JSON.stringify({
-                  type: "conversation.item.create",
-                  item: {
-                    type: "message",
-                    role: "system",
-                    content: [
-                      {
-                        type: "input_text",
-                         text: `Action creata e verificata in Action Queue: "${res.action_title}". Solo ora comunica a Federico che la creazione è riuscita.`,
-                      },
-                    ],
-                  },
-                }),
-              );
-            } catch {
-              /* noop */
-            }
-            safeCreateResponse("action_confirmed", { queueIfBusy: true });
-          }
-        } else {
-          safeLog("jack_action_create_from_preview_failed", {
-            preview_id: preview.preview_id,
-            confirmation_source: source,
-            title_hash: hashJackActionText(preview.title),
-            idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
+        safeLog("jack_confirm_pending_preview_server_call_returned", {
+          ...baseEvent,
+          has_action_id: Boolean(res.action_id),
+          deduplicated: Boolean(res.deduplicated),
+          reason: res.reason ?? null,
+        });
+
+        if (!res.ok || !res.action_id || !res.action_title) {
+          safeLog("jack_confirm_pending_preview_no_action_id", {
+            ...baseEvent,
             reason: res.reason ?? "unknown",
           });
-          setConfirmationStatus("Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.");
+          safeLog("jack_action_create_from_preview_failed", {
+            ...baseEvent,
+            reason: res.reason ?? "unknown",
+          });
+          setLastActionCreateResult((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: res.action_id ? "server_failed" : "no_action_id",
+                  errorCode: res.reason ?? "unknown",
+                  safeMessage: res.safe_message ?? null,
+                }
+              : prev,
+          );
+          setConfirmationStatus(
+            "La conferma è arrivata, ma il server non ha creato la action. La proposta resta pronta.",
+          );
           pushLog({
             kind: "warning",
-            text: res.safe_message ?? "Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.",
+            text:
+              res.safe_message ??
+              "La conferma è arrivata, ma il server non ha creato la action. La proposta resta pronta.",
+          });
+          return;
+        }
+
+        const titleMatches = res.action_title.trim() === preview.title.trim();
+        const actionIdRedacted = `${res.action_id.slice(0, 8)}…`;
+        setLastActionCreateResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                phase: "server_ok",
+                actionIdRedacted,
+                actionTitle: res.action_title ?? null,
+                deduplicated: Boolean(res.deduplicated),
+                titleMatches,
+              }
+            : prev,
+        );
+
+        if (!titleMatches) {
+          safeLog("jack_action_created_title_mismatch", {
+            ...baseEvent,
+            action_id: res.action_id,
+            deduplicated: Boolean(res.deduplicated),
+          });
+          setConfirmationStatus(
+            "Errore: la action creata non corrisponde alla preview corrente. La proposta resta pronta.",
+          );
+          pushLog({
+            kind: "error",
+            text: "Errore: la action creata non corrisponde alla preview corrente. La proposta resta pronta.",
+          });
+          return;
+        }
+
+        safeLog("jack_action_create_from_preview_succeeded", {
+          ...baseEvent,
+          action_id: res.action_id,
+          deduplicated: Boolean(res.deduplicated),
+          mismatch: false,
+        });
+
+        // Broad invalidation across every action-queue-related cache key.
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["action-queue"] }),
+          queryClient.invalidateQueries({ queryKey: ["action-queue-brains"] }),
+          queryClient.invalidateQueries({ queryKey: ["action-queue-workflows"] }),
+          queryClient.invalidateQueries({ queryKey: ["automation-actions"] }),
+          queryClient.invalidateQueries({ queryKey: ["actions"] }),
+        ]);
+        safeLog("jack_action_queue_refetch_requested", {
+          ...baseEvent,
+          action_id: res.action_id,
+          deduplicated: Boolean(res.deduplicated),
+        });
+
+        // Immediate read-by-id verification: the same UI client reads
+        // automation_actions under RLS; if RLS hides it, we report missing.
+        safeLog("jack_confirm_pending_preview_verification_started", {
+          ...baseEvent,
+          action_id: res.action_id,
+        });
+        setLastActionCreateResult((prev) =>
+          prev ? { ...prev, phase: "verification_started" } : prev,
+        );
+        let verified: AutomationAction | null = null;
+        try {
+          verified = await getAutomationActionById(res.action_id);
+        } catch (verifyErr) {
+          safeLog("jack_confirm_pending_preview_verification_missing", {
+            ...baseEvent,
+            action_id: res.action_id,
+            error_code: "verify_query_failed",
+            detail: String((verifyErr as Error).message ?? verifyErr).slice(0, 160),
           });
         }
-      } catch (err) {
-        safeLog("jack_action_create_from_preview_failed", {
-          preview_id: preview.preview_id,
-          confirmation_source: source,
-          title_hash: hashJackActionText(preview.title),
-          idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
-          detail: String((err as Error).message ?? err).slice(0, 160),
+
+        if (!verified) {
+          safeLog("jack_confirm_pending_preview_verification_missing", {
+            ...baseEvent,
+            action_id: res.action_id,
+            error_code: "not_found_under_rls",
+          });
+          setLastActionCreateResult((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  phase: "verification_missing",
+                  errorCode: "not_found_under_rls",
+                }
+              : prev,
+          );
+          setConfirmationStatus(
+            "Action creata ma non visibile nella lista corrente. Controlla filtri o brain selezionato.",
+          );
+          pushLog({
+            kind: "warning",
+            text: `Action creata (${actionIdRedacted}) ma non visibile sotto l'utente corrente. Controlla filtri o brain.`,
+          });
+          return;
+        }
+
+        // Verify it actually shows up in the current /action-queue list
+        // for this user's brain filter, if any.
+        let visibleInCurrentList: boolean | null = null;
+        try {
+          const cached = queryClient.getQueriesData<AutomationAction[]>({
+            queryKey: ["action-queue"],
+          });
+          visibleInCurrentList = cached.some(([, list]) =>
+            Array.isArray(list) && list.some((a) => a?.id === res.action_id),
+          );
+        } catch {
+          visibleInCurrentList = null;
+        }
+
+        safeLog("jack_confirm_pending_preview_verification_found", {
+          ...baseEvent,
+          action_id: res.action_id,
+          status: verified.status,
+          source: verified.source,
+          visible_in_current_list: visibleInCurrentList,
         });
+        setLastActionCreateResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                phase: "verification_found",
+                verificationStatus: verified.status,
+                verificationSource: verified.source,
+                verificationBrainId: verified.brain_id ?? null,
+                visibleInCurrentList,
+              }
+            : prev,
+        );
+
+        pushLog({
+          kind: "system",
+          text: res.deduplicated
+            ? `Action già esistente verificata: ${res.action_title}`
+            : `Action creata e verificata: ${res.action_title}`,
+        });
+        toast.success(res.deduplicated ? "Action già presente" : "Action creata", {
+          description: res.action_title,
+        });
+        setConfirmationStatus(
+          visibleInCurrentList === false
+            ? `Action creata ma non visibile nella lista corrente (filtro/brain). ID ${actionIdRedacted}.`
+            : `Action creata e verificata: ${res.action_title}`,
+        );
+        setCreatedActionId(res.action_id);
+        pendingPreviewRef.current = null;
+        setPendingActionPreview(null);
+
+        const dc = dcRef.current;
+        if (dc && dc.readyState === "open") {
+          try {
+            dc.send(
+              JSON.stringify({
+                type: "conversation.item.create",
+                item: {
+                  type: "message",
+                  role: "system",
+                  content: [
+                    {
+                      type: "input_text",
+                      text: `Action creata e verificata in Action Queue: "${res.action_title}". Solo ora comunica a Federico che la creazione è riuscita.`,
+                    },
+                  ],
+                },
+              }),
+            );
+          } catch {
+            /* noop */
+          }
+          safeCreateResponse("action_confirmed", { queueIfBusy: true });
+        }
+      } catch (err) {
+        const detail = String((err as Error).message ?? err).slice(0, 160);
+        safeLog("jack_confirm_pending_preview_server_call_failed", {
+          ...baseEvent,
+          detail,
+        });
+        safeLog("jack_action_create_from_preview_failed", {
+          ...baseEvent,
+          detail,
+        });
+        setLastActionCreateResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                phase: "server_failed",
+                errorCode: "server_call_threw",
+                safeMessage: detail,
+              }
+            : prev,
+        );
         setConfirmationStatus("Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.");
         pushLog({
           kind: "error",
@@ -1751,6 +1936,37 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               {createdActionId ? <span className="text-muted-foreground">ID verificato.</span> : null}
             </AlertDescription>
           </Alert>
+        ) : null}
+
+        {lastActionCreateResult ? (
+          <Card className="border-sky-500/30 bg-sky-500/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Activity className="h-4 w-4 text-sky-600" />
+                Diagnostica conferma action (v3.21.5)
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Tracciamento del percorso preview → server → verifica.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
+              <div><span className="text-muted-foreground">Fase:</span> {lastActionCreateResult.phase}</div>
+              <div><span className="text-muted-foreground">Fonte conferma:</span> {lastActionCreateResult.confirmationSource}</div>
+              <div><span className="text-muted-foreground">Preview ID:</span> <code className="text-[10px]">{lastActionCreateResult.previewIdRedacted}</code></div>
+              <div><span className="text-muted-foreground">Action ID:</span> {lastActionCreateResult.actionIdRedacted ? <code className="text-[10px]">{lastActionCreateResult.actionIdRedacted}</code> : "—"}</div>
+              <div className="sm:col-span-2"><span className="text-muted-foreground">Titolo action:</span> {lastActionCreateResult.actionTitle ?? "—"}</div>
+              <div><span className="text-muted-foreground">Title match:</span> {lastActionCreateResult.titleMatches === null ? "—" : lastActionCreateResult.titleMatches ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Deduplicated:</span> {lastActionCreateResult.deduplicated === null ? "—" : lastActionCreateResult.deduplicated ? "sì" : "no"}</div>
+              <div><span className="text-muted-foreground">Verifica status:</span> {lastActionCreateResult.verificationStatus ?? "—"}</div>
+              <div><span className="text-muted-foreground">Verifica source:</span> {lastActionCreateResult.verificationSource ?? "—"}</div>
+              <div><span className="text-muted-foreground">Verifica brain:</span> {lastActionCreateResult.verificationBrainId ? `${lastActionCreateResult.verificationBrainId.slice(0, 6)}…` : "—"}</div>
+              <div><span className="text-muted-foreground">Visibile in lista:</span> {lastActionCreateResult.visibleInCurrentList === null ? "—" : lastActionCreateResult.visibleInCurrentList ? "sì" : "no (filtro/brain)"}</div>
+              <div className="sm:col-span-2"><span className="text-muted-foreground">Errore:</span> {lastActionCreateResult.errorCode ?? "—"}</div>
+              {lastActionCreateResult.safeMessage ? (
+                <div className="sm:col-span-2"><span className="text-muted-foreground">Messaggio:</span> {lastActionCreateResult.safeMessage}</div>
+              ) : null}
+            </CardContent>
+          </Card>
         ) : null}
 
 
