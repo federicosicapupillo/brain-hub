@@ -1393,37 +1393,73 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             });
           }
         }
-        if (source === "voice_router") {
-          pushLog({
-            kind: "jack",
-            text: "Conferma completata. Ho creato la action in Action Queue.",
-          });
-        }
-
+        // v3.21.9 — single controlled local message; cancel any in-flight
+        // Realtime response and clear pending audio so the model can't keep
+        // chattering after the bridge has succeeded. NO additional response.create.
         const dc = dcRef.current;
         if (dc && dc.readyState === "open") {
-          try {
-            dc.send(
-              JSON.stringify({
-                type: "conversation.item.create",
-                item: {
-                  type: "message",
-                  role: "system",
-                  content: [
-                    {
-                      type: "input_text",
-                      text: `Action creata e verificata in Action Queue: "${res.action_title}". Solo ora comunica a Federico che la creazione è riuscita.`,
-                    },
-                  ],
-                },
-              }),
-            );
-          } catch {
-            /* noop */
+          if (activeResponseIdRef.current) {
+            suppressedResponseIdsRef.current.add(activeResponseIdRef.current);
           }
-          safeCreateResponse("action_confirmed", { queueIfBusy: true });
+          if (responseInProgressRef.current) {
+            try {
+              dc.send(JSON.stringify({ type: "response.cancel" }));
+              safeLog("jack_realtime_response_cancel_sent", {
+                safe_message: "post_verification_cleanup",
+                response_id: redactResponseId(activeResponseIdRef.current),
+              });
+            } catch (cancelErr) {
+              safeLog("jack_realtime_response_cancel_failed", {
+                safe_message: "post_verification_cleanup",
+                error_code: cancelErr instanceof Error ? cancelErr.name : "send_failed",
+              });
+            }
+          }
+          try {
+            dc.send(JSON.stringify({ type: "output_audio_buffer.clear" }));
+            safeLog("jack_realtime_output_audio_clear_sent", {
+              safe_message: "post_verification_cleanup",
+            });
+          } catch (clearErr) {
+            safeLog("jack_realtime_output_audio_clear_failed", {
+              safe_message: "post_verification_cleanup",
+              error_code: clearErr instanceof Error ? clearErr.name : "send_failed",
+            });
+          }
+        }
+        suppressRealtimeAssistantOutputRef.current = false;
+        voiceConfirmationInFlightRef.current = false;
+        activeResponseIdRef.current = null;
+        responseInProgressRef.current = false;
+        if (!finalControlledMessageShownRef.current) {
+          finalControlledMessageShownRef.current = true;
+          if (source === "voice_router") {
+            pushLog({
+              kind: "jack",
+              text: "Conferma completata. Ho creato la action in Action Queue.",
+            });
+          }
+          safeLog("jack_voice_confirmation_final_message_shown", {
+            ...baseEvent,
+            action_id: res.action_id,
+            phase: "verification_found",
+          });
+          setDiagnostics((d) => ({
+            ...d,
+            finalControlledMessageShown: true,
+            voiceConfirmationInFlight: false,
+            activeResponseIdRedacted: null,
+            responseState: "idle",
+          }));
+        } else {
+          safeLog("jack_voice_confirmation_duplicate_success_suppressed", {
+            ...baseEvent,
+            action_id: res.action_id,
+            phase: "verification_found",
+          });
         }
         return "verified" as const;
+
       } catch (err) {
         const detail = String((err as Error).message ?? err).slice(0, 160);
         safeLog("jack_confirm_pending_preview_server_call_failed", {
