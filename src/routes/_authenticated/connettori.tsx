@@ -28,6 +28,8 @@ import { Switch } from "@/components/ui/switch";
 
 import { supabase } from "@/integrations/supabase/client";
 import { listConnectors, type Connector } from "@/lib/workspace-api";
+import { useServerFn } from "@tanstack/react-start";
+import { getGmailOauthStatus, startGmailOAuth } from "@/lib/gmail-oauth.functions";
 
 export const Route = createFileRoute("/_authenticated/connettori")({
   head: () => ({
@@ -593,6 +595,7 @@ function ConnectorDetailDialog({
         </div>
 
         <DialogFooter className="flex flex-wrap gap-2">
+          {item.key === "Gmail" && <GmailConnectActions status={item.status} onClose={onClose} />}
           <Button variant="outline" size="sm" onClick={() => onImport(item.key)}>
             <Inbox className="h-4 w-4 mr-1" /> Importa manualmente
           </Button>
@@ -608,6 +611,78 @@ function ConnectorDetailDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function GmailConnectActions({
+  status,
+  onClose,
+}: {
+  status: ConnStatus;
+  onClose: () => void;
+}) {
+  const startFn = useServerFn(startGmailOAuth);
+  const [loading, setLoading] = useState(false);
+  const oauthStatus = useQuery({
+    queryKey: ["gmail-oauth-status"],
+    queryFn: () => getGmailOauthStatus(),
+    staleTime: 60_000,
+  });
+
+  const configured = oauthStatus.data?.configured === true;
+
+  async function handleConnect() {
+    if (!configured) {
+      toast.error(
+        "OAuth Gmail non configurato: verifica GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e redirect URL.",
+      );
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await startFn({
+        data: { brain_id: null, redirect_path: "/connettori" },
+      });
+      if (!res.ok) {
+        toast.error(res.reason);
+        return;
+      }
+      window.location.href = res.authUrl;
+    } catch {
+      toast.error("Errore durante l'avvio del flusso OAuth Gmail.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <>
+      {status !== "collegato" && (
+        <Button size="sm" onClick={handleConnect} disabled={loading || oauthStatus.isLoading}>
+          <Plug className="h-4 w-4 mr-1" />
+          {loading ? "Reindirizzamento…" : "Collega Gmail"}
+        </Button>
+      )}
+      <Button variant="outline" size="sm" asChild>
+        <Link to="/gmail-connector" onClick={onClose}>
+          <Mail className="h-4 w-4 mr-1" /> Apri Gmail Connector
+        </Link>
+      </Button>
+      <Button variant="outline" size="sm" asChild>
+        <Link to="/gmail-intelligence" onClick={onClose}>
+          <Sparkles className="h-4 w-4 mr-1" /> Email Intelligence
+        </Link>
+      </Button>
+      {oauthStatus.data && !configured && (
+        <div className="w-full text-xs text-amber-500 flex items-start gap-1.5 mt-1">
+          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          <span>
+            OAuth Gmail non configurato: verifica GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e
+            redirect URL nei Secrets del backend.
+          </span>
+        </div>
+      )}
+    </>
   );
 }
 
