@@ -76,6 +76,7 @@ const items = [
   { title: "Operating Dashboard", url: "/operating-dashboard", icon: LayoutDashboard },
   { title: "Project Console", url: "/project-console", icon: LayoutDashboard },
   { title: "Tool Connections", url: "/tool-connections", icon: Plug },
+  { title: "Connector Hub", url: "/connector-hub", icon: Plug },
   { title: "Runbooks", url: "/runbooks", icon: BookMarked },
   { title: "Telegram Approvals", url: "/telegram-approvals", icon: Send },
   { title: "Result Review", url: "/result-review", icon: CheckSquare },

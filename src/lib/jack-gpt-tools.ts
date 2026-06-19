@@ -284,6 +284,31 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       required: [],
     },
   },
+  {
+    type: "function",
+    name: "get_connector_hub_summary",
+    description:
+      "Riepilogo connettori (Drive, Gmail, Calendar, GitHub, Supabase, Obsidian, Telegram, n8n, Lovable manual): totali, connessi, read-only, warning, errori, manuali, fonti mappate, progetti collegati. Read-only.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
+  {
+    type: "function",
+    name: "get_project_connectors",
+    description:
+      "Connettori e fonti mappate per un progetto specifico. Risponde a 'Furia a quali strumenti è collegata?', 'Brain Hub ha GitHub collegato?'. Read-only.",
+    parameters: {
+      type: "object",
+      properties: { project_key: { type: "string" } },
+      required: ["project_key"],
+    },
+  },
+  {
+    type: "function",
+    name: "get_connector_warnings",
+    description:
+      "Connettori con warning, errori o non configurati. Risponde a 'Quali connettori hanno problemi?'. Read-only.",
+    parameters: { type: "object", properties: {}, required: [] },
+  },
 ] as const;
 
 // ---------- Helpers ----------
@@ -340,6 +365,9 @@ const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_all_project_states",
   "get_project_next_action",
   "get_multi_project_overview",
+  "get_connector_hub_summary",
+  "get_project_connectors",
+  "get_connector_warnings",
 ]);
 
 function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
@@ -404,6 +432,9 @@ const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "get_all_project_states",
   "get_project_next_action",
   "get_multi_project_overview",
+  "get_connector_hub_summary",
+  "get_project_connectors",
+  "get_connector_warnings",
 ]);
 type InFlightResult = { ok: boolean; [k: string]: unknown };
 const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
@@ -1107,6 +1138,140 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               projects,
             },
           };
+        }
+
+
+        case "get_connector_hub_summary": {
+          const sb = supabase as never as {
+            from: (t: string) => {
+              select: (c: string) => Promise<{ data: unknown }>;
+            };
+          };
+          const regRes = await sb.from("connector_registry").select("*");
+          const mapRes = await sb.from("project_source_mappings").select("project_key");
+          const registry = (regRes.data ?? []) as Array<Record<string, unknown>>;
+          const mappings = (mapRes.data ?? []) as Array<Record<string, unknown>>;
+          const projects = new Set(mappings.map((m) => String(m.project_key)));
+          let lastSync: string | null = null;
+          for (const r of registry) {
+            const ls = (r.last_sync_at as string | null) ?? null;
+            if (ls && (!lastSync || ls > lastSync)) lastSync = ls;
+          }
+          const payload = {
+            total: registry.length,
+            connected: registry.filter((r) => r.status === "connected").length,
+            read_only: registry.filter((r) => r.status === "read_only").length,
+            warnings: registry.filter((r) => r.status === "warning").length,
+            errors: registry.filter((r) => r.status === "error").length,
+            not_configured: registry.filter((r) => r.status === "not_configured").length,
+            manual: registry.filter((r) => r.status === "manual").length,
+            mappings_total: mappings.length,
+            projects_with_mappings: projects.size,
+            last_sync_at: lastSync,
+            connectors: registry.map((r) => ({
+              connector_key: r.connector_key,
+              connector_name: r.connector_name,
+              status: r.status,
+              permission_level: r.permission_level,
+              last_sync_at: r.last_sync_at ?? null,
+            })),
+          };
+          void logSanitizedEvent(supabase, userId, "jack_connector_summary_requested", {
+            total: payload.total,
+            warnings: payload.warnings + payload.errors,
+          });
+          return { ok: true, payload };
+        }
+
+        case "get_project_connectors": {
+          const projectKey = String(args.project_key ?? "").trim();
+          if (!projectKey) return { ok: false, error: "missing_project_key" };
+          const sb = supabase as never as {
+            from: (t: string) => {
+              select: (c: string) => {
+                eq: (c: string, v: string) => Promise<{ data: unknown }>;
+              };
+            };
+          };
+          const sb2 = supabase as never as {
+            from: (t: string) => {
+              select: (c: string) => Promise<{ data: unknown }>;
+            };
+          };
+          const mapRes = await sb
+            .from("project_source_mappings")
+            .select("connector_key,source_type,source_label,source_ref,sync_status,last_seen_at")
+            .eq("project_key", projectKey);
+          const regRes = await sb2
+            .from("connector_registry")
+            .select("connector_key,connector_name,status,permission_level");
+          const mappings = (mapRes.data ?? []) as Array<Record<string, unknown>>;
+          const registry = (regRes.data ?? []) as Array<Record<string, unknown>>;
+          const regByKey = new Map(registry.map((r) => [String(r.connector_key), r]));
+          const grouped = new Map<string, number>();
+          for (const m of mappings) {
+            const k = String(m.connector_key);
+            grouped.set(k, (grouped.get(k) ?? 0) + 1);
+          }
+          const connectors = Array.from(grouped.entries()).map(([k, count]) => {
+            const r = regByKey.get(k);
+            return {
+              connector_key: k,
+              connector_name: r?.connector_name ?? k,
+              status: r?.status ?? "unknown",
+              sources: count,
+            };
+          });
+          void logSanitizedEvent(supabase, userId, "jack_project_connectors_requested", {
+            project_key: projectKey,
+            sources: mappings.length,
+            connectors: connectors.length,
+          });
+          return {
+            ok: true,
+            payload: {
+              project_key: projectKey,
+              connectors,
+              sources: mappings.map((m) => ({
+                connector_key: m.connector_key,
+                source_type: m.source_type,
+                source_label: m.source_label,
+                source_ref: m.source_ref ?? null,
+                sync_status: m.sync_status ?? "not_synced",
+              })),
+            },
+          };
+        }
+
+        case "get_connector_warnings": {
+          const sb = supabase as never as {
+            from: (t: string) => {
+              select: (c: string) => Promise<{ data: unknown }>;
+            };
+          };
+          const regRes = await sb
+            .from("connector_registry")
+            .select("connector_key,connector_name,status,last_error");
+          const registry = (regRes.data ?? []) as Array<Record<string, unknown>>;
+          const warnings = registry
+            .filter((r) => r.status === "warning" || r.status === "error" || r.status === "not_configured")
+            .map((r) => ({
+              connector_key: r.connector_key,
+              connector_name: r.connector_name,
+              level:
+                r.status === "error"
+                  ? "error"
+                  : r.status === "warning"
+                  ? "warning"
+                  : "info",
+              message:
+                (r.last_error as string | null) ??
+                (r.status === "not_configured" ? "Non ancora configurato" : "Verifica connettore"),
+            }));
+          void logSanitizedEvent(supabase, userId, "jack_connector_warnings_requested", {
+            warning_count: warnings.length,
+          });
+          return { ok: true, payload: { warnings, total: warnings.length } };
         }
 
         default:

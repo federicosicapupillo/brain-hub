@@ -46,6 +46,7 @@ import { Route as AuthenticatedEmailDailyBriefRouteImport } from './routes/_auth
 import { Route as AuthenticatedDriveKnowledgeRouteImport } from './routes/_authenticated/drive-knowledge'
 import { Route as AuthenticatedDailyBriefRouteImport } from './routes/_authenticated/daily-brief'
 import { Route as AuthenticatedConnettoriRouteImport } from './routes/_authenticated/connettori'
+import { Route as AuthenticatedConnectorHubRouteImport } from './routes/_authenticated/connector-hub'
 import { Route as AuthenticatedCompanyOsRouteImport } from './routes/_authenticated/company-os'
 import { Route as AuthenticatedCompanyHomeRouteImport } from './routes/_authenticated/company-home'
 import { Route as AuthenticatedCompanyBlueprintRouteImport } from './routes/_authenticated/company-blueprint'
@@ -277,6 +278,12 @@ const AuthenticatedConnettoriRoute = AuthenticatedConnettoriRouteImport.update({
   path: '/connettori',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedConnectorHubRoute =
+  AuthenticatedConnectorHubRouteImport.update({
+    id: '/connector-hub',
+    path: '/connector-hub',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCompanyOsRoute = AuthenticatedCompanyOsRouteImport.update({
   id: '/company-os',
   path: '/company-os',
@@ -456,6 +463,7 @@ export interface FileRoutesByFullPath {
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
+  '/connector-hub': typeof AuthenticatedConnectorHubRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
@@ -520,6 +528,7 @@ export interface FileRoutesByTo {
   '/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/company-home': typeof AuthenticatedCompanyHomeRoute
   '/company-os': typeof AuthenticatedCompanyOsRoute
+  '/connector-hub': typeof AuthenticatedConnectorHubRoute
   '/connettori': typeof AuthenticatedConnettoriRoute
   '/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
@@ -586,6 +595,7 @@ export interface FileRoutesById {
   '/_authenticated/company-blueprint': typeof AuthenticatedCompanyBlueprintRoute
   '/_authenticated/company-home': typeof AuthenticatedCompanyHomeRoute
   '/_authenticated/company-os': typeof AuthenticatedCompanyOsRoute
+  '/_authenticated/connector-hub': typeof AuthenticatedConnectorHubRoute
   '/_authenticated/connettori': typeof AuthenticatedConnettoriRoute
   '/_authenticated/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/_authenticated/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
@@ -654,6 +664,7 @@ export interface FileRouteTypes {
     | '/company-blueprint'
     | '/company-home'
     | '/company-os'
+    | '/connector-hub'
     | '/connettori'
     | '/daily-brief'
     | '/drive-knowledge'
@@ -718,6 +729,7 @@ export interface FileRouteTypes {
     | '/company-blueprint'
     | '/company-home'
     | '/company-os'
+    | '/connector-hub'
     | '/connettori'
     | '/daily-brief'
     | '/drive-knowledge'
@@ -783,6 +795,7 @@ export interface FileRouteTypes {
     | '/_authenticated/company-blueprint'
     | '/_authenticated/company-home'
     | '/_authenticated/company-os'
+    | '/_authenticated/connector-hub'
     | '/_authenticated/connettori'
     | '/_authenticated/daily-brief'
     | '/_authenticated/drive-knowledge'
@@ -1101,6 +1114,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConnettoriRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/connector-hub': {
+      id: '/_authenticated/connector-hub'
+      path: '/connector-hub'
+      fullPath: '/connector-hub'
+      preLoaderRoute: typeof AuthenticatedConnectorHubRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/company-os': {
       id: '/_authenticated/company-os'
       path: '/company-os'
@@ -1339,6 +1359,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCompanyBlueprintRoute: typeof AuthenticatedCompanyBlueprintRoute
   AuthenticatedCompanyHomeRoute: typeof AuthenticatedCompanyHomeRoute
   AuthenticatedCompanyOsRoute: typeof AuthenticatedCompanyOsRoute
+  AuthenticatedConnectorHubRoute: typeof AuthenticatedConnectorHubRoute
   AuthenticatedConnettoriRoute: typeof AuthenticatedConnettoriRoute
   AuthenticatedDailyBriefRoute: typeof AuthenticatedDailyBriefRoute
   AuthenticatedDriveKnowledgeRoute: typeof AuthenticatedDriveKnowledgeRoute
@@ -1395,6 +1416,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCompanyBlueprintRoute: AuthenticatedCompanyBlueprintRoute,
   AuthenticatedCompanyHomeRoute: AuthenticatedCompanyHomeRoute,
   AuthenticatedCompanyOsRoute: AuthenticatedCompanyOsRoute,
+  AuthenticatedConnectorHubRoute: AuthenticatedConnectorHubRoute,
   AuthenticatedConnettoriRoute: AuthenticatedConnettoriRoute,
   AuthenticatedDailyBriefRoute: AuthenticatedDailyBriefRoute,
   AuthenticatedDriveKnowledgeRoute: AuthenticatedDriveKnowledgeRoute,
