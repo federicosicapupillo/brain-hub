@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -36,7 +37,10 @@ import {
 import { runJackGptTool, logJackGptEvent } from "@/lib/jack-gpt-tools";
 import { createControlledJackActionFromPreview } from "@/lib/jack-controlled-actions.functions";
 import {
+  buildJackPreviewId,
+  hashJackActionText,
   isExplicitJackConfirmation,
+  redactJackIdempotencyKey,
   type PendingJackActionPreview,
 } from "@/lib/jack-action-confirmation";
 import { JACK_GPT_PRIVACY_NOTICE, JACK_GPT_SYSTEM_INSTRUCTIONS } from "@/lib/jack-gpt-instructions";
@@ -234,6 +238,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const toolFn = useServerFn(runJackGptTool);
   const logFn = useServerFn(logJackGptEvent);
   const contextFn = useServerFn(buildJackNaturalContext);
+  const queryClient = useQueryClient();
 
   const contextSentRef = useRef(false);
   const lastContextRefreshRef = useRef<number>(0);
@@ -269,7 +274,10 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const [pendingActionPreview, setPendingActionPreview] =
     useState<PendingJackActionPreview | null>(null);
   const [confirmingAction, setConfirmingAction] = useState(false);
+  const [confirmationStatus, setConfirmationStatus] = useState<string | null>(null);
+  const [createdActionId, setCreatedActionId] = useState<string | null>(null);
   const pendingPreviewRef = useRef<PendingJackActionPreview | null>(null);
+  const confirmingPreviewIdRef = useRef<string | null>(null);
   const confirmFromPreviewFn = useServerFn(createControlledJackActionFromPreview);
 
 
@@ -638,12 +646,32 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         const payload = (result as { payload?: Record<string, unknown> }).payload ?? {};
         const preview = (payload.preview as PendingJackActionPreview | undefined) ?? null;
         if (preview && preview.title && preview.idempotency_key) {
-          pendingPreviewRef.current = preview;
-          setPendingActionPreview(preview);
+          const createdAt = preview.created_at ?? preview.generated_at ?? new Date().toISOString();
+          const currentPreview: PendingJackActionPreview = {
+            ...preview,
+            preview_id: preview.preview_id ?? buildJackPreviewId(preview.idempotency_key, createdAt),
+            created_at: createdAt,
+            generated_at: preview.generated_at ?? createdAt,
+          };
+          const previous = pendingPreviewRef.current;
+          if (previous) {
+            safeLog("jack_pending_preview_replaced", {
+              previous_preview_id: previous.preview_id,
+              preview_id: currentPreview.preview_id,
+              title_hash: hashJackActionText(currentPreview.title),
+              idempotency_key: redactJackIdempotencyKey(currentPreview.idempotency_key),
+            });
+          }
+          pendingPreviewRef.current = currentPreview;
+          setPendingActionPreview(currentPreview);
+          setConfirmationStatus(null);
+          setCreatedActionId(null);
           safeLog("jack_pending_action_preview_stored", {
-            source: preview.source,
-            risk_level: preview.risk_level,
-            idempotency_key_preview: preview.idempotency_key.slice(0, 32),
+            preview_id: currentPreview.preview_id,
+            source: currentPreview.source,
+            risk_level: currentPreview.risk_level,
+            title_hash: hashJackActionText(currentPreview.title),
+            idempotency_key: redactJackIdempotencyKey(currentPreview.idempotency_key),
           });
         }
       }
@@ -734,30 +762,91 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         });
         return;
       }
+      if (confirmingPreviewIdRef.current === preview.preview_id) return;
+      confirmingPreviewIdRef.current = preview.preview_id;
       setConfirmingAction(true);
+      setConfirmationStatus(`Conferma ricevuta. Creazione action in corso: ${preview.title}`);
+      safeLog("jack_pending_preview_current_confirmed", {
+        preview_id: preview.preview_id,
+        confirmation_source: source,
+        title_hash: hashJackActionText(preview.title),
+        idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
+      });
+      safeLog("jack_action_create_from_preview_started", {
+        preview_id: preview.preview_id,
+        confirmation_source: source,
+        title_hash: hashJackActionText(preview.title),
+        idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
+      });
+      pushLog({
+        kind: "system",
+        text: `Conferma ricevuta. Creazione action in corso: ${preview.title}`,
+      });
       try {
         const res = await confirmFromPreviewFn({
           data: {
-            preview,
+            preview_id: preview.preview_id,
+            title: preview.title,
+            description: preview.description,
+            reason: preview.reason,
+            risk_level: preview.risk_level,
+            source: preview.source,
             idempotency_key: preview.idempotency_key,
             brain_id: preview.brain_id ?? brainId ?? null,
+            project_id: preview.project_id ?? null,
             confirmation_source: source,
             user_transcript: userTranscript ?? null,
           },
         });
-        if (res.ok && res.action_id) {
-          safeLog("jack_controlled_action_created_from_preview", {
+        if (res.ok && res.action_id && res.action_title) {
+          const titleMatches = res.action_title.trim() === preview.title.trim();
+          if (!titleMatches) {
+            safeLog("jack_action_created_title_mismatch", {
+              preview_id: preview.preview_id,
+              action_id: res.action_id,
+              confirmation_source: source,
+              title_hash: hashJackActionText(preview.title),
+              idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
+              deduplicated: Boolean(res.deduplicated),
+              mismatch: true,
+            });
+            setConfirmationStatus("Errore: la action creata non corrisponde alla preview corrente. La proposta resta pronta.");
+            pushLog({
+              kind: "error",
+              text: "Errore: la action creata non corrisponde alla preview corrente. La proposta resta pronta.",
+            });
+            return;
+          }
+          safeLog("jack_action_create_from_preview_succeeded", {
+            preview_id: preview.preview_id,
+            action_id: res.action_id,
             confirmation_source: source,
-            risk_level: preview.risk_level,
-            source: preview.source,
+            title_hash: hashJackActionText(preview.title),
+            idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
             deduplicated: Boolean(res.deduplicated),
+            mismatch: false,
+          });
+          await queryClient.invalidateQueries({ queryKey: ["action-queue"] });
+          safeLog("jack_action_queue_refetch_requested", {
+            preview_id: preview.preview_id,
+            action_id: res.action_id,
+            confirmation_source: source,
+            title_hash: hashJackActionText(preview.title),
+            idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
+            deduplicated: Boolean(res.deduplicated),
+            mismatch: false,
           });
           pushLog({
             kind: "system",
             text: res.deduplicated
-              ? "Action già esistente: nessuna duplicata creata."
-              : "Action creata in coda (suggested).",
+              ? `Action già esistente verificata: ${res.action_title}`
+              : `Action creata: ${res.action_title}`,
           });
+          toast.success(res.deduplicated ? "Action già presente" : "Action creata", {
+            description: res.action_title,
+          });
+          setConfirmationStatus(`Action creata: ${res.action_title}`);
+          setCreatedActionId(res.action_id);
           pendingPreviewRef.current = null;
           setPendingActionPreview(null);
           // Inform Jack via a function_call_output? No — we instead send a
@@ -774,10 +863,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                     content: [
                       {
                         type: "input_text",
-                        text: `Action confermata e creata in Action Queue (status: suggested, id ${res.action_id.slice(
-                          0,
-                          6,
-                        )}…). Conferma a Federico in modo naturale.`,
+                         text: `Action creata e verificata in Action Queue: "${res.action_title}". Solo ora comunica a Federico che la creazione è riuscita.`,
                       },
                     ],
                   },
@@ -789,26 +875,38 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             safeCreateResponse("action_confirmed", { queueIfBusy: true });
           }
         } else {
-          safeLog("jack_action_confirmation_failed", {
+          safeLog("jack_action_create_from_preview_failed", {
+            preview_id: preview.preview_id,
             confirmation_source: source,
+            title_hash: hashJackActionText(preview.title),
+            idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
             reason: res.reason ?? "unknown",
           });
+          setConfirmationStatus("Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.");
           pushLog({
             kind: "warning",
-            text: res.safe_message ?? "Conferma non riuscita.",
+            text: res.safe_message ?? "Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.",
           });
         }
       } catch (err) {
-        safeLog("jack_action_confirmation_failed", {
+        safeLog("jack_action_create_from_preview_failed", {
+          preview_id: preview.preview_id,
           confirmation_source: source,
+          title_hash: hashJackActionText(preview.title),
+          idempotency_key: redactJackIdempotencyKey(preview.idempotency_key),
           detail: String((err as Error).message ?? err).slice(0, 160),
         });
-        pushLog({ kind: "error", text: "Errore durante la conferma." });
+        setConfirmationStatus("Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.");
+        pushLog({
+          kind: "error",
+          text: "Ho ricevuto la conferma, ma la creazione non è riuscita. La proposta resta pronta.",
+        });
       } finally {
         setConfirmingAction(false);
+        confirmingPreviewIdRef.current = null;
       }
     },
-    [confirmFromPreviewFn, brainId, safeLog, pushLog, safeCreateResponse],
+    [confirmFromPreviewFn, brainId, safeLog, pushLog, safeCreateResponse, queryClient],
   );
 
   const cancelPendingPreview = useCallback(() => {
@@ -818,6 +916,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     });
     pendingPreviewRef.current = null;
     setPendingActionPreview(null);
+    setConfirmationStatus(null);
+    setCreatedActionId(null);
     pushLog({ kind: "system", text: "Proposta annullata." });
   }, [safeLog, pushLog]);
 
@@ -1608,6 +1708,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 <div className="text-xs font-medium text-muted-foreground">Motivo</div>
                 <div className="text-xs">{pendingActionPreview.reason}</div>
               </div>
+              {confirmationStatus ? (
+                <Alert className="border-amber-500/30 bg-amber-500/5">
+                  <AlertTitle className="text-sm">Stato conferma</AlertTitle>
+                  <AlertDescription className="text-xs">{confirmationStatus}</AlertDescription>
+                </Alert>
+              ) : null}
               <div className="flex flex-wrap gap-2 pt-1">
                 <Button
                   size="sm"
@@ -1629,6 +1735,22 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               </div>
             </CardContent>
           </Card>
+        ) : null}
+
+        {!pendingActionPreview && confirmationStatus ? (
+          <Alert className="border-emerald-500/30 bg-emerald-500/5">
+            <ShieldCheck className="h-4 w-4" />
+            <AlertTitle className="text-sm">{confirmationStatus}</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center gap-2 pt-2 text-xs">
+              <span>Verifica disponibile in Action Queue.</span>
+              <Button asChild size="sm" variant="outline" className="gap-2">
+                <Link to="/action-queue">
+                  Apri Action Queue
+                </Link>
+              </Button>
+              {createdActionId ? <span className="text-muted-foreground">ID verificato.</span> : null}
+            </AlertDescription>
+          </Alert>
         ) : null}
 
 
