@@ -255,6 +255,15 @@ function ConnectorHubPage() {
               <Plus className={`mr-2 h-4 w-4 ${seedingPupillo ? "animate-pulse" : ""}`} />
               Crea mapping Pupillo
             </Button>
+            <Button
+              onClick={onSeedMissing}
+              disabled={seedingMissing}
+              size="sm"
+              variant="outline"
+            >
+              <Plus className={`mr-2 h-4 w-4 ${seedingMissing ? "animate-pulse" : ""}`} />
+              Crea mapping progetti mancanti
+            </Button>
           </div>
         </CardContent>
       </Card>
