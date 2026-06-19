@@ -1411,6 +1411,21 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           tool_name,
           brain_id: (args.brain_id as string | undefined) ?? null,
         });
+        if (tool_name === "get_project_connectors") {
+          void logSanitizedEvent(
+            supabase,
+            userId,
+            "jack_project_connectors_duplicate_prevented",
+            {
+              requested_project:
+                (args.project_key as string | undefined) ??
+                (args.project_name as string | undefined) ??
+                (args.query as string | undefined) ??
+                null,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          );
+        }
         return await existing;
       }
       const p: Promise<ToolReturn> = runCompute().finally(() => {
