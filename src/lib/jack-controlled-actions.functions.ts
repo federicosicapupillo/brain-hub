@@ -586,14 +586,13 @@ export const createControlledJackAction = createServerFn({ method: "POST" })
       if (snapshotDraftId && actionId) {
         // best-effort link via metadata patch
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          await (supabase as any)
+          await db(supabase)
             .from("automation_actions")
             .update({
-              metadata: {
+              metadata: toJson({
                 ...metadata,
                 master_snapshot_draft_id: snapshotDraftId,
-              },
+              }),
             })
             .eq("id", actionId);
         } catch { /* noop */ }
