@@ -1171,6 +1171,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           ...baseEvent,
           detail,
         });
+        safeLog("jack_action_preview_confirm_failed", {
+          ...baseEvent,
+          error_code: "server_call_threw",
+          safe_message: detail,
+        });
         safeLog("jack_action_create_from_preview_failed", {
           ...baseEvent,
           detail,
