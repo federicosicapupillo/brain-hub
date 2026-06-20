@@ -2756,7 +2756,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 classification.reason !== "suspected_echo"
               ) {
                 lastValidUserUtteranceRef.current = { text: transcript, at: nowTs };
-                void runDeterministicVoiceRouter(transcript, nowTs);
+                await runDeterministicVoiceRouter(transcript, nowTs);
               }
               break;
             }
@@ -2776,16 +2776,37 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               lastIgnoredReason: null,
             }));
             pushLog({ kind: "user", text: transcript });
-            handleVoiceConfirmationTranscript(transcript, msg.type);
-            // v3.25 — run deterministic command router for sensitive intents.
-            void runDeterministicVoiceRouter(transcript, nowTs);
-            // v3.25.2 — auto-response is disabled at the session level, so we
-            // must explicitly create a response for valid user utterances.
-            // safeCreateResponse dedups against router-triggered responses
-            // and against any in-flight response.
-            safeCreateResponse("user_utterance_valid", { queueIfBusy: true });
+            // v3.25.3 — single response path:
+            //   1) run deterministic router FIRST and await its result.
+            //   2) skip handleVoiceConfirmationTranscript on capability_question
+            //      or when router already handled the turn.
+            //   3) skip the catch-all safeCreateResponse if the router already
+            //      queued a spoken response or created an action preview.
+            const routerResult = await runDeterministicVoiceRouter(
+              transcript,
+              nowTs,
+            );
+            if (
+              routerResult.intent !== "capability_question" &&
+              !routerResult.handled
+            ) {
+              handleVoiceConfirmationTranscript(transcript, msg.type);
+            }
+            if (
+              !routerResult.responseAlreadyQueued &&
+              !routerResult.actionPreviewCreated
+            ) {
+              safeCreateResponse("user_utterance_valid", { queueIfBusy: true });
+            } else {
+              safeLog("jack_voice_user_utterance_response_skipped_router_owns_turn", {
+                router_intent: routerResult.intent,
+                response_already_queued: routerResult.responseAlreadyQueued,
+                action_preview_created: routerResult.actionPreviewCreated,
+              });
+            }
           }
           break;
+
 
 
         case "response.done":
