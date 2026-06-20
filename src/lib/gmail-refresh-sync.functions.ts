@@ -485,46 +485,85 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
         safe_message: `Sincronizzati ${added + updated} messaggi (${added} nuovi).`,
       };
     } catch (err) {
-      const errCode = (err as Error & { status?: number }).status === 401
-        ? "reauth_required"
-        : "sync_failed";
+      const errAny = err as Error & { status?: number; code?: string };
+      const tagged = errAny.code;
+      const msg = String(errAny.message ?? "").toLowerCase();
+      let status: RefreshGmailMetadataSyncResult["status"];
+      let errCode: string;
+      let safeMessage: string;
+      if (tagged === "reauth_required" || errAny.status === 401) {
+        status = "reauth_required";
+        errCode = "reauth_required";
+        safeMessage =
+          "Non riesco a sincronizzare Gmail perché serve ricollegare l'account.";
+      } else if (tagged === "config_missing") {
+        status = "config_missing";
+        errCode = "config_missing";
+        safeMessage = "Configurazione Google OAuth incompleta.";
+      } else if (tagged === "google_api_error") {
+        status = "google_api_error";
+        errCode = "google_api_error";
+        safeMessage = "Errore Gmail API durante la sincronizzazione.";
+      } else if (
+        msg.includes("does not exist") &&
+        msg.includes("column")
+      ) {
+        status = "migration_missing";
+        errCode = "migration_missing";
+        safeMessage =
+          "La migration Gmail sync non risulta applicata correttamente.";
+      } else {
+        status = "failed";
+        errCode = "sync_failed";
+        safeMessage = "Sincronizzazione Gmail non riuscita.";
+      }
       const errAt = new Date().toISOString();
-      await supabase
-        .from("gmail_connection_settings")
-        .update({
-          sync_lock_until: null,
-          sync_status: "error",
-          last_sync_status: "failed",
-          last_sync_error: String((err as Error).message ?? err).slice(0, 200),
-          last_sync_error_code: errCode,
-          last_sync_error_at: errAt,
-        } as never)
-        .eq("id", conn.id);
-      void logEvt(
-        supabase,
-        userId,
-        errCode === "reauth_required"
+      try {
+        await supabase
+          .from("gmail_connection_settings")
+          .update({
+            sync_lock_until: null,
+            sync_status: "error",
+            last_sync_status: "failed",
+            last_sync_error: String(errAny.message ?? "").slice(0, 200),
+            last_sync_error_code: errCode,
+            last_sync_error_at: errAt,
+          } as never)
+          .eq("id", conn.id);
+      } catch {
+        /* best-effort */
+      }
+      const evt =
+        status === "reauth_required"
           ? "jack_gmail_sync_reauth_required"
-          : "jack_gmail_sync_failed",
-        {
-          connection_id_hash: connHash,
-          mode,
-          reason,
-          error_code: errCode,
-        },
-      );
-      return {
-        ok: false,
-        status: errCode === "reauth_required" ? "reauth_required" : "failed",
+          : status === "google_api_error"
+            ? "jack_gmail_sync_google_api_error"
+            : status === "migration_missing"
+              ? "jack_gmail_sync_migration_missing"
+              : "jack_gmail_sync_failed";
+      void logEvt(supabase, userId, evt, {
+        connection_id_hash: connHash,
+        mode,
+        reason,
+        error_code: errCode,
+        has_refresh_token: !!conn.refresh_token,
+        last_sync_at: conn.last_sync_at,
+      });
+      return safeFail(status, safeMessage, {
         connection_id_hash: connHash,
         last_sync_before: conn.last_sync_at,
         error_code: errCode,
-        safe_message:
-          errCode === "reauth_required"
-            ? "Non riesco a sincronizzare Gmail perché serve ricollegare l'account."
-            : "Sincronizzazione Gmail non riuscita.",
+      });
+    }
+    } catch (outerErr) {
+      const e = outerErr as Error & { code?: string };
+      void logEvt(supabase, userId, "jack_gmail_sync_tool_error_caught", {
         mode,
         reason,
-      };
+        error_code: e.code ?? "unhandled",
+      });
+      return safeFail("failed", "Sincronizzazione Gmail non riuscita.", {
+        error_code: "unhandled",
+      });
     }
   });
