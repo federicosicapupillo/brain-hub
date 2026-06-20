@@ -511,7 +511,8 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
     (d: unknown) =>
       (d ?? {}) as {
         query?: string;
-        date_range?: "today" | "week" | "all";
+        date_range?: "today" | "yesterday" | "week" | "all";
+        include_newsletters?: boolean;
         limit?: number;
         brain_id?: string | null;
       },
@@ -524,12 +525,19 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
     }
     const limit = Math.min(Math.max(data.limit ?? 10, 1), 25);
     const range = data.date_range ?? "week";
+    const includeNewsletters = data.include_newsletters !== false;
+    const todayStart = romeStartOfDayIso(0);
+    const yesterdayStart = romeStartOfDayIso(-1);
+    const weekStart = romeStartOfDayIso(-6);
     const since =
       range === "today"
-        ? new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
-        : range === "week"
-          ? new Date(Date.now() - 7 * 86400000).toISOString()
-          : null;
+        ? todayStart
+        : range === "yesterday"
+          ? yesterdayStart
+          : range === "week"
+            ? weekStart
+            : null;
+    const until = range === "yesterday" ? todayStart : null;
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
@@ -563,23 +571,35 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
         `subject.ilike.${pattern},from_email.ilike.${pattern},from_name.ilike.${pattern},snippet.ilike.${pattern}`,
       )
       .order("internal_date", { ascending: false, nullsFirst: false })
-      .limit(limit);
+      .limit(limit * 2); // fetch extra to allow filtering
     if (since) query = query.gte("internal_date", since);
+    if (until) query = query.lt("internal_date", until);
     if (data.brain_id) query = query.eq("brain_id", data.brain_id);
 
     const { data: rows, error } = await query;
     if (error) {
       return { ok: false, error: "search_failed", emails: [] as EmailBriefItem[] };
     }
-    const emails = ((rows ?? []) as Array<Record<string, unknown>>).map(
+    let emails = ((rows ?? []) as Array<Record<string, unknown>>).map(
       (r, idx) => mapEmailRow(r, idx),
     );
+    if (!includeNewsletters) emails = emails.filter((e) => !e.is_newsletter);
+    emails = emails.slice(0, limit).map((e, idx) => ({ ...e, selection_index: idx + 1 }));
 
     void logEvent(supabase, userId, "jack_email_search_served", {
       query_length: q.length,
       range,
+      include_newsletters: includeNewsletters,
       result_count: emails.length,
     });
+    void logEvent(
+      supabase,
+      userId,
+      emails.length > 0
+        ? "jack_email_followup_resolved"
+        : "jack_email_followup_unresolved",
+      { range, result_count: emails.length },
+    );
 
     return {
       ok: true,
@@ -587,10 +607,12 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       status: "connected_with_today_emails" as const,
       query: q,
       range,
+      include_newsletters: includeNewsletters,
       emails,
       match_count: emails.length,
     };
   });
+
 
 // ---------- get_email_detail ----------
 
