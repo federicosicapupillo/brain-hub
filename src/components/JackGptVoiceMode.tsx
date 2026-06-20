@@ -569,6 +569,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const RESPONSE_CREATE_DEBOUNCE_MS = 400;
 
+  // v3.25.4 — assistant-speaking / barge-in guard refs.
+  const assistantSpeakingRef = useRef<boolean>(false);
+  const lastAssistantSpeechStartedAtRef = useRef<number | null>(null);
+  const lastAssistantSpeechEndedAtRef = useRef<number | null>(null);
+  const ignoredDuringAssistantSpeechCountRef = useRef<number>(0);
+  // v3.25.4 — track last Gmail brief mode for diagnostics/transcript.
+  const lastGmailVoiceModeRef = useRef<GmailBriefMode | null>(null);
+
   // v3.21.2 — tool-call dedup + batching + transcript dedup
   const toolCallInFlightCountRef = useRef<number>(0);
   const processedToolCallIdsRef = useRef<Set<string>>(new Set());
