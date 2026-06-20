@@ -405,11 +405,25 @@ export async function runRefreshGmailMetadataSyncCore(
 
         const { data: existing } = await supabaseAdmin
           .from("gmail_message_map")
-          .select("id")
+          .select("id,metadata")
           .eq("user_id", userId)
           .eq("connection_id", conn.id)
           .eq("gmail_message_id", mid)
           .maybeSingle();
+
+        const existingMetadata =
+          existing && typeof (existing as { metadata?: unknown }).metadata === "object" &&
+          (existing as { metadata?: unknown }).metadata !== null
+            ? ((existing as { metadata: Record<string, unknown> }).metadata)
+            : {};
+        const stampedMetadata: Record<string, unknown> = {
+          ...existingMetadata,
+          last_seen_sync_run_id: syncRunId,
+          last_seen_at: new Date().toISOString(),
+          last_seen_source: "gmail_refresh_sync",
+          last_seen_query: query,
+          last_seen_mode: mode,
+        };
 
         const row = {
           user_id: userId,
@@ -433,6 +447,7 @@ export async function runRefreshGmailMetadataSyncCore(
           detected_priority: priority,
           suggested_action_type: suggestedType,
           source_query: query,
+          metadata: stampedMetadata,
         };
 
         if (existing) {
