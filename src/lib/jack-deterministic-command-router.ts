@@ -229,15 +229,8 @@ export function routeVoiceCommand(
       matched_terms: confirmHits,
     };
   }
-    return {
-      intent: "confirm_pending",
-      confidence: "high",
-      requires_confirmation: false,
-      action_preview: null,
-      safe_message: "Confermato, procedo.",
-      matched_terms: confirmHits,
-    };
-  }
+
+
 
   const gmailHits = hasGmailNoun(normalized);
   const syncHits = hasSyncVerb(normalized);
