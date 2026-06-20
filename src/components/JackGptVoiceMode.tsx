@@ -240,7 +240,10 @@ type ResponseLifecycleState =
   | "response_active_unknown"
   | "error";
 
-type SafeCreateResponseOptions = { queueIfBusy?: boolean };
+type SafeCreateResponseOptions = {
+  queueIfBusy?: boolean;
+  instructionsOverride?: string;
+};
 
 type ActiveSession = Extract<CreateRealtimeSessionResult, { ok: true; probe: false }>;
 type RealtimeTrackedEventType =
