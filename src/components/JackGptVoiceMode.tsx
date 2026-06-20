@@ -2650,6 +2650,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           }
           responseInProgressRef.current = true;
           activeResponseIdRef.current = id;
+          // v3.25.4 — barge-in guard: track when Jack starts speaking.
+          assistantSpeakingRef.current = true;
+          lastAssistantSpeechStartedAtRef.current = Date.now();
           // reset transcript dedup window for the new response
           transcriptDedupRef.current = {
             responseId: id,
