@@ -55,6 +55,15 @@ import {
   type PendingJackActionPreview,
 } from "@/lib/jack-action-confirmation";
 import { JACK_GPT_PRIVACY_NOTICE, JACK_GPT_SYSTEM_INSTRUCTIONS } from "@/lib/jack-gpt-instructions";
+import {
+  GATED_VOICE_TOOLS,
+  buildBlockedToolPayload,
+  classifyUserUtterance,
+  decideVoiceToolGate,
+  isAssistantQuestion,
+  type IgnoredUtteranceReason,
+  type VoiceToolBlockedReason,
+} from "@/lib/jack-voice-tool-gate";
 import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
 import {
   classifyRealtimeStartError,
