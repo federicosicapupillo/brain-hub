@@ -123,6 +123,12 @@ function UiOperatorLabRoute() {
     refetchInterval: session ? 5000 : false,
   });
 
+  const urlDiagnosticsFn = useServerFn(getUiOperatorUrlDiagnosticsFn);
+  const urlDiag = useQuery({
+    queryKey: ["ui-operator-url-diagnostics"],
+    queryFn: () => urlDiagnosticsFn({ data: {} }),
+  });
+
   async function handleMintHandshake() {
     if (!session) return;
     const res = await mintTokenFn({
@@ -152,12 +158,14 @@ function UiOperatorLabRoute() {
   async function handleOpen() {
     if (!session) return;
     const res = await openFn({ data: { session_id: session.id, route } });
+    if (res.debug) setLastOpenDebug(res.debug);
     if (!res.ok) {
       toast.error(res.message);
       return;
     }
     toast.success(res.message);
   }
+
 
   async function handleObserve() {
     if (!session) return;
