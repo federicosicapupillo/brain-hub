@@ -217,6 +217,10 @@ type Diagnostics = {
     | null;
   voiceConfirmationInFlight: boolean;
   voiceConfirmationLastSource: "voice_router" | "ui_button" | null;
+  // v3.22.1 — false-positive suppression diagnostics
+  skippedBecauseNoPendingPreview: boolean;
+  genericConfirmationIgnored: boolean;
+  pendingPreviewExists: boolean;
 };
 
 type Props = { brainId?: string | null };
