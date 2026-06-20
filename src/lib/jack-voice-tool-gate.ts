@@ -8,7 +8,9 @@ export type VoiceToolBlockedReason =
   | "no_explicit_gmail_sync_command"
   | "no_explicit_open_screen_confirmation"
   | "tool_called_after_assistant_question_without_user_reply"
-  | "no_valid_user_utterance_yet";
+  | "no_valid_user_utterance_yet"
+  | "no_explicit_email_intent";
+
 
 export type VoiceToolGateStatus = "allowed" | "blocked";
 
