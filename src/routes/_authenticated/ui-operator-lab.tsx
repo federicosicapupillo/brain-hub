@@ -64,6 +64,15 @@ function riskTone(risk: string): string {
 
 function UiOperatorLabRoute() {
   const [session, setSession] = useState<UiOperatorSession | null>(null);
+  const [lastOpenDebug, setLastOpenDebug] = useState<{
+    base_url: string | null;
+    base_url_source: string;
+    auth_url_preview: string | null;
+    route_target: string;
+    surface_target: string | null;
+    error_code: string | null;
+  } | null>(null);
+
   const [route, setRoute] = useState<string>("/gmail-connector");
   const [goal, setGoal] = useState<string>("Controllare lo stato Gmail e proporre Sincronizza");
   const [observation, setObservation] = useState<UiOperatorObservation | null>(null);
