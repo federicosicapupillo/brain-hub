@@ -324,7 +324,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           latest_message_seen_at: null,
           possibly_stale: true,
         },
-        debug_today_raw: [] as Array<Record<string, unknown>>,
+        debug_today_raw: [] as DebugTodayRawEntry[],
         label_scope: "unknown" as const,
         metadata_missing: false,
         partial_sync: false,
