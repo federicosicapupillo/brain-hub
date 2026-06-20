@@ -1741,7 +1741,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   );
 
   const runDeterministicVoiceRouter = useCallback(
-    async (transcript: string, nowTs: number) => {
+    async (
+      transcript: string,
+      nowTs: number,
+    ): Promise<{
+      handled: boolean;
+      intent: VoiceCommandRouterResult["intent"];
+      responseAlreadyQueued: boolean;
+      actionPreviewCreated: boolean;
+    }> => {
       // Expire stale pending action.
       const currentPending = pendingVoiceActionRef.current;
       if (currentPending && currentPending.expiresAt < nowTs) {
@@ -1771,7 +1779,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
       if (result.intent === "cancel") {
         cancelPendingVoiceAction("user_button");
-        return;
+        return {
+          handled: true,
+          intent: result.intent,
+          responseAlreadyQueued: true,
+          actionPreviewCreated: false,
+        };
       }
       // v3.25.2 — capability/meta questions ("non puoi farlo tu?", "puoi farlo?")
       // never confirm pending actions and never trigger sensitive tools.
@@ -1782,7 +1795,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         pushLog({ kind: "warning", text: "Domanda di capacità — serve conferma esplicita." });
         injectAssistantNote(result.safe_message);
         safeCreateResponse("voice_capability_question", { queueIfBusy: true });
-        return;
+        return {
+          handled: true,
+          intent: result.intent,
+          responseAlreadyQueued: true,
+          actionPreviewCreated: false,
+        };
       }
       if (result.intent === "confirm_pending" && pendingVoiceActionRef.current) {
         safeLog("jack_voice_pending_action_confirmed_by_voice", {
@@ -1803,7 +1821,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           pendingVoiceActionRef.current,
           "voice_confirm",
         );
-        return;
+        return {
+          handled: true,
+          intent: result.intent,
+          responseAlreadyQueued: true,
+          actionPreviewCreated: false,
+        };
       }
       // v3.25.1 — pending action exists but utterance was not a confirmation
       if (
@@ -1849,6 +1872,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           last !== null &&
           last.type === result.action_preview.type &&
           nowTs - last.at < ROUTER_PREVIEW_DEDUP_MS;
+        let queued = false;
         if (isDuplicate) {
           safeLog("jack_voice_router_message_suppressed_duplicate", {
             action_type: result.action_preview.type,
@@ -1871,8 +1895,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           safeCreateResponse("voice_router_action_preview_created", {
             queueIfBusy: true,
           });
+          queued = true;
         }
+        return {
+          handled: true,
+          intent: result.intent,
+          responseAlreadyQueued: queued,
+          actionPreviewCreated: true,
+        };
       }
+      return {
+        handled: false,
+        intent: result.intent,
+        responseAlreadyQueued: false,
+        actionPreviewCreated: false,
+      };
     },
     [
       safeLog,
@@ -1884,6 +1921,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       pushLog,
     ],
   );
+
 
   // v3.19.6 / v3.21.5 — confirm pending preview through the server bridge,
   // then verify the created action is actually readable as the same user.
