@@ -253,6 +253,7 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
     category: cls.category,
     is_newsletter: cls.is_newsletter,
     is_filtered: cls.is_filtered,
+    is_unknown_personal: cls.is_unknown_personal,
   };
 }
 
