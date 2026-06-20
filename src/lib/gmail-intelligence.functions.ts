@@ -929,16 +929,24 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
-      .select("id,status,last_sync_at,updated_at")
+      .select("id,status,google_email,last_sync_at,updated_at")
+      .eq("user_id", userId)
+      .order("last_sync_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
     const conns = (connsRaw ?? []) as Array<{
       id: string;
       status: string;
+      google_email: string | null;
       last_sync_at: string | null;
+      updated_at: string | null;
     }>;
-    const conn =
-      conns.find((c) => c.status === "connected" || c.status === "active") ??
-      null;
+    const connectionCandidates = await buildConnectionCandidates(
+      supabase as SupabaseReadClient,
+      conns,
+      todayStart,
+      romeStartOfDayIso(1),
+    );
+    const conn = pickActiveConnection(connectionCandidates);
     if (!conn) {
       return {
         ok: true,
@@ -951,17 +959,29 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
 
     const safe = q.replace(/[%_\\]/g, "\\$&");
     const pattern = `%${safe}%`;
+    const todayEnd = romeStartOfDayIso(1);
+    const { rawCount: searchedTodayRawCount } = await getRawTodayMessagesForDebug(
+      supabase as SupabaseReadClient,
+      { connectionId: conn.id, startIso: todayStart, endIso: todayEnd, limit: 1 },
+    );
+    const syncStale = syncMayBeStale({
+      lastSyncAt: conn.last_sync_at,
+      partialSync: false,
+      rawTodayCount: searchedTodayRawCount,
+      connected: true,
+    });
     let query = supabase
       .from("gmail_message_map")
       .select(EMAIL_SELECT_COLS)
       .eq("connection_id", conn.id)
       .or(
-        `subject.ilike.${pattern},from_email.ilike.${pattern},from_name.ilike.${pattern},snippet.ilike.${pattern}`,
+        `subject.ilike.${pattern},from_email.ilike.${pattern},from_name.ilike.${pattern},snippet.ilike.${pattern},body_preview.ilike.${pattern}`,
       )
       .order("internal_date", { ascending: false, nullsFirst: false })
       .limit(limit * 2); // fetch extra to allow filtering
     if (since) query = query.gte("internal_date", since);
     if (until) query = query.lt("internal_date", until);
+    else if (range === "today") query = query.lt("internal_date", todayEnd);
     if (data.brain_id) query = query.eq("brain_id", data.brain_id);
 
     const { data: rows, error } = await query;
@@ -979,6 +999,8 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       range,
       include_newsletters: includeNewsletters,
       result_count: emails.length,
+      searched_today_raw_count: searchedTodayRawCount,
+      sync_may_be_stale: syncStale,
     });
     void logEvent(
       supabase,
@@ -997,7 +1019,15 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       range,
       include_newsletters: includeNewsletters,
       emails,
+      results: emails,
       match_count: emails.length,
+      searched_today_raw_count: searchedTodayRawCount,
+      sync_may_be_stale: syncStale,
+      last_sync_at: conn.last_sync_at,
+      message:
+        emails.length === 0
+          ? "No matching synced email found. Gmail sync may not have imported this message yet."
+          : null,
     };
   });
 
