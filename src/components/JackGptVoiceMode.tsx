@@ -1305,22 +1305,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       const dc = dcRef.current;
       if (!dc || dc.readyState !== "open") return;
       try {
-        dc.send(
-          JSON.stringify({
-            type: "conversation.item.create",
-            item: {
-              type: "message",
-              role: "assistant",
-              content: [{ type: "text", text }],
-            },
-          }),
-        );
+        const payload = buildRealtimeAssistantTextItem(text);
+        logRealtimeSendShape(payload, "assistant_note", safeLog);
+        dc.send(JSON.stringify(payload));
         pushLog({ kind: "jack", text });
       } catch {
         /* noop */
       }
     },
-    [pushLog],
+    [pushLog, safeLog],
   );
 
   const sendUserSystemNote = useCallback(
@@ -1328,21 +1321,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       const dc = dcRef.current;
       if (!dc || dc.readyState !== "open") return;
       try {
-        dc.send(
-          JSON.stringify({
-            type: "conversation.item.create",
-            item: {
-              type: "message",
-              role: "user",
-              content: [{ type: "input_text", text: `[brain_hub_router]: ${text}` }],
-            },
-          }),
+        const payload = buildRealtimeUserTextItem(
+          `[brain_hub_router]: ${text}`,
         );
+        logRealtimeSendShape(payload, "user_system_note", safeLog);
+        dc.send(JSON.stringify(payload));
       } catch {
         /* noop */
       }
     },
-    [],
+    [safeLog],
   );
 
   const executeVoiceAction = useCallback(
