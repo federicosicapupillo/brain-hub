@@ -5,11 +5,12 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   createUiOperatorAuthToken,
-  getBrainHubBaseUrl,
-  buildUiOperatorAuthUrl,
+  resolveBrainHubBaseUrl,
+  buildUiOperatorAuthUrlSafe,
   safeTokenPrefix,
 } from "./ui-operator-auth.server";
 import { ALLOWED_UI_ROUTES, isRouteAllowedForUiOperator } from "./ui-operator-safety";
+
 
 async function logEvt(
   supabase: unknown,
