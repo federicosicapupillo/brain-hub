@@ -2698,6 +2698,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             <div><span className="text-muted-foreground">Last event:</span> {diagnostics.lastEventType ?? "—"}</div>
             <div><span className="text-muted-foreground">Last error kind:</span> {diagnostics.lastErrorKind ?? "—"}</div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Last tool:</span> {diagnostics.lastToolCalled ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last tool status:</span> {diagnostics.lastToolStatus ?? "—"}</div>
+            <div><span className="text-muted-foreground">Last tool ok:</span> {diagnostics.lastToolOk === null ? "—" : diagnostics.lastToolOk ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Last tool error code:</span> {diagnostics.lastToolErrorCode ?? "—"}</div>
+            <div><span className="text-muted-foreground">Requires reauth:</span> {diagnostics.lastToolRequiresReauth ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">Cache stale:</span> {diagnostics.lastToolCacheStale ? "sì" : "no"}</div>
+            <div><span className="text-muted-foreground">No cite emails:</span> {diagnostics.lastToolShouldNotCiteEmails ? "sì" : "no"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Last tool safe message:</span> {diagnostics.lastToolSafeMessage ?? "—"}</div>
+            <div className="sm:col-span-2"><span className="text-muted-foreground">Voice recovery fired:</span> {diagnostics.lastToolFailureRecoveryFiredAt ? new Date(diagnostics.lastToolFailureRecoveryFiredAt).toLocaleTimeString() : "—"}</div>
             <div className="sm:col-span-2"><span className="text-muted-foreground">Last safe error:</span> {diagnostics.lastSafeError ?? "—"}</div>
             <div><span className="text-muted-foreground">Cleanup:</span> {diagnostics.cleanupCount}</div>
             <div><span className="text-muted-foreground">Privacy:</span> {status?.privacy_mode ?? "ephemeral_token_only"}</div>
