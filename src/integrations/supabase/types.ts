@@ -4071,6 +4071,56 @@ export type Database = {
           },
         ]
       }
+      ui_operator_auth_tokens: {
+        Row: {
+          allowed_routes: Json
+          created_at: string
+          expires_at: string
+          id: string
+          metadata: Json
+          session_id: string
+          status: string
+          token_hash: string
+          updated_at: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          allowed_routes?: Json
+          created_at?: string
+          expires_at: string
+          id?: string
+          metadata?: Json
+          session_id: string
+          status?: string
+          token_hash: string
+          updated_at?: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          allowed_routes?: Json
+          created_at?: string
+          expires_at?: string
+          id?: string
+          metadata?: Json
+          session_id?: string
+          status?: string
+          token_hash?: string
+          updated_at?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ui_operator_auth_tokens_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ui_operator_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ui_operator_sessions: {
         Row: {
           brain_id: string | null
