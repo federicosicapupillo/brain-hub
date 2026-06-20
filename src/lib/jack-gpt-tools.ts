@@ -963,6 +963,11 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             "newsletters_today" in brief ? brief.newsletters_today : [];
           const newslettersPrev =
             "newsletters_previous" in brief ? brief.newsletters_previous : [];
+          const allToday = "all_today" in brief ? brief.all_today : [];
+          const unknownToday =
+            "unknown_today" in brief ? brief.unknown_today : [];
+          const syncFreshness =
+            "sync_freshness" in brief ? brief.sync_freshness : null;
 
           return {
             ok: true,
@@ -973,6 +978,7 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               last_sync_at: "last_sync_at" in brief ? brief.last_sync_at : null,
               label_scope: "label_scope" in brief ? brief.label_scope : "unknown",
               partial_sync: "partial_sync" in brief ? brief.partial_sync : false,
+              sync_freshness: syncFreshness,
               metadata_missing:
                 "metadata_missing" in brief ? brief.metadata_missing : false,
               today: {
@@ -981,12 +987,18 @@ export const runJackGptTool = createServerFn({ method: "POST" })
                 inbox_unread: counts?.today_inbox_unread ?? 0,
                 newsletter_total: counts?.today_newsletter_total ?? 0,
                 newsletter_unread: counts?.today_newsletter_unread ?? 0,
+                unknown_total: counts?.today_unknown_total ?? 0,
+                unknown_unread: counts?.today_unknown_unread ?? 0,
+                unread_total:
+                  (counts?.today_inbox_unread ?? 0) +
+                  (counts?.today_newsletter_unread ?? 0) +
+                  (counts?.today_unknown_unread ?? 0),
                 filtered_total:
                   (counts?.today_total_all ?? 0) -
                   (counts?.today_inbox_total ?? 0),
               },
               yesterday: {
-                inbox_unread: 0, // not separated by bucket in unread aggregate
+                inbox_unread: 0,
                 newsletter_total: newslettersPrev.length,
                 filtered_total: newslettersPrev.length,
               },
@@ -994,12 +1006,16 @@ export const runJackGptTool = createServerFn({ method: "POST" })
                 total_all: counts?.total_unread ?? 0,
                 today:
                   (counts?.today_inbox_unread ?? 0) +
-                  (counts?.today_newsletter_unread ?? 0),
+                  (counts?.today_newsletter_unread ?? 0) +
+                  (counts?.today_unknown_unread ?? 0),
                 previous_days: counts?.previous_unread_total ?? 0,
                 inbox_total: counts?.today_inbox_unread ?? 0,
                 newsletter_total: counts?.today_newsletter_unread ?? 0,
+                unknown_total: counts?.today_unknown_unread ?? 0,
               },
+              all_today_preview: allToday.slice(0, 10),
               inbox_today_preview: inboxToday.slice(0, 5),
+              unknown_today_preview: unknownToday.slice(0, 5),
               newsletters_today_preview: newslettersToday.slice(0, 5),
               message:
                 "message" in brief
