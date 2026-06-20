@@ -1865,6 +1865,133 @@ export const runJackGptTool = createServerFn({ method: "POST" })
         }
 
 
+        // ---------- v3.23 UI Operator tools ----------
+        case "open_brainhub_screen": {
+          const route = String(args.route ?? "");
+          const sessionIdArg = (args.session_id as string | undefined) ?? null;
+          const brainId = (args.brain_id as string | undefined) ?? null;
+          try {
+            const mod = await import("./ui-operator.functions");
+            let sessionId = sessionIdArg;
+            let session: unknown = null;
+            if (!sessionId) {
+              const start = await mod.startUiOperatorSessionFn({
+                data: { target_route: route, brain_id: brainId },
+              });
+              if (!start.ok || !start.session) {
+                return {
+                  ok: false,
+                  error: "ui_operator_start_failed",
+                  reason: start.status,
+                  message: start.message,
+                };
+              }
+              session = start.session;
+              sessionId = start.session.id;
+            }
+            const opened = await mod.openUiOperatorRouteFn({
+              data: { session_id: sessionId!, route },
+            });
+            const safe = JSON.parse(
+              JSON.stringify({
+                session_id: sessionId,
+                session,
+                opened_ok: opened.ok,
+                opened_status: opened.status,
+                opened_message: opened.message,
+                route,
+              }),
+            );
+            return { ok: true, payload: safe };
+          } catch (err) {
+            return {
+              ok: false,
+              error: "ui_operator_error",
+              detail: String((err as Error).message ?? err).slice(0, 200),
+            };
+          }
+        }
+        case "observe_brainhub_screen": {
+          const sessionId = String(args.session_id ?? "");
+          const route = String(args.route ?? "");
+          try {
+            const { observeUiOperatorScreenFn } = await import("./ui-operator.functions");
+            const res = await observeUiOperatorScreenFn({
+              data: { session_id: sessionId, route },
+            });
+            return { ok: res.ok, payload: JSON.parse(JSON.stringify(res)) };
+          } catch (err) {
+            return {
+              ok: false,
+              error: "ui_operator_error",
+              detail: String((err as Error).message ?? err).slice(0, 200),
+            };
+          }
+        }
+        case "propose_ui_action": {
+          const sessionId = String(args.session_id ?? "");
+          const route = String(args.route ?? "");
+          const goal = String(args.goal ?? "");
+          try {
+            const { proposeUiOperatorActionFn } = await import("./ui-operator.functions");
+            const res = await proposeUiOperatorActionFn({
+              data: { session_id: sessionId, route, goal, brain_id: null },
+            });
+            return { ok: res.ok, payload: JSON.parse(JSON.stringify(res)) };
+          } catch (err) {
+            return {
+              ok: false,
+              error: "ui_operator_error",
+              detail: String((err as Error).message ?? err).slice(0, 200),
+            };
+          }
+        }
+        case "confirm_ui_action": {
+          const actionId = String(args.action_id ?? "");
+          try {
+            const { confirmUiOperatorActionFn } = await import("./ui-operator.functions");
+            const res = await confirmUiOperatorActionFn({ data: { action_id: actionId } });
+            return { ok: res.ok, payload: JSON.parse(JSON.stringify(res)) };
+          } catch (err) {
+            return {
+              ok: false,
+              error: "ui_operator_error",
+              detail: String((err as Error).message ?? err).slice(0, 200),
+            };
+          }
+        }
+        case "execute_confirmed_ui_action": {
+          const actionId = String(args.action_id ?? "");
+          try {
+            const { executeConfirmedUiOperatorActionFn } = await import(
+              "./ui-operator.functions"
+            );
+            const res = await executeConfirmedUiOperatorActionFn({
+              data: { action_id: actionId },
+            });
+            return { ok: res.ok, payload: JSON.parse(JSON.stringify(res)) };
+          } catch (err) {
+            return {
+              ok: false,
+              error: "ui_operator_error",
+              detail: String((err as Error).message ?? err).slice(0, 200),
+            };
+          }
+        }
+        case "stop_ui_operator_session": {
+          const sessionId = String(args.session_id ?? "");
+          try {
+            const { stopUiOperatorSessionFn } = await import("./ui-operator.functions");
+            const res = await stopUiOperatorSessionFn({ data: { session_id: sessionId } });
+            return { ok: res.ok, payload: JSON.parse(JSON.stringify(res)) };
+          } catch (err) {
+            return {
+              ok: false,
+              error: "ui_operator_error",
+              detail: String((err as Error).message ?? err).slice(0, 200),
+            };
+          }
+        }
 
         default:
           return { ok: false, error: "unknown_tool" };
