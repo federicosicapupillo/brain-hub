@@ -1662,6 +1662,30 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           });
           return { ok: res.ok, payload: res };
         }
+        case "search_emails": {
+          const { searchEmailsFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await searchEmailsFn({
+            data: {
+              query: (args.query as string | undefined) ?? "",
+              date_range: (args.date_range as "today" | "week" | "all" | undefined) ?? "week",
+              limit: typeof args.limit === "number" ? args.limit : 10,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "get_email_detail": {
+          const { getEmailDetailFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await getEmailDetailFn({
+            data: {
+              local_id: (args.local_id as string | undefined) ?? undefined,
+              gmail_message_id: (args.gmail_message_id as string | undefined) ?? undefined,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+
+
 
         default:
           return { ok: false, error: "unknown_tool" };
