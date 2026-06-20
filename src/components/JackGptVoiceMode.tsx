@@ -826,13 +826,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           safeLog("jack_gpt_response_create_queued", { reason });
           return "queued";
         }
+        const why = responseInProgressRef.current ? "in_progress" : "debounced";
         setDiagnostics((d) => ({
           ...d,
           skippedResponseCreateCount: d.skippedResponseCreateCount + 1,
+          lastResponseCreateBlockedReason: `${reason}:${why}`,
         }));
         safeLog("jack_gpt_response_create_skipped_active", {
           reason,
-          why: responseInProgressRef.current ? "in_progress" : "debounced",
+          why,
         });
         return "skipped";
       }
