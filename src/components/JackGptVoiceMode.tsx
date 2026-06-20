@@ -1527,7 +1527,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         }));
         if (isStrongConfirmation) {
           pushLog({
-            kind: "info",
+            kind: "system",
             text: "Conferma esplicita ricevuta, ma non c'è una proposta pendente. Chiedi prima a Jack di prepararla.",
           });
         }
