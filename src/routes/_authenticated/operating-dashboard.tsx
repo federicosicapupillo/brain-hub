@@ -13,6 +13,7 @@ import { GmailMiniCard } from "@/components/GmailMiniCard";
 import { DailyBriefMiniCard } from "@/components/DailyBriefMiniCard";
 import { ProjectStateMiniCard } from "@/components/ProjectStateMiniCard";
 import { ConnectorHubMiniCard } from "@/components/ConnectorHubMiniCard";
+import { UiOperatorMiniCard } from "@/components/UiOperatorMiniCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -569,6 +570,7 @@ function OperatingDashboardRoute() {
               <DailyBriefMiniCard brainId={brainId} />
               <ProjectStateMiniCard brainId={brainId} />
               <ConnectorHubMiniCard />
+              <UiOperatorMiniCard />
               <CodeAgentJobsMiniCard brainId={brainId} />
             </div>
           </div>
