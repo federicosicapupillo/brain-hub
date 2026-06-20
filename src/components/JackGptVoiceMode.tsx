@@ -1038,7 +1038,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       // v3.24.2 — voice tool gate. Block gated tools if there is no recent
       // explicit user command / confirmation, especially right after Jack
       // has asked the user a question.
-      if (GATED_VOICE_TOOLS.has(name)) {
+      if (GATED_VOICE_TOOLS.has(name) || READ_GATED_VOICE_TOOLS.has(name)) {
         const gateNow = Date.now();
         const decision = decideVoiceToolGate({
           toolName: name,
