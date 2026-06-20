@@ -2745,7 +2745,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
       }
     },
-    [handleToolCall, safeLog, pushLog, flushPendingResponse, handleVoiceConfirmationTranscript, trackRealtimeEventType],
+    [handleToolCall, safeLog, pushLog, flushPendingResponse, handleVoiceConfirmationTranscript, trackRealtimeEventType, runDeterministicVoiceRouter, safeCreateResponse],
   );
 
   /** Connect WebRTC using a successfully-created realtime session (GA endpoint). */
