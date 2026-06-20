@@ -63,6 +63,9 @@ export type RunnerStartSessionResponse =
 export interface RunnerOpenRouteRequest {
   session_id: string;
   route: string;
+  /** v3.23.2: optional pre-built handshake URL the runner should open instead
+   * of the internal route. When present, runner MUST navigate to this URL. */
+  auth_url?: string;
 }
 export type RunnerOpenRouteResponse =
   | (RunnerOkBase & {

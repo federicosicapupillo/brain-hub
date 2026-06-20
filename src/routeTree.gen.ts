@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as UiOperatorProxySessionIdRouteImport } from './routes/ui-operator-proxy.$sessionId'
 import { Route as AuthenticatedUiOperatorLabRouteImport } from './routes/_authenticated/ui-operator-lab'
 import { Route as AuthenticatedToolConnectionsRouteImport } from './routes/_authenticated/tool-connections'
 import { Route as AuthenticatedTelegramApprovalsRouteImport } from './routes/_authenticated/telegram-approvals'
@@ -68,6 +69,7 @@ import { Route as AuthenticatedAgentRunsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAgentCenterRouteImport } from './routes/_authenticated/agent-center'
 import { Route as AuthenticatedActionQueueRouteImport } from './routes/_authenticated/action-queue'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
+import { Route as ApiPublicUiOperatorAuthRouteImport } from './routes/api/public/ui-operator-auth'
 import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
@@ -91,6 +93,12 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const UiOperatorProxySessionIdRoute =
+  UiOperatorProxySessionIdRouteImport.update({
+    id: '/ui-operator-proxy/$sessionId',
+    path: '/ui-operator-proxy/$sessionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedUiOperatorLabRoute =
   AuthenticatedUiOperatorLabRouteImport.update({
     id: '/ui-operator-lab',
@@ -408,6 +416,11 @@ const AuthenticatedImportaIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedImportaRoute,
   } as any)
+const ApiPublicUiOperatorAuthRoute = ApiPublicUiOperatorAuthRouteImport.update({
+  id: '/api/public/ui-operator-auth',
+  path: '/api/public/ui-operator-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicN8nPilotCallbackRoute =
   ApiPublicN8nPilotCallbackRouteImport.update({
     id: '/api/public/n8n-pilot-callback',
@@ -514,10 +527,12 @@ export interface FileRoutesByFullPath {
   '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
+  '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
+  '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
   '/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
@@ -580,11 +595,13 @@ export interface FileRoutesByTo {
   '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
+  '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/': typeof AuthenticatedIndexRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
+  '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
   '/importa': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
@@ -650,11 +667,13 @@ export interface FileRoutesById {
   '/_authenticated/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/_authenticated/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/_authenticated/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
+  '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
+  '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
@@ -721,10 +740,12 @@ export interface FileRouteTypes {
     | '/telegram-approvals'
     | '/tool-connections'
     | '/ui-operator-lab'
+    | '/ui-operator-proxy/$sessionId'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
+    | '/api/public/ui-operator-auth'
     | '/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
@@ -787,11 +808,13 @@ export interface FileRouteTypes {
     | '/telegram-approvals'
     | '/tool-connections'
     | '/ui-operator-lab'
+    | '/ui-operator-proxy/$sessionId'
     | '/'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
+    | '/api/public/ui-operator-auth'
     | '/importa'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
@@ -856,11 +879,13 @@ export interface FileRouteTypes {
     | '/_authenticated/telegram-approvals'
     | '/_authenticated/tool-connections'
     | '/_authenticated/ui-operator-lab'
+    | '/ui-operator-proxy/$sessionId'
     | '/_authenticated/'
     | '/_authenticated/importa/prompt-storici'
     | '/_authenticated/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
+    | '/api/public/ui-operator-auth'
     | '/_authenticated/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
@@ -871,8 +896,10 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
+  ApiPublicUiOperatorAuthRoute: typeof ApiPublicUiOperatorAuthRoute
   ApiPublicCalendarOauthCallbackRoute: typeof ApiPublicCalendarOauthCallbackRoute
   ApiPublicDriveOauthCallbackRoute: typeof ApiPublicDriveOauthCallbackRoute
   ApiPublicGmailOauthCallbackRoute: typeof ApiPublicGmailOauthCallbackRoute
@@ -901,6 +928,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/ui-operator-proxy/$sessionId': {
+      id: '/ui-operator-proxy/$sessionId'
+      path: '/ui-operator-proxy/$sessionId'
+      fullPath: '/ui-operator-proxy/$sessionId'
+      preLoaderRoute: typeof UiOperatorProxySessionIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/ui-operator-lab': {
       id: '/_authenticated/ui-operator-lab'
@@ -1294,6 +1328,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportaIndexRouteImport
       parentRoute: typeof AuthenticatedImportaRoute
     }
+    '/api/public/ui-operator-auth': {
+      id: '/api/public/ui-operator-auth'
+      path: '/api/public/ui-operator-auth'
+      fullPath: '/api/public/ui-operator-auth'
+      preLoaderRoute: typeof ApiPublicUiOperatorAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/n8n-pilot-callback': {
       id: '/api/public/n8n-pilot-callback'
       path: '/api/public/n8n-pilot-callback'
@@ -1504,8 +1545,10 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
+  ApiPublicUiOperatorAuthRoute: ApiPublicUiOperatorAuthRoute,
   ApiPublicCalendarOauthCallbackRoute: ApiPublicCalendarOauthCallbackRoute,
   ApiPublicDriveOauthCallbackRoute: ApiPublicDriveOauthCallbackRoute,
   ApiPublicGmailOauthCallbackRoute: ApiPublicGmailOauthCallbackRoute,
