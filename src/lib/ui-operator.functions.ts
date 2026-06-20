@@ -250,11 +250,19 @@ export const openUiOperatorRouteFn = createServerFn({ method: "POST" })
     await logEvt(supabase, userId, "ui_operator_route_opened", {
       session_id: data.session_id,
       route: data.route,
+      execution_mode: res.execution_mode,
     });
+    if (res.execution_mode === "real_runner") {
+      await logEvt(supabase, userId, "ui_operator_runner_called", {
+        endpoint: "/session/open-route",
+        ok: res.ok,
+      });
+    }
     return {
       ok: res.ok,
       status: "navigating",
       message: res.message,
+      execution_mode: res.execution_mode,
     };
   });
 
