@@ -647,18 +647,48 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const yesterdayEmails = yesterdayRows.map((r, idx) => mapEmailRow(r, idx));
     const prevUnreadEmails = prevUnreadRows.map((r, idx) => mapEmailRow(r, idx));
 
+    // v3.24 — Cache Truth Guard. Filter today's buckets to only messages
+    // verified in the most recent successful sync run, if known.
+    const connRaw = conns.find((c) => c.id === conn.id) ?? null;
+    const connMetadata =
+      connRaw &&
+      typeof connRaw.metadata === "object" &&
+      connRaw.metadata !== null
+        ? connRaw.metadata
+        : {};
+    const activeSyncRunId =
+      typeof (connMetadata as Record<string, unknown>).last_gmail_sync_run_id === "string"
+        ? ((connMetadata as Record<string, unknown>).last_gmail_sync_run_id as string)
+        : null;
+    const verifiedTodayIdx = new Set<number>();
+    if (activeSyncRunId) {
+      todayRows.forEach((row, idx) => {
+        if (rowSyncRunId(row) === activeSyncRunId) verifiedTodayIdx.add(idx);
+      });
+    }
+    const filterVerified = (arr: EmailBriefItem[]) =>
+      activeSyncRunId
+        ? arr.filter((_, idx) => verifiedTodayIdx.has(idx))
+        : arr;
+
     // v3.22.1 — anti-disappearance bucketing:
     // Every today email lands in `all_today` no matter what; primary,
-    // newsletter, and unknown buckets are derived from it. A mail can NEVER
-    // exist only in `newsletters_today` while being absent from `all_today`.
-    const allToday = todayEmails;
-    const inboxToday = todayEmails.filter(
+    // newsletter, and unknown buckets are derived from it.
+    const allTodayUnfiltered = todayEmails;
+    const allToday = filterVerified(allTodayUnfiltered);
+    const inboxToday = allToday.filter(
       (e) => e.is_inbox_primary === true && !e.is_newsletter,
     );
-    const newslettersToday = todayEmails.filter((e) => e.is_newsletter);
-    const unknownToday = todayEmails.filter(
+    const newslettersToday = allToday.filter((e) => e.is_newsletter);
+    const unknownToday = allToday.filter(
       (e) => !e.is_newsletter && !e.is_inbox_primary,
     );
+    const staleTodayHiddenCount =
+      activeSyncRunId ? allTodayUnfiltered.length - allToday.length : 0;
+    const cacheStale =
+      activeSyncRunId !== null &&
+      allTodayUnfiltered.length > 0 &&
+      allToday.length === 0;
     const unreadPreviousList = prevUnreadEmails.filter((e) => !e.is_newsletter);
     const newslettersPreviousList = yesterdayEmails.filter((e) => e.is_newsletter);
 
