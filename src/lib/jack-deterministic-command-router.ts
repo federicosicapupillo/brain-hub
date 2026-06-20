@@ -208,6 +208,8 @@ export function routeVoiceCommand(
   if (!normalized || normalized.length < 2) {
     return unknown();
   }
+  const rawTrimmed = ctx.transcript.trim();
+  const endsWithQuestionMark = /[?¿]\s*$/.test(rawTrimmed);
 
   // 1. Cancel always wins.
   const cancelHits = containsAny(normalized, CANCEL_TERMS);
