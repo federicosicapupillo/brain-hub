@@ -402,7 +402,8 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       type: "object",
       properties: {
         query: { type: "string" },
-        date_range: { type: "string", enum: ["today", "week", "all"] },
+        date_range: { type: "string", enum: ["today", "yesterday", "week", "all"] },
+        include_newsletters: { type: "boolean" },
         limit: { type: "number" },
         brain_id: { type: "string" },
       },
