@@ -393,6 +393,36 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       required: ["gmail_message_id"],
     },
   },
+  {
+    type: "function",
+    name: "search_emails",
+    description:
+      "Cerca email sincronizzate per testo (subject/from/snippet). Usare per follow-up tipo 'quella di Spotify' o 'la mail sulla richiesta API'. Read-only. Default range='week'.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        date_range: { type: "string", enum: ["today", "week", "all"] },
+        limit: { type: "number" },
+        brain_id: { type: "string" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    type: "function",
+    name: "get_email_detail",
+    description:
+      "Dettaglio di una singola email sincronizzata: subject, from, snippet, body preview se disponibile, summary. Read-only. Nessuna modifica Gmail.",
+    parameters: {
+      type: "object",
+      properties: {
+        local_id: { type: "string" },
+        gmail_message_id: { type: "string" },
+      },
+      required: [],
+    },
+  },
 ] as const;
 
 // ---------- Helpers ----------
