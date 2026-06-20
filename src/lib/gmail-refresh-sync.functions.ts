@@ -110,6 +110,11 @@ export async function runRefreshGmailMetadataSyncCore(
   },
 ): Promise<RefreshGmailMetadataSyncResult> {
     const { mode, reason, force } = data;
+    // v3.24 — sync_run_id stamps every message verified in this run.
+    const syncRunId =
+      globalThis.crypto && "randomUUID" in globalThis.crypto
+        ? globalThis.crypto.randomUUID()
+        : `srun_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
     const safeFail = (
       status: RefreshGmailMetadataSyncResult["status"],
@@ -130,6 +135,7 @@ export async function runRefreshGmailMetadataSyncCore(
       reason,
       brain_id: data.brain_id,
       force,
+      sync_run_id: syncRunId,
     });
 
     // 0) Quick OAuth env check
