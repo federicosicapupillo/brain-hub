@@ -921,6 +921,10 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         ? "Il sync Gmail attuale non sta persistendo subject/from/snippet. Apri Gmail Connector e rilancia la sync."
         : null,
       partial_sync: partialSync,
+      // v3.24 cache truth guard
+      cache_stale: cacheStale,
+      stale_rows_hidden_count: staleTodayHiddenCount,
+      active_sync_run_id: activeSyncRunId,
       // legacy aliases
       total_today: counts.today_total_all,
       unread_today:
@@ -934,9 +938,11 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       emails: flat,
       top: flat.slice(0, 5),
       message:
-        status === "connected_with_today_emails"
-          ? `Oggi ${counts.today_inbox_total} mail normali, ${counts.today_newsletter_total} newsletter${counts.today_unknown_total > 0 ? `, ${counts.today_unknown_total} non classificate` : ""}; non lette totali ${counts.total_unread} (${counts.today_inbox_unread + counts.today_newsletter_unread + counts.today_unknown_unread} oggi, ${counts.previous_unread_total} precedenti).`
-          : "Gmail è collegato, ma non trovo email di oggi.",
+        cacheStale
+          ? "Gmail è collegato, ma le email cached non sono state verificate dall'ultimo sync riuscito."
+          : status === "connected_with_today_emails"
+            ? `Oggi ${counts.today_inbox_total} mail normali, ${counts.today_newsletter_total} newsletter${counts.today_unknown_total > 0 ? `, ${counts.today_unknown_total} non classificate` : ""}; non lette totali ${counts.total_unread} (${counts.today_inbox_unread + counts.today_newsletter_unread + counts.today_unknown_unread} oggi, ${counts.previous_unread_total} precedenti).`
+            : "Gmail è collegato, ma non trovo email di oggi.",
     };
   });
 
