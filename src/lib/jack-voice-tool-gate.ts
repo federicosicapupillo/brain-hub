@@ -209,7 +209,30 @@ export type GateDecision =
 const ANSWER_WINDOW_MS = 30_000;
 
 export function decideVoiceToolGate(input: GateDecisionInput): GateDecision {
+  // v3.25.3 — read-gated tools (get_email_brief / get_gmail_summary).
+  if (READ_GATED_VOICE_TOOLS.has(input.toolName)) {
+    const utterance = input.lastValidUserUtterance ?? "";
+    const validAt = input.lastValidUserUtteranceAt ?? 0;
+    if (!utterance || input.now - validAt > ANSWER_WINDOW_MS) {
+      return {
+        status: "blocked",
+        reason: "no_explicit_email_intent",
+        safe_message:
+          "Posso leggere le mail solo se me lo chiedi esplicitamente, ad esempio 'leggimi le mail di oggi'.",
+      };
+    }
+    if (!hasExplicitEmailIntent(utterance)) {
+      return {
+        status: "blocked",
+        reason: "no_explicit_email_intent",
+        safe_message:
+          "Posso leggere le mail solo se me lo chiedi esplicitamente, ad esempio 'leggimi le mail di oggi'.",
+      };
+    }
+    return { status: "allowed" };
+  }
   if (!GATED_VOICE_TOOLS.has(input.toolName)) return { status: "allowed" };
+
 
   // If assistant asked a question and there is no fresher valid user reply,
   // block any gated tool until the user actually answers.
