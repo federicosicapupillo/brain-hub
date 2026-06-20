@@ -1111,6 +1111,10 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       searched_today_raw_count: searchedTodayRawCount,
       sync_may_be_stale: syncStale,
       last_sync_at: conn.last_sync_at,
+      // v3.24 cache truth guard
+      cache_truth_guard_active: true,
+      active_sync_run_id: activeSyncRunId,
+      stale_rows_hidden_count: staleHiddenCount,
       message:
         emails.length === 0
           ? "No matching synced email found. Gmail sync may not have imported this message yet."
