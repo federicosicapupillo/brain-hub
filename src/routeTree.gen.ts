@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedUiOperatorLabRouteImport } from './routes/_authenticated/ui-operator-lab'
 import { Route as AuthenticatedToolConnectionsRouteImport } from './routes/_authenticated/tool-connections'
 import { Route as AuthenticatedTelegramApprovalsRouteImport } from './routes/_authenticated/telegram-approvals'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
@@ -90,6 +91,12 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedUiOperatorLabRoute =
+  AuthenticatedUiOperatorLabRouteImport.update({
+    id: '/ui-operator-lab',
+    path: '/ui-operator-lab',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedToolConnectionsRoute =
   AuthenticatedToolConnectionsRouteImport.update({
     id: '/tool-connections',
@@ -506,6 +513,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRoute
   '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
+  '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
@@ -571,6 +579,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
+  '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/': typeof AuthenticatedIndexRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
@@ -640,6 +649,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/_authenticated/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/_authenticated/tool-connections': typeof AuthenticatedToolConnectionsRoute
+  '/_authenticated/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
@@ -710,6 +720,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/telegram-approvals'
     | '/tool-connections'
+    | '/ui-operator-lab'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
@@ -775,6 +786,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/telegram-approvals'
     | '/tool-connections'
+    | '/ui-operator-lab'
     | '/'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
@@ -843,6 +855,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/_authenticated/telegram-approvals'
     | '/_authenticated/tool-connections'
+    | '/_authenticated/ui-operator-lab'
     | '/_authenticated/'
     | '/_authenticated/importa/prompt-storici'
     | '/_authenticated/progetti/$brainId'
@@ -887,6 +900,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ui-operator-lab': {
+      id: '/_authenticated/ui-operator-lab'
+      path: '/ui-operator-lab'
+      fullPath: '/ui-operator-lab'
+      preLoaderRoute: typeof AuthenticatedUiOperatorLabRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/tool-connections': {
@@ -1415,6 +1435,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
   AuthenticatedTelegramApprovalsRoute: typeof AuthenticatedTelegramApprovalsRoute
   AuthenticatedToolConnectionsRoute: typeof AuthenticatedToolConnectionsRoute
+  AuthenticatedUiOperatorLabRoute: typeof AuthenticatedUiOperatorLabRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
@@ -1473,6 +1494,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
   AuthenticatedTelegramApprovalsRoute: AuthenticatedTelegramApprovalsRoute,
   AuthenticatedToolConnectionsRoute: AuthenticatedToolConnectionsRoute,
+  AuthenticatedUiOperatorLabRoute: AuthenticatedUiOperatorLabRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 
