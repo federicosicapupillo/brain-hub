@@ -381,6 +381,13 @@ type Diagnostics = {
   lastPendingVoiceActionExecutionStartedAt: number | null;
   lastPendingVoiceActionExecutionFinishedAt: number | null;
   lastPendingVoiceActionExecutionResult: "ok" | "failed" | null;
+  // v3.25.2 — controlled realtime turn loop + single source of truth
+  realtimeAutoResponseDisabled: boolean;
+  lastIgnoredUtteranceSuppressed: string | null;
+  lastSuppressedAssistantResponseReason: string | null;
+  lastVoiceActionExecutionSource: VoiceActionExecutionSource | null;
+  lastSensitiveActionBlockedSource: string | null;
+  duplicateRouterMessageSuppressedCount: number;
 };
 
 type Props = { brainId?: string | null };
