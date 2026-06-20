@@ -45,6 +45,106 @@ async function logEvent(
   }
 }
 
+// ---------- Rome timezone helpers (v3.22 — Today Reader) ----------
+
+const ROME_TZ = "Europe/Rome";
+
+export function romeStartOfDayIso(offsetDays = 0): string {
+  // Compute Rome midnight for (today + offsetDays), then convert to UTC ISO.
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ROME_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(now);
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
+  const utcMidnight = new Date(`${y}-${m}-${d}T00:00:00Z`).getTime();
+  const romeWall = new Date(now.toLocaleString("en-US", { timeZone: ROME_TZ }));
+  const utcWall = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
+  const offsetMs = romeWall.getTime() - utcWall.getTime();
+  const target = utcMidnight - offsetMs + offsetDays * 86400000;
+  return new Date(target).toISOString();
+}
+
+// ---------- Inbox / Newsletter classification ----------
+
+const NEWSLETTER_CATEGORY_LABELS = new Set([
+  "CATEGORY_PROMOTIONS",
+  "CATEGORY_SOCIAL",
+  "CATEGORY_UPDATES",
+  "CATEGORY_FORUMS",
+]);
+const NEWSLETTER_RX =
+  /\b(newsletter|unsubscribe|disiscriviti|cancellati|promo|promozione|offerta|sconto|deal)\b/i;
+const NOREPLY_RX = /^(no[-_.]?reply|noreply|newsletter|news|info|marketing)@/i;
+
+export type EmailClassification = {
+  category: string;
+  is_newsletter: boolean;
+  is_filtered: boolean;
+  is_inbox_primary: boolean;
+};
+
+export function classifyMail(row: {
+  label_ids?: string[] | null;
+  detected_category?: string | null;
+  from_email?: string | null;
+  subject?: string | null;
+  snippet?: string | null;
+}): EmailClassification {
+  const labels = Array.isArray(row.label_ids) ? row.label_ids : [];
+  const upper = labels.map((l) => l.toUpperCase());
+  const hasInbox = upper.includes("INBOX");
+  const newsletterLabel = upper.find((l) => NEWSLETTER_CATEGORY_LABELS.has(l));
+  const detected = (row.detected_category ?? "").toLowerCase();
+  const heuristicNewsletter =
+    NEWSLETTER_RX.test(`${row.subject ?? ""} ${row.snippet ?? ""}`) ||
+    NOREPLY_RX.test((row.from_email ?? "").toLowerCase());
+  const isNewsletter =
+    Boolean(newsletterLabel) ||
+    ["newsletter", "promotions", "promo", "updates", "social"].includes(detected) ||
+    heuristicNewsletter;
+  const isPrimary = hasInbox && !newsletterLabel && !isNewsletter;
+  const isFiltered = !isPrimary;
+  const category = newsletterLabel
+    ? newsletterLabel.replace("CATEGORY_", "").toLowerCase()
+    : isNewsletter
+      ? "newsletter"
+      : isPrimary
+        ? "primary"
+        : detected || "other";
+  return {
+    category,
+    is_newsletter: isNewsletter,
+    is_filtered: isFiltered,
+    is_inbox_primary: isPrimary,
+  };
+}
+
+function deriveLabelScope(rows: Array<{ label_ids?: string[] | null }>): string {
+  if (!rows.length) return "unknown";
+  let inboxOnly = 0;
+  let newsletterOnly = 0;
+  let mixed = 0;
+  for (const r of rows) {
+    const labels = (r.label_ids ?? []).map((l) => l.toUpperCase());
+    const hasInbox = labels.includes("INBOX");
+    const hasNewsletter = labels.some((l) => NEWSLETTER_CATEGORY_LABELS.has(l));
+    if (hasInbox && !hasNewsletter) inboxOnly += 1;
+    else if (!hasInbox && hasNewsletter) newsletterOnly += 1;
+    else mixed += 1;
+  }
+  if (newsletterOnly === 0 && mixed === 0) return "inbox";
+  if (inboxOnly === 0 && mixed === 0) return "newsletter";
+  return "mixed";
+}
+
+
+
 // ---------- get_email_brief ----------
 
 type EmailBriefItem = {
