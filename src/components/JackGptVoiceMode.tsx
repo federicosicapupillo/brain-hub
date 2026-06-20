@@ -2783,6 +2783,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                     model: session.input_transcription_model,
                     language: session.input_transcription_language,
                   },
+                  // v3.25.2 — server-side VAD must NOT auto-create assistant
+                  // responses. The client decides per-utterance whether to
+                  // call response.create, so ignored/echo turns produce no
+                  // assistant reply at all.
+                  turn_detection: {
+                    type: "server_vad",
+                    create_response: false,
+                    interrupt_response: true,
+                  },
                 },
                 output: { voice: "alloy" },
               },
