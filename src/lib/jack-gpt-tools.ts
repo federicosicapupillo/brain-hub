@@ -658,6 +658,8 @@ const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "preview_email_action",
   "search_emails",
   "get_email_detail",
+  // v3.24 — dedup refresh to prevent voice-mode double sync.
+  "refresh_gmail_sync",
 ]);
 type InFlightResult = { ok: boolean; [k: string]: unknown };
 const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
