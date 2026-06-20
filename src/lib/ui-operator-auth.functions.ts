@@ -81,14 +81,40 @@ export const createUiOperatorAuthTokenFn = createServerFn({ method: "POST" })
       return { ok: false, error: res.error ?? "create_failed", url: null, token: null,
         token_prefix: null, expires_at: null, allowed_routes: res.allowed_routes, status: "invalid" as const };
     }
-    const url = data.route
-      ? buildUiOperatorAuthUrl({
-          baseUrl: getBrainHubBaseUrl(),
-          token: res.token,
-          session_id: data.session_id,
-          route: data.route,
-        })
-      : null;
+    const baseRes = resolveBrainHubBaseUrl();
+    if (!baseRes.valid || !baseRes.url) {
+      await logEvt(supabase, userId, "ui_operator_base_url_invalid", {
+        source: baseRes.source, session_id: data.session_id, route: data.route,
+      });
+      return { ok: false, error: "base_url_invalid", url: null, token: null,
+        token_prefix: null, expires_at: null, allowed_routes: res.allowed_routes, status: "invalid" as const };
+    }
+    let url: string | null = null;
+    if (data.route) {
+      const built = buildUiOperatorAuthUrlSafe({
+        baseUrl: baseRes.url,
+        token: res.token,
+        session_id: data.session_id,
+        route: data.route,
+      });
+      if (!built.ok || !built.url) {
+        await logEvt(supabase, userId, "ui_operator_invalid_relative_navigation_blocked", {
+          reason: built.error, base_url: baseRes.url,
+          session_id: data.session_id, route: data.route,
+        });
+        return { ok: false, error: built.error ?? "build_failed", url: null, token: null,
+          token_prefix: null, expires_at: null, allowed_routes: res.allowed_routes, status: "invalid" as const };
+      }
+      url = built.url;
+      await logEvt(supabase, userId, "ui_operator_auth_url_built", {
+        session_id: data.session_id, route: data.route,
+        base_url: baseRes.url, auth_url_preview: built.preview,
+      });
+    }
+    await logEvt(supabase, userId, "ui_operator_base_url_resolved", {
+      source: baseRes.source, base_url: baseRes.url,
+    });
+
     await logEvt(supabase, userId, "ui_operator_auth_token_created", {
       session_id: data.session_id,
       token_prefix: safeTokenPrefix(res.token),
