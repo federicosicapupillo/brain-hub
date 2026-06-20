@@ -88,6 +88,13 @@ const SENSITIVE_VOICE_TOOLS: ReadonlySet<string> = new Set([
   "stop_ui_operator_session",
 ]);
 
+// v3.25.2 — allowed sources for sensitive action execution.
+type VoiceActionExecutionSource = "ui_button" | "voice_confirm";
+const ALLOWED_SENSITIVE_EXECUTION_SOURCES: ReadonlySet<VoiceActionExecutionSource> = new Set([
+  "ui_button",
+  "voice_confirm",
+]);
+
 // v3.25.1 — Typed Realtime payload builders. Realtime GA requires:
 //   - user message content parts: { type: "input_text", text }
 //   - assistant message content parts: { type: "output_text", text }
@@ -381,6 +388,13 @@ type Diagnostics = {
   lastPendingVoiceActionExecutionStartedAt: number | null;
   lastPendingVoiceActionExecutionFinishedAt: number | null;
   lastPendingVoiceActionExecutionResult: "ok" | "failed" | null;
+  // v3.25.2 — controlled realtime turn loop + single source of truth
+  realtimeAutoResponseDisabled: boolean;
+  lastIgnoredUtteranceSuppressed: string | null;
+  lastSuppressedAssistantResponseReason: string | null;
+  lastVoiceActionExecutionSource: VoiceActionExecutionSource | null;
+  lastSensitiveActionBlockedSource: string | null;
+  duplicateRouterMessageSuppressedCount: number;
 };
 
 type Props = { brainId?: string | null };
@@ -495,6 +509,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastPendingVoiceActionExecutionStartedAt: null,
     lastPendingVoiceActionExecutionFinishedAt: null,
     lastPendingVoiceActionExecutionResult: null,
+    realtimeAutoResponseDisabled: false,
+    lastIgnoredUtteranceSuppressed: null,
+    lastSuppressedAssistantResponseReason: null,
+    lastVoiceActionExecutionSource: null,
+    lastSensitiveActionBlockedSource: null,
+    duplicateRouterMessageSuppressedCount: 0,
   });
 
   // v3.25 — pending voice action state for confirmation buttons
@@ -508,6 +528,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   >(null);
   const lastExecutedVoiceActionIdRef = useRef<string | null>(null);
   const voiceActionExecutingRef = useRef<boolean>(false);
+  // v3.25.2 — dedup router preview spoken messages within a short window.
+  const lastRouterPreviewMessageRef = useRef<{ type: string; at: number } | null>(null);
+  const ROUTER_PREVIEW_DEDUP_MS = 6000;
 
 
   const responseInProgressRef = useRef(false);
@@ -1437,8 +1460,31 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const executeVoiceAction = useCallback(
     async (
       pending: PendingVoiceActionLite & { preview: VoiceActionPreview },
-      source: "ui_button" | "router_high_confidence",
+      source: VoiceActionExecutionSource,
     ) => {
+      // v3.25.2 — hard gate: refuse sensitive execution from any source other
+      // than an explicit UI button click or a voice confirmation of a pending
+      // action. Defense-in-depth even though callers are typed.
+      if (!ALLOWED_SENSITIVE_EXECUTION_SOURCES.has(source)) {
+        safeLog("jack_voice_sensitive_action_blocked_invalid_source", {
+          action_id: pending.id,
+          action_type: pending.type,
+          source: String(source),
+        });
+        setDiagnostics((d) => ({
+          ...d,
+          lastSensitiveActionBlockedSource: String(source),
+        }));
+        pushLog({
+          kind: "warning",
+          text: `Azione bloccata: ${pending.type}, source invalid: ${String(source)}`,
+        });
+        injectAssistantNote(
+          "Serve una conferma esplicita: usa il pulsante o dimmi 'sì, sincronizza Gmail'.",
+        );
+        safeCreateResponse("voice_action_invalid_source", { queueIfBusy: true });
+        return;
+      }
       if (lastExecutedVoiceActionIdRef.current === pending.id) {
         safeLog("jack_voice_action_execution_skipped_duplicate", {
           action_id: pending.id,
@@ -1483,10 +1529,20 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         action_type: pending.type,
         source,
       });
+      safeLog("jack_voice_action_execution_source_recorded", {
+        action_id: pending.id,
+        action_type: pending.type,
+        source,
+      });
+      pushLog({
+        kind: "system",
+        text: `Azione: ${pending.type} confermata da ${source}`,
+      });
       setDiagnostics((d) => ({
         ...d,
         lastVoiceActionExecuted: pending.type,
         lastVoiceActionResultStatus: "executing",
+        lastVoiceActionExecutionSource: source,
         lastPendingVoiceActionExecutionStartedAt: executionStartedAt,
         lastPendingVoiceActionExecutionFinishedAt: null,
         lastPendingVoiceActionExecutionResult: null,
@@ -1507,6 +1563,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           toolArgs = pending.preview.payload;
           break;
       }
+      pushLog({ kind: "tool", text: `→ ${toolName}` });
       try {
         const result = (await toolFn({
           data: {
@@ -1525,6 +1582,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           tool_name: toolName,
           ok,
         });
+        pushLog({ kind: "tool", text: `← ${toolName}: ${ok ? "ok" : "failed"}` });
         setDiagnostics((d) => ({
           ...d,
           lastVoiceActionResultStatus: ok ? "executed" : "failed",
@@ -1571,7 +1629,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         }));
       }
     },
-    [toolFn, safeLog, sendUserSystemNote, injectAssistantNote, safeCreateResponse],
+    [toolFn, safeLog, sendUserSystemNote, injectAssistantNote, safeCreateResponse, pushLog],
   );
 
   const cancelPendingVoiceAction = useCallback(
@@ -1640,6 +1698,17 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         cancelPendingVoiceAction("user_button");
         return;
       }
+      // v3.25.2 — capability/meta questions ("non puoi farlo tu?", "puoi farlo?")
+      // never confirm pending actions and never trigger sensitive tools.
+      if (result.intent === "capability_question") {
+        safeLog("jack_voice_capability_question_handled", {
+          has_pending_action: Boolean(pendingVoiceActionRef.current),
+        });
+        pushLog({ kind: "warning", text: "Domanda di capacità — serve conferma esplicita." });
+        injectAssistantNote(result.safe_message);
+        safeCreateResponse("voice_capability_question", { queueIfBusy: true });
+        return;
+      }
       if (result.intent === "confirm_pending" && pendingVoiceActionRef.current) {
         safeLog("jack_voice_pending_action_confirmed_by_voice", {
           action_id: pendingVoiceActionRef.current.id,
@@ -1651,9 +1720,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           pendingVoiceActionConfirmedByVoice: true,
           lastPendingVoiceActionConfirmationText: transcript.slice(0, 80),
         }));
+        pushLog({
+          kind: "system",
+          text: `Azione: ${pendingVoiceActionRef.current.type} confermata da voice_confirm`,
+        });
         await executeVoiceAction(
           pendingVoiceActionRef.current,
-          "router_high_confidence",
+          "voice_confirm",
         );
         return;
       }
@@ -1688,13 +1761,42 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           action_type: pending.type,
           risk_level: result.action_preview.risk_level,
         });
-        // Nudge the model to ask for explicit confirmation (without executing).
-        sendUserSystemNote(
-          `Ho rilevato l'intenzione "${result.action_preview.type}". Brain Hub ha già mostrato un bottone di conferma all'utente. Dì in una sola frase breve: "${result.safe_message}". NON chiamare tool sensibili: aspetta il click del bottone.`,
-        );
-        safeCreateResponse("voice_router_action_preview_created", {
-          queueIfBusy: true,
+        pushLog({
+          kind: "system",
+          text: `Proposta: ${pending.preview.title} — usa pulsante o dì "sì, ${pending.preview.button_label.toLowerCase()}"`,
         });
+        // v3.25.2 — single source of truth: only ONE controlled spoken message
+        // per action preview within a short window. Auto-response is disabled
+        // server-side via turn_detection.create_response=false, so this is the
+        // only path that triggers Jack to speak the router preview line.
+        const last = lastRouterPreviewMessageRef.current;
+        const isDuplicate =
+          last !== null &&
+          last.type === result.action_preview.type &&
+          nowTs - last.at < ROUTER_PREVIEW_DEDUP_MS;
+        if (isDuplicate) {
+          safeLog("jack_voice_router_message_suppressed_duplicate", {
+            action_type: result.action_preview.type,
+            ms_since_last: nowTs - last.at,
+          });
+          setDiagnostics((d) => ({
+            ...d,
+            duplicateRouterMessageSuppressedCount:
+              d.duplicateRouterMessageSuppressedCount + 1,
+            lastSuppressedAssistantResponseReason: "router_preview_duplicate",
+          }));
+        } else {
+          lastRouterPreviewMessageRef.current = {
+            type: result.action_preview.type,
+            at: nowTs,
+          };
+          sendUserSystemNote(
+            `Ho rilevato l'intenzione "${result.action_preview.type}". Brain Hub ha già mostrato un bottone di conferma all'utente. Dì in una sola frase breve: "${result.safe_message}". NON ripetere la frase. NON chiamare tool sensibili: aspetta il click del bottone.`,
+          );
+          safeCreateResponse("voice_router_action_preview_created", {
+            queueIfBusy: true,
+          });
+        }
       }
     },
     [
@@ -1703,6 +1805,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       executeVoiceAction,
       sendUserSystemNote,
       safeCreateResponse,
+      injectAssistantNote,
+      pushLog,
     ],
   );
 
@@ -2500,7 +2604,23 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 ...d,
                 lastIgnoredUserUtterance: transcript.slice(0, 80),
                 lastIgnoredReason: classification.reason,
+                lastIgnoredUtteranceSuppressed: transcript.slice(0, 80),
+                lastSuppressedAssistantResponseReason: classification.reason,
               }));
+              // v3.25.2 — defense-in-depth: even with turn_detection
+              // create_response=false, also cancel any in-flight response that
+              // may have started before the suppression decision landed.
+              try {
+                const dc = dcRef.current;
+                if (dc && dc.readyState === "open" && responseInProgressRef.current) {
+                  dc.send(JSON.stringify({ type: "response.cancel" }));
+                }
+              } catch { /* noop */ }
+              safeLog("jack_realtime_ignored_utterance_response_suppressed", {
+                reason: classification.reason,
+                transcript_length: transcript.length,
+                auto_response_disabled: true,
+              });
               pushLog({
                 kind: "warning",
                 text: `Utterance ignorato (${classification.reason}): "${transcript.slice(0, 60)}"`,
@@ -2546,6 +2666,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             handleVoiceConfirmationTranscript(transcript, msg.type);
             // v3.25 — run deterministic command router for sensitive intents.
             void runDeterministicVoiceRouter(transcript, nowTs);
+            // v3.25.2 — auto-response is disabled at the session level, so we
+            // must explicitly create a response for valid user utterances.
+            // safeCreateResponse dedups against router-triggered responses
+            // and against any in-flight response.
+            safeCreateResponse("user_utterance_valid", { queueIfBusy: true });
           }
           break;
 
@@ -2620,7 +2745,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           break;
       }
     },
-    [handleToolCall, safeLog, pushLog, flushPendingResponse, handleVoiceConfirmationTranscript, trackRealtimeEventType],
+    [handleToolCall, safeLog, pushLog, flushPendingResponse, handleVoiceConfirmationTranscript, trackRealtimeEventType, runDeterministicVoiceRouter, safeCreateResponse],
   );
 
   /** Connect WebRTC using a successfully-created realtime session (GA endpoint). */
@@ -2662,6 +2787,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                   transcription: {
                     model: session.input_transcription_model,
                     language: session.input_transcription_language,
+                  },
+                  // v3.25.2 — server-side VAD must NOT auto-create assistant
+                  // responses. The client decides per-utterance whether to
+                  // call response.create, so ignored/echo turns produce no
+                  // assistant reply at all.
+                  turn_detection: {
+                    type: "server_vad",
+                    create_response: false,
+                    interrupt_response: true,
                   },
                 },
                 output: { voice: "alloy" },
@@ -2714,6 +2848,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               event_type: "session.update",
             });
             safeLog("jack_gpt_session_update_sent", { mode: session.mode });
+            safeLog("jack_realtime_auto_response_disabled", {
+              turn_detection_type: "server_vad",
+              create_response: false,
+              interrupt_response: true,
+            });
+            setDiagnostics((d) => ({ ...d, realtimeAutoResponseDisabled: true }));
             // v3.13: inject natural memory context as additional instructions.
             void injectNaturalContext("initial");
           } catch { /* noop */ }

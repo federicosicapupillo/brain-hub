@@ -10,6 +10,7 @@ export type VoiceCommandIntent =
   | "open_gmail_connector"
   | "cancel"
   | "confirm_pending"
+  | "capability_question"
   | "unknown";
 
 export type VoiceCommandConfidence = "high" | "medium" | "low";
@@ -171,6 +172,30 @@ function hasOpenVerb(text: string): string[] {
   return OPEN_VERBS.filter((v) => text.includes(v));
 }
 
+// Capability/meta questions: user is asking whether Jack CAN do something,
+// not commanding him to do it. Must NOT trigger sensitive tools and must
+// NOT count as a confirmation of any pending action.
+const CAPABILITY_QUESTION_PATTERNS: ReadonlyArray<RegExp> = [
+  /\bnon\s+puoi\b/,
+  /\bpuoi\s+(farlo|fare|sincronizzarl|aprirl|leggerl)/,
+  /\bperche\s+non\s+(lo\s+)?fai\b/,
+  /\bperche\s+non\s+(lo\s+)?puoi\b/,
+  /\bnon\s+riesci\b/,
+  /\bcome\s+(faccio|si\s+fa)\b/,
+  /\briesci\s+(a|tu)\b/,
+  /\bsei\s+capace\b/,
+];
+
+function detectCapabilityQuestion(normalized: string): string[] {
+  const hits: string[] = [];
+  for (const rx of CAPABILITY_QUESTION_PATTERNS) {
+    const m = normalized.match(rx);
+    if (m) hits.push(m[0]);
+  }
+  return hits;
+}
+
+
 // ---------- Public API ----------
 
 const SAFE_FALLBACK =
@@ -197,6 +222,21 @@ export function routeVoiceCommand(
     };
   }
 
+  // 1b. Capability questions ("non puoi farlo tu?", "puoi farlo?", "perché non…")
+  // must NEVER be treated as confirmations or sync commands.
+  const capabilityHits = detectCapabilityQuestion(normalized);
+  if (capabilityHits.length > 0) {
+    return {
+      intent: "capability_question",
+      confidence: "high",
+      requires_confirmation: false,
+      action_preview: null,
+      safe_message:
+        "Posso farlo solo dopo una tua conferma esplicita, perché è un'azione operativa. Usa il pulsante o dimmi 'sì, sincronizza Gmail'.",
+      matched_terms: capabilityHits,
+    };
+  }
+
   // 2. Confirm pending action if any is active and user said a confirm term.
   const confirmHits = containsAny(normalized, CONFIRM_TERMS);
   if (
@@ -213,6 +253,8 @@ export function routeVoiceCommand(
       matched_terms: confirmHits,
     };
   }
+
+
 
   const gmailHits = hasGmailNoun(normalized);
   const syncHits = hasSyncVerb(normalized);
