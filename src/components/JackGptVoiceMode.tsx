@@ -2976,6 +2976,43 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           <AlertDescription className="text-xs">{JACK_GPT_PRIVACY_NOTICE}</AlertDescription>
         </Alert>
 
+        {pendingVoiceAction ? (
+          <Alert className="border-amber-500/40 bg-amber-500/5">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle>{pendingVoiceAction.preview.title}</AlertTitle>
+            <AlertDescription className="text-xs space-y-2">
+              <p>{pendingVoiceAction.preview.description}</p>
+              <p className="text-[10px] text-muted-foreground">
+                Rischio: {pendingVoiceAction.preview.risk_level} · scade tra ~
+                {Math.max(
+                  0,
+                  Math.round((pendingVoiceAction.expiresAt - Date.now()) / 1000),
+                )}
+                s
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    void executeVoiceAction(pendingVoiceAction, "ui_button");
+                  }}
+                  disabled={voiceActionExecutingRef.current}
+                >
+                  {pendingVoiceAction.preview.button_label}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => cancelPendingVoiceAction("user_button")}
+                >
+                  {pendingVoiceAction.preview.cancel_label}
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+
         {state === "not_configured" ? (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
