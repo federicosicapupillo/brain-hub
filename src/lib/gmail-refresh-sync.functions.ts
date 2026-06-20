@@ -92,21 +92,15 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
     force: d?.force === true,
   }))
   .handler(async ({ data, context }): Promise<RefreshGmailMetadataSyncResult> =>
-    runRefreshGmailMetadataSyncCore(
-      context.supabase as unknown as RefreshSupabaseLike,
-      context.userId,
-      data,
-    ),
+    runRefreshGmailMetadataSyncCore(context.supabase, context.userId, data),
   );
 
 // Brain Hub v3.23.3 — extracted core so the public UI Operator surface
-// endpoint can reuse the exact same sync logic with supabaseAdmin.
-type RefreshSupabaseLike = {
-  from: (t: string) => unknown;
-} & Record<string, unknown>;
-
+// endpoint can reuse the same sync logic with supabaseAdmin.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function runRefreshGmailMetadataSyncCore(
-  supabase: RefreshSupabaseLike,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   userId: string,
   data: {
     brain_id: string | null;
@@ -115,30 +109,6 @@ export async function runRefreshGmailMetadataSyncCore(
     force: boolean;
   },
 ): Promise<RefreshGmailMetadataSyncResult> {
-  // supabase is typed loosely so admin or RLS client both work
-  const sb = supabase as unknown as ReturnType<typeof Object> & {
-    from: (t: string) => never;
-  };
-  // Local aliases keep the original handler body untouched below.
-  const supabase_ = sb as unknown as never;
-  void supabase_;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabaseAny = supabase as any;
-  // Re-bind to the original identifier name used by the body.
-  // eslint-disable-next-line prefer-const
-  let __reassign__ = true;
-  void __reassign__;
-  const _sb = supabaseAny;
-  // Provide the names the original body expects.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  {
-    // start of original handler body
-  }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabaseBind: any = _sb;
-  // Re-export names used below
-  const supabase__ = supabaseBind;
-  void supabase__;
     const { mode, reason, force } = data;
 
     const safeFail = (
