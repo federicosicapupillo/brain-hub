@@ -28,6 +28,10 @@ import {
   stopUiOperatorSessionFn,
   listUiOperatorActionsFn,
 } from "@/lib/ui-operator.functions";
+import {
+  createUiOperatorAuthTokenFn,
+  getLatestUiOperatorAuthTokenFn,
+} from "@/lib/ui-operator-auth.functions";
 import { ALLOWED_UI_ROUTES } from "@/lib/ui-operator-safety";
 import type {
   UiOperatorAction,
