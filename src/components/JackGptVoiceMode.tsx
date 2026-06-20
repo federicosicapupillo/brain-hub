@@ -87,6 +87,96 @@ const SENSITIVE_VOICE_TOOLS: ReadonlySet<string> = new Set([
   "execute_confirmed_ui_action",
   "stop_ui_operator_session",
 ]);
+
+// v3.25.1 — Typed Realtime payload builders. Realtime GA requires:
+//   - user message content parts: { type: "input_text", text }
+//   - assistant message content parts: { type: "output_text", text }
+//   - function_call_output: top-level item with no content array
+// Using { type: "text" } produces 400 "Invalid value: 'text'."
+type RealtimeTextContentType = "input_text" | "output_text";
+
+type RealtimeConversationItemCreate = {
+  readonly type: "conversation.item.create";
+  readonly item:
+    | {
+        readonly type: "message";
+        readonly role: "user" | "assistant";
+        readonly content: ReadonlyArray<{
+          readonly type: RealtimeTextContentType;
+          readonly text: string;
+        }>;
+      }
+    | {
+        readonly type: "function_call_output";
+        readonly call_id: string;
+        readonly output: string;
+      };
+};
+
+function buildRealtimeUserTextItem(text: string): RealtimeConversationItemCreate {
+  return {
+    type: "conversation.item.create",
+    item: {
+      type: "message",
+      role: "user",
+      content: [{ type: "input_text", text }],
+    },
+  } as const;
+}
+
+function buildRealtimeAssistantTextItem(
+  text: string,
+): RealtimeConversationItemCreate {
+  return {
+    type: "conversation.item.create",
+    item: {
+      type: "message",
+      role: "assistant",
+      content: [{ type: "output_text", text }],
+    },
+  } as const;
+}
+
+function buildRealtimeFunctionCallOutput(
+  callId: string,
+  result: unknown,
+): RealtimeConversationItemCreate {
+  return {
+    type: "conversation.item.create",
+    item: {
+      type: "function_call_output",
+      call_id: callId,
+      output: JSON.stringify(result),
+    },
+  } as const;
+}
+
+function logRealtimeSendShape(
+  payload: RealtimeConversationItemCreate,
+  reason: string,
+  log?: (event: string, metadata?: Record<string, unknown>) => void,
+): void {
+  if (!log) return;
+  const item = payload.item;
+  if (item.type === "message") {
+    log("jack_realtime_send_shape", {
+      reason,
+      event_type: payload.type,
+      item_type: item.type,
+      item_role: item.role,
+      content_types: item.content.map((c) => c.type),
+      content_count: item.content.length,
+    });
+  } else {
+    log("jack_realtime_send_shape", {
+      reason,
+      event_type: payload.type,
+      item_type: item.type,
+      call_id_redacted: item.call_id.slice(0, 8),
+    });
+  }
+}
+
 import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
 import {
   classifyRealtimeStartError,
@@ -1059,7 +1149,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 item: {
                   type: "message",
                   role: "assistant",
-                  content: [{ type: "text", text: fallbackText }],
+                  content: [{ type: "output_text", text: fallbackText }],
                 },
               }),
             );
@@ -1305,22 +1395,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       const dc = dcRef.current;
       if (!dc || dc.readyState !== "open") return;
       try {
-        dc.send(
-          JSON.stringify({
-            type: "conversation.item.create",
-            item: {
-              type: "message",
-              role: "assistant",
-              content: [{ type: "text", text }],
-            },
-          }),
-        );
+        const payload = buildRealtimeAssistantTextItem(text);
+        logRealtimeSendShape(payload, "assistant_note", safeLog);
+        dc.send(JSON.stringify(payload));
         pushLog({ kind: "jack", text });
       } catch {
         /* noop */
       }
     },
-    [pushLog],
+    [pushLog, safeLog],
   );
 
   const sendUserSystemNote = useCallback(
@@ -1328,21 +1411,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       const dc = dcRef.current;
       if (!dc || dc.readyState !== "open") return;
       try {
-        dc.send(
-          JSON.stringify({
-            type: "conversation.item.create",
-            item: {
-              type: "message",
-              role: "user",
-              content: [{ type: "input_text", text: `[brain_hub_router]: ${text}` }],
-            },
-          }),
+        const payload = buildRealtimeUserTextItem(
+          `[brain_hub_router]: ${text}`,
         );
+        logRealtimeSendShape(payload, "user_system_note", safeLog);
+        dc.send(JSON.stringify(payload));
       } catch {
         /* noop */
       }
     },
-    [],
+    [safeLog],
   );
 
   const executeVoiceAction = useCallback(
