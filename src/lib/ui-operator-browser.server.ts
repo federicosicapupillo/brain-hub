@@ -163,25 +163,32 @@ export async function startUiOperatorBrowserSession(
 export async function openUiOperatorRoute(
   sessionId: string,
   route: string,
+  opts?: { auth_url?: string | null },
 ): Promise<{
   ok: boolean;
   route: string;
   message: string;
   execution_mode: UiOperatorExecutionMode;
+  auth_url_used: boolean;
 }> {
   if (!isRouteAllowedForUiOperator(route)) {
-    return { ok: false, route, message: "Route non consentita.", execution_mode: "mock" };
+    return { ok: false, route, message: "Route non consentita.", execution_mode: "mock", auth_url_used: false };
   }
   if (isUiOperatorRunnerConfigured()) {
-    const res = await openRunnerRoute({ session_id: sessionId, route });
+    const res = await openRunnerRoute({
+      session_id: sessionId,
+      route,
+      ...(opts?.auth_url ? { auth_url: opts.auth_url } : {}),
+    });
     if (res.ok) {
-      return { ok: true, route, message: `Route aperta: ${route}`, execution_mode: "real_runner" };
+      return { ok: true, route, message: `Route aperta: ${route}`, execution_mode: "real_runner", auth_url_used: !!opts?.auth_url };
     }
     return {
       ok: false,
       route,
       message: `Runner: ${res.safe_message}`,
       execution_mode: "mock",
+      auth_url_used: !!opts?.auth_url,
     };
   }
   return {
@@ -189,6 +196,7 @@ export async function openUiOperatorRoute(
     route,
     message: `Route aperta (mock): ${route}`,
     execution_mode: "mock",
+    auth_url_used: !!opts?.auth_url,
   };
 }
 
