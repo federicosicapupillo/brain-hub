@@ -2604,7 +2604,23 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 ...d,
                 lastIgnoredUserUtterance: transcript.slice(0, 80),
                 lastIgnoredReason: classification.reason,
+                lastIgnoredUtteranceSuppressed: transcript.slice(0, 80),
+                lastSuppressedAssistantResponseReason: classification.reason,
               }));
+              // v3.25.2 — defense-in-depth: even with turn_detection
+              // create_response=false, also cancel any in-flight response that
+              // may have started before the suppression decision landed.
+              try {
+                const dc = dcRef.current;
+                if (dc && dc.readyState === "open" && responseInProgressRef.current) {
+                  dc.send(JSON.stringify({ type: "response.cancel" }));
+                }
+              } catch { /* noop */ }
+              safeLog("jack_realtime_ignored_utterance_response_suppressed", {
+                reason: classification.reason,
+                transcript_length: transcript.length,
+                auto_response_disabled: true,
+              });
               pushLog({
                 kind: "warning",
                 text: `Utterance ignorato (${classification.reason}): "${transcript.slice(0, 60)}"`,
