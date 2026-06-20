@@ -57,6 +57,7 @@ import {
 import { JACK_GPT_PRIVACY_NOTICE, JACK_GPT_SYSTEM_INSTRUCTIONS } from "@/lib/jack-gpt-instructions";
 import {
   GATED_VOICE_TOOLS,
+  READ_GATED_VOICE_TOOLS,
   buildBlockedToolPayload,
   classifyUserUtterance,
   decideVoiceToolGate,
@@ -64,6 +65,7 @@ import {
   type IgnoredUtteranceReason,
   type VoiceToolBlockedReason,
 } from "@/lib/jack-voice-tool-gate";
+
 import {
   routeVoiceCommand,
   buildPendingVoiceAction,
