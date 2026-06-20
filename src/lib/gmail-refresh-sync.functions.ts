@@ -91,8 +91,24 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
       | "manual_debug",
     force: d?.force === true,
   }))
-  .handler(async ({ data, context }): Promise<RefreshGmailMetadataSyncResult> => {
-    const { supabase, userId } = context;
+  .handler(async ({ data, context }): Promise<RefreshGmailMetadataSyncResult> =>
+    runRefreshGmailMetadataSyncCore(context.supabase, context.userId, data),
+  );
+
+// Brain Hub v3.23.3 — extracted core so the public UI Operator surface
+// endpoint can reuse the same sync logic with supabaseAdmin.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function runRefreshGmailMetadataSyncCore(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string,
+  data: {
+    brain_id: string | null;
+    mode: "today" | "recent";
+    reason: "user_requested" | "stale_before_read" | "manual_debug";
+    force: boolean;
+  },
+): Promise<RefreshGmailMetadataSyncResult> {
     const { mode, reason, force } = data;
 
     const safeFail = (
@@ -566,4 +582,4 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
         error_code: "unhandled",
       });
     }
-  });
+}

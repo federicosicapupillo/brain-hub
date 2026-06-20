@@ -443,6 +443,9 @@ function UiOperatorLabRoute() {
         </CardContent>
       </Card>
 
+      <ControlledSurfaceCard sessionId={session?.id ?? null} />
+
+
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Storico azioni</CardTitle>
@@ -473,5 +476,121 @@ function UiOperatorLabRoute() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+const SURFACE_OPTIONS = [
+  { value: "gmail_connector", label: "Gmail Connector", route: "/gmail-connector" },
+];
+
+function ControlledSurfaceCard({ sessionId }: { sessionId: string | null }) {
+  const [surface, setSurface] = useState("gmail_connector");
+  const [surfaceState, setSurfaceState] = useState<unknown>(null);
+  const [lastActionResp, setLastActionResp] = useState<unknown>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const previewUrl = sessionId
+    ? `/ui-operator-surface/${sessionId}?surface=${surface}`
+    : null;
+
+  async function fetchState() {
+    if (!sessionId) return;
+    setBusy("state");
+    try {
+      const res = await fetch(
+        `/api/public/ui-operator-surface-state?session_id=${encodeURIComponent(sessionId)}&surface=${encodeURIComponent(surface)}`,
+      );
+      setSurfaceState(await res.json());
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function runAction(actionKey: string, confirmationId?: string) {
+    if (!sessionId) return;
+    setBusy(actionKey);
+    try {
+      const res = await fetch("/api/public/ui-operator-surface-action", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          session_id: sessionId,
+          action_key: actionKey,
+          confirmation_action_id: confirmationId ?? null,
+        }),
+      });
+      setLastActionResp(await res.json());
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4" /> Controlled Surface (v3.23.3)
+        </CardTitle>
+        <CardDescription>
+          Superficie pubblica controllata per il runner. Solo azioni allowlisted,
+          dati minimi, nessun token o body email.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-end gap-2">
+          <div className="min-w-[200px]">
+            <label className="text-xs text-muted-foreground">Surface</label>
+            <Select value={surface} onValueChange={setSurface}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SURFACE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Badge variant="outline">Controlled Surface</Badge>
+        </div>
+        {previewUrl ? (
+          <div className="text-xs break-all text-muted-foreground">
+            Preview URL: <code>{previewUrl}</code>
+          </div>
+        ) : (
+          <div className="text-xs text-muted-foreground">
+            Avvia una sessione per generare il preview URL.
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" variant="secondary" disabled={!sessionId || busy === "state"} onClick={fetchState}>
+            Carica stato surface
+          </Button>
+          <Button size="sm" variant="secondary" disabled={!sessionId || busy === "gmail_check_status"} onClick={() => runAction("gmail_check_status")}>
+            gmail_check_status
+          </Button>
+          <Button size="sm" variant="secondary" disabled={!sessionId || busy === "gmail_get_brief"} onClick={() => runAction("gmail_get_brief")}>
+            gmail_get_brief
+          </Button>
+          <Button size="sm" variant="secondary" disabled={!sessionId || busy === "gmail_open_reconnect"} onClick={() => runAction("gmail_open_reconnect")}>
+            gmail_open_reconnect
+          </Button>
+          <Button size="sm" disabled={!sessionId || busy === "gmail_refresh_metadata"} onClick={() => runAction("gmail_refresh_metadata")}>
+            gmail_refresh_metadata (medium)
+          </Button>
+        </div>
+        {surfaceState ? (
+          <pre className="text-xs bg-muted rounded p-2 overflow-x-auto max-h-64">
+            {JSON.stringify(surfaceState, null, 2)}
+          </pre>
+        ) : null}
+        {lastActionResp ? (
+          <pre className="text-xs bg-muted rounded p-2 overflow-x-auto max-h-64">
+            {JSON.stringify(lastActionResp, null, 2)}
+          </pre>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }

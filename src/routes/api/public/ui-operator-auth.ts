@@ -10,6 +10,7 @@ import {
   safeTokenPrefix,
 } from "@/lib/ui-operator-auth.server";
 import { isRouteAllowedForUiOperator } from "@/lib/ui-operator-safety";
+import { routeToSurface, isSupportedSurface } from "@/lib/ui-operator-surface.server";
 
 async function logServerEvt(
   user_id: string | null,
@@ -103,7 +104,18 @@ export const Route = createFileRoute("/api/public/ui-operator-auth")({
           session_id, route, token_prefix: safeTokenPrefix(token),
         });
 
-        const target = `/ui-operator-proxy/${encodeURIComponent(session_id)}?route=${encodeURIComponent(route)}&tp=${encodeURIComponent(safeTokenPrefix(token))}`;
+        // v3.23.3: if the requested route maps to a Controlled Surface,
+        // redirect the runner to the surface instead of the bare proxy.
+        const surface = routeToSurface(route);
+        let target: string;
+        if (surface && isSupportedSurface(surface)) {
+          target = `/ui-operator-surface/${encodeURIComponent(session_id)}?surface=${encodeURIComponent(surface)}&tp=${encodeURIComponent(safeTokenPrefix(token))}`;
+          await logServerEvt(consumed.user_id, "ui_operator_surface_redirected", {
+            session_id, route, surface, target_path: `/ui-operator-surface/${session_id}`,
+          });
+        } else {
+          target = `/ui-operator-proxy/${encodeURIComponent(session_id)}?route=${encodeURIComponent(route)}&tp=${encodeURIComponent(safeTokenPrefix(token))}`;
+        }
         await logServerEvt(consumed.user_id, "ui_operator_auth_redirect_completed", {
           session_id, route, target_path: target.split("?")[0],
         });
