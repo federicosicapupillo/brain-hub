@@ -1,6 +1,14 @@
 // Brain Hub v3.23 — Jack UI Operator types.
 // All types are JSON-safe and used by both server functions and UI.
 
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export type UiOperatorProvider = "browserbase_stagehand" | "mock";
 
 export type UiOperatorStatus =
