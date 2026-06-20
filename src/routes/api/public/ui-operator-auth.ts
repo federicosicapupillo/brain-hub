@@ -18,7 +18,11 @@ async function logServerEvt(
 ) {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin
+    await (supabaseAdmin as unknown as {
+      from: (t: string) => {
+        insert: (v: Record<string, unknown>) => Promise<{ error: unknown }>;
+      };
+    })
       .from("agent_event_log")
       .insert({ user_id, event_type: event, metadata });
   } catch {

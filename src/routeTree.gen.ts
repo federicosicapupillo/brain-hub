@@ -68,6 +68,7 @@ import { Route as AuthenticatedAgentRunsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAgentCenterRouteImport } from './routes/_authenticated/agent-center'
 import { Route as AuthenticatedActionQueueRouteImport } from './routes/_authenticated/action-queue'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
+import { Route as ApiPublicUiOperatorAuthRouteImport } from './routes/api/public/ui-operator-auth'
 import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
@@ -408,6 +409,11 @@ const AuthenticatedImportaIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedImportaRoute,
   } as any)
+const ApiPublicUiOperatorAuthRoute = ApiPublicUiOperatorAuthRouteImport.update({
+  id: '/api/public/ui-operator-auth',
+  path: '/api/public/ui-operator-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicN8nPilotCallbackRoute =
   ApiPublicN8nPilotCallbackRouteImport.update({
     id: '/api/public/n8n-pilot-callback',
@@ -518,6 +524,7 @@ export interface FileRoutesByFullPath {
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
+  '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
   '/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
@@ -585,6 +592,7 @@ export interface FileRoutesByTo {
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
+  '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
   '/importa': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
@@ -655,6 +663,7 @@ export interface FileRoutesById {
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
+  '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
@@ -725,6 +734,7 @@ export interface FileRouteTypes {
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
+    | '/api/public/ui-operator-auth'
     | '/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
@@ -792,6 +802,7 @@ export interface FileRouteTypes {
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
+    | '/api/public/ui-operator-auth'
     | '/importa'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
@@ -861,6 +872,7 @@ export interface FileRouteTypes {
     | '/_authenticated/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
+    | '/api/public/ui-operator-auth'
     | '/_authenticated/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
@@ -873,6 +885,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
+  ApiPublicUiOperatorAuthRoute: typeof ApiPublicUiOperatorAuthRoute
   ApiPublicCalendarOauthCallbackRoute: typeof ApiPublicCalendarOauthCallbackRoute
   ApiPublicDriveOauthCallbackRoute: typeof ApiPublicDriveOauthCallbackRoute
   ApiPublicGmailOauthCallbackRoute: typeof ApiPublicGmailOauthCallbackRoute
@@ -1294,6 +1307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportaIndexRouteImport
       parentRoute: typeof AuthenticatedImportaRoute
     }
+    '/api/public/ui-operator-auth': {
+      id: '/api/public/ui-operator-auth'
+      path: '/api/public/ui-operator-auth'
+      fullPath: '/api/public/ui-operator-auth'
+      preLoaderRoute: typeof ApiPublicUiOperatorAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/n8n-pilot-callback': {
       id: '/api/public/n8n-pilot-callback'
       path: '/api/public/n8n-pilot-callback'
@@ -1506,6 +1526,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
+  ApiPublicUiOperatorAuthRoute: ApiPublicUiOperatorAuthRoute,
   ApiPublicCalendarOauthCallbackRoute: ApiPublicCalendarOauthCallbackRoute,
   ApiPublicDriveOauthCallbackRoute: ApiPublicDriveOauthCallbackRoute,
   ApiPublicGmailOauthCallbackRoute: ApiPublicGmailOauthCallbackRoute,
