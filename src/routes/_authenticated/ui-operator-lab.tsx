@@ -18,6 +18,7 @@ import {
 import { ShieldCheck, AlertTriangle, Bot } from "lucide-react";
 import {
   getUiOperatorConfigFn,
+  getUiOperatorRunnerHealthFn,
   startUiOperatorSessionFn,
   openUiOperatorRouteFn,
   observeUiOperatorScreenFn,
