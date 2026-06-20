@@ -1686,6 +1686,17 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         cancelPendingVoiceAction("user_button");
         return;
       }
+      // v3.25.2 — capability/meta questions ("non puoi farlo tu?", "puoi farlo?")
+      // never confirm pending actions and never trigger sensitive tools.
+      if (result.intent === "capability_question") {
+        safeLog("jack_voice_capability_question_handled", {
+          has_pending_action: Boolean(pendingVoiceActionRef.current),
+        });
+        pushLog({ kind: "warning", text: "Domanda di capacità — serve conferma esplicita." });
+        injectAssistantNote(result.safe_message);
+        safeCreateResponse("voice_capability_question", { queueIfBusy: true });
+        return;
+      }
       if (result.intent === "confirm_pending" && pendingVoiceActionRef.current) {
         safeLog("jack_voice_pending_action_confirmed_by_voice", {
           action_id: pendingVoiceActionRef.current.id,
@@ -1697,9 +1708,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           pendingVoiceActionConfirmedByVoice: true,
           lastPendingVoiceActionConfirmationText: transcript.slice(0, 80),
         }));
+        pushLog({
+          kind: "system",
+          text: `Azione: ${pendingVoiceActionRef.current.type} confermata da voice_confirm`,
+        });
         await executeVoiceAction(
           pendingVoiceActionRef.current,
-          "router_high_confidence",
+          "voice_confirm",
         );
         return;
       }
