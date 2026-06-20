@@ -201,6 +201,7 @@ type EmailBriefItem = {
   project_guess: string | null;
   has_attachments: boolean;
   labels: string[];
+  detected_category: string | null;
   category: string;
   is_newsletter: boolean;
   is_filtered: boolean;
@@ -219,6 +220,152 @@ function redactEmailForLog(email: string | null | undefined): string | null {
   const at = email.indexOf("@");
   if (at < 1) return "[redacted]";
   return `${email[0]}***@${email.slice(at + 1)}`;
+}
+
+function previewText(text: string | null | undefined, max: number): string | null {
+  if (!text) return null;
+  const compact = String(text).replace(/\s+/g, " ").trim();
+  if (!compact) return null;
+  return compact.length > max ? `${compact.slice(0, max - 1)}…` : compact;
+}
+
+type SupabaseReadClient = { from: (table: string) => any };
+
+type GmailConnectionCandidate = {
+  id: string;
+  status: string;
+  google_email: string | null;
+  last_sync_at: string | null;
+  updated_at: string | null;
+  messages_today_count: number;
+  latest_message_at: string | null;
+};
+
+type ConnectionCandidateDiagnostic = {
+  id_hash: string;
+  status: string;
+  email_preview?: string | null;
+  last_sync_at?: string | null;
+  messages_today_count: number;
+};
+
+type DebugTodayRawEntry = {
+  local_id: string;
+  gmail_message_id_hash?: string;
+  from_preview?: string | null;
+  from_domain?: string | null;
+  subject_preview?: string | null;
+  snippet_preview?: string | null;
+  internal_date?: string | null;
+  label_ids?: string[];
+  detected_category?: string | null;
+  is_unread?: boolean;
+  has_attachments?: boolean;
+  classified_as?: string;
+  included_in_buckets?: string[];
+};
+
+async function getRawTodayMessagesForDebug(
+  supabase: SupabaseReadClient,
+  opts: {
+    connectionId: string;
+    startIso: string;
+    endIso: string;
+    limit?: number;
+  },
+): Promise<{ rows: Array<Record<string, unknown>>; rawCount: number }> {
+  const { data, count } = await supabase
+    .from("gmail_message_map")
+    .select(EMAIL_SELECT_COLS, { count: "exact" })
+    .eq("connection_id", opts.connectionId)
+    .gte("internal_date", opts.startIso)
+    .lt("internal_date", opts.endIso)
+    .order("internal_date", { ascending: false, nullsFirst: false })
+    .limit(opts.limit ?? 200);
+
+  return {
+    rows: (data ?? []) as Array<Record<string, unknown>>,
+    rawCount: count ?? ((data ?? []) as unknown[]).length,
+  };
+}
+
+function syncMayBeStale(input: {
+  lastSyncAt: string | null;
+  partialSync: boolean;
+  rawTodayCount: number;
+  connected: boolean;
+}): boolean {
+  if (!input.connected) return false;
+  if (!input.lastSyncAt) return true;
+  const lastSyncMs = new Date(input.lastSyncAt).getTime();
+  if (!Number.isFinite(lastSyncMs) || lastSyncMs <= 0) return true;
+  if (Date.now() - lastSyncMs > 10 * 60 * 1000) return true;
+  if (input.partialSync) return true;
+  if (input.rawTodayCount === 0) return true;
+  return false;
+}
+
+async function buildConnectionCandidates(
+  supabase: SupabaseReadClient,
+  conns: Array<{
+    id: string;
+    status: string;
+    google_email?: string | null;
+    last_sync_at?: string | null;
+    updated_at?: string | null;
+  }>,
+  todayStart: string,
+  todayEnd: string,
+): Promise<GmailConnectionCandidate[]> {
+  return await Promise.all(
+    conns.map(async (conn) => {
+      const [{ count }, latestRes] = await Promise.all([
+        supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("connection_id", conn.id)
+          .gte("internal_date", todayStart)
+          .lt("internal_date", todayEnd),
+        supabase
+          .from("gmail_message_map")
+          .select("internal_date")
+          .eq("connection_id", conn.id)
+          .order("internal_date", { ascending: false, nullsFirst: false })
+          .limit(1),
+      ]);
+      const latestRow = ((latestRes.data ?? []) as Array<{ internal_date?: string | null }>)[0];
+      return {
+        id: conn.id,
+        status: conn.status,
+        google_email: conn.google_email ?? null,
+        last_sync_at: conn.last_sync_at ?? null,
+        updated_at: conn.updated_at ?? null,
+        messages_today_count: count ?? 0,
+        latest_message_at: latestRow?.internal_date ?? null,
+      };
+    }),
+  );
+}
+
+function pickActiveConnection(
+  candidates: GmailConnectionCandidate[],
+): GmailConnectionCandidate | null {
+  const active = candidates.filter(
+    (c) => c.status === "connected" || c.status === "active",
+  );
+  active.sort((a, b) => {
+    const aDate = new Date(
+      a.latest_message_at ?? a.last_sync_at ?? a.updated_at ?? 0,
+    ).getTime();
+    const bDate = new Date(
+      b.latest_message_at ?? b.last_sync_at ?? b.updated_at ?? 0,
+    ).getTime();
+    if (b.messages_today_count !== a.messages_today_count) {
+      return b.messages_today_count - a.messages_today_count;
+    }
+    return (Number.isFinite(bDate) ? bDate : 0) - (Number.isFinite(aDate) ? aDate : 0);
+  });
+  return active[0] ?? null;
 }
 
 function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
@@ -251,6 +398,7 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
     project_guess: (r.project_guess as string | null) ?? null,
     has_attachments: Boolean(r.has_attachments),
     labels,
+    detected_category: (r.detected_category as string | null) ?? null,
     category: cls.category,
     is_newsletter: cls.is_newsletter,
     is_filtered: cls.is_filtered,
@@ -259,23 +407,8 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
   };
 }
 
-type DebugTodayRawEntry = {
-  local_id: string;
-  from_domain: string | null;
-  from_preview: string | null;
-  subject_preview: string | null;
-  snippet_preview: string | null;
-  received_at: string | null;
-  label_ids: string[];
-  detected_category: string;
-  is_unread: boolean;
-  classified_as: "newsletter" | "unknown_personal" | "inbox_primary";
-  is_newsletter: boolean;
-  is_filtered: boolean;
-};
-
 const EMAIL_SELECT_COLS =
-  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,label_ids,detected_category";
+  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,body_preview,label_ids,detected_category";
 
 
 export const getEmailBriefFn = createServerFn({ method: "POST" })
@@ -295,6 +428,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const range = data.date_range ?? "today";
     const limit = Math.min(Math.max(data.limit ?? 10, 1), 25);
     const todayStart = romeStartOfDayIso(0);
+    const todayEnd = romeStartOfDayIso(1);
     const yesterdayStart = romeStartOfDayIso(-1);
     const since =
       range === "today"
@@ -305,16 +439,32 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
-      .select("id,status,last_sync_at,updated_at")
+      .select("id,status,google_email,last_sync_at,updated_at")
+      .eq("user_id", userId)
+      .order("last_sync_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
     const conns = (connsRaw ?? []) as Array<{
       id: string;
       status: string;
+      google_email: string | null;
       last_sync_at: string | null;
+      updated_at: string | null;
     }>;
-    const conn =
-      conns.find((c) => c.status === "connected" || c.status === "active") ??
-      null;
+    const connectionCandidates = await buildConnectionCandidates(
+      supabase as SupabaseReadClient,
+      conns,
+      todayStart,
+      todayEnd,
+    );
+    const connectionCandidateDiagnostics: ConnectionCandidateDiagnostic[] =
+      connectionCandidates.map((c) => ({
+        id_hash: hash(c.id),
+        status: c.status,
+        email_preview: redactEmailForLog(c.google_email),
+        last_sync_at: c.last_sync_at,
+        messages_today_count: c.messages_today_count,
+      }));
+    const conn = pickActiveConnection(connectionCandidates);
     if (!conn) {
       void logEvent(supabase, userId, "jack_email_brief_served", {
         connected: false,
@@ -340,6 +490,23 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           possibly_stale: true,
         },
         debug_today_raw: [] as DebugTodayRawEntry[],
+        diagnostics: {
+          active_connection_id_hash: "",
+          active_connection_email_preview: null,
+          last_sync_at: null,
+          today_range_rome: { start: todayStart, end: todayEnd },
+          raw_today_count: 0,
+          raw_today_unread_count: 0,
+          raw_today_newsletter_count: 0,
+          raw_today_inbox_candidate_count: 0,
+          all_today_count: 0,
+          inbox_today_count: 0,
+          newsletters_today_count: 0,
+          unknown_today_count: 0,
+          missing_expected_mail_possible: true,
+          sync_may_be_stale: true,
+        },
+        connection_candidates: connectionCandidateDiagnostics,
         label_scope: "unknown" as const,
         metadata_missing: false,
         partial_sync: false,
@@ -357,6 +524,12 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       .eq("connection_id", conn.id);
 
     if ((totalAll ?? 0) === 0) {
+      const syncStale = syncMayBeStale({
+        lastSyncAt: conn.last_sync_at,
+        partialSync: true,
+        rawTodayCount: 0,
+        connected: true,
+      });
       void logEvent(supabase, userId, "jack_email_brief_served", {
         connected: true,
         status: "connected_no_sync",
@@ -381,6 +554,23 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           possibly_stale: true,
         },
         debug_today_raw: [] as DebugTodayRawEntry[],
+        diagnostics: {
+          active_connection_id_hash: hash(conn.id),
+          active_connection_email_preview: redactEmailForLog(conn.google_email),
+          last_sync_at: conn.last_sync_at,
+          today_range_rome: { start: todayStart, end: todayEnd },
+          raw_today_count: 0,
+          raw_today_unread_count: 0,
+          raw_today_newsletter_count: 0,
+          raw_today_inbox_candidate_count: 0,
+          all_today_count: 0,
+          inbox_today_count: 0,
+          newsletters_today_count: 0,
+          unknown_today_count: 0,
+          missing_expected_mail_possible: true,
+          sync_may_be_stale: syncStale,
+        },
+        connection_candidates: connectionCandidateDiagnostics,
         label_scope: "unknown" as const,
         metadata_missing: false,
         partial_sync: true,
@@ -393,13 +583,10 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       };
     }
 
-    let todayQ = supabase
-      .from("gmail_message_map")
-      .select(EMAIL_SELECT_COLS)
-      .eq("connection_id", conn.id)
-      .gte("internal_date", todayStart)
-      .order("internal_date", { ascending: false, nullsFirst: false })
-      .limit(50);
+    const todayRawPromise = getRawTodayMessagesForDebug(
+      supabase as SupabaseReadClient,
+      { connectionId: conn.id, startIso: todayStart, endIso: todayEnd, limit: 200 },
+    );
     let yesterdayQ = supabase
       .from("gmail_message_map")
       .select(EMAIL_SELECT_COLS)
@@ -417,14 +604,13 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       .order("internal_date", { ascending: false, nullsFirst: false })
       .limit(25);
     if (data.brain_id) {
-      todayQ = todayQ.eq("brain_id", data.brain_id);
       yesterdayQ = yesterdayQ.eq("brain_id", data.brain_id);
       prevUnreadQ = prevUnreadQ.eq("brain_id", data.brain_id);
     }
 
-    const [todayRes, yesterdayRes, prevUnreadRes, totalUnreadRes, unreadTodayRes] =
+    const [todayRaw, yesterdayRes, prevUnreadRes, totalUnreadRes, unreadTodayRes] =
       await Promise.all([
-        todayQ,
+        todayRawPromise,
         yesterdayQ,
         prevUnreadQ,
         supabase
@@ -437,10 +623,11 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           .select("id", { count: "exact", head: true })
           .eq("connection_id", conn.id)
           .eq("is_unread", true)
-          .gte("internal_date", todayStart),
+          .gte("internal_date", todayStart)
+          .lt("internal_date", todayEnd),
       ]);
 
-    const todayRows = (todayRes.data ?? []) as Array<Record<string, unknown>>;
+    const todayRows = todayRaw.rows;
     const yesterdayRows = (yesterdayRes.data ?? []) as Array<Record<string, unknown>>;
     const prevUnreadRows = (prevUnreadRes.data ?? []) as Array<Record<string, unknown>>;
 
@@ -503,35 +690,66 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       : 0;
     const partialSync =
       !lastSyncAt ||
-      Date.now() - lastSyncMs > 6 * 3600 * 1000;
+      Date.now() - lastSyncMs > 10 * 60 * 1000;
     const possiblyStale =
-      partialSync ||
+      syncMayBeStale({
+        lastSyncAt,
+        partialSync,
+        rawTodayCount: todayRaw.rawCount,
+        connected: true,
+      }) ||
       (latestMsgMs > 0 && lastSyncMs > 0 && lastSyncMs < latestMsgMs);
     const syncFreshness = {
       last_sync_at: lastSyncAt,
       latest_message_seen_at: latestMessageSeenAt,
       possibly_stale: possiblyStale,
+      sync_may_be_stale: possiblyStale,
     };
 
     // Sanitized debug for today's raw rows. No body, no full email address.
-    const debugTodayRaw = todayEmails.map((e) => ({
+    const includedBucketsFor = (e: EmailBriefItem): string[] => {
+      const buckets = ["all_today"];
+      if (e.is_newsletter) buckets.push("newsletters_today");
+      else if (e.is_inbox_primary) buckets.push("inbox_today");
+      else buckets.push("unknown_today");
+      return buckets;
+    };
+    const debugTodayRaw: DebugTodayRawEntry[] = todayEmails.map((e) => ({
       local_id: e.local_id,
+      gmail_message_id_hash: hash(e.gmail_message_id),
       from_domain: e.from_domain,
       from_preview: redactEmailForLog(e.from_email),
-      subject_preview: e.subject ? e.subject.slice(0, 80) : null,
-      snippet_preview: e.snippet ? e.snippet.slice(0, 120) : null,
-      received_at: e.received_at,
+      subject_preview: previewText(e.subject, 80),
+      snippet_preview: previewText(e.snippet, 120),
+      internal_date: e.received_at,
       label_ids: e.labels,
-      detected_category: e.category,
+      detected_category: e.detected_category,
       is_unread: e.unread,
+      has_attachments: e.has_attachments,
       classified_as: e.is_newsletter
         ? "newsletter"
         : e.is_unknown_personal
           ? "unknown_personal"
           : "inbox_primary",
-      is_newsletter: e.is_newsletter,
-      is_filtered: e.is_filtered,
+      included_in_buckets: includedBucketsFor(e),
     }));
+
+    const diagnostics = {
+      active_connection_id_hash: hash(conn.id),
+      active_connection_email_preview: redactEmailForLog(conn.google_email),
+      last_sync_at: lastSyncAt,
+      today_range_rome: { start: todayStart, end: todayEnd },
+      raw_today_count: todayRaw.rawCount,
+      raw_today_unread_count: allToday.filter((e) => e.unread).length,
+      raw_today_newsletter_count: newslettersToday.length,
+      raw_today_inbox_candidate_count: inboxToday.length + unknownToday.length,
+      all_today_count: allToday.length,
+      inbox_today_count: inboxToday.length,
+      newsletters_today_count: newslettersToday.length,
+      unknown_today_count: unknownToday.length,
+      missing_expected_mail_possible: possiblyStale || todayRaw.rawCount > allToday.length,
+      sync_may_be_stale: possiblyStale,
+    };
 
     void logEvent(supabase, userId, "jack_email_brief_served", {
       connected: true,
@@ -548,6 +766,20 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       inbox: counts.today_inbox_total,
       newsletter: counts.today_newsletter_total,
       unknown: counts.today_unknown_total,
+    });
+    void logEvent(supabase, userId, "jack_gmail_today_diagnostic_served", {
+      active_connection_id_hash: diagnostics.active_connection_id_hash,
+      connection_candidates: connectionCandidateDiagnostics,
+      raw_today_count: diagnostics.raw_today_count,
+      raw_today_unread_count: diagnostics.raw_today_unread_count,
+      raw_today_newsletter_count: diagnostics.raw_today_newsletter_count,
+      raw_today_inbox_candidate_count: diagnostics.raw_today_inbox_candidate_count,
+      all_today_count: diagnostics.all_today_count,
+      inbox_today_count: diagnostics.inbox_today_count,
+      newsletters_today_count: diagnostics.newsletters_today_count,
+      unknown_today_count: diagnostics.unknown_today_count,
+      sync_may_be_stale: diagnostics.sync_may_be_stale,
+      last_sync_at: diagnostics.last_sync_at,
     });
     if (counts.today_unknown_total > 0) {
       void logEvent(supabase, userId, "jack_email_unknown_today_detected", {
@@ -618,6 +850,8 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       unknown_today: unknownToday,
       sync_freshness: syncFreshness,
       debug_today_raw: debugTodayRaw,
+      diagnostics,
+      connection_candidates: connectionCandidateDiagnostics,
       label_scope: labelScope,
       metadata_missing: metadataMissing,
       metadata_missing_hint: metadataMissing
@@ -697,16 +931,24 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
-      .select("id,status,last_sync_at,updated_at")
+      .select("id,status,google_email,last_sync_at,updated_at")
+      .eq("user_id", userId)
+      .order("last_sync_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
     const conns = (connsRaw ?? []) as Array<{
       id: string;
       status: string;
+      google_email: string | null;
       last_sync_at: string | null;
+      updated_at: string | null;
     }>;
-    const conn =
-      conns.find((c) => c.status === "connected" || c.status === "active") ??
-      null;
+    const connectionCandidates = await buildConnectionCandidates(
+      supabase as SupabaseReadClient,
+      conns,
+      todayStart,
+      romeStartOfDayIso(1),
+    );
+    const conn = pickActiveConnection(connectionCandidates);
     if (!conn) {
       return {
         ok: true,
@@ -719,17 +961,29 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
 
     const safe = q.replace(/[%_\\]/g, "\\$&");
     const pattern = `%${safe}%`;
+    const todayEnd = romeStartOfDayIso(1);
+    const { rawCount: searchedTodayRawCount } = await getRawTodayMessagesForDebug(
+      supabase as SupabaseReadClient,
+      { connectionId: conn.id, startIso: todayStart, endIso: todayEnd, limit: 1 },
+    );
+    const syncStale = syncMayBeStale({
+      lastSyncAt: conn.last_sync_at,
+      partialSync: false,
+      rawTodayCount: searchedTodayRawCount,
+      connected: true,
+    });
     let query = supabase
       .from("gmail_message_map")
       .select(EMAIL_SELECT_COLS)
       .eq("connection_id", conn.id)
       .or(
-        `subject.ilike.${pattern},from_email.ilike.${pattern},from_name.ilike.${pattern},snippet.ilike.${pattern}`,
+        `subject.ilike.${pattern},from_email.ilike.${pattern},from_name.ilike.${pattern},snippet.ilike.${pattern},body_preview.ilike.${pattern}`,
       )
       .order("internal_date", { ascending: false, nullsFirst: false })
       .limit(limit * 2); // fetch extra to allow filtering
     if (since) query = query.gte("internal_date", since);
     if (until) query = query.lt("internal_date", until);
+    else if (range === "today") query = query.lt("internal_date", todayEnd);
     if (data.brain_id) query = query.eq("brain_id", data.brain_id);
 
     const { data: rows, error } = await query;
@@ -747,6 +1001,8 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       range,
       include_newsletters: includeNewsletters,
       result_count: emails.length,
+      searched_today_raw_count: searchedTodayRawCount,
+      sync_may_be_stale: syncStale,
     });
     void logEvent(
       supabase,
@@ -765,7 +1021,15 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       range,
       include_newsletters: includeNewsletters,
       emails,
+      results: emails,
       match_count: emails.length,
+      searched_today_raw_count: searchedTodayRawCount,
+      sync_may_be_stale: syncStale,
+      last_sync_at: conn.last_sync_at,
+      message:
+        emails.length === 0
+          ? "No matching synced email found. Gmail sync may not have imported this message yet."
+          : null,
     };
   });
 
