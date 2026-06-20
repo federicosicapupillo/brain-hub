@@ -57,7 +57,9 @@ export function buildGmailAuthUrl(state: string): string | null {
     redirect_uri: cfg.redirectUri,
     response_type: "code",
     scope: GMAIL_OAUTH_SCOPE,
-    access_type: "online",
+    // v3.22.2 — offline + consent to receive a refresh_token so that
+    // Jack-controlled read-only refreshes can run without a new OAuth round.
+    access_type: "offline",
     include_granted_scopes: "true",
     prompt: "consent",
     state,
@@ -70,6 +72,7 @@ export type GmailTokenResponse = {
   expires_in: number;
   scope: string;
   token_type: string;
+  refresh_token?: string;
 };
 
 function sanitizeGoogleError(text: string): string {
@@ -295,4 +298,33 @@ export function extractBodyPreview(
   const raw = bestText ?? (bestHtml ? stripHtml(bestHtml) : "");
   const cleaned = redactSensitive(raw).slice(0, 1500);
   return { bodyPreview: cleaned, hasAttachments };
+}
+
+// ---------- Refresh token exchange (v3.22.2) ----------
+
+export async function refreshGmailAccessToken(
+  refreshToken: string,
+): Promise<GmailTokenResponse> {
+  const cfg = getGmailOauthConfig();
+  if (!cfg) throw new Error("Gmail OAuth non configurato");
+  const body = new URLSearchParams({
+    client_id: cfg.clientId,
+    client_secret: cfg.clientSecret,
+    refresh_token: refreshToken,
+    grant_type: "refresh_token",
+  });
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    const err = new Error(
+      `Gmail refresh fallito (${res.status}): ${sanitizeGoogleError(txt)}`,
+    );
+    (err as Error & { status?: number }).status = res.status;
+    throw err;
+  }
+  return (await res.json()) as GmailTokenResponse;
 }
