@@ -1749,13 +1749,42 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           action_type: pending.type,
           risk_level: result.action_preview.risk_level,
         });
-        // Nudge the model to ask for explicit confirmation (without executing).
-        sendUserSystemNote(
-          `Ho rilevato l'intenzione "${result.action_preview.type}". Brain Hub ha già mostrato un bottone di conferma all'utente. Dì in una sola frase breve: "${result.safe_message}". NON chiamare tool sensibili: aspetta il click del bottone.`,
-        );
-        safeCreateResponse("voice_router_action_preview_created", {
-          queueIfBusy: true,
+        pushLog({
+          kind: "system",
+          text: `Proposta: ${pending.preview.title} — usa pulsante o dì "sì, ${pending.preview.button_label.toLowerCase()}"`,
         });
+        // v3.25.2 — single source of truth: only ONE controlled spoken message
+        // per action preview within a short window. Auto-response is disabled
+        // server-side via turn_detection.create_response=false, so this is the
+        // only path that triggers Jack to speak the router preview line.
+        const last = lastRouterPreviewMessageRef.current;
+        const isDuplicate =
+          last !== null &&
+          last.type === result.action_preview.type &&
+          nowTs - last.at < ROUTER_PREVIEW_DEDUP_MS;
+        if (isDuplicate) {
+          safeLog("jack_voice_router_message_suppressed_duplicate", {
+            action_type: result.action_preview.type,
+            ms_since_last: nowTs - last.at,
+          });
+          setDiagnostics((d) => ({
+            ...d,
+            duplicateRouterMessageSuppressedCount:
+              d.duplicateRouterMessageSuppressedCount + 1,
+            lastSuppressedAssistantResponseReason: "router_preview_duplicate",
+          }));
+        } else {
+          lastRouterPreviewMessageRef.current = {
+            type: result.action_preview.type,
+            at: nowTs,
+          };
+          sendUserSystemNote(
+            `Ho rilevato l'intenzione "${result.action_preview.type}". Brain Hub ha già mostrato un bottone di conferma all'utente. Dì in una sola frase breve: "${result.safe_message}". NON ripetere la frase. NON chiamare tool sensibili: aspetta il click del bottone.`,
+          );
+          safeCreateResponse("voice_router_action_preview_created", {
+            queueIfBusy: true,
+          });
+        }
       }
     },
     [
