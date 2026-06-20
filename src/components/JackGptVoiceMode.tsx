@@ -1529,10 +1529,20 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         action_type: pending.type,
         source,
       });
+      safeLog("jack_voice_action_execution_source_recorded", {
+        action_id: pending.id,
+        action_type: pending.type,
+        source,
+      });
+      pushLog({
+        kind: "system",
+        text: `Azione: ${pending.type} confermata da ${source}`,
+      });
       setDiagnostics((d) => ({
         ...d,
         lastVoiceActionExecuted: pending.type,
         lastVoiceActionResultStatus: "executing",
+        lastVoiceActionExecutionSource: source,
         lastPendingVoiceActionExecutionStartedAt: executionStartedAt,
         lastPendingVoiceActionExecutionFinishedAt: null,
         lastPendingVoiceActionExecutionResult: null,
