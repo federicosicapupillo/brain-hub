@@ -1629,7 +1629,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         }));
       }
     },
-    [toolFn, safeLog, sendUserSystemNote, injectAssistantNote, safeCreateResponse],
+    [toolFn, safeLog, sendUserSystemNote, injectAssistantNote, safeCreateResponse, pushLog],
   );
 
   const cancelPendingVoiceAction = useCallback(
