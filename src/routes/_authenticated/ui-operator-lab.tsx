@@ -464,6 +464,69 @@ function UiOperatorLabRoute() {
 
       <ControlledSurfaceCard sessionId={session?.id ?? null} />
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" /> URL Diagnostics (v3.23.4)
+          </CardTitle>
+          <CardDescription>
+            Verifica che le URL handshake siano assolute e puntino al dominio
+            Brain Hub, mai all'editor Lovable (<code>lovable.dev/projects/…</code>).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>BRAIN_HUB_BASE_URL configured:{" "}
+              <Badge variant="outline">
+                {urlDiag.data?.brain_hub_base_url_configured ? "yes" : "no"}
+              </Badge>
+            </div>
+            <div>resolved_base_url:{" "}
+              <code className="text-xs">{urlDiag.data?.resolved_base_url ?? "—"}</code>
+            </div>
+            <div>source:{" "}
+              <code className="text-xs">{urlDiag.data?.resolved_base_url_source ?? "—"}</code>
+            </div>
+            <div>valid:{" "}
+              <Badge variant="outline">
+                {urlDiag.data?.resolved_base_url_valid ? "yes" : "no"}
+              </Badge>
+            </div>
+            <div>runner_url configured:{" "}
+              <Badge variant="outline">
+                {urlDiag.data?.runner_url_configured ? "yes" : "no"}
+              </Badge>
+            </div>
+            <div>runner_secret configured:{" "}
+              <Badge variant="outline">
+                {urlDiag.data?.runner_secret_configured ? "yes" : "no"}
+              </Badge>
+            </div>
+          </div>
+          <div className="border-t pt-2 space-y-1">
+            <div className="text-xs text-muted-foreground">
+              Ultima open route:
+            </div>
+            <div>last_target_route:{" "}
+              <code className="text-xs">{lastOpenDebug?.route_target ?? "—"}</code>
+            </div>
+            <div>last_surface:{" "}
+              <code className="text-xs">{lastOpenDebug?.surface_target ?? "—"}</code>
+            </div>
+            <div>last_error_code:{" "}
+              <code className="text-xs">{lastOpenDebug?.error_code ?? "—"}</code>
+            </div>
+            <div className="break-all">last_auth_url_preview:{" "}
+              <code className="text-xs">{lastOpenDebug?.auth_url_preview ?? "—"}</code>
+            </div>
+          </div>
+          <Button size="sm" variant="secondary" onClick={() => urlDiag.refetch()}>
+            Ricarica diagnostics
+          </Button>
+        </CardContent>
+      </Card>
+
+
 
       <Card>
         <CardHeader>
