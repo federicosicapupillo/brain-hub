@@ -560,6 +560,8 @@ const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "summarize_email",
   "summarize_email_thread",
   "preview_email_action",
+  "search_emails",
+  "get_email_detail",
 ]);
 type InFlightResult = { ok: boolean; [k: string]: unknown };
 const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
