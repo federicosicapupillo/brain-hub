@@ -619,6 +619,8 @@ function emptyCounts() {
     today_inbox_unread: 0,
     today_newsletter_total: 0,
     today_newsletter_unread: 0,
+    today_unknown_total: 0,
+    today_unknown_unread: 0,
     previous_unread_total: 0,
     total_unread: 0,
     newsletter_yesterday_total: 0,
