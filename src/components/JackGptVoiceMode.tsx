@@ -2424,7 +2424,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               assistantText: lastAssistantSpokenTextRef.current,
               assistantSpokeAt: lastAssistantSpokenAtRef.current,
               now: nowTs,
-              hasPendingConfirmation: Boolean(pendingPreviewRef.current),
+              hasPendingConfirmation:
+                Boolean(pendingPreviewRef.current) ||
+                Boolean(pendingVoiceActionRef.current),
             });
             if (!classification.valid) {
               safeLog(
@@ -2435,6 +2437,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                   reason: classification.reason,
                   transcript_length: transcript.length,
                   has_pending_preview: Boolean(pendingPreviewRef.current),
+                  has_pending_voice_action: Boolean(pendingVoiceActionRef.current),
                   has_pending_assistant_question: Boolean(
                     lastAssistantAskedConfirmationAtRef.current,
                   ),
@@ -2454,6 +2457,20 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               // checks and won't treat echo as confirmation.
               if (pendingPreviewRef.current) {
                 handleVoiceConfirmationTranscript(transcript, msg.type);
+              }
+              // v3.25.1 — bridge: if there is a v3.25 pending voice action,
+              // still run the deterministic router so explicit confirm phrases
+              // ("sì", "ok", "sincronizza gmail"…) execute the pending action
+              // even when classifier flagged them as too short/ambiguous.
+              // suspected_echo never reaches this branch's router because
+              // routeVoiceCommand will only match confirm/intent terms on the
+              // user's own words.
+              if (
+                pendingVoiceActionRef.current &&
+                classification.reason !== "suspected_echo"
+              ) {
+                lastValidUserUtteranceRef.current = { text: transcript, at: nowTs };
+                void runDeterministicVoiceRouter(transcript, nowTs);
               }
               break;
             }
