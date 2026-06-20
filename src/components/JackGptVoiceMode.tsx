@@ -2231,8 +2231,31 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 sessionPayload.instructions = session.instructions_for_update;
               }
               if (session.tools_for_update) {
-                sessionPayload.tools = session.tools_for_update;
+                // v3.25 — strip sensitive tools so the Realtime model can no
+                // longer trigger them directly. Brain Hub's deterministic
+                // router + UI buttons are the only path to execute them.
+                const rawTools = session.tools_for_update as ReadonlyArray<{
+                  name?: string;
+                }>;
+                const filtered = rawTools.filter(
+                  (t) => !SENSITIVE_VOICE_TOOLS.has(String(t?.name ?? "")),
+                );
+                const suppressedCount = rawTools.length - filtered.length;
+                sessionPayload.tools = filtered;
                 sessionPayload.tool_choice = "auto";
+                if (suppressedCount > 0) {
+                  setDiagnostics((d) => ({
+                    ...d,
+                    sensitiveToolSuppressedCount:
+                      d.sensitiveToolSuppressedCount + suppressedCount,
+                  }));
+                  safeLog("jack_voice_model_sensitive_tool_suppressed", {
+                    suppressed_count: suppressedCount,
+                    suppressed_tools: rawTools
+                      .filter((t) => SENSITIVE_VOICE_TOOLS.has(String(t?.name ?? "")))
+                      .map((t) => String(t?.name ?? "")),
+                  });
+                }
               }
             }
             dc.send(JSON.stringify({ type: "session.update", session: sessionPayload }));
