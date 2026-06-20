@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as UiOperatorSurfaceSessionIdRouteImport } from './routes/ui-operator-surface.$sessionId'
 import { Route as UiOperatorProxySessionIdRouteImport } from './routes/ui-operator-proxy.$sessionId'
 import { Route as AuthenticatedUiOperatorLabRouteImport } from './routes/_authenticated/ui-operator-lab'
 import { Route as AuthenticatedToolConnectionsRouteImport } from './routes/_authenticated/tool-connections'
@@ -69,6 +70,8 @@ import { Route as AuthenticatedAgentRunsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAgentCenterRouteImport } from './routes/_authenticated/agent-center'
 import { Route as AuthenticatedActionQueueRouteImport } from './routes/_authenticated/action-queue'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
+import { Route as ApiPublicUiOperatorSurfaceStateRouteImport } from './routes/api/public/ui-operator-surface-state'
+import { Route as ApiPublicUiOperatorSurfaceActionRouteImport } from './routes/api/public/ui-operator-surface-action'
 import { Route as ApiPublicUiOperatorAuthRouteImport } from './routes/api/public/ui-operator-auth'
 import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
@@ -93,6 +96,12 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const UiOperatorSurfaceSessionIdRoute =
+  UiOperatorSurfaceSessionIdRouteImport.update({
+    id: '/ui-operator-surface/$sessionId',
+    path: '/ui-operator-surface/$sessionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const UiOperatorProxySessionIdRoute =
   UiOperatorProxySessionIdRouteImport.update({
     id: '/ui-operator-proxy/$sessionId',
@@ -416,6 +425,18 @@ const AuthenticatedImportaIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedImportaRoute,
   } as any)
+const ApiPublicUiOperatorSurfaceStateRoute =
+  ApiPublicUiOperatorSurfaceStateRouteImport.update({
+    id: '/api/public/ui-operator-surface-state',
+    path: '/api/public/ui-operator-surface-state',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicUiOperatorSurfaceActionRoute =
+  ApiPublicUiOperatorSurfaceActionRouteImport.update({
+    id: '/api/public/ui-operator-surface-action',
+    path: '/api/public/ui-operator-surface-action',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicUiOperatorAuthRoute = ApiPublicUiOperatorAuthRouteImport.update({
   id: '/api/public/ui-operator-auth',
   path: '/api/public/ui-operator-auth',
@@ -528,11 +549,14 @@ export interface FileRoutesByFullPath {
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
+  '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
+  '/api/public/ui-operator-surface-action': typeof ApiPublicUiOperatorSurfaceActionRoute
+  '/api/public/ui-operator-surface-state': typeof ApiPublicUiOperatorSurfaceStateRoute
   '/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
@@ -596,12 +620,15 @@ export interface FileRoutesByTo {
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
+  '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/': typeof AuthenticatedIndexRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
+  '/api/public/ui-operator-surface-action': typeof ApiPublicUiOperatorSurfaceActionRoute
+  '/api/public/ui-operator-surface-state': typeof ApiPublicUiOperatorSurfaceStateRoute
   '/importa': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
@@ -668,12 +695,15 @@ export interface FileRoutesById {
   '/_authenticated/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/_authenticated/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
+  '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
+  '/api/public/ui-operator-surface-action': typeof ApiPublicUiOperatorSurfaceActionRoute
+  '/api/public/ui-operator-surface-state': typeof ApiPublicUiOperatorSurfaceStateRoute
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
@@ -741,11 +771,14 @@ export interface FileRouteTypes {
     | '/tool-connections'
     | '/ui-operator-lab'
     | '/ui-operator-proxy/$sessionId'
+    | '/ui-operator-surface/$sessionId'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/api/public/ui-operator-auth'
+    | '/api/public/ui-operator-surface-action'
+    | '/api/public/ui-operator-surface-state'
     | '/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
@@ -809,12 +842,15 @@ export interface FileRouteTypes {
     | '/tool-connections'
     | '/ui-operator-lab'
     | '/ui-operator-proxy/$sessionId'
+    | '/ui-operator-surface/$sessionId'
     | '/'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/api/public/ui-operator-auth'
+    | '/api/public/ui-operator-surface-action'
+    | '/api/public/ui-operator-surface-state'
     | '/importa'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
@@ -880,12 +916,15 @@ export interface FileRouteTypes {
     | '/_authenticated/tool-connections'
     | '/_authenticated/ui-operator-lab'
     | '/ui-operator-proxy/$sessionId'
+    | '/ui-operator-surface/$sessionId'
     | '/_authenticated/'
     | '/_authenticated/importa/prompt-storici'
     | '/_authenticated/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/api/public/ui-operator-auth'
+    | '/api/public/ui-operator-surface-action'
+    | '/api/public/ui-operator-surface-state'
     | '/_authenticated/importa/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
@@ -897,9 +936,12 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
+  UiOperatorSurfaceSessionIdRoute: typeof UiOperatorSurfaceSessionIdRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
   ApiPublicUiOperatorAuthRoute: typeof ApiPublicUiOperatorAuthRoute
+  ApiPublicUiOperatorSurfaceActionRoute: typeof ApiPublicUiOperatorSurfaceActionRoute
+  ApiPublicUiOperatorSurfaceStateRoute: typeof ApiPublicUiOperatorSurfaceStateRoute
   ApiPublicCalendarOauthCallbackRoute: typeof ApiPublicCalendarOauthCallbackRoute
   ApiPublicDriveOauthCallbackRoute: typeof ApiPublicDriveOauthCallbackRoute
   ApiPublicGmailOauthCallbackRoute: typeof ApiPublicGmailOauthCallbackRoute
@@ -928,6 +970,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/ui-operator-surface/$sessionId': {
+      id: '/ui-operator-surface/$sessionId'
+      path: '/ui-operator-surface/$sessionId'
+      fullPath: '/ui-operator-surface/$sessionId'
+      preLoaderRoute: typeof UiOperatorSurfaceSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/ui-operator-proxy/$sessionId': {
       id: '/ui-operator-proxy/$sessionId'
@@ -1328,6 +1377,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedImportaIndexRouteImport
       parentRoute: typeof AuthenticatedImportaRoute
     }
+    '/api/public/ui-operator-surface-state': {
+      id: '/api/public/ui-operator-surface-state'
+      path: '/api/public/ui-operator-surface-state'
+      fullPath: '/api/public/ui-operator-surface-state'
+      preLoaderRoute: typeof ApiPublicUiOperatorSurfaceStateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/ui-operator-surface-action': {
+      id: '/api/public/ui-operator-surface-action'
+      path: '/api/public/ui-operator-surface-action'
+      fullPath: '/api/public/ui-operator-surface-action'
+      preLoaderRoute: typeof ApiPublicUiOperatorSurfaceActionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/ui-operator-auth': {
       id: '/api/public/ui-operator-auth'
       path: '/api/public/ui-operator-auth'
@@ -1546,9 +1609,12 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
+  UiOperatorSurfaceSessionIdRoute: UiOperatorSurfaceSessionIdRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
   ApiPublicUiOperatorAuthRoute: ApiPublicUiOperatorAuthRoute,
+  ApiPublicUiOperatorSurfaceActionRoute: ApiPublicUiOperatorSurfaceActionRoute,
+  ApiPublicUiOperatorSurfaceStateRoute: ApiPublicUiOperatorSurfaceStateRoute,
   ApiPublicCalendarOauthCallbackRoute: ApiPublicCalendarOauthCallbackRoute,
   ApiPublicDriveOauthCallbackRoute: ApiPublicDriveOauthCallbackRoute,
   ApiPublicGmailOauthCallbackRoute: ApiPublicGmailOauthCallbackRoute,

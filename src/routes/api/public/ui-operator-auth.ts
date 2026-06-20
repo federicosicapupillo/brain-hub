@@ -10,6 +10,7 @@ import {
   safeTokenPrefix,
 } from "@/lib/ui-operator-auth.server";
 import { isRouteAllowedForUiOperator } from "@/lib/ui-operator-safety";
+import { routeToSurface, isSupportedSurface } from "@/lib/ui-operator-surface.server";
 
 async function logServerEvt(
   user_id: string | null,
