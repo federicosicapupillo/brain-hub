@@ -424,6 +424,24 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       required: [],
     },
   },
+  {
+    type: "function",
+    name: "refresh_gmail_sync",
+    description:
+      "Sincronizza in sola lettura i metadati Gmail recenti/today nel database Brain Hub. Non modifica Gmail (nessun archivia, nessun mark-as-read, nessun invio). Da chiamare quando l'utente lo chiede esplicitamente ('ti puoi sincronizzare?', 'aggiorna Gmail') o automaticamente prima di leggere le mail se il brief risulta stale. Restituisce status (synced|skipped_recent|already_in_progress|reauth_required|not_connected|failed) e, su successo, il brief aggiornato.",
+    parameters: {
+      type: "object",
+      properties: {
+        mode: { type: "string", enum: ["today", "recent"] },
+        reason: {
+          type: "string",
+          enum: ["user_requested", "stale_before_read"],
+        },
+        brain_id: { type: "string" },
+      },
+      required: [],
+    },
+  },
 ] as const;
 
 // ---------- Helpers ----------
