@@ -238,14 +238,49 @@ export const openUiOperatorRouteFn = createServerFn({ method: "POST" })
       };
     }
     const { openUiOperatorRoute } = await import("./ui-operator-browser.server");
-    const { createUiOperatorAuthToken, getBrainHubBaseUrl, buildUiOperatorAuthUrl, safeTokenPrefix } =
-      await import("./ui-operator-auth.server");
+    const {
+      createUiOperatorAuthToken,
+      resolveBrainHubBaseUrl,
+      buildUiOperatorAuthUrlSafe,
+      safeTokenPrefix,
+    } = await import("./ui-operator-auth.server");
+    const { routeToSurface } = await import("./ui-operator-surface.server");
 
-    // Mint a one-time auth token so the runner can land on the route via the
-    // public handshake URL (Brain Hub never shares cookies or passwords).
+    await logEvt(supabase, userId, "ui_operator_lab_action_called", {
+      action: "open_route", session_id: data.session_id, route: data.route,
+    });
+
+    // Resolve and validate the Brain Hub base URL FIRST. Never let the runner
+    // navigate to a relative path or the Lovable editor host.
+    const baseRes = resolveBrainHubBaseUrl();
+    if (!baseRes.valid || !baseRes.url) {
+      await logEvt(supabase, userId, "ui_operator_base_url_invalid", {
+        source: baseRes.source, session_id: data.session_id, route: data.route,
+      });
+      return {
+        ok: false,
+        status: "stagehand_error",
+        message:
+          "URL generata non valida: BRAIN_HUB_BASE_URL non configurato o punta all'editor Lovable.",
+        debug: {
+          base_url: null,
+          base_url_source: baseRes.source,
+          auth_url_preview: null,
+          route_target: data.route,
+          surface_target: routeToSurface(data.route),
+          error_code: "base_url_invalid",
+        },
+      };
+    }
+    await logEvt(supabase, userId, "ui_operator_base_url_resolved", {
+      source: baseRes.source, base_url: baseRes.url,
+    });
+
     let authUrl: string | null = null;
     let tokenPrefix: string | null = null;
     let tokenExpiresAt: string | null = null;
+    let authUrlPreview: string | null = null;
+    let buildError: string | null = null;
     const tokenRes = await createUiOperatorAuthToken({
       user_id: userId,
       session_id: data.session_id,
@@ -253,18 +288,46 @@ export const openUiOperatorRouteFn = createServerFn({ method: "POST" })
       metadata: { source: "open_route" },
     });
     if (tokenRes.ok && tokenRes.token) {
-      authUrl = buildUiOperatorAuthUrl({
-        baseUrl: getBrainHubBaseUrl(),
+      const built = buildUiOperatorAuthUrlSafe({
+        baseUrl: baseRes.url,
         token: tokenRes.token,
         session_id: data.session_id,
         route: data.route,
       });
-      tokenPrefix = safeTokenPrefix(tokenRes.token);
-      tokenExpiresAt = tokenRes.expires_at;
-      await logEvt(supabase, userId, "ui_operator_auth_token_created", {
-        session_id: data.session_id, route: data.route,
-        token_prefix: tokenPrefix, expires_at: tokenExpiresAt, source: "open_route",
-      });
+      if (built.ok && built.url) {
+        authUrl = built.url;
+        authUrlPreview = built.preview;
+        tokenPrefix = safeTokenPrefix(tokenRes.token);
+        tokenExpiresAt = tokenRes.expires_at;
+        await logEvt(supabase, userId, "ui_operator_auth_token_created", {
+          session_id: data.session_id, route: data.route,
+          token_prefix: tokenPrefix, expires_at: tokenExpiresAt, source: "open_route",
+        });
+        await logEvt(supabase, userId, "ui_operator_auth_url_built", {
+          session_id: data.session_id, route: data.route,
+          base_url: baseRes.url, auth_url_preview: built.preview,
+          surface_target: routeToSurface(data.route),
+        });
+      } else {
+        buildError = built.error;
+        await logEvt(supabase, userId, "ui_operator_invalid_relative_navigation_blocked", {
+          reason: built.error, base_url: baseRes.url,
+          session_id: data.session_id, route: data.route,
+        });
+        return {
+          ok: false,
+          status: "stagehand_error",
+          message: "URL handshake non valida: build fallita.",
+          debug: {
+            base_url: baseRes.url,
+            base_url_source: baseRes.source,
+            auth_url_preview: null,
+            route_target: data.route,
+            surface_target: routeToSurface(data.route),
+            error_code: built.error,
+          },
+        };
+      }
     } else {
       await logEvt(supabase, userId, "ui_operator_auth_token_invalid", {
         reason: tokenRes.error, session_id: data.session_id, route: data.route,
@@ -306,8 +369,17 @@ export const openUiOperatorRouteFn = createServerFn({ method: "POST" })
       status: "navigating",
       message: res.message,
       execution_mode: res.execution_mode,
+      debug: {
+        base_url: baseRes.url,
+        base_url_source: baseRes.source,
+        auth_url_preview: authUrlPreview,
+        route_target: data.route,
+        surface_target: routeToSurface(data.route),
+        error_code: buildError,
+      },
     };
   });
+
 
 // ---------- observe ----------
 export const observeUiOperatorScreenFn = createServerFn({ method: "POST" })
