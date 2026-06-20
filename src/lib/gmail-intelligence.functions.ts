@@ -765,6 +765,20 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       newsletter: counts.today_newsletter_total,
       unknown: counts.today_unknown_total,
     });
+    void logEvent(supabase, userId, "jack_gmail_today_diagnostic_served", {
+      active_connection_id_hash: diagnostics.active_connection_id_hash,
+      connection_candidates: connectionCandidateDiagnostics,
+      raw_today_count: diagnostics.raw_today_count,
+      raw_today_unread_count: diagnostics.raw_today_unread_count,
+      raw_today_newsletter_count: diagnostics.raw_today_newsletter_count,
+      raw_today_inbox_candidate_count: diagnostics.raw_today_inbox_candidate_count,
+      all_today_count: diagnostics.all_today_count,
+      inbox_today_count: diagnostics.inbox_today_count,
+      newsletters_today_count: diagnostics.newsletters_today_count,
+      unknown_today_count: diagnostics.unknown_today_count,
+      sync_may_be_stale: diagnostics.sync_may_be_stale,
+      last_sync_at: diagnostics.last_sync_at,
+    });
     if (counts.today_unknown_total > 0) {
       void logEvent(supabase, userId, "jack_email_unknown_today_detected", {
         unknown_count: counts.today_unknown_total,
@@ -834,6 +848,8 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       unknown_today: unknownToday,
       sync_freshness: syncFreshness,
       debug_today_raw: debugTodayRaw,
+      diagnostics,
+      connection_candidates: connectionCandidateDiagnostics,
       label_scope: labelScope,
       metadata_missing: metadataMissing,
       metadata_missing_hint: metadataMissing
