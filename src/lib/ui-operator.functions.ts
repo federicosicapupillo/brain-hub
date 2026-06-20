@@ -530,12 +530,20 @@ export const executeConfirmedUiOperatorActionFn = createServerFn({ method: "POST
       await logEvt(supabase, userId, "ui_operator_action_failed", {
         action_id: data.action_id,
         error_code: exec.error_text,
+        execution_mode: exec.execution_mode,
       });
+      if (exec.execution_mode === "real_runner") {
+        await logEvt(supabase, userId, "ui_operator_real_action_failed", {
+          action_id: data.action_id,
+          error_code: exec.error_text,
+        });
+      }
       return {
         ok: false,
         status: "failed",
         message: "Esecuzione fallita.",
         action: { ...act, status: "failed", error_text: exec.error_text },
+        execution_mode: exec.execution_mode,
       };
     }
     await sb
@@ -550,12 +558,20 @@ export const executeConfirmedUiOperatorActionFn = createServerFn({ method: "POST
       action_id: data.action_id,
       action_type: act.action_type,
       risk_level: act.risk_level,
+      execution_mode: exec.execution_mode,
     });
+    if (exec.execution_mode === "real_runner") {
+      await logEvt(supabase, userId, "ui_operator_real_action_executed", {
+        action_id: data.action_id,
+        action_type: act.action_type,
+      });
+    }
     return {
       ok: true,
       status: "executed",
       message: exec.result_text,
       action: { ...act, status: "executed", result_text: exec.result_text },
+      execution_mode: exec.execution_mode,
     };
   });
 
