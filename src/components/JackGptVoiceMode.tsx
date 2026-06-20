@@ -64,6 +64,29 @@ import {
   type IgnoredUtteranceReason,
   type VoiceToolBlockedReason,
 } from "@/lib/jack-voice-tool-gate";
+import {
+  routeVoiceCommand,
+  buildPendingVoiceAction,
+  type PendingVoiceActionLite,
+  type VoiceActionPreview,
+  type VoiceActionStatus,
+  type VoiceCommandIntent,
+  type VoiceCommandConfidence,
+  type VoiceCommandRouterResult,
+} from "@/lib/jack-deterministic-command-router";
+
+// v3.25 — Realtime model is NOT allowed to call these tools directly. They are
+// stripped from session.tools_for_update and executed only via the
+// deterministic command router + confirmation buttons.
+const SENSITIVE_VOICE_TOOLS: ReadonlySet<string> = new Set([
+  "refresh_gmail_sync",
+  "open_brainhub_screen",
+  "observe_brainhub_screen",
+  "propose_ui_action",
+  "confirm_ui_action",
+  "execute_confirmed_ui_action",
+  "stop_ui_operator_session",
+]);
 import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
 import {
   classifyRealtimeStartError,
@@ -252,6 +275,16 @@ type Diagnostics = {
   lastGmailSyncSafeMessage: string | null;
   lastGmailSyncErrorCode: string | null;
   lastGmailRequiresReauth: boolean;
+  // v3.25 — deterministic voice command router diagnostics
+  lastRouterIntent: VoiceCommandIntent | null;
+  lastRouterConfidence: VoiceCommandConfidence | null;
+  lastRouterMatchedTerms: string[];
+  pendingVoiceActionId: string | null;
+  pendingVoiceActionType: string | null;
+  pendingVoiceActionExpiresAt: number | null;
+  lastVoiceActionExecuted: string | null;
+  lastVoiceActionResultStatus: VoiceActionStatus | null;
+  sensitiveToolSuppressedCount: number;
 };
 
 type Props = { brainId?: string | null };
@@ -352,7 +385,28 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastGmailSyncSafeMessage: null,
     lastGmailSyncErrorCode: null,
     lastGmailRequiresReauth: false,
+    lastRouterIntent: null,
+    lastRouterConfidence: null,
+    lastRouterMatchedTerms: [],
+    pendingVoiceActionId: null,
+    pendingVoiceActionType: null,
+    pendingVoiceActionExpiresAt: null,
+    lastVoiceActionExecuted: null,
+    lastVoiceActionResultStatus: null,
+    sensitiveToolSuppressedCount: 0,
   });
+
+  // v3.25 — pending voice action state for confirmation buttons
+  const [pendingVoiceAction, setPendingVoiceAction] = useState<
+    | (PendingVoiceActionLite & { preview: VoiceActionPreview })
+    | null
+  >(null);
+  const pendingVoiceActionRef = useRef<
+    | (PendingVoiceActionLite & { preview: VoiceActionPreview })
+    | null
+  >(null);
+  const lastExecutedVoiceActionIdRef = useRef<string | null>(null);
+  const voiceActionExecutingRef = useRef<boolean>(false);
 
 
   const responseInProgressRef = useRef(false);
@@ -1243,6 +1297,273 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [toolFn, safeLog, pushLog, safeCreateResponse, injectNaturalContext],
   );
 
+  // ============================================================
+  // v3.25 — Deterministic Voice Command Layer
+  // ============================================================
+  const injectAssistantNote = useCallback(
+    (text: string) => {
+      const dc = dcRef.current;
+      if (!dc || dc.readyState !== "open") return;
+      try {
+        dc.send(
+          JSON.stringify({
+            type: "conversation.item.create",
+            item: {
+              type: "message",
+              role: "assistant",
+              content: [{ type: "text", text }],
+            },
+          }),
+        );
+        pushLog({ kind: "jack", text });
+      } catch {
+        /* noop */
+      }
+    },
+    [pushLog],
+  );
+
+  const sendUserSystemNote = useCallback(
+    (text: string) => {
+      const dc = dcRef.current;
+      if (!dc || dc.readyState !== "open") return;
+      try {
+        dc.send(
+          JSON.stringify({
+            type: "conversation.item.create",
+            item: {
+              type: "message",
+              role: "user",
+              content: [{ type: "input_text", text: `[brain_hub_router]: ${text}` }],
+            },
+          }),
+        );
+      } catch {
+        /* noop */
+      }
+    },
+    [],
+  );
+
+  const executeVoiceAction = useCallback(
+    async (
+      pending: PendingVoiceActionLite & { preview: VoiceActionPreview },
+      source: "ui_button" | "router_high_confidence",
+    ) => {
+      if (lastExecutedVoiceActionIdRef.current === pending.id) {
+        safeLog("jack_voice_action_execution_skipped_duplicate", {
+          action_id: pending.id,
+        });
+        return;
+      }
+      if (voiceActionExecutingRef.current) {
+        safeLog("jack_voice_action_execution_skipped_in_flight", {
+          action_id: pending.id,
+        });
+        return;
+      }
+      if (pending.expiresAt < Date.now()) {
+        safeLog("jack_voice_action_execution_skipped_expired", {
+          action_id: pending.id,
+        });
+        setPendingVoiceAction(null);
+        pendingVoiceActionRef.current = null;
+        return;
+      }
+      voiceActionExecutingRef.current = true;
+      lastExecutedVoiceActionIdRef.current = pending.id;
+      safeLog("jack_voice_action_confirmed_by_button", {
+        action_id: pending.id,
+        action_type: pending.type,
+        source,
+      });
+      setDiagnostics((d) => ({
+        ...d,
+        lastVoiceActionExecuted: pending.type,
+        lastVoiceActionResultStatus: "executing",
+      }));
+      let toolName: string;
+      let toolArgs: Record<string, unknown>;
+      switch (pending.preview.type) {
+        case "sync_gmail":
+          toolName = "refresh_gmail_sync";
+          toolArgs = pending.preview.payload;
+          break;
+        case "open_gmail_connector":
+          toolName = "open_brainhub_screen";
+          toolArgs = pending.preview.payload;
+          break;
+        case "ask_email_brief":
+          toolName = "get_email_brief";
+          toolArgs = pending.preview.payload;
+          break;
+      }
+      try {
+        const result = (await toolFn({
+          data: {
+            tool_name: toolName,
+            arguments: JSON.stringify(toolArgs),
+          },
+        })) as Record<string, unknown>;
+        const ok = result.ok === true;
+        const safeMessage =
+          typeof result.safe_message === "string"
+            ? (result.safe_message as string)
+            : null;
+        safeLog("jack_voice_action_executed", {
+          action_id: pending.id,
+          action_type: pending.type,
+          tool_name: toolName,
+          ok,
+        });
+        setDiagnostics((d) => ({
+          ...d,
+          lastVoiceActionResultStatus: ok ? "executed" : "failed",
+        }));
+        // Hand the result back to Jack so he speaks naturally.
+        const summary = ok
+          ? pending.preview.type === "sync_gmail"
+            ? "Sincronizzazione Gmail completata via Brain Hub (sola lettura). Riassumi brevemente in italiano cosa è stato fatto e proponi il prossimo passo."
+            : pending.preview.type === "open_gmail_connector"
+              ? "Gmail Connector è stato aperto via Brain Hub. Riassumi in una frase e chiedi se serve altro."
+              : "Brief email aggiornato via Brain Hub. Leggi i punti chiave del payload."
+          : `Azione "${pending.preview.title}" non riuscita. ${safeMessage ?? "Spiega all'utente in 1-2 frasi e proponi un'alternativa, senza riprovare lo stesso tool."}`;
+        sendUserSystemNote(
+          `${summary}\n\nPayload tool:\n${JSON.stringify(result).slice(0, 1800)}`,
+        );
+        safeCreateResponse("voice_action_executed", { queueIfBusy: true });
+      } catch (err) {
+        safeLog("jack_voice_action_execution_failed", {
+          action_id: pending.id,
+          action_type: pending.type,
+          safe_error: (err as Error)?.message?.slice(0, 120) ?? null,
+        });
+        setDiagnostics((d) => ({
+          ...d,
+          lastVoiceActionResultStatus: "failed",
+        }));
+        injectAssistantNote(
+          "Non sono riuscito a eseguire l'azione. Vuoi che proviamo dal pannello Brain Hub?",
+        );
+        safeCreateResponse("voice_action_execution_failed", { queueIfBusy: true });
+      } finally {
+        voiceActionExecutingRef.current = false;
+        setPendingVoiceAction(null);
+        pendingVoiceActionRef.current = null;
+        setDiagnostics((d) => ({
+          ...d,
+          pendingVoiceActionId: null,
+          pendingVoiceActionType: null,
+          pendingVoiceActionExpiresAt: null,
+        }));
+      }
+    },
+    [toolFn, safeLog, sendUserSystemNote, injectAssistantNote, safeCreateResponse],
+  );
+
+  const cancelPendingVoiceAction = useCallback(
+    (reason: "user_button" | "superseded" | "expired") => {
+      const current = pendingVoiceActionRef.current;
+      if (!current) return;
+      safeLog("jack_voice_action_cancelled", {
+        action_id: current.id,
+        action_type: current.type,
+        reason,
+      });
+      pendingVoiceActionRef.current = null;
+      setPendingVoiceAction(null);
+      setDiagnostics((d) => ({
+        ...d,
+        pendingVoiceActionId: null,
+        pendingVoiceActionType: null,
+        pendingVoiceActionExpiresAt: null,
+        lastVoiceActionResultStatus: "cancelled",
+      }));
+      if (reason === "user_button") {
+        injectAssistantNote("Ok, non procedo con quell'azione.");
+        safeCreateResponse("voice_action_cancelled", { queueIfBusy: true });
+      }
+    },
+    [safeLog, injectAssistantNote, safeCreateResponse],
+  );
+
+  const runDeterministicVoiceRouter = useCallback(
+    async (transcript: string, nowTs: number) => {
+      // Expire stale pending action.
+      const currentPending = pendingVoiceActionRef.current;
+      if (currentPending && currentPending.expiresAt < nowTs) {
+        cancelPendingVoiceAction("expired");
+      }
+      const result: VoiceCommandRouterResult = routeVoiceCommand({
+        transcript,
+        lastAssistantText: lastAssistantSpokenTextRef.current,
+        hasPendingAssistantQuestion: Boolean(
+          lastAssistantAskedConfirmationAtRef.current &&
+            nowTs - (lastAssistantAskedConfirmationAtRef.current ?? 0) < 30_000,
+        ),
+        pendingVoiceAction: pendingVoiceActionRef.current,
+        now: nowTs,
+      });
+      safeLog("jack_voice_command_router_intent_detected", {
+        intent: result.intent,
+        confidence: result.confidence,
+        matched_terms_count: result.matched_terms.length,
+      });
+      setDiagnostics((d) => ({
+        ...d,
+        lastRouterIntent: result.intent,
+        lastRouterConfidence: result.confidence,
+        lastRouterMatchedTerms: result.matched_terms.slice(0, 6),
+      }));
+
+      if (result.intent === "cancel") {
+        cancelPendingVoiceAction("user_button");
+        return;
+      }
+      if (result.intent === "confirm_pending" && pendingVoiceActionRef.current) {
+        await executeVoiceAction(
+          pendingVoiceActionRef.current,
+          "router_high_confidence",
+        );
+        return;
+      }
+      if (result.action_preview && result.confidence !== "low") {
+        const created = buildPendingVoiceAction(
+          result.action_preview.type,
+          nowTs,
+        );
+        const pending = { ...created, preview: result.action_preview };
+        pendingVoiceActionRef.current = pending;
+        setPendingVoiceAction(pending);
+        setDiagnostics((d) => ({
+          ...d,
+          pendingVoiceActionId: pending.id,
+          pendingVoiceActionType: pending.type,
+          pendingVoiceActionExpiresAt: pending.expiresAt,
+        }));
+        safeLog("jack_voice_action_preview_created", {
+          action_id: pending.id,
+          action_type: pending.type,
+          risk_level: result.action_preview.risk_level,
+        });
+        // Nudge the model to ask for explicit confirmation (without executing).
+        sendUserSystemNote(
+          `Ho rilevato l'intenzione "${result.action_preview.type}". Brain Hub ha già mostrato un bottone di conferma all'utente. Dì in una sola frase breve: "${result.safe_message}". NON chiamare tool sensibili: aspetta il click del bottone.`,
+        );
+        safeCreateResponse("voice_router_action_preview_created", {
+          queueIfBusy: true,
+        });
+      }
+    },
+    [
+      safeLog,
+      cancelPendingVoiceAction,
+      executeVoiceAction,
+      sendUserSystemNote,
+      safeCreateResponse,
+    ],
+  );
+
   // v3.19.6 / v3.21.5 — confirm pending preview through the server bridge,
   // then verify the created action is actually readable as the same user.
   const confirmPendingPreview = useCallback(
@@ -2064,6 +2385,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             }));
             pushLog({ kind: "user", text: transcript });
             handleVoiceConfirmationTranscript(transcript, msg.type);
+            // v3.25 — run deterministic command router for sensitive intents.
+            void runDeterministicVoiceRouter(transcript, nowTs);
           }
           break;
 
@@ -2190,8 +2513,31 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 sessionPayload.instructions = session.instructions_for_update;
               }
               if (session.tools_for_update) {
-                sessionPayload.tools = session.tools_for_update;
+                // v3.25 — strip sensitive tools so the Realtime model can no
+                // longer trigger them directly. Brain Hub's deterministic
+                // router + UI buttons are the only path to execute them.
+                const rawTools = session.tools_for_update as ReadonlyArray<{
+                  name?: string;
+                }>;
+                const filtered = rawTools.filter(
+                  (t) => !SENSITIVE_VOICE_TOOLS.has(String(t?.name ?? "")),
+                );
+                const suppressedCount = rawTools.length - filtered.length;
+                sessionPayload.tools = filtered;
                 sessionPayload.tool_choice = "auto";
+                if (suppressedCount > 0) {
+                  setDiagnostics((d) => ({
+                    ...d,
+                    sensitiveToolSuppressedCount:
+                      d.sensitiveToolSuppressedCount + suppressedCount,
+                  }));
+                  safeLog("jack_voice_model_sensitive_tool_suppressed", {
+                    suppressed_count: suppressedCount,
+                    suppressed_tools: rawTools
+                      .filter((t) => SENSITIVE_VOICE_TOOLS.has(String(t?.name ?? "")))
+                      .map((t) => String(t?.name ?? "")),
+                  });
+                }
               }
             }
             dc.send(JSON.stringify({ type: "session.update", session: sessionPayload }));
@@ -2629,6 +2975,43 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           <AlertTitle>Privacy</AlertTitle>
           <AlertDescription className="text-xs">{JACK_GPT_PRIVACY_NOTICE}</AlertDescription>
         </Alert>
+
+        {pendingVoiceAction ? (
+          <Alert className="border-amber-500/40 bg-amber-500/5">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertTitle>{pendingVoiceAction.preview.title}</AlertTitle>
+            <AlertDescription className="text-xs space-y-2">
+              <p>{pendingVoiceAction.preview.description}</p>
+              <p className="text-[10px] text-muted-foreground">
+                Rischio: {pendingVoiceAction.preview.risk_level} · scade tra ~
+                {Math.max(
+                  0,
+                  Math.round((pendingVoiceAction.expiresAt - Date.now()) / 1000),
+                )}
+                s
+              </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    void executeVoiceAction(pendingVoiceAction, "ui_button");
+                  }}
+                  disabled={voiceActionExecutingRef.current}
+                >
+                  {pendingVoiceAction.preview.button_label}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => cancelPendingVoiceAction("user_button")}
+                >
+                  {pendingVoiceAction.preview.cancel_label}
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
 
         {state === "not_configured" ? (
           <Alert variant="destructive">
