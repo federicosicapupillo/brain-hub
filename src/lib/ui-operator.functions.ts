@@ -97,9 +97,8 @@ export const startUiOperatorSessionFn = createServerFn({ method: "POST" })
       };
     }
 
-    const { getUiOperatorConfig, isUiOperatorConfigured } = await import(
-      "./ui-operator-browser.server"
-    );
+    const { getUiOperatorConfig, isUiOperatorConfigured, startUiOperatorBrowserSession } =
+      await import("./ui-operator-browser.server");
     const cfg = getUiOperatorConfig();
     const provider = isUiOperatorConfigured() ? "browserbase_stagehand" : "mock";
 
@@ -115,6 +114,8 @@ export const startUiOperatorSessionFn = createServerFn({ method: "POST" })
         metadata: {
           configured: cfg.configured,
           model: cfg.model,
+          runner_configured: cfg.runner_configured,
+          execution_mode: cfg.execution_mode,
         },
       })
       .select("*")
@@ -128,30 +129,82 @@ export const startUiOperatorSessionFn = createServerFn({ method: "POST" })
       };
     }
 
-    if (!cfg.configured) {
-      await logEvt(supabase, userId, "ui_operator_not_configured", {
+    const brainHubSessionId = (row as { id: string }).id;
+    await logEvt(supabase, userId, "ui_operator_runner_config_checked", {
+      runner_configured: cfg.runner_configured,
+      execution_mode: cfg.execution_mode,
+    });
+
+    // attempt to start runner session (or mock)
+    const startRes = await startUiOperatorBrowserSession({
+      initialRoute: data.target_route,
+      brainId: data.brain_id,
+      sessionId: brainHubSessionId,
+    });
+
+    // persist runner-side ids in metadata
+    await sb
+      .from("ui_operator_sessions")
+      .update({
+        browserbase_session_id: startRes.browserbase_session_id,
+        metadata: {
+          configured: cfg.configured,
+          model: cfg.model,
+          runner_configured: cfg.runner_configured,
+          runner_reachable: startRes.runner_reachable,
+          runner_session_id: startRes.runner_session_id,
+          browserbase_session_id: startRes.browserbase_session_id,
+          execution_mode: startRes.execution_mode,
+          runner_status: startRes.message.slice(0, 200),
+        },
+      })
+      .eq("id", brainHubSessionId);
+
+    if (cfg.runner_configured && startRes.execution_mode === "real_runner") {
+      await logEvt(supabase, userId, "ui_operator_real_session_started", {
+        session_id: brainHubSessionId,
+        runner_session_id: startRes.runner_session_id,
         target_route: data.target_route,
       });
+    } else if (cfg.runner_configured && startRes.execution_mode === "mock") {
+      await logEvt(supabase, userId, "ui_operator_runner_unavailable", {
+        session_id: brainHubSessionId,
+        reason: startRes.message,
+      });
+      await logEvt(supabase, userId, "ui_operator_fallback_to_mock", {
+        session_id: brainHubSessionId,
+      });
+    } else {
       await logEvt(supabase, userId, "ui_operator_mock_mode_used", {
         target_route: data.target_route,
       });
     }
     await logEvt(supabase, userId, "ui_operator_session_started", {
-      session_id: (row as { id: string }).id,
+      session_id: brainHubSessionId,
       mode: provider,
+      execution_mode: startRes.execution_mode,
       target_route: data.target_route,
     });
+
+    const enrichedSession = {
+      ...(row as Record<string, unknown>),
+      browserbase_session_id: startRes.browserbase_session_id,
+    };
 
     return {
       ok: true,
       status: "active",
       message:
-        provider === "mock"
-          ? "Sessione UI Operator avviata in mock mode."
-          : "Sessione UI Operator avviata.",
-      session: asSession(row),
+        startRes.execution_mode === "real_runner"
+          ? "Sessione UI Operator avviata (runner reale)."
+          : "Sessione UI Operator avviata in mock mode.",
+      session: asSession(enrichedSession),
+      execution_mode: startRes.execution_mode,
+      runner_configured: cfg.runner_configured,
+      runner_reachable: startRes.runner_reachable ?? undefined,
     };
   });
+
 
 // ---------- open route ----------
 export const openUiOperatorRouteFn = createServerFn({ method: "POST" })
