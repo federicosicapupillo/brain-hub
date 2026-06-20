@@ -442,6 +442,83 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       required: [],
     },
   },
+  // ---------- v3.23 UI Operator (controlled, observe→propose→confirm→execute) ----------
+  {
+    type: "function",
+    name: "open_brainhub_screen",
+    description:
+      "Avvia (se serve) una sessione UI Operator e apre una pagina interna di Brain Hub (es. /gmail-connector). Solo route interne consentite. Niente click. Nessun OAuth esterno. Read-mostly.",
+    parameters: {
+      type: "object",
+      properties: {
+        route: { type: "string", description: "Route interna, es. /gmail-connector." },
+        brain_id: { type: "string" },
+        session_id: { type: "string" },
+      },
+      required: ["route"],
+    },
+  },
+  {
+    type: "function",
+    name: "observe_brainhub_screen",
+    description:
+      "Osserva la pagina aperta nella sessione UI Operator e restituisce stato sintetico + azioni disponibili (con risk level). Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        session_id: { type: "string" },
+        route: { type: "string" },
+      },
+      required: ["session_id", "route"],
+    },
+  },
+  {
+    type: "function",
+    name: "propose_ui_action",
+    description:
+      "Propone (NON esegue) un'azione UI sulla pagina aperta, in base a un goal in linguaggio naturale. Registra la proposta e indica risk_level e se serve conferma esplicita.",
+    parameters: {
+      type: "object",
+      properties: {
+        session_id: { type: "string" },
+        route: { type: "string" },
+        goal: { type: "string" },
+      },
+      required: ["session_id", "route", "goal"],
+    },
+  },
+  {
+    type: "function",
+    name: "confirm_ui_action",
+    description:
+      "Marca una proposta UI Operator come confermata dall'utente. Deve essere chiamato solo dopo conferma esplicita ('sì confermo', 'procedi', click UI).",
+    parameters: {
+      type: "object",
+      properties: { action_id: { type: "string" } },
+      required: ["action_id"],
+    },
+  },
+  {
+    type: "function",
+    name: "execute_confirmed_ui_action",
+    description:
+      "Esegue un'azione UI Operator solo se in stato 'confirmed'. Mock dry-run finché Browserbase/Stagehand non sono attivi. Mai forbidden, mai navigazione esterna.",
+    parameters: {
+      type: "object",
+      properties: { action_id: { type: "string" } },
+      required: ["action_id"],
+    },
+  },
+  {
+    type: "function",
+    name: "stop_ui_operator_session",
+    description: "Chiude la sessione UI Operator corrente.",
+    parameters: {
+      type: "object",
+      properties: { session_id: { type: "string" } },
+      required: ["session_id"],
+    },
+  },
 ] as const;
 
 // ---------- Helpers ----------
