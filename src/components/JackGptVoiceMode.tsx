@@ -490,6 +490,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastVoiceActionExecuted: null,
     lastVoiceActionResultStatus: null,
     sensitiveToolSuppressedCount: 0,
+    pendingVoiceActionConfirmedByVoice: false,
+    lastPendingVoiceActionConfirmationText: null,
+    lastPendingVoiceActionExecutionStartedAt: null,
+    lastPendingVoiceActionExecutionFinishedAt: null,
+    lastPendingVoiceActionExecutionResult: null,
   });
 
   // v3.25 — pending voice action state for confirmation buttons
