@@ -800,20 +800,107 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       const result = await toolFn({
         data: { tool_name: name, arguments: argsRaw ?? "" },
       });
-      const okFlag = (result as { ok?: boolean }).ok === true;
+      const resultRecord = result as Record<string, unknown>;
+      const okFlag = resultRecord.ok === true;
+      // v3.24.1 — for structured-failure tools (e.g. refresh_gmail_sync) the
+      // dispatcher always returns a JSON-safe payload; the transcript should
+      // show "ok" because the tool did NOT throw, even when ok:false.
+      const structuredFailureTool = name === "refresh_gmail_sync";
       if (!okFlag && (result as { error?: string }).error === "tool_rejected") {
         safeLog("jack_gpt_tool_rejected", { name });
       }
+      const transcriptOk = okFlag || structuredFailureTool;
       pushLog({
         kind: "tool",
-        text: `← ${name}: ${okFlag ? "ok" : `errore ${(result as { error?: string }).error ?? ""}`}`,
+        text: `← ${name}: ${transcriptOk ? "ok" : `errore ${(result as { error?: string }).error ?? ""}`}`,
       });
+      // Capture rich diagnostics for the panel.
+      const lastToolStatus =
+        typeof resultRecord.status === "string" ? (resultRecord.status as string) : null;
+      const lastToolErrorCode =
+        typeof resultRecord.error_code === "string"
+          ? (resultRecord.error_code as string)
+          : null;
+      const lastToolSafeMessage =
+        typeof resultRecord.safe_message === "string"
+          ? (resultRecord.safe_message as string)
+          : null;
+      const requiresReauth = resultRecord.requires_reauth === true;
+      const cacheStale = resultRecord.cache_stale === true;
+      const shouldNotCite = resultRecord.should_not_cite_emails === true;
+      setDiagnostics((d) => ({
+        ...d,
+        lastToolStatus,
+        lastToolOk: okFlag,
+        lastToolErrorCode,
+        lastToolSafeMessage,
+        lastToolRequiresReauth: requiresReauth,
+        lastToolCacheStale: cacheStale,
+        lastToolShouldNotCiteEmails: shouldNotCite,
+      }));
       safeLog("jack_realtime_tool_call_completed", {
         tool_name: name,
         call_id: callId.slice(0, 8),
         ok: okFlag,
       });
       safeLog("jack_gpt_tool_completed", { name, ok: okFlag });
+      // v3.24.1 — schedule a forced fallback assistant message if the model
+      // doesn't speak within ~2s after a structured tool failure.
+      if (structuredFailureTool && !okFlag && lastToolSafeMessage) {
+        const startedAt = Date.now();
+        safeLog("jack_voice_tool_failure_recovery_started", {
+          tool_name: name,
+          status: lastToolStatus,
+          error_code: lastToolErrorCode,
+          requires_reauth: requiresReauth,
+          cache_stale: cacheStale,
+          has_safe_message: true,
+        });
+        setDiagnostics((d) => ({ ...d, lastToolFailureRecoveryFiredAt: startedAt }));
+        setTimeout(() => {
+          // If the model already produced a response after the tool call, skip.
+          if ((lastResponseDoneAtRef.current ?? 0) > startedAt) {
+            safeLog("jack_voice_tool_failure_recovery_completed", {
+              tool_name: name,
+              outcome: "model_responded",
+            });
+            return;
+          }
+          const dcLocal = dcRef.current;
+          if (!dcLocal || dcLocal.readyState !== "open") {
+            safeLog("jack_voice_tool_failure_recovery_failed", {
+              tool_name: name,
+              reason: "dc_closed",
+            });
+            return;
+          }
+          try {
+            const fallbackText =
+              lastToolSafeMessage ??
+              "Fede, Gmail non si è sincronizzato. Serve ricollegare Gmail o controllare il Gmail Connector.";
+            dcLocal.send(
+              JSON.stringify({
+                type: "conversation.item.create",
+                item: {
+                  type: "message",
+                  role: "assistant",
+                  content: [{ type: "text", text: fallbackText }],
+                },
+              }),
+            );
+            pushLog({ kind: "jack", text: fallbackText });
+            safeLog("jack_voice_tool_failure_recovery_completed", {
+              tool_name: name,
+              outcome: "fallback_injected",
+            });
+          } catch {
+            safeLog("jack_voice_tool_failure_recovery_failed", {
+              tool_name: name,
+              reason: "dc_send_throw",
+            });
+          }
+        }, 2200);
+      }
       const dc = dcRef.current;
       toolCallInFlightCountRef.current = Math.max(
         0,
