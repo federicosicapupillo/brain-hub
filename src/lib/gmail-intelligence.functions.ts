@@ -204,6 +204,7 @@ type EmailBriefItem = {
   category: string;
   is_newsletter: boolean;
   is_filtered: boolean;
+  is_unknown_personal: boolean;
 };
 
 function domainOf(email: string | null | undefined): string | null {
