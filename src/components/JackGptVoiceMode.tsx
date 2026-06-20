@@ -1460,8 +1460,31 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const executeVoiceAction = useCallback(
     async (
       pending: PendingVoiceActionLite & { preview: VoiceActionPreview },
-      source: "ui_button" | "router_high_confidence",
+      source: VoiceActionExecutionSource,
     ) => {
+      // v3.25.2 — hard gate: refuse sensitive execution from any source other
+      // than an explicit UI button click or a voice confirmation of a pending
+      // action. Defense-in-depth even though callers are typed.
+      if (!ALLOWED_SENSITIVE_EXECUTION_SOURCES.has(source)) {
+        safeLog("jack_voice_sensitive_action_blocked_invalid_source", {
+          action_id: pending.id,
+          action_type: pending.type,
+          source: String(source),
+        });
+        setDiagnostics((d) => ({
+          ...d,
+          lastSensitiveActionBlockedSource: String(source),
+        }));
+        pushLog({
+          kind: "warning",
+          text: `Azione bloccata: ${pending.type}, source invalid: ${String(source)}`,
+        });
+        injectAssistantNote(
+          "Serve una conferma esplicita: usa il pulsante o dimmi 'sì, sincronizza Gmail'.",
+        );
+        safeCreateResponse("voice_action_invalid_source", { queueIfBusy: true });
+        return;
+      }
       if (lastExecutedVoiceActionIdRef.current === pending.id) {
         safeLog("jack_voice_action_execution_skipped_duplicate", {
           action_id: pending.id,
