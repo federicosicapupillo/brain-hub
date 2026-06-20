@@ -112,7 +112,7 @@ export async function createUiOperatorAuthToken(
         status: "active",
         allowed_routes: allowed,
         expires_at,
-        metadata: input.metadata ?? {},
+        metadata: (input.metadata ?? {}) as never,
       })
       .select("id, expires_at, allowed_routes")
       .maybeSingle();
