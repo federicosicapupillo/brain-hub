@@ -402,7 +402,8 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       type: "object",
       properties: {
         query: { type: "string" },
-        date_range: { type: "string", enum: ["today", "week", "all"] },
+        date_range: { type: "string", enum: ["today", "yesterday", "week", "all"] },
+        include_newsletters: { type: "boolean" },
         limit: { type: "number" },
         brain_id: { type: "string" },
       },
@@ -919,124 +920,96 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           };
         }
         case "get_gmail_summary": {
-          // v3.22.2 — Single source of truth: gmail_connection_settings +
-          // gmail_message_map, queried via the authenticated server client
-          // (RLS as the user). The previous version delegated to the command
-          // router, which imports the BROWSER supabase singleton with no
-          // session on the server, so all queries returned [] and Jack
-          // always answered "Gmail non collegato".
+          // v3.22.3 — delegate to getEmailBriefFn for a unified inbox /
+          // newsletter / previous-day breakdown (Europe/Rome). This is the
+          // single source of truth: the same payload Jack uses for
+          // "leggimi le mail di oggi", projected to a counts-first shape.
           const brainId = (args.brain_id as string | undefined) ?? null;
-          const { data: connsRaw } = await supabase
-            .from("gmail_connection_settings")
-            .select("id,status,last_sync_at,updated_at")
-            .order("updated_at", { ascending: false });
-          const conns = (connsRaw ?? []) as Array<{
-            id: string;
-            status: string;
-            last_sync_at: string | null;
-          }>;
-          const conn =
-            conns.find((c) => c.status === "connected" || c.status === "active") ??
-            null;
+          const { getEmailBriefFn } = await import("@/lib/gmail-intelligence.functions");
+          const brief = await getEmailBriefFn({
+            data: { brain_id: brainId, date_range: "today" },
+          });
 
-          const connIdHash = conn
-            ? `${conn.id.slice(0, 4)}…${conn.id.slice(-4)}`
-            : null;
+          const connIdHash =
+            "last_sync_at" in brief && brief.last_sync_at
+              ? "[present]"
+              : "[missing]";
+          void logSanitizedEvent(supabase, userId, "jack_gmail_summary_tool", {
+            brain_id: brainId,
+            gmail_connected: brief.connected,
+            gmail_status: brief.status,
+            last_sync_at_present: connIdHash,
+            counts: ("counts" in brief ? brief.counts : null),
+            label_scope: ("label_scope" in brief ? brief.label_scope : null),
+            source: "gmail_message_map",
+          });
 
-          if (!conn) {
-            void logSanitizedEvent(supabase, userId, "jack_gmail_summary_tool", {
-              brain_id: brainId,
-              gmail_connected: false,
-              gmail_status: "not_connected",
-              source: "gmail_connection_settings",
-            });
+          if (!brief.connected) {
             return {
               ok: true,
               payload: {
                 connected: false,
-                status: "not_connected",
+                status: "not_connected" as const,
+                timezone: "Europe/Rome",
                 message: "Gmail non è collegato.",
                 source: "gmail_connection_settings",
               },
             };
           }
 
-          const todayIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
-          const [totalRes, todayRes, importantRes] = await Promise.all([
-            supabase
-              .from("gmail_message_map")
-              .select("id", { count: "exact", head: true })
-              .eq("connection_id", conn.id),
-            supabase
-              .from("gmail_message_map")
-              .select("id", { count: "exact", head: true })
-              .eq("connection_id", conn.id)
-              .gte("internal_date", todayIso),
-            supabase
-              .from("gmail_message_map")
-              .select("id", { count: "exact", head: true })
-              .eq("connection_id", conn.id)
-              .gte("internal_date", todayIso)
-              .gte("importance_score", 55),
-          ]);
-          const total = totalRes.count ?? 0;
-          const todayCount = todayRes.count ?? 0;
-          const importantCount = importantRes.count ?? 0;
+          const counts = "counts" in brief ? brief.counts : null;
+          const inboxToday = "inbox_today" in brief ? brief.inbox_today : [];
+          const newslettersToday =
+            "newsletters_today" in brief ? brief.newsletters_today : [];
+          const newslettersPrev =
+            "newsletters_previous" in brief ? brief.newsletters_previous : [];
 
-          void logSanitizedEvent(supabase, userId, "jack_gmail_summary_tool", {
-            brain_id: brainId,
-            gmail_connected: true,
-            gmail_status: conn.status,
-            connection_id_hash: connIdHash,
-            last_sync_at: conn.last_sync_at,
-            total_count: total,
-            today_count: todayCount,
-            important_count: importantCount,
-            source: "gmail_connection_settings",
-          });
-
-          if (total === 0) {
-            return {
-              ok: true,
-              payload: {
-                connected: true,
-                status: "connected_no_sync",
-                needs_sync: true,
-                last_sync_at: conn.last_sync_at,
-                message:
-                  "Gmail è collegato, ma non trovo email sincronizzate. Apri Gmail Connector e avvia la sync.",
-                source: "gmail_connection_settings",
-              },
-            };
-          }
-          if (todayCount === 0) {
-            return {
-              ok: true,
-              payload: {
-                connected: true,
-                status: "connected_no_today_emails",
-                today_count: 0,
-                total_count: total,
-                last_sync_at: conn.last_sync_at,
-                message: "Gmail è collegato, ma non trovo email di oggi.",
-                source: "gmail_message_map",
-              },
-            };
-          }
           return {
             ok: true,
             payload: {
               connected: true,
-              status: "connected_with_today_emails",
-              today_count: todayCount,
-              important_count: importantCount,
-              total_count: total,
-              last_sync_at: conn.last_sync_at,
-              message: `Oggi ${todayCount} email su Gmail, ${importantCount} ad alta priorità.`,
+              status: brief.status,
+              timezone: "Europe/Rome",
+              last_sync_at: "last_sync_at" in brief ? brief.last_sync_at : null,
+              label_scope: "label_scope" in brief ? brief.label_scope : "unknown",
+              partial_sync: "partial_sync" in brief ? brief.partial_sync : false,
+              metadata_missing:
+                "metadata_missing" in brief ? brief.metadata_missing : false,
+              today: {
+                total_all: counts?.today_total_all ?? 0,
+                inbox_total: counts?.today_inbox_total ?? 0,
+                inbox_unread: counts?.today_inbox_unread ?? 0,
+                newsletter_total: counts?.today_newsletter_total ?? 0,
+                newsletter_unread: counts?.today_newsletter_unread ?? 0,
+                filtered_total:
+                  (counts?.today_total_all ?? 0) -
+                  (counts?.today_inbox_total ?? 0),
+              },
+              yesterday: {
+                inbox_unread: 0, // not separated by bucket in unread aggregate
+                newsletter_total: newslettersPrev.length,
+                filtered_total: newslettersPrev.length,
+              },
+              unread: {
+                total_all: counts?.total_unread ?? 0,
+                today:
+                  (counts?.today_inbox_unread ?? 0) +
+                  (counts?.today_newsletter_unread ?? 0),
+                previous_days: counts?.previous_unread_total ?? 0,
+                inbox_total: counts?.today_inbox_unread ?? 0,
+                newsletter_total: counts?.today_newsletter_unread ?? 0,
+              },
+              inbox_today_preview: inboxToday.slice(0, 5),
+              newsletters_today_preview: newslettersToday.slice(0, 5),
+              message:
+                "message" in brief
+                  ? brief.message
+                  : "Gmail è collegato.",
               source: "gmail_message_map",
             },
           };
         }
+
         case "get_memory_context": {
           const brainId = (args.brain_id as string | undefined) ?? null;
           const ctx = await buildJackNaturalContext({ data: { brain_id: brainId } });
@@ -1667,7 +1640,17 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           const res = await searchEmailsFn({
             data: {
               query: (args.query as string | undefined) ?? "",
-              date_range: (args.date_range as "today" | "week" | "all" | undefined) ?? "week",
+              date_range:
+                (args.date_range as
+                  | "today"
+                  | "yesterday"
+                  | "week"
+                  | "all"
+                  | undefined) ?? "week",
+              include_newsletters:
+                typeof args.include_newsletters === "boolean"
+                  ? args.include_newsletters
+                  : true,
               limit: typeof args.limit === "number" ? args.limit : 10,
               brain_id: (args.brain_id as string | undefined) ?? null,
             },

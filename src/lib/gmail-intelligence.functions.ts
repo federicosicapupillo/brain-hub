@@ -45,6 +45,106 @@ async function logEvent(
   }
 }
 
+// ---------- Rome timezone helpers (v3.22 — Today Reader) ----------
+
+const ROME_TZ = "Europe/Rome";
+
+export function romeStartOfDayIso(offsetDays = 0): string {
+  // Compute Rome midnight for (today + offsetDays), then convert to UTC ISO.
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: ROME_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(now);
+  const y = parts.find((p) => p.type === "year")!.value;
+  const m = parts.find((p) => p.type === "month")!.value;
+  const d = parts.find((p) => p.type === "day")!.value;
+  const utcMidnight = new Date(`${y}-${m}-${d}T00:00:00Z`).getTime();
+  const romeWall = new Date(now.toLocaleString("en-US", { timeZone: ROME_TZ }));
+  const utcWall = new Date(now.toLocaleString("en-US", { timeZone: "UTC" }));
+  const offsetMs = romeWall.getTime() - utcWall.getTime();
+  const target = utcMidnight - offsetMs + offsetDays * 86400000;
+  return new Date(target).toISOString();
+}
+
+// ---------- Inbox / Newsletter classification ----------
+
+const NEWSLETTER_CATEGORY_LABELS = new Set([
+  "CATEGORY_PROMOTIONS",
+  "CATEGORY_SOCIAL",
+  "CATEGORY_UPDATES",
+  "CATEGORY_FORUMS",
+]);
+const NEWSLETTER_RX =
+  /\b(newsletter|unsubscribe|disiscriviti|cancellati|promo|promozione|offerta|sconto|deal)\b/i;
+const NOREPLY_RX = /^(no[-_.]?reply|noreply|newsletter|news|info|marketing)@/i;
+
+export type EmailClassification = {
+  category: string;
+  is_newsletter: boolean;
+  is_filtered: boolean;
+  is_inbox_primary: boolean;
+};
+
+export function classifyMail(row: {
+  label_ids?: string[] | null;
+  detected_category?: string | null;
+  from_email?: string | null;
+  subject?: string | null;
+  snippet?: string | null;
+}): EmailClassification {
+  const labels = Array.isArray(row.label_ids) ? row.label_ids : [];
+  const upper = labels.map((l) => l.toUpperCase());
+  const hasInbox = upper.includes("INBOX");
+  const newsletterLabel = upper.find((l) => NEWSLETTER_CATEGORY_LABELS.has(l));
+  const detected = (row.detected_category ?? "").toLowerCase();
+  const heuristicNewsletter =
+    NEWSLETTER_RX.test(`${row.subject ?? ""} ${row.snippet ?? ""}`) ||
+    NOREPLY_RX.test((row.from_email ?? "").toLowerCase());
+  const isNewsletter =
+    Boolean(newsletterLabel) ||
+    ["newsletter", "promotions", "promo", "updates", "social"].includes(detected) ||
+    heuristicNewsletter;
+  const isPrimary = hasInbox && !newsletterLabel && !isNewsletter;
+  const isFiltered = !isPrimary;
+  const category = newsletterLabel
+    ? newsletterLabel.replace("CATEGORY_", "").toLowerCase()
+    : isNewsletter
+      ? "newsletter"
+      : isPrimary
+        ? "primary"
+        : detected || "other";
+  return {
+    category,
+    is_newsletter: isNewsletter,
+    is_filtered: isFiltered,
+    is_inbox_primary: isPrimary,
+  };
+}
+
+function deriveLabelScope(rows: Array<{ label_ids?: string[] | null }>): string {
+  if (!rows.length) return "unknown";
+  let inboxOnly = 0;
+  let newsletterOnly = 0;
+  let mixed = 0;
+  for (const r of rows) {
+    const labels = (r.label_ids ?? []).map((l) => l.toUpperCase());
+    const hasInbox = labels.includes("INBOX");
+    const hasNewsletter = labels.some((l) => NEWSLETTER_CATEGORY_LABELS.has(l));
+    if (hasInbox && !hasNewsletter) inboxOnly += 1;
+    else if (!hasInbox && hasNewsletter) newsletterOnly += 1;
+    else mixed += 1;
+  }
+  if (newsletterOnly === 0 && mixed === 0) return "inbox";
+  if (inboxOnly === 0 && mixed === 0) return "newsletter";
+  return "mixed";
+}
+
+
+
 // ---------- get_email_brief ----------
 
 type EmailBriefItem = {
@@ -65,6 +165,9 @@ type EmailBriefItem = {
   project_guess: string | null;
   has_attachments: boolean;
   labels: string[];
+  category: string;
+  is_newsletter: boolean;
+  is_filtered: boolean;
 };
 
 function domainOf(email: string | null | undefined): string | null {
@@ -82,6 +185,16 @@ function redactEmailForLog(email: string | null | undefined): string | null {
 
 function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
   const fromEmail = (r.from_email as string | null) ?? null;
+  const labels = Array.isArray(r.label_ids) ? (r.label_ids as string[]) : [];
+  const subject = (r.subject as string | null) ?? null;
+  const snippet = ((r.snippet as string | null) ?? "").slice(0, 280) || null;
+  const cls = classifyMail({
+    label_ids: labels,
+    detected_category: (r.detected_category as string | null) ?? null,
+    from_email: fromEmail,
+    subject,
+    snippet,
+  });
   return {
     local_id: String(r.id),
     selection_index: idx + 1,
@@ -90,8 +203,8 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
     from_name: (r.from_name as string | null) ?? null,
     from_email: fromEmail,
     from_domain: domainOf(fromEmail),
-    subject: (r.subject as string | null) ?? null,
-    snippet: ((r.snippet as string | null) ?? "").slice(0, 280) || null,
+    subject,
+    snippet,
     received_at: (r.internal_date as string | null) ?? null,
     unread: Boolean(r.is_unread),
     importance_score: Number(r.importance_score ?? 0),
@@ -99,12 +212,16 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
     importance_reason: (r.importance_reason as string | null) ?? null,
     project_guess: (r.project_guess as string | null) ?? null,
     has_attachments: Boolean(r.has_attachments),
-    labels: Array.isArray(r.label_ids) ? (r.label_ids as string[]) : [],
+    labels,
+    category: cls.category,
+    is_newsletter: cls.is_newsletter,
+    is_filtered: cls.is_filtered,
   };
 }
 
 const EMAIL_SELECT_COLS =
-  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,label_ids";
+  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,label_ids,detected_category";
+
 
 export const getEmailBriefFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -122,11 +239,13 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const range = data.date_range ?? "today";
     const limit = Math.min(Math.max(data.limit ?? 10, 1), 25);
+    const todayStart = romeStartOfDayIso(0);
+    const yesterdayStart = romeStartOfDayIso(-1);
     const since =
       range === "today"
-        ? new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
+        ? todayStart
         : range === "7d"
-          ? new Date(Date.now() - 7 * 86400000).toISOString()
+          ? romeStartOfDayIso(-6)
           : null;
 
     const { data: connsRaw } = await supabase
@@ -151,6 +270,16 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         ok: true,
         connected: false,
         status: "not_connected" as const,
+        timezone: ROME_TZ,
+        last_sync_at: null,
+        counts: emptyCounts(),
+        inbox_today: [] as EmailBriefItem[],
+        newsletters_today: [] as EmailBriefItem[],
+        unread_previous: [] as EmailBriefItem[],
+        newsletters_previous: [] as EmailBriefItem[],
+        label_scope: "unknown" as const,
+        metadata_missing: false,
+        partial_sync: false,
         total_today: 0,
         unread_today: 0,
         important_today: 0,
@@ -174,114 +303,205 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         ok: true,
         connected: true,
         status: "connected_no_sync" as const,
+        timezone: ROME_TZ,
+        last_sync_at: conn.last_sync_at,
+        counts: emptyCounts(),
+        inbox_today: [] as EmailBriefItem[],
+        newsletters_today: [] as EmailBriefItem[],
+        unread_previous: [] as EmailBriefItem[],
+        newsletters_previous: [] as EmailBriefItem[],
+        label_scope: "unknown" as const,
+        metadata_missing: false,
+        partial_sync: true,
         total_today: 0,
         unread_today: 0,
         important_today: 0,
         emails: [] as EmailBriefItem[],
-        last_sync_at: conn.last_sync_at,
         message:
           "Gmail è collegato, ma non trovo email sincronizzate. Apri Gmail Connector e avvia la sync.",
       };
     }
 
-    let totalQ = supabase
-      .from("gmail_message_map")
-      .select("id", { count: "exact", head: true })
-      .eq("connection_id", conn.id);
-    let unreadQ = supabase
-      .from("gmail_message_map")
-      .select("id", { count: "exact", head: true })
-      .eq("connection_id", conn.id)
-      .eq("is_unread", true);
-    let importantQ = supabase
-      .from("gmail_message_map")
-      .select("id", { count: "exact", head: true })
-      .eq("connection_id", conn.id)
-      .gte("importance_score", 55);
-
-    if (since) {
-      totalQ = totalQ.gte("internal_date", since);
-      unreadQ = unreadQ.gte("internal_date", since);
-      importantQ = importantQ.gte("internal_date", since);
-    }
-    if (data.brain_id) {
-      totalQ = totalQ.eq("brain_id", data.brain_id);
-      unreadQ = unreadQ.eq("brain_id", data.brain_id);
-      importantQ = importantQ.eq("brain_id", data.brain_id);
-    }
-
-    const [t, u, i] = await Promise.all([totalQ, unreadQ, importantQ]);
-
-    // List emails by date desc — "leggimi le mail di oggi" must return the
-    // actual recent emails, not only the important ones.
-    let listQ = supabase
+    let todayQ = supabase
       .from("gmail_message_map")
       .select(EMAIL_SELECT_COLS)
       .eq("connection_id", conn.id)
+      .gte("internal_date", todayStart)
       .order("internal_date", { ascending: false, nullsFirst: false })
-      .limit(limit);
-    if (since) listQ = listQ.gte("internal_date", since);
-    if (data.unread_only) listQ = listQ.eq("is_unread", true);
-    if (data.important_only === true) listQ = listQ.gte("importance_score", 55);
-    if (data.brain_id) listQ = listQ.eq("brain_id", data.brain_id);
+      .limit(50);
+    let yesterdayQ = supabase
+      .from("gmail_message_map")
+      .select(EMAIL_SELECT_COLS)
+      .eq("connection_id", conn.id)
+      .gte("internal_date", yesterdayStart)
+      .lt("internal_date", todayStart)
+      .order("internal_date", { ascending: false, nullsFirst: false })
+      .limit(50);
+    let prevUnreadQ = supabase
+      .from("gmail_message_map")
+      .select(EMAIL_SELECT_COLS)
+      .eq("connection_id", conn.id)
+      .lt("internal_date", todayStart)
+      .eq("is_unread", true)
+      .order("internal_date", { ascending: false, nullsFirst: false })
+      .limit(25);
+    if (data.brain_id) {
+      todayQ = todayQ.eq("brain_id", data.brain_id);
+      yesterdayQ = yesterdayQ.eq("brain_id", data.brain_id);
+      prevUnreadQ = prevUnreadQ.eq("brain_id", data.brain_id);
+    }
 
-    const { data: listRows } = await listQ;
-    const emails = ((listRows ?? []) as Array<Record<string, unknown>>).map(
-      (r, idx) => mapEmailRow(r, idx),
-    );
+    const [todayRes, yesterdayRes, prevUnreadRes, totalUnreadRes, unreadTodayRes] =
+      await Promise.all([
+        todayQ,
+        yesterdayQ,
+        prevUnreadQ,
+        supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("connection_id", conn.id)
+          .eq("is_unread", true),
+        supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("connection_id", conn.id)
+          .eq("is_unread", true)
+          .gte("internal_date", todayStart),
+      ]);
 
-    const totalToday = t.count ?? 0;
+    const todayRows = (todayRes.data ?? []) as Array<Record<string, unknown>>;
+    const yesterdayRows = (yesterdayRes.data ?? []) as Array<Record<string, unknown>>;
+    const prevUnreadRows = (prevUnreadRes.data ?? []) as Array<Record<string, unknown>>;
+
+    const todayEmails = todayRows.map((r, idx) => mapEmailRow(r, idx));
+    const yesterdayEmails = yesterdayRows.map((r, idx) => mapEmailRow(r, idx));
+    const prevUnreadEmails = prevUnreadRows.map((r, idx) => mapEmailRow(r, idx));
+
+    const inboxToday = todayEmails.filter((e) => !e.is_newsletter);
+    const newslettersToday = todayEmails.filter((e) => e.is_newsletter);
+    const unreadPreviousList = prevUnreadEmails.filter((e) => !e.is_newsletter);
+    const newslettersPreviousList = yesterdayEmails.filter((e) => e.is_newsletter);
+
+    const totalUnread = totalUnreadRes.count ?? 0;
+    const unreadToday = unreadTodayRes.count ?? 0;
+    const previousUnread = Math.max(0, totalUnread - unreadToday);
+
+    const counts = {
+      today_total_all: todayEmails.length,
+      today_inbox_total: inboxToday.length,
+      today_inbox_unread: inboxToday.filter((e) => e.unread).length,
+      today_newsletter_total: newslettersToday.length,
+      today_newsletter_unread: newslettersToday.filter((e) => e.unread).length,
+      previous_unread_total: previousUnread,
+      total_unread: totalUnread,
+      newsletter_yesterday_total: newslettersPreviousList.length,
+    };
+
     const status: "connected_with_today_emails" | "connected_no_today_emails" =
-      emails.length > 0 || totalToday > 0
+      todayEmails.length > 0
         ? "connected_with_today_emails"
         : "connected_no_today_emails";
 
     const metadataMissing =
-      emails.length > 0 &&
-      emails.every((e) => !e.subject && !e.from_email && !e.snippet);
+      todayEmails.length > 0 &&
+      todayEmails.every((e) => !e.subject && !e.from_email && !e.snippet);
+
+    const labelScope = deriveLabelScope([
+      ...todayRows,
+      ...yesterdayRows,
+      ...prevUnreadRows,
+    ]);
+
+    const lastSyncAt = conn.last_sync_at;
+    const partialSync =
+      !lastSyncAt ||
+      Date.now() - new Date(lastSyncAt).getTime() > 6 * 3600 * 1000;
 
     void logEvent(supabase, userId, "jack_email_brief_served", {
       connected: true,
       status,
       range,
-      total_today: totalToday,
-      unread_today: u.count ?? 0,
-      important_today: i.count ?? 0,
-      list_count: emails.length,
+      timezone: ROME_TZ,
+      counts,
+      label_scope: labelScope,
       metadata_missing: metadataMissing,
+      partial_sync: partialSync,
     });
     if (metadataMissing) {
       void logEvent(supabase, userId, "jack_email_metadata_missing", {
         range,
-        list_count: emails.length,
+        list_count: todayEmails.length,
       });
     }
+    if (partialSync) {
+      void logEvent(supabase, userId, "jack_gmail_partial_sync_detected", {
+        last_sync_at: lastSyncAt,
+      });
+    }
+    void logEvent(supabase, userId, "jack_gmail_count_reconciled", {
+      timezone: ROME_TZ,
+      today_inbox: counts.today_inbox_total,
+      today_newsletter: counts.today_newsletter_total,
+      total_unread: counts.total_unread,
+      previous_unread: counts.previous_unread_total,
+    });
+
+    // Legacy flat `emails` list kept for backward compatibility consumers.
+    const baseFlat = since
+      ? todayEmails
+      : [...todayEmails, ...yesterdayEmails].slice(0, limit);
+    let flat = baseFlat;
+    if (data.unread_only) flat = flat.filter((e) => e.unread);
+    if (data.important_only === true) flat = flat.filter((e) => e.importance_score >= 55);
+    flat = flat.slice(0, limit);
 
     return {
       ok: true,
       connected: true,
       status,
       range,
-      total_today: totalToday,
-      unread_today: u.count ?? 0,
-      important_today: i.count ?? 0,
-      // legacy aliases
-      total: totalToday,
-      unread: u.count ?? 0,
-      important: i.count ?? 0,
-      last_sync_at: conn.last_sync_at,
-      emails,
-      top: emails.slice(0, 5),
+      timezone: ROME_TZ,
+      last_sync_at: lastSyncAt,
+      counts,
+      inbox_today: inboxToday,
+      newsletters_today: newslettersToday,
+      unread_previous: unreadPreviousList,
+      newsletters_previous: newslettersPreviousList,
+      label_scope: labelScope,
       metadata_missing: metadataMissing,
       metadata_missing_hint: metadataMissing
         ? "Il sync Gmail attuale non sta persistendo subject/from/snippet. Apri Gmail Connector e rilancia la sync."
         : null,
+      partial_sync: partialSync,
+      // legacy aliases
+      total_today: counts.today_total_all,
+      unread_today: counts.today_inbox_unread + counts.today_newsletter_unread,
+      important_today: todayEmails.filter((e) => e.importance_score >= 55).length,
+      total: counts.today_total_all,
+      unread: counts.total_unread,
+      important: todayEmails.filter((e) => e.importance_score >= 55).length,
+      emails: flat,
+      top: flat.slice(0, 5),
       message:
         status === "connected_with_today_emails"
-          ? `${totalToday} email nel range ${range}, ${u.count ?? 0} non lette, ${i.count ?? 0} importanti.`
-          : "Gmail è collegato, ma non trovo email nel range richiesto.",
+          ? `Oggi ${counts.today_inbox_total} mail normali e ${counts.today_newsletter_total} newsletter; non lette totali ${counts.total_unread} (${counts.today_inbox_unread + counts.today_newsletter_unread} oggi, ${counts.previous_unread_total} precedenti).`
+          : "Gmail è collegato, ma non trovo email di oggi.",
     };
   });
+
+function emptyCounts() {
+  return {
+    today_total_all: 0,
+    today_inbox_total: 0,
+    today_inbox_unread: 0,
+    today_newsletter_total: 0,
+    today_newsletter_unread: 0,
+    previous_unread_total: 0,
+    total_unread: 0,
+    newsletter_yesterday_total: 0,
+  };
+}
+
 
 // ---------- search_emails ----------
 
@@ -291,7 +511,8 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
     (d: unknown) =>
       (d ?? {}) as {
         query?: string;
-        date_range?: "today" | "week" | "all";
+        date_range?: "today" | "yesterday" | "week" | "all";
+        include_newsletters?: boolean;
         limit?: number;
         brain_id?: string | null;
       },
@@ -304,12 +525,19 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
     }
     const limit = Math.min(Math.max(data.limit ?? 10, 1), 25);
     const range = data.date_range ?? "week";
+    const includeNewsletters = data.include_newsletters !== false;
+    const todayStart = romeStartOfDayIso(0);
+    const yesterdayStart = romeStartOfDayIso(-1);
+    const weekStart = romeStartOfDayIso(-6);
     const since =
       range === "today"
-        ? new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
-        : range === "week"
-          ? new Date(Date.now() - 7 * 86400000).toISOString()
-          : null;
+        ? todayStart
+        : range === "yesterday"
+          ? yesterdayStart
+          : range === "week"
+            ? weekStart
+            : null;
+    const until = range === "yesterday" ? todayStart : null;
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
@@ -343,23 +571,35 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
         `subject.ilike.${pattern},from_email.ilike.${pattern},from_name.ilike.${pattern},snippet.ilike.${pattern}`,
       )
       .order("internal_date", { ascending: false, nullsFirst: false })
-      .limit(limit);
+      .limit(limit * 2); // fetch extra to allow filtering
     if (since) query = query.gte("internal_date", since);
+    if (until) query = query.lt("internal_date", until);
     if (data.brain_id) query = query.eq("brain_id", data.brain_id);
 
     const { data: rows, error } = await query;
     if (error) {
       return { ok: false, error: "search_failed", emails: [] as EmailBriefItem[] };
     }
-    const emails = ((rows ?? []) as Array<Record<string, unknown>>).map(
+    let emails = ((rows ?? []) as Array<Record<string, unknown>>).map(
       (r, idx) => mapEmailRow(r, idx),
     );
+    if (!includeNewsletters) emails = emails.filter((e) => !e.is_newsletter);
+    emails = emails.slice(0, limit).map((e, idx) => ({ ...e, selection_index: idx + 1 }));
 
     void logEvent(supabase, userId, "jack_email_search_served", {
       query_length: q.length,
       range,
+      include_newsletters: includeNewsletters,
       result_count: emails.length,
     });
+    void logEvent(
+      supabase,
+      userId,
+      emails.length > 0
+        ? "jack_email_followup_resolved"
+        : "jack_email_followup_unresolved",
+      { range, result_count: emails.length },
+    );
 
     return {
       ok: true,
@@ -367,10 +607,12 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       status: "connected_with_today_emails" as const,
       query: q,
       range,
+      include_newsletters: includeNewsletters,
       emails,
       match_count: emails.length,
     };
   });
+
 
 // ---------- get_email_detail ----------
 
@@ -434,6 +676,9 @@ export const getEmailDetailFn = createServerFn({ method: "POST" })
       unread: Boolean(row.is_unread),
       has_attachments: Boolean(row.has_attachments),
       labels: Array.isArray(row.label_ids) ? row.label_ids : [],
+      category: classifyMail(row).category,
+      is_newsletter: classifyMail(row).is_newsletter,
+      is_filtered: classifyMail(row).is_filtered,
       snippet: row.snippet ?? null,
       safe_body_preview: safeBodyPreview,
       summary_text: summary.short,
