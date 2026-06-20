@@ -43,6 +43,37 @@ export const GATED_VOICE_TOOLS: ReadonlySet<string> = new Set([
   "execute_confirmed_ui_action",
 ]);
 
+// v3.25.3 — Read-only Gmail tools gated by explicit email intent in the
+// user's last valid utterance. The model is instructed not to call these at
+// session start, but this is the programmatic guarantee.
+export const READ_GATED_VOICE_TOOLS: ReadonlySet<string> = new Set([
+  "get_email_brief",
+  "get_gmail_summary",
+]);
+
+const EMAIL_INTENT_KEYWORDS = [
+  "mail",
+  "email",
+  "gmail",
+  "posta",
+  "inbox",
+  "messaggi",
+  "brief",
+  "arrivate",
+  "leggi",
+  "leggimi",
+  "non lette",
+  "ultime",
+];
+
+export function hasExplicitEmailIntent(text: string): boolean {
+  if (!text) return false;
+  const n = normalizeVoiceText(text);
+  if (!n) return false;
+  return EMAIL_INTENT_KEYWORDS.some((k) => n.includes(k));
+}
+
+
 export function normalizeVoiceText(text: string): string {
   return text
     .toLowerCase()
