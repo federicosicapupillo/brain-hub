@@ -1326,7 +1326,55 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           tool_name: name,
           batch_size: processedToolCallIdsRef.current.size,
         });
-        safeCreateResponse("tool_result", { queueIfBusy: true });
+        // v3.25.4 — for get_email_brief, Brain Hub builds a deterministic
+        // length-bounded voice response and forces Jack to speak it verbatim
+        // via response.create instructions override. This stops the model
+        // from paraphrasing into long, interruption-prone monologues.
+        if (name === "get_email_brief" && okFlag) {
+          const userUtterance =
+            lastValidUserUtteranceRef.current?.text ?? null;
+          const mode = detectGmailBriefMode(userUtterance);
+          lastGmailVoiceModeRef.current = mode;
+          safeLog("jack_gmail_voice_mode_detected", {
+            mode,
+            has_user_utterance: Boolean(userUtterance),
+          });
+          const brief = result as GmailBriefVoicePayload;
+          const built = buildGmailVoiceResponse({ mode, brief });
+          safeLog("jack_gmail_voice_response_built", {
+            mode,
+            length: built.length,
+            truncated: built.truncated,
+          });
+          if (built.truncated) {
+            safeLog("jack_gmail_voice_response_truncated", {
+              mode,
+              length: built.length,
+              max_length: built.length,
+            });
+          }
+          setDiagnostics((d) => ({
+            ...d,
+            lastGmailVoiceMode: mode,
+            lastGmailVoiceResponseLength: built.length,
+            lastGmailVoiceResponseTruncated: built.truncated,
+          }));
+          pushLog({
+            kind: "system",
+            text: `Gmail mode: ${mode} (len ${built.length}${built.truncated ? ", troncato" : ""})`,
+          });
+          const instructions =
+            `Leggi a voce ESATTAMENTE il seguente testo in italiano, senza ` +
+            `aggiungere dettagli, mittenti, oggetti o snippet che non siano già ` +
+            `presenti nel testo. Non parafrasare. Termina con una breve pausa.\n\n` +
+            `TESTO DA LEGGERE:\n${built.text}`;
+          safeCreateResponse("gmail_voice_deterministic", {
+            queueIfBusy: true,
+            instructionsOverride: instructions,
+          });
+        } else {
+          safeCreateResponse("tool_result", { queueIfBusy: true });
+        }
       } else {
         safeLog("jack_response_create_deduplicated", {
           dedup_reason: "tool_batch_pending",
