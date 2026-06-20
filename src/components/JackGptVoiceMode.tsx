@@ -1793,6 +1793,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       executeVoiceAction,
       sendUserSystemNote,
       safeCreateResponse,
+      injectAssistantNote,
+      pushLog,
     ],
   );
 
