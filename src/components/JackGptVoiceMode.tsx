@@ -88,11 +88,25 @@ const SENSITIVE_VOICE_TOOLS: ReadonlySet<string> = new Set([
   "stop_ui_operator_session",
 ]);
 
-// v3.25.2 — allowed sources for sensitive action execution.
-type VoiceActionExecutionSource = "ui_button" | "voice_confirm";
-const ALLOWED_SENSITIVE_EXECUTION_SOURCES: ReadonlySet<VoiceActionExecutionSource> = new Set([
+// v3.25.2 — typed source for any sensitive action execution path. Only
+// `ui_button` and `voice_confirm` are allowed to actually run the tool;
+// every other value is recorded and rejected.
+type VoiceActionExecutionSource =
+  | "ui_button"
+  | "voice_confirm"
+  | "model_tool"
+  | "router_auto"
+  | "assistant_question"
+  | "generic_user_question"
+  | "unknown";
+const ALLOWED_SENSITIVE_EXECUTION_SOURCES: ReadonlySet<VoiceActionExecutionSource> = new Set<VoiceActionExecutionSource>([
   "ui_button",
   "voice_confirm",
+]);
+// Tools that must never be executed unless source ∈ ALLOWED set above —
+// even if they slip past the session.tools allowlist.
+const SENSITIVE_DIRECT_EXECUTION_TOOLS: ReadonlySet<string> = new Set([
+  "refresh_gmail_sync",
 ]);
 
 // v3.25.1 — Typed Realtime payload builders. Realtime GA requires:
