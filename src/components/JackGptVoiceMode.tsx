@@ -1629,8 +1629,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       // v3.25.1 — pending action exists but utterance was not a confirmation
       if (
         pendingVoiceActionRef.current &&
-        result.intent !== "confirm_pending" &&
-        result.intent !== "cancel"
+        result.intent !== "confirm_pending"
       ) {
         safeLog("jack_voice_pending_action_confirmation_rejected", {
           action_id: pendingVoiceActionRef.current.id,
