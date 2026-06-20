@@ -2118,6 +2118,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             }));
             pushLog({ kind: "user", text: transcript });
             handleVoiceConfirmationTranscript(transcript, msg.type);
+            // v3.25 — run deterministic command router for sensitive intents.
+            void runDeterministicVoiceRouter(transcript, nowTs);
           }
           break;
 
