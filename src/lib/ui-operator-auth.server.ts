@@ -254,26 +254,139 @@ export function isRouteAuthorizedByToken(
   );
 }
 
+// ---------- Base URL resolution (v3.23.4) ----------
+
+const FORBIDDEN_BASE_HOST_PATTERNS = [
+  /(^|\.)lovable\.dev$/i, // editor host, never the app
+];
+
+const FORBIDDEN_BASE_PATH_PATTERNS = [
+  /^\/projects(\/|$)/i, // editor path, never the app
+];
+
+export function normalizeBrainHubBaseUrl(raw?: string | null): string | null {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return null;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  const host = parsed.hostname.toLowerCase();
+  if (!host) return null;
+  if (FORBIDDEN_BASE_HOST_PATTERNS.some((re) => re.test(host))) return null;
+  const path = parsed.pathname.replace(/\/+$/, "");
+  if (path && FORBIDDEN_BASE_PATH_PATTERNS.some((re) => re.test(path))) return null;
+  return `${parsed.protocol}//${parsed.host}`;
+}
+
+export function isValidBrainHubBaseUrl(url: string | null | undefined): boolean {
+  return normalizeBrainHubBaseUrl(url ?? null) !== null;
+}
+
+export interface BrainHubBaseUrlResolution {
+  url: string | null;
+  source:
+    | "env_BRAIN_HUB_BASE_URL"
+    | "env_PUBLIC_SITE_URL"
+    | "env_SITE_URL"
+    | "fallback_published"
+    | "invalid";
+  raw: string | null;
+  valid: boolean;
+}
+
+const FALLBACK_PUBLISHED_BASE = "https://thought-loom-dashboard.lovable.app";
+
+export function resolveBrainHubBaseUrl(): BrainHubBaseUrlResolution {
+  const candidates: Array<{
+    raw: string | null;
+    source: BrainHubBaseUrlResolution["source"];
+  }> = [
+    { raw: process.env.BRAIN_HUB_BASE_URL ?? null, source: "env_BRAIN_HUB_BASE_URL" },
+    { raw: process.env.PUBLIC_SITE_URL ?? null, source: "env_PUBLIC_SITE_URL" },
+    { raw: process.env.SITE_URL ?? null, source: "env_SITE_URL" },
+    { raw: FALLBACK_PUBLISHED_BASE, source: "fallback_published" },
+  ];
+  for (const c of candidates) {
+    const norm = normalizeBrainHubBaseUrl(c.raw);
+    if (norm) return { url: norm, source: c.source, raw: c.raw, valid: true };
+  }
+  return { url: null, source: "invalid", raw: null, valid: false };
+}
+
+/** Returns a guaranteed-safe absolute origin or throws "base_url_invalid". */
+export function getBrainHubBaseUrl(): string {
+  const res = resolveBrainHubBaseUrl();
+  if (!res.url) throw new Error("base_url_invalid");
+  return res.url;
+}
+
+export interface BuildUiOperatorAuthUrlResult {
+  ok: boolean;
+  url: string | null;
+  base_url: string | null;
+  route: string;
+  preview: string | null;
+  error:
+    | "base_url_invalid"
+    | "missing_token"
+    | "missing_session"
+    | "missing_route"
+    | null;
+}
+
+export function buildUiOperatorAuthUrlSafe(input: {
+  baseUrl: string | null;
+  token: string;
+  session_id: string;
+  route: string;
+}): BuildUiOperatorAuthUrlResult {
+  const base = normalizeBrainHubBaseUrl(input.baseUrl);
+  if (!base) {
+    return {
+      ok: false, url: null, base_url: null,
+      route: input.route ?? "", preview: null, error: "base_url_invalid",
+    };
+  }
+  if (!input.token) {
+    return { ok: false, url: null, base_url: base, route: input.route ?? "", preview: null, error: "missing_token" };
+  }
+  if (!input.session_id) {
+    return { ok: false, url: null, base_url: base, route: input.route ?? "", preview: null, error: "missing_session" };
+  }
+  if (!input.route) {
+    return { ok: false, url: null, base_url: base, route: "", preview: null, error: "missing_route" };
+  }
+  const qs = new URLSearchParams({
+    token: input.token,
+    session_id: input.session_id,
+    route: input.route,
+  });
+  const url = `${base}/api/public/ui-operator-auth?${qs.toString()}`;
+  const previewQs = new URLSearchParams({
+    token: `${safeTokenPrefix(input.token)}…`,
+    session_id: input.session_id,
+    route: input.route,
+  });
+  const preview = `${base}/api/public/ui-operator-auth?${previewQs.toString()}`;
+  if (!/^https?:\/\//i.test(url) || /lovable\.dev\/projects\//i.test(url)) {
+    return { ok: false, url: null, base_url: base, route: input.route, preview: null, error: "base_url_invalid" };
+  }
+  return { ok: true, url, base_url: base, route: input.route, preview, error: null };
+}
+
+/** Backward-compatible string variant (throws on invalid). */
 export function buildUiOperatorAuthUrl(input: {
   baseUrl: string;
   token: string;
   session_id: string;
   route: string;
 }): string {
-  const base = input.baseUrl.replace(/\/+$/, "");
-  const qs = new URLSearchParams({
-    token: input.token,
-    session_id: input.session_id,
-    route: input.route,
-  });
-  return `${base}/api/public/ui-operator-auth?${qs.toString()}`;
+  const res = buildUiOperatorAuthUrlSafe(input);
+  if (!res.ok || !res.url) throw new Error(res.error ?? "build_failed");
+  return res.url;
 }
 
-export function getBrainHubBaseUrl(): string {
-  const fromEnv =
-    process.env.BRAIN_HUB_BASE_URL ??
-    process.env.PUBLIC_SITE_URL ??
-    process.env.SITE_URL ??
-    "";
-  return (fromEnv || "https://thought-loom-dashboard.lovable.app").replace(/\/+$/, "");
-}
