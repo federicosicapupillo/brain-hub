@@ -57,7 +57,9 @@ export function buildGmailAuthUrl(state: string): string | null {
     redirect_uri: cfg.redirectUri,
     response_type: "code",
     scope: GMAIL_OAUTH_SCOPE,
-    access_type: "online",
+    // v3.22.2 — offline + consent to receive a refresh_token so that
+    // Jack-controlled read-only refreshes can run without a new OAuth round.
+    access_type: "offline",
     include_granted_scopes: "true",
     prompt: "consent",
     state,
@@ -70,6 +72,7 @@ export type GmailTokenResponse = {
   expires_in: number;
   scope: string;
   token_type: string;
+  refresh_token?: string;
 };
 
 function sanitizeGoogleError(text: string): string {
