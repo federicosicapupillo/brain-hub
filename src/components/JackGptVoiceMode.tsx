@@ -221,6 +221,15 @@ type Diagnostics = {
   skippedBecauseNoPendingPreview: boolean;
   genericConfirmationIgnored: boolean;
   pendingPreviewExists: boolean;
+  // v3.24.1 — tool failure visibility for voice recovery
+  lastToolStatus: string | null;
+  lastToolOk: boolean | null;
+  lastToolErrorCode: string | null;
+  lastToolSafeMessage: string | null;
+  lastToolRequiresReauth: boolean;
+  lastToolCacheStale: boolean;
+  lastToolShouldNotCiteEmails: boolean;
+  lastToolFailureRecoveryFiredAt: number | null;
 };
 
 type Props = { brainId?: string | null };
