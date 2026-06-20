@@ -657,11 +657,31 @@ export const getUiOperatorConfigFn = createServerFn({ method: "POST" })
     return {
       ok: true,
       configured: cfg.configured,
-      mode: cfg.configured ? ("real" as const) : ("mock" as const),
+      mode: cfg.execution_mode === "real_runner" ? ("real" as const) : ("mock" as const),
+      execution_mode: cfg.execution_mode,
+      runner_configured: cfg.runner_configured,
+      runner_url_present: cfg.runner_url_present,
+      runner_secret_present: cfg.runner_secret_present,
       has_browserbase_api_key: cfg.has_browserbase_api_key,
       has_browserbase_project_id: cfg.has_browserbase_project_id,
       has_model_key: cfg.has_model_key,
       model: cfg.model,
       allowed_routes: ALLOWED_UI_ROUTES,
     };
+  });
+
+// ---------- runner health ----------
+export const getUiOperatorRunnerHealthFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((_d: unknown) => ({}))
+  .handler(async ({ context }) => {
+    const { healthCheckUiOperatorRunner } = await import("./ui-operator-browser.server");
+    const res = await healthCheckUiOperatorRunner();
+    await logEvt(context.supabase, context.userId, "ui_operator_runner_health_checked", {
+      ok: res.ok,
+      configured: res.configured,
+      reachable: res.reachable,
+      status: res.status,
+    });
+    return res;
   });
