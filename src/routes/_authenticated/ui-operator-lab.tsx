@@ -77,6 +77,14 @@ function UiOperatorLabRoute() {
   const executeFn = useServerFn(executeConfirmedUiOperatorActionFn);
   const stopFn = useServerFn(stopUiOperatorSessionFn);
   const listActionsFn = useServerFn(listUiOperatorActionsFn);
+  const mintTokenFn = useServerFn(createUiOperatorAuthTokenFn);
+  const latestTokenFn = useServerFn(getLatestUiOperatorAuthTokenFn);
+  const [authHandshake, setAuthHandshake] = useState<{
+    url: string | null;
+    token_prefix: string | null;
+    expires_at: string | null;
+    status: string;
+  } | null>(null);
 
   const cfg = useQuery({
     queryKey: ["ui-operator-config"],
