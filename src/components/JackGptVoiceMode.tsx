@@ -340,6 +340,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastToolCacheStale: false,
     lastToolShouldNotCiteEmails: false,
     lastToolFailureRecoveryFiredAt: null,
+    lastValidUserUtterance: null,
+    lastValidUserUtteranceAt: null,
+    lastIgnoredUserUtterance: null,
+    lastIgnoredReason: null,
+    pendingToolConfirmation: false,
+    lastToolBlockedReason: null,
+    lastToolGateDecision: null,
+    lastAssistantAskedConfirmationAt: null,
+    lastGmailSyncStatus: null,
+    lastGmailSyncSafeMessage: null,
+    lastGmailSyncErrorCode: null,
+    lastGmailRequiresReauth: false,
   });
 
 
