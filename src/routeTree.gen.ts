@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as UiOperatorProxySessionIdRouteImport } from './routes/ui-operator-proxy.$sessionId'
 import { Route as AuthenticatedUiOperatorLabRouteImport } from './routes/_authenticated/ui-operator-lab'
 import { Route as AuthenticatedToolConnectionsRouteImport } from './routes/_authenticated/tool-connections'
 import { Route as AuthenticatedTelegramApprovalsRouteImport } from './routes/_authenticated/telegram-approvals'
@@ -92,6 +93,12 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const UiOperatorProxySessionIdRoute =
+  UiOperatorProxySessionIdRouteImport.update({
+    id: '/ui-operator-proxy/$sessionId',
+    path: '/ui-operator-proxy/$sessionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedUiOperatorLabRoute =
   AuthenticatedUiOperatorLabRouteImport.update({
     id: '/ui-operator-lab',
@@ -520,6 +527,7 @@ export interface FileRoutesByFullPath {
   '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
+  '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
@@ -587,6 +595,7 @@ export interface FileRoutesByTo {
   '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
+  '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/': typeof AuthenticatedIndexRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
@@ -658,6 +667,7 @@ export interface FileRoutesById {
   '/_authenticated/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/_authenticated/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/_authenticated/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
+  '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
@@ -730,6 +740,7 @@ export interface FileRouteTypes {
     | '/telegram-approvals'
     | '/tool-connections'
     | '/ui-operator-lab'
+    | '/ui-operator-proxy/$sessionId'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
@@ -797,6 +808,7 @@ export interface FileRouteTypes {
     | '/telegram-approvals'
     | '/tool-connections'
     | '/ui-operator-lab'
+    | '/ui-operator-proxy/$sessionId'
     | '/'
     | '/importa/prompt-storici'
     | '/progetti/$brainId'
@@ -867,6 +879,7 @@ export interface FileRouteTypes {
     | '/_authenticated/telegram-approvals'
     | '/_authenticated/tool-connections'
     | '/_authenticated/ui-operator-lab'
+    | '/ui-operator-proxy/$sessionId'
     | '/_authenticated/'
     | '/_authenticated/importa/prompt-storici'
     | '/_authenticated/progetti/$brainId'
@@ -883,6 +896,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
   ApiPublicUiOperatorAuthRoute: typeof ApiPublicUiOperatorAuthRoute
@@ -914,6 +928,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/ui-operator-proxy/$sessionId': {
+      id: '/ui-operator-proxy/$sessionId'
+      path: '/ui-operator-proxy/$sessionId'
+      fullPath: '/ui-operator-proxy/$sessionId'
+      preLoaderRoute: typeof UiOperatorProxySessionIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/ui-operator-lab': {
       id: '/_authenticated/ui-operator-lab'
@@ -1524,6 +1545,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
   ApiPublicUiOperatorAuthRoute: ApiPublicUiOperatorAuthRoute,
