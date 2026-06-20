@@ -582,4 +582,4 @@ export async function runRefreshGmailMetadataSyncCore(
         error_code: "unhandled",
       });
     }
-  });
+}
