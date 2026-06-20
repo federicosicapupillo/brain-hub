@@ -78,15 +78,30 @@ const NEWSLETTER_CATEGORY_LABELS = new Set([
   "CATEGORY_UPDATES",
   "CATEGORY_FORUMS",
 ]);
-const NEWSLETTER_RX =
-  /\b(newsletter|unsubscribe|disiscriviti|cancellati|promo|promozione|offerta|sconto|deal)\b/i;
-const NOREPLY_RX = /^(no[-_.]?reply|noreply|newsletter|news|info|marketing)@/i;
+// Strong newsletter heuristic: must contain explicit marketing/unsubscribe
+// vocabulary, not just an occurrence of "offerta" inside a personal message.
+const NEWSLETTER_STRONG_RX =
+  /\b(unsubscribe|disiscriviti|cancellati|newsletter|digest|marketing|promo(?:zione)?|coupon)\b/i;
+const NOREPLY_RX = /^(no[-_.]?reply|noreply|newsletter|news|marketing|mailer|notification|notifiche)@/i;
+const PERSONAL_DOMAIN_RX =
+  /@(gmail|googlemail|hotmail|outlook|live|yahoo|icloud|me|protonmail|pm|libero|tin|alice|fastwebnet|aruba|virgilio)\./i;
+
+const NEWSLETTER_DETECTED_CATEGORIES = new Set([
+  "newsletter",
+  "promotions",
+  "promo",
+  "updates",
+  "social",
+  "forums",
+  "marketing",
+]);
 
 export type EmailClassification = {
   category: string;
   is_newsletter: boolean;
   is_filtered: boolean;
   is_inbox_primary: boolean;
+  is_unknown_personal: boolean;
 };
 
 export function classifyMail(row: {
@@ -97,31 +112,52 @@ export function classifyMail(row: {
   snippet?: string | null;
 }): EmailClassification {
   const labels = Array.isArray(row.label_ids) ? row.label_ids : [];
-  const upper = labels.map((l) => l.toUpperCase());
+  const upper = labels.map((l) => String(l).toUpperCase());
   const hasInbox = upper.includes("INBOX");
   const newsletterLabel = upper.find((l) => NEWSLETTER_CATEGORY_LABELS.has(l));
   const detected = (row.detected_category ?? "").toLowerCase();
-  const heuristicNewsletter =
-    NEWSLETTER_RX.test(`${row.subject ?? ""} ${row.snippet ?? ""}`) ||
-    NOREPLY_RX.test((row.from_email ?? "").toLowerCase());
+  const fromLc = (row.from_email ?? "").toLowerCase();
+  const text = `${row.subject ?? ""} ${row.snippet ?? ""}`;
+
+  const strongHeuristic =
+    NEWSLETTER_STRONG_RX.test(text) || NOREPLY_RX.test(fromLc);
+  const detectedNewsletter = NEWSLETTER_DETECTED_CATEGORIES.has(detected);
+
+  // Newsletter ONLY when there's a strong signal. Missing labels alone never
+  // imply newsletter — otherwise personal mail (Federico → fedestic01@gmail.com)
+  // would get hidden in the filtered bucket.
   const isNewsletter =
-    Boolean(newsletterLabel) ||
-    ["newsletter", "promotions", "promo", "updates", "social"].includes(detected) ||
-    heuristicNewsletter;
-  const isPrimary = hasInbox && !newsletterLabel && !isNewsletter;
-  const isFiltered = !isPrimary;
+    Boolean(newsletterLabel) || detectedNewsletter || strongHeuristic;
+
+  const senderLooksPersonal =
+    !!fromLc && PERSONAL_DOMAIN_RX.test(fromLc) && !NOREPLY_RX.test(fromLc);
+
+  const labelsMissing = upper.length === 0;
+  // Unknown when we can't decide: no INBOX label, not classified as newsletter,
+  // and either labels are missing or sender looks personal.
+  const isUnknownPersonal =
+    !isNewsletter && !hasInbox && (labelsMissing || senderLooksPersonal);
+
+  const isPrimary = !isNewsletter && (hasInbox || senderLooksPersonal);
+  // Filtered = anything we'd hide from the primary inbox view.
+  const isFiltered = isNewsletter || (!isPrimary && !isUnknownPersonal);
+
   const category = newsletterLabel
     ? newsletterLabel.replace("CATEGORY_", "").toLowerCase()
     : isNewsletter
       ? "newsletter"
       : isPrimary
         ? "primary"
-        : detected || "other";
+        : isUnknownPersonal
+          ? "unknown_personal"
+          : detected || "other";
+
   return {
     category,
     is_newsletter: isNewsletter,
     is_filtered: isFiltered,
     is_inbox_primary: isPrimary,
+    is_unknown_personal: isUnknownPersonal,
   };
 }
 
@@ -168,6 +204,8 @@ type EmailBriefItem = {
   category: string;
   is_newsletter: boolean;
   is_filtered: boolean;
+  is_unknown_personal: boolean;
+  is_inbox_primary: boolean;
 };
 
 function domainOf(email: string | null | undefined): string | null {
@@ -216,8 +254,25 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
     category: cls.category,
     is_newsletter: cls.is_newsletter,
     is_filtered: cls.is_filtered,
+    is_unknown_personal: cls.is_unknown_personal,
+    is_inbox_primary: cls.is_inbox_primary,
   };
 }
+
+type DebugTodayRawEntry = {
+  local_id: string;
+  from_domain: string | null;
+  from_preview: string | null;
+  subject_preview: string | null;
+  snippet_preview: string | null;
+  received_at: string | null;
+  label_ids: string[];
+  detected_category: string;
+  is_unread: boolean;
+  classified_as: "newsletter" | "unknown_personal" | "inbox_primary";
+  is_newsletter: boolean;
+  is_filtered: boolean;
+};
 
 const EMAIL_SELECT_COLS =
   "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,label_ids,detected_category";
@@ -277,6 +332,14 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         newsletters_today: [] as EmailBriefItem[],
         unread_previous: [] as EmailBriefItem[],
         newsletters_previous: [] as EmailBriefItem[],
+        all_today: [] as EmailBriefItem[],
+        unknown_today: [] as EmailBriefItem[],
+        sync_freshness: {
+          last_sync_at: null,
+          latest_message_seen_at: null,
+          possibly_stale: true,
+        },
+        debug_today_raw: [] as DebugTodayRawEntry[],
         label_scope: "unknown" as const,
         metadata_missing: false,
         partial_sync: false,
@@ -310,6 +373,14 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         newsletters_today: [] as EmailBriefItem[],
         unread_previous: [] as EmailBriefItem[],
         newsletters_previous: [] as EmailBriefItem[],
+        all_today: [] as EmailBriefItem[],
+        unknown_today: [] as EmailBriefItem[],
+        sync_freshness: {
+          last_sync_at: conn.last_sync_at,
+          latest_message_seen_at: null,
+          possibly_stale: true,
+        },
+        debug_today_raw: [] as DebugTodayRawEntry[],
         label_scope: "unknown" as const,
         metadata_missing: false,
         partial_sync: true,
@@ -377,8 +448,18 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const yesterdayEmails = yesterdayRows.map((r, idx) => mapEmailRow(r, idx));
     const prevUnreadEmails = prevUnreadRows.map((r, idx) => mapEmailRow(r, idx));
 
-    const inboxToday = todayEmails.filter((e) => !e.is_newsletter);
+    // v3.22.1 — anti-disappearance bucketing:
+    // Every today email lands in `all_today` no matter what; primary,
+    // newsletter, and unknown buckets are derived from it. A mail can NEVER
+    // exist only in `newsletters_today` while being absent from `all_today`.
+    const allToday = todayEmails;
+    const inboxToday = todayEmails.filter(
+      (e) => e.is_inbox_primary === true && !e.is_newsletter,
+    );
     const newslettersToday = todayEmails.filter((e) => e.is_newsletter);
+    const unknownToday = todayEmails.filter(
+      (e) => !e.is_newsletter && !e.is_inbox_primary,
+    );
     const unreadPreviousList = prevUnreadEmails.filter((e) => !e.is_newsletter);
     const newslettersPreviousList = yesterdayEmails.filter((e) => e.is_newsletter);
 
@@ -387,24 +468,26 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const previousUnread = Math.max(0, totalUnread - unreadToday);
 
     const counts = {
-      today_total_all: todayEmails.length,
+      today_total_all: allToday.length,
       today_inbox_total: inboxToday.length,
       today_inbox_unread: inboxToday.filter((e) => e.unread).length,
       today_newsletter_total: newslettersToday.length,
       today_newsletter_unread: newslettersToday.filter((e) => e.unread).length,
+      today_unknown_total: unknownToday.length,
+      today_unknown_unread: unknownToday.filter((e) => e.unread).length,
       previous_unread_total: previousUnread,
       total_unread: totalUnread,
       newsletter_yesterday_total: newslettersPreviousList.length,
     };
 
     const status: "connected_with_today_emails" | "connected_no_today_emails" =
-      todayEmails.length > 0
+      allToday.length > 0
         ? "connected_with_today_emails"
         : "connected_no_today_emails";
 
     const metadataMissing =
-      todayEmails.length > 0 &&
-      todayEmails.every((e) => !e.subject && !e.from_email && !e.snippet);
+      allToday.length > 0 &&
+      allToday.every((e) => !e.subject && !e.from_email && !e.snippet);
 
     const labelScope = deriveLabelScope([
       ...todayRows,
@@ -413,9 +496,42 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     ]);
 
     const lastSyncAt = conn.last_sync_at;
+    const latestMessageSeenAt = allToday[0]?.received_at ?? null;
+    const lastSyncMs = lastSyncAt ? new Date(lastSyncAt).getTime() : 0;
+    const latestMsgMs = latestMessageSeenAt
+      ? new Date(latestMessageSeenAt).getTime()
+      : 0;
     const partialSync =
       !lastSyncAt ||
-      Date.now() - new Date(lastSyncAt).getTime() > 6 * 3600 * 1000;
+      Date.now() - lastSyncMs > 6 * 3600 * 1000;
+    const possiblyStale =
+      partialSync ||
+      (latestMsgMs > 0 && lastSyncMs > 0 && lastSyncMs < latestMsgMs);
+    const syncFreshness = {
+      last_sync_at: lastSyncAt,
+      latest_message_seen_at: latestMessageSeenAt,
+      possibly_stale: possiblyStale,
+    };
+
+    // Sanitized debug for today's raw rows. No body, no full email address.
+    const debugTodayRaw = todayEmails.map((e) => ({
+      local_id: e.local_id,
+      from_domain: e.from_domain,
+      from_preview: redactEmailForLog(e.from_email),
+      subject_preview: e.subject ? e.subject.slice(0, 80) : null,
+      snippet_preview: e.snippet ? e.snippet.slice(0, 120) : null,
+      received_at: e.received_at,
+      label_ids: e.labels,
+      detected_category: e.category,
+      is_unread: e.unread,
+      classified_as: e.is_newsletter
+        ? "newsletter"
+        : e.is_unknown_personal
+          ? "unknown_personal"
+          : "inbox_primary",
+      is_newsletter: e.is_newsletter,
+      is_filtered: e.is_filtered,
+    }));
 
     void logEvent(supabase, userId, "jack_email_brief_served", {
       connected: true,
@@ -427,10 +543,34 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       metadata_missing: metadataMissing,
       partial_sync: partialSync,
     });
+    void logEvent(supabase, userId, "jack_email_today_raw_bucketed", {
+      total_all: counts.today_total_all,
+      inbox: counts.today_inbox_total,
+      newsletter: counts.today_newsletter_total,
+      unknown: counts.today_unknown_total,
+    });
+    if (counts.today_unknown_total > 0) {
+      void logEvent(supabase, userId, "jack_email_unknown_today_detected", {
+        unknown_count: counts.today_unknown_total,
+        sample_domains: Array.from(
+          new Set(unknownToday.map((e) => e.from_domain).filter(Boolean)),
+        ).slice(0, 5),
+      });
+    }
+    // If labels were missing/empty and we recovered a mail into all_today
+    // that previously would have been filtered out, emit a recovery event.
+    const recovered = todayEmails.filter(
+      (e) => e.labels.length === 0 && !e.is_newsletter,
+    );
+    if (recovered.length > 0) {
+      void logEvent(supabase, userId, "jack_email_inbox_missing_recovered", {
+        count: recovered.length,
+      });
+    }
     if (metadataMissing) {
       void logEvent(supabase, userId, "jack_email_metadata_missing", {
         range,
-        list_count: todayEmails.length,
+        list_count: allToday.length,
       });
     }
     if (partialSync) {
@@ -438,18 +578,25 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         last_sync_at: lastSyncAt,
       });
     }
+    if (possiblyStale && !partialSync) {
+      void logEvent(supabase, userId, "jack_email_possible_sync_stale", {
+        last_sync_at: lastSyncAt,
+        latest_message_seen_at: latestMessageSeenAt,
+      });
+    }
     void logEvent(supabase, userId, "jack_gmail_count_reconciled", {
       timezone: ROME_TZ,
       today_inbox: counts.today_inbox_total,
       today_newsletter: counts.today_newsletter_total,
+      today_unknown: counts.today_unknown_total,
       total_unread: counts.total_unread,
       previous_unread: counts.previous_unread_total,
     });
 
     // Legacy flat `emails` list kept for backward compatibility consumers.
     const baseFlat = since
-      ? todayEmails
-      : [...todayEmails, ...yesterdayEmails].slice(0, limit);
+      ? allToday
+      : [...allToday, ...yesterdayEmails].slice(0, limit);
     let flat = baseFlat;
     if (data.unread_only) flat = flat.filter((e) => e.unread);
     if (data.important_only === true) flat = flat.filter((e) => e.importance_score >= 55);
@@ -467,6 +614,10 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       newsletters_today: newslettersToday,
       unread_previous: unreadPreviousList,
       newsletters_previous: newslettersPreviousList,
+      all_today: allToday,
+      unknown_today: unknownToday,
+      sync_freshness: syncFreshness,
+      debug_today_raw: debugTodayRaw,
       label_scope: labelScope,
       metadata_missing: metadataMissing,
       metadata_missing_hint: metadataMissing
@@ -475,16 +626,19 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       partial_sync: partialSync,
       // legacy aliases
       total_today: counts.today_total_all,
-      unread_today: counts.today_inbox_unread + counts.today_newsletter_unread,
-      important_today: todayEmails.filter((e) => e.importance_score >= 55).length,
+      unread_today:
+        counts.today_inbox_unread +
+        counts.today_newsletter_unread +
+        counts.today_unknown_unread,
+      important_today: allToday.filter((e) => e.importance_score >= 55).length,
       total: counts.today_total_all,
       unread: counts.total_unread,
-      important: todayEmails.filter((e) => e.importance_score >= 55).length,
+      important: allToday.filter((e) => e.importance_score >= 55).length,
       emails: flat,
       top: flat.slice(0, 5),
       message:
         status === "connected_with_today_emails"
-          ? `Oggi ${counts.today_inbox_total} mail normali e ${counts.today_newsletter_total} newsletter; non lette totali ${counts.total_unread} (${counts.today_inbox_unread + counts.today_newsletter_unread} oggi, ${counts.previous_unread_total} precedenti).`
+          ? `Oggi ${counts.today_inbox_total} mail normali, ${counts.today_newsletter_total} newsletter${counts.today_unknown_total > 0 ? `, ${counts.today_unknown_total} non classificate` : ""}; non lette totali ${counts.total_unread} (${counts.today_inbox_unread + counts.today_newsletter_unread + counts.today_unknown_unread} oggi, ${counts.previous_unread_total} precedenti).`
           : "Gmail è collegato, ma non trovo email di oggi.",
     };
   });
@@ -496,6 +650,8 @@ function emptyCounts() {
     today_inbox_unread: 0,
     today_newsletter_total: 0,
     today_newsletter_unread: 0,
+    today_unknown_total: 0,
+    today_unknown_unread: 0,
     previous_unread_total: 0,
     total_unread: 0,
     newsletter_yesterday_total: 0,
