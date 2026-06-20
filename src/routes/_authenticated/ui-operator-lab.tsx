@@ -64,6 +64,7 @@ function UiOperatorLabRoute() {
   const [proposed, setProposed] = useState<UiOperatorAction | null>(null);
 
   const configFn = useServerFn(getUiOperatorConfigFn);
+  const healthFn = useServerFn(getUiOperatorRunnerHealthFn);
   const startFn = useServerFn(startUiOperatorSessionFn);
   const openFn = useServerFn(openUiOperatorRouteFn);
   const observeFn = useServerFn(observeUiOperatorScreenFn);
@@ -76,6 +77,13 @@ function UiOperatorLabRoute() {
   const cfg = useQuery({
     queryKey: ["ui-operator-config"],
     queryFn: () => configFn({ data: {} }),
+  });
+
+  const health = useQuery({
+    queryKey: ["ui-operator-runner-health"],
+    queryFn: () => healthFn({ data: {} }),
+    enabled: !!cfg.data?.runner_configured,
+    refetchInterval: false,
   });
 
   const actions = useQuery({
