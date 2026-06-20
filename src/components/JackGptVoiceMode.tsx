@@ -2537,7 +2537,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
 
   const handleDcMessage = useCallback(
-    (ev: MessageEvent<string>) => {
+    async (ev: MessageEvent<string>) => {
+
       let msg: RealtimeEvent;
       try {
         msg = JSON.parse(typeof ev.data === "string" ? ev.data : "") as RealtimeEvent;
