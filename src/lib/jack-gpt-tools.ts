@@ -1705,9 +1705,6 @@ export const runJackGptTool = createServerFn({ method: "POST" })
 
 
         case "refresh_gmail_sync": {
-          const { refreshGmailMetadataSyncFn } = await import(
-            "@/lib/gmail-refresh-sync.functions"
-          );
           const mode =
             args.mode === "recent" ? ("recent" as const) : ("today" as const);
           const reason =
@@ -1725,41 +1722,69 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             { mode, reason, brain_id: brainId, tool_name: "refresh_gmail_sync" },
           );
 
-          const sync = await refreshGmailMetadataSyncFn({
-            data: { brain_id: brainId, mode, reason },
-          });
+          try {
+            const { refreshGmailMetadataSyncFn } = await import(
+              "@/lib/gmail-refresh-sync.functions"
+            );
+            const sync = await refreshGmailMetadataSyncFn({
+              data: { brain_id: brainId, mode, reason },
+            });
 
-          let briefAfter: unknown = null;
-          if (sync.ok && sync.status === "synced") {
-            try {
-              const { getEmailBriefFn } = await import(
-                "@/lib/gmail-intelligence.functions"
-              );
-              briefAfter = await getEmailBriefFn({
-                data: { brain_id: brainId, date_range: "today" },
-              });
-              void logSanitizedEvent(
-                supabase,
-                userId,
-                "jack_gmail_brief_after_sync_served",
-                {
-                  brain_id: brainId,
-                  new_messages_count: sync.new_messages_count ?? 0,
-                  updated_messages_count: sync.updated_messages_count ?? 0,
-                },
-              );
-            } catch {
-              briefAfter = null;
+            let briefAfter: unknown = null;
+            if (sync.ok && sync.status === "synced") {
+              try {
+                const { getEmailBriefFn } = await import(
+                  "@/lib/gmail-intelligence.functions"
+                );
+                briefAfter = await getEmailBriefFn({
+                  data: { brain_id: brainId, date_range: "today" },
+                });
+                void logSanitizedEvent(
+                  supabase,
+                  userId,
+                  "jack_gmail_brief_after_sync_served",
+                  {
+                    brain_id: brainId,
+                    new_messages_count: sync.new_messages_count ?? 0,
+                    updated_messages_count: sync.updated_messages_count ?? 0,
+                  },
+                );
+              } catch {
+                briefAfter = null;
+              }
             }
-          }
 
-          return {
-            ok: sync.ok,
-            payload: {
-              sync,
-              brief_after: briefAfter,
-            },
-          };
+            // JSON-safe payload (server fn already returns plain objects)
+            const safePayload = JSON.parse(
+              JSON.stringify({ sync, brief_after: briefAfter }),
+            );
+            return { ok: true, payload: safePayload };
+          } catch (err) {
+            void logSanitizedEvent(
+              supabase,
+              userId,
+              "jack_gmail_sync_tool_error_caught",
+              {
+                mode,
+                reason,
+                error_code:
+                  (err as Error & { code?: string }).code ?? "dispatcher_error",
+              },
+            );
+            return {
+              ok: true,
+              payload: {
+                sync: {
+                  ok: false,
+                  status: "failed",
+                  safe_message: "Sincronizzazione Gmail non riuscita.",
+                  mode,
+                  reason,
+                },
+                brief_after: null,
+              },
+            };
+          }
         }
 
 

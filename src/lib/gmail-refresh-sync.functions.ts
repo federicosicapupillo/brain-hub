@@ -27,6 +27,10 @@ export type RefreshGmailMetadataSyncResult = {
     | "already_in_progress"
     | "not_connected"
     | "reauth_required"
+    | "config_missing"
+    | "migration_missing"
+    | "google_api_error"
+    | "db_error"
     | "failed";
   connection_id_hash?: string;
   last_sync_before?: string | null;
@@ -91,12 +95,46 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { mode, reason, force } = data;
 
+    const safeFail = (
+      status: RefreshGmailMetadataSyncResult["status"],
+      safe_message: string,
+      extras: Partial<RefreshGmailMetadataSyncResult> = {},
+    ): RefreshGmailMetadataSyncResult => ({
+      ok: false,
+      status,
+      safe_message,
+      mode,
+      reason,
+      ...extras,
+    });
+
+    try {
     void logEvt(supabase, userId, "jack_gmail_sync_requested", {
       mode,
       reason,
       brain_id: data.brain_id,
       force,
     });
+
+    // 0) Quick OAuth env check
+    const hasOauthCfg = !!(
+      (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID) &&
+      (process.env.GOOGLE_CLIENT_SECRET ||
+        process.env.GOOGLE_OAUTH_CLIENT_SECRET) &&
+      (process.env.GMAIL_OAUTH_REDIRECT_URL ||
+        process.env.GOOGLE_OAUTH_REDIRECT_URL ||
+        process.env.GOOGLE_OAUTH_REDIRECT_URI)
+    );
+    if (!hasOauthCfg) {
+      void logEvt(supabase, userId, "jack_gmail_sync_config_missing", {
+        reason,
+      });
+      return safeFail(
+        "config_missing",
+        "Configurazione Google OAuth incompleta.",
+        { error_code: "config_missing" },
+      );
+    }
 
     // 1) Locate user's gmail connection (best-effort: most recent connected)
     type ConnRow = {
@@ -116,7 +154,34 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .order("connected_at", { ascending: false });
     if (data.brain_id) q = q.eq("brain_id", data.brain_id);
-    const { data: conns } = await q;
+    const { data: conns, error: connsErr } = await q;
+    if (connsErr) {
+      const msg = String(connsErr.message ?? "").toLowerCase();
+      const code = String((connsErr as { code?: string }).code ?? "");
+      const isMissingColumn =
+        code === "42703" ||
+        code === "PGRST204" ||
+        msg.includes("does not exist") ||
+        msg.includes("column");
+      if (isMissingColumn) {
+        void logEvt(supabase, userId, "jack_gmail_sync_migration_missing", {
+          reason,
+          error_code: code || "missing_column",
+        });
+        return safeFail(
+          "migration_missing",
+          "La migration Gmail sync non risulta applicata correttamente.",
+          { error_code: "migration_missing" },
+        );
+      }
+      void logEvt(supabase, userId, "jack_gmail_sync_db_error", {
+        reason,
+        error_code: code || "db_error",
+      });
+      return safeFail("db_error", "Errore database Gmail.", {
+        error_code: "db_error",
+      });
+    }
     const list = ((conns ?? []) as unknown as ConnRow[]).filter(
       (c) => c.status === "connected",
     );
@@ -127,13 +192,7 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
         error_code: "not_connected",
         reason,
       });
-      return {
-        ok: false,
-        status: "not_connected",
-        safe_message: "Gmail non è collegato.",
-        mode,
-        reason,
-      };
+      return safeFail("not_connected", "Gmail non è collegato.");
     }
 
     const connHash = hashId(conn.id);
@@ -426,46 +485,85 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
         safe_message: `Sincronizzati ${added + updated} messaggi (${added} nuovi).`,
       };
     } catch (err) {
-      const errCode = (err as Error & { status?: number }).status === 401
-        ? "reauth_required"
-        : "sync_failed";
+      const errAny = err as Error & { status?: number; code?: string };
+      const tagged = errAny.code;
+      const msg = String(errAny.message ?? "").toLowerCase();
+      let status: RefreshGmailMetadataSyncResult["status"];
+      let errCode: string;
+      let safeMessage: string;
+      if (tagged === "reauth_required" || errAny.status === 401) {
+        status = "reauth_required";
+        errCode = "reauth_required";
+        safeMessage =
+          "Non riesco a sincronizzare Gmail perché serve ricollegare l'account.";
+      } else if (tagged === "config_missing") {
+        status = "config_missing";
+        errCode = "config_missing";
+        safeMessage = "Configurazione Google OAuth incompleta.";
+      } else if (tagged === "google_api_error") {
+        status = "google_api_error";
+        errCode = "google_api_error";
+        safeMessage = "Errore Gmail API durante la sincronizzazione.";
+      } else if (
+        msg.includes("does not exist") &&
+        msg.includes("column")
+      ) {
+        status = "migration_missing";
+        errCode = "migration_missing";
+        safeMessage =
+          "La migration Gmail sync non risulta applicata correttamente.";
+      } else {
+        status = "failed";
+        errCode = "sync_failed";
+        safeMessage = "Sincronizzazione Gmail non riuscita.";
+      }
       const errAt = new Date().toISOString();
-      await supabase
-        .from("gmail_connection_settings")
-        .update({
-          sync_lock_until: null,
-          sync_status: "error",
-          last_sync_status: "failed",
-          last_sync_error: String((err as Error).message ?? err).slice(0, 200),
-          last_sync_error_code: errCode,
-          last_sync_error_at: errAt,
-        } as never)
-        .eq("id", conn.id);
-      void logEvt(
-        supabase,
-        userId,
-        errCode === "reauth_required"
+      try {
+        await supabase
+          .from("gmail_connection_settings")
+          .update({
+            sync_lock_until: null,
+            sync_status: "error",
+            last_sync_status: "failed",
+            last_sync_error: String(errAny.message ?? "").slice(0, 200),
+            last_sync_error_code: errCode,
+            last_sync_error_at: errAt,
+          } as never)
+          .eq("id", conn.id);
+      } catch {
+        /* best-effort */
+      }
+      const evt =
+        status === "reauth_required"
           ? "jack_gmail_sync_reauth_required"
-          : "jack_gmail_sync_failed",
-        {
-          connection_id_hash: connHash,
-          mode,
-          reason,
-          error_code: errCode,
-        },
-      );
-      return {
-        ok: false,
-        status: errCode === "reauth_required" ? "reauth_required" : "failed",
+          : status === "google_api_error"
+            ? "jack_gmail_sync_google_api_error"
+            : status === "migration_missing"
+              ? "jack_gmail_sync_migration_missing"
+              : "jack_gmail_sync_failed";
+      void logEvt(supabase, userId, evt, {
+        connection_id_hash: connHash,
+        mode,
+        reason,
+        error_code: errCode,
+        has_refresh_token: !!conn.refresh_token,
+        last_sync_at: conn.last_sync_at,
+      });
+      return safeFail(status, safeMessage, {
         connection_id_hash: connHash,
         last_sync_before: conn.last_sync_at,
         error_code: errCode,
-        safe_message:
-          errCode === "reauth_required"
-            ? "Non riesco a sincronizzare Gmail perché serve ricollegare l'account."
-            : "Sincronizzazione Gmail non riuscita.",
+      });
+    }
+    } catch (outerErr) {
+      const e = outerErr as Error & { code?: string };
+      void logEvt(supabase, userId, "jack_gmail_sync_tool_error_caught", {
         mode,
         reason,
-      };
+        error_code: e.code ?? "unhandled",
+      });
+      return safeFail("failed", "Sincronizzazione Gmail non riuscita.", {
+        error_code: "unhandled",
+      });
     }
   });
