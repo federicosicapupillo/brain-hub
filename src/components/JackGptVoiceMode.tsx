@@ -785,6 +785,79 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
   const handleToolCall = useCallback(
     async (callId: string, name: string, argsRaw: string) => {
+      // v3.24.2 — voice tool gate. Block gated tools if there is no recent
+      // explicit user command / confirmation, especially right after Jack
+      // has asked the user a question.
+      if (GATED_VOICE_TOOLS.has(name)) {
+        const gateNow = Date.now();
+        const decision = decideVoiceToolGate({
+          toolName: name,
+          lastValidUserUtterance: lastValidUserUtteranceRef.current?.text ?? null,
+          lastValidUserUtteranceAt: lastValidUserUtteranceRef.current?.at ?? null,
+          lastAssistantQuestionAt: lastAssistantAskedConfirmationAtRef.current,
+          lastAssistantQuestionText: lastAssistantSpokenTextRef.current,
+          now: gateNow,
+        });
+        if (decision.status === "blocked") {
+          processedToolCallIdsRef.current.add(callId);
+          setDiagnostics((d) => ({
+            ...d,
+            lastToolGateDecision: "blocked",
+            lastToolBlockedReason: decision.reason,
+            pendingToolConfirmation: true,
+          }));
+          safeLog(
+            decision.reason ===
+              "tool_called_after_assistant_question_without_user_reply"
+              ? "jack_voice_tool_blocked_after_assistant_question"
+              : "jack_voice_tool_blocked_confirmation_required",
+            {
+              tool_name: name,
+              reason: decision.reason,
+              has_pending_assistant_question: Boolean(
+                lastAssistantAskedConfirmationAtRef.current,
+              ),
+            },
+          );
+          pushLog({
+            kind: "warning",
+            text: `Tool ${name} bloccato: ${decision.reason}.`,
+          });
+          const dcBlock = dcRef.current;
+          if (dcBlock && dcBlock.readyState === "open") {
+            try {
+              dcBlock.send(
+                JSON.stringify({
+                  type: "conversation.item.create",
+                  item: {
+                    type: "function_call_output",
+                    call_id: callId,
+                    output: JSON.stringify(
+                      buildBlockedToolPayload(
+                        decision.reason,
+                        decision.safe_message,
+                      ),
+                    ),
+                  },
+                }),
+              );
+            } catch {
+              /* noop */
+            }
+            safeCreateResponse("tool_blocked_confirmation_required", {
+              queueIfBusy: true,
+            });
+          }
+          return;
+        }
+        setDiagnostics((d) => ({
+          ...d,
+          lastToolGateDecision: "allowed",
+          lastToolBlockedReason: null,
+          pendingToolConfirmation: false,
+        }));
+      }
+
       // v3.21.2 — per-callId dedup (model occasionally re-emits the same call)
       if (processedToolCallIdsRef.current.has(callId)) {
         safeLog("jack_client_duplicate_tool_call_ignored", {
