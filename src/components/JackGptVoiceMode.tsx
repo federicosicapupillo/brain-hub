@@ -1582,6 +1582,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           tool_name: toolName,
           ok,
         });
+        pushLog({ kind: "tool", text: `← ${toolName}: ${ok ? "ok" : "failed"}` });
         setDiagnostics((d) => ({
           ...d,
           lastVoiceActionResultStatus: ok ? "executed" : "failed",
