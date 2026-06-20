@@ -27,7 +27,9 @@ import {
   executeConfirmedUiOperatorActionFn,
   stopUiOperatorSessionFn,
   listUiOperatorActionsFn,
+  getUiOperatorUrlDiagnosticsFn,
 } from "@/lib/ui-operator.functions";
+
 import {
   createUiOperatorAuthTokenFn,
   getLatestUiOperatorAuthTokenFn,
