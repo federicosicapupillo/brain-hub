@@ -1784,127 +1784,188 @@ export const runJackGptTool = createServerFn({ method: "POST" })
 
 
         case "refresh_gmail_sync": {
-          const mode =
-            args.mode === "recent" ? ("recent" as const) : ("today" as const);
-          const reason =
-            args.reason === "stale_before_read"
-              ? ("stale_before_read" as const)
-              : ("user_requested" as const);
-          const brainId = (args.brain_id as string | undefined) ?? null;
-
-          void logSanitizedEvent(
-            supabase,
-            userId,
-            reason === "stale_before_read"
-              ? "jack_gmail_auto_sync_before_brief"
-              : "jack_gmail_sync_requested",
-            { mode, reason, brain_id: brainId, tool_name: "refresh_gmail_sync" },
-          );
-
+          // v3.24.1 — absolute outer try/catch: never throw, always return JSON-safe.
           try {
-            const { refreshGmailMetadataSyncFn } = await import(
-              "@/lib/gmail-refresh-sync.functions"
-            );
-            const sync = await refreshGmailMetadataSyncFn({
-              data: { brain_id: brainId, mode, reason },
-            });
+            const mode =
+              args.mode === "recent" ? ("recent" as const) : ("today" as const);
+            const reason =
+              args.reason === "stale_before_read"
+                ? ("stale_before_read" as const)
+                : ("user_requested" as const);
+            const brainId = (args.brain_id as string | undefined) ?? null;
 
-            // v3.24 — only attempt the post-sync brief when the sync truly
-            // completed (or was skipped recently without a stale flag).
-            let briefAfter: unknown = null;
-            const shouldFetchBriefAfter =
-              sync.ok &&
-              (sync.status === "synced" || sync.status === "skipped_recent");
-            if (shouldFetchBriefAfter) {
-              try {
-                const { getEmailBriefFn } = await import(
-                  "@/lib/gmail-intelligence.functions"
-                );
-                const candidate = await getEmailBriefFn({
-                  data: { brain_id: brainId, date_range: "today" },
-                });
-                const candidateRecord = candidate as Record<string, unknown>;
-                const isStale =
-                  candidateRecord.cache_stale === true ||
-                  candidateRecord.status === "connected_cache_stale";
-                if (sync.status === "skipped_recent" && isStale) {
-                  briefAfter = null;
-                } else {
-                  briefAfter = candidate;
-                }
-                void logSanitizedEvent(
-                  supabase,
-                  userId,
-                  "jack_gmail_brief_after_sync_served",
-                  {
-                    brain_id: brainId,
-                    new_messages_count: sync.new_messages_count ?? 0,
-                    updated_messages_count: sync.updated_messages_count ?? 0,
-                    cache_stale: isStale,
-                    status: sync.status,
-                  },
-                );
-              } catch {
-                briefAfter = null;
-              }
-            } else if (!sync.ok) {
+            void logSanitizedEvent(
+              supabase,
+              userId,
+              reason === "stale_before_read"
+                ? "jack_gmail_auto_sync_before_brief"
+                : "jack_gmail_sync_requested",
+              { mode, reason, brain_id: brainId, tool_name: "refresh_gmail_sync" },
+            );
+
+            const FAILURE_STATUSES = new Set([
+              "reauth_required",
+              "failed",
+              "config_missing",
+              "token_refresh_failed",
+              "google_api_error",
+              "db_error",
+              "cache_stale",
+              "migration_missing",
+              "not_connected",
+            ]);
+
+            const buildFailurePayload = (sync: {
+              ok?: boolean;
+              status?: string;
+              safe_message?: string | null;
+              error_code?: string | null;
+            }) => {
+              const status = sync.status ?? "failed";
+              const requires_reauth = status === "reauth_required";
+              const safeMsg =
+                sync.safe_message ??
+                (requires_reauth
+                  ? "Gmail va ricollegato. Non posso leggere email aggiornate finché non completi il ricollegamento."
+                  : "Sincronizzazione Gmail non riuscita.");
               void logSanitizedEvent(
                 supabase,
                 userId,
-                "jack_gmail_sync_failed_for_voice",
+                requires_reauth
+                  ? "jack_gmail_sync_reauth_required_for_voice"
+                  : "jack_gmail_sync_brief_skipped_after_failure",
                 {
-                  status: sync.status,
+                  status,
                   error_code: sync.error_code ?? null,
-                  mode,
-                  reason,
+                  requires_reauth,
+                  cache_stale: true,
+                  has_safe_message: !!safeMsg,
                 },
               );
+              return {
+                ok: false,
+                status,
+                requires_reauth,
+                cache_stale: true,
+                safe_message: safeMsg,
+                error_code: sync.error_code ?? null,
+                can_read_synced_cache: false,
+                should_not_fetch_brief: true,
+                should_not_cite_emails: true,
+                next_action: requires_reauth ? "reconnect_gmail" : "check_gmail_connector",
+                payload: { sync, brief_after: null },
+              };
+            };
+
+            let sync: Awaited<
+              ReturnType<
+                typeof import("@/lib/gmail-refresh-sync.functions").refreshGmailMetadataSyncFn
+              >
+            >;
+            try {
+              const { refreshGmailMetadataSyncFn } = await import(
+                "@/lib/gmail-refresh-sync.functions"
+              );
+              sync = await refreshGmailMetadataSyncFn({
+                data: { brain_id: brainId, mode, reason },
+              });
+            } catch (innerErr) {
+              void logSanitizedEvent(
+                supabase,
+                userId,
+                "jack_gmail_sync_tool_exception_caught",
+                {
+                  mode,
+                  reason,
+                  error_code:
+                    (innerErr as Error & { code?: string }).code ?? "sync_throw",
+                },
+              );
+              return buildFailurePayload({
+                ok: false,
+                status: "failed",
+                safe_message: "Sincronizzazione Gmail non riuscita.",
+                error_code: "sync_throw",
+              });
+            }
+
+            const isFailure = !sync.ok || FAILURE_STATUSES.has(sync.status);
+            if (isFailure) {
+              return buildFailurePayload(sync);
+            }
+
+            // Success path: synced or skipped_recent.
+            let briefAfter: unknown = null;
+            try {
+              const { getEmailBriefFn } = await import(
+                "@/lib/gmail-intelligence.functions"
+              );
+              const candidate = await getEmailBriefFn({
+                data: { brain_id: brainId, date_range: "today" },
+              });
+              const candidateRecord = candidate as Record<string, unknown>;
+              const isStale =
+                candidateRecord.cache_stale === true ||
+                candidateRecord.status === "connected_cache_stale";
+              briefAfter = sync.status === "skipped_recent" && isStale ? null : candidate;
+              void logSanitizedEvent(
+                supabase,
+                userId,
+                "jack_gmail_brief_after_sync_served",
+                {
+                  brain_id: brainId,
+                  new_messages_count: sync.new_messages_count ?? 0,
+                  updated_messages_count: sync.updated_messages_count ?? 0,
+                  cache_stale: isStale,
+                  status: sync.status,
+                },
+              );
+            } catch {
+              briefAfter = null;
             }
 
             const safePayload = JSON.parse(
               JSON.stringify({
                 sync,
                 brief_after: briefAfter,
-                // Top-level mirror so the voice layer can branch quickly.
                 status: sync.status,
-                requires_reauth: sync.status === "reauth_required",
+                requires_reauth: false,
                 safe_message: sync.safe_message ?? null,
               }),
             );
             return {
-              ok: sync.ok,
+              ok: true,
               status: sync.status,
-              requires_reauth: sync.status === "reauth_required",
+              requires_reauth: false,
+              cache_stale: false,
               safe_message: sync.safe_message ?? null,
+              can_read_synced_cache: true,
+              should_not_fetch_brief: false,
+              should_not_cite_emails: false,
               payload: safePayload,
             };
           } catch (err) {
             void logSanitizedEvent(
               supabase,
               userId,
-              "jack_gmail_sync_tool_error_caught",
+              "jack_gmail_sync_tool_exception_caught",
               {
-                mode,
-                reason,
                 error_code:
-                  (err as Error & { code?: string }).code ?? "dispatcher_error",
+                  (err as Error & { code?: string }).code ?? "dispatcher_outer",
               },
             );
             return {
               ok: false,
               status: "failed",
               requires_reauth: false,
+              cache_stale: true,
               safe_message: "Sincronizzazione Gmail non riuscita.",
-              payload: {
-                sync: {
-                  ok: false,
-                  status: "failed",
-                  safe_message: "Sincronizzazione Gmail non riuscita.",
-                  mode,
-                  reason,
-                },
-                brief_after: null,
-              },
+              error_code: "tool_exception_caught",
+              can_read_synced_cache: false,
+              should_not_fetch_brief: true,
+              should_not_cite_emails: true,
+              next_action: "check_gmail_connector",
+              payload: { sync: null, brief_after: null },
             };
           }
         }
