@@ -169,7 +169,17 @@ function UiOperatorLabRoute() {
   }
 
   const mode = cfg.data?.mode ?? "mock";
-  const configured = !!cfg.data?.configured;
+  const runnerConfigured = !!cfg.data?.runner_configured;
+  const runnerReachable = health.data?.reachable === true;
+  const runnerStatusLabel = !runnerConfigured
+    ? "non configurato"
+    : health.isFetching
+      ? "verifica…"
+      : runnerReachable
+        ? "reachable"
+        : health.data
+          ? `non raggiungibile (${health.data.status})`
+          : "non testato";
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -184,22 +194,37 @@ function UiOperatorLabRoute() {
             <ShieldCheck className="h-4 w-4" /> Stato configurazione
           </CardTitle>
           <CardDescription>
-            Browserbase: {cfg.data?.has_browserbase_api_key ? "✅" : "❌"} · Project ID:{" "}
-            {cfg.data?.has_browserbase_project_id ? "✅" : "❌"} · Model key:{" "}
-            {cfg.data?.has_model_key ? "✅" : "❌"} · Model: {cfg.data?.model ?? "—"}
+            Runner URL: {cfg.data?.runner_url_present ? "✅" : "❌"} · Runner secret:{" "}
+            {cfg.data?.runner_secret_present ? "✅" : "❌"} · Browserbase env locale:{" "}
+            {cfg.data?.has_browserbase_api_key ? "✅" : "—"} · Model:{" "}
+            {cfg.data?.model ?? "—"}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-2">
-          <Badge variant={configured ? "default" : "outline"}>
-            Mode: {mode === "real" ? "reale" : "mock"}
+          <Badge variant={runnerConfigured && runnerReachable ? "default" : "outline"}>
+            {mode === "real" ? "REAL" : "MOCK"}
           </Badge>
+          <Badge variant="outline">Runner: {runnerStatusLabel}</Badge>
           <Badge variant="outline">
             Route consentite: {cfg.data?.allowed_routes.length ?? ALLOWED_UI_ROUTES.length}
           </Badge>
-          {!configured ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => health.refetch()}
+            disabled={!runnerConfigured || health.isFetching}
+          >
+            Test runner health
+          </Button>
+          {!runnerConfigured ? (
             <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <AlertTriangle className="h-3 w-3" /> Mock attivo: aggiungi
-              BROWSERBASE_API_KEY, BROWSERBASE_PROJECT_ID e OPENAI_API_KEY per il browser reale.
+              <AlertTriangle className="h-3 w-3" /> Mock attivo: configura
+              UI_OPERATOR_RUNNER_URL e UI_OPERATOR_RUNNER_SECRET (più Browserbase nel runner) per il browser reale.
+            </span>
+          ) : null}
+          {runnerConfigured && health.data && !health.data.ok ? (
+            <span className="text-xs text-destructive">
+              Ultimo errore: {health.data.safe_message}
             </span>
           ) : null}
         </CardContent>
