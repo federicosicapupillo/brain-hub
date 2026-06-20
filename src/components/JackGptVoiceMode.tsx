@@ -262,6 +262,16 @@ type Diagnostics = {
   lastGmailSyncSafeMessage: string | null;
   lastGmailSyncErrorCode: string | null;
   lastGmailRequiresReauth: boolean;
+  // v3.25 — deterministic voice command router diagnostics
+  lastRouterIntent: VoiceCommandIntent | null;
+  lastRouterConfidence: VoiceCommandConfidence | null;
+  lastRouterMatchedTerms: string[];
+  pendingVoiceActionId: string | null;
+  pendingVoiceActionType: string | null;
+  pendingVoiceActionExpiresAt: number | null;
+  lastVoiceActionExecuted: string | null;
+  lastVoiceActionResultStatus: VoiceActionStatus | null;
+  sensitiveToolSuppressedCount: number;
 };
 
 type Props = { brainId?: string | null };
