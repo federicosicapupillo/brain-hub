@@ -151,4 +151,13 @@ export interface UiOperatorRunResult {
   execution_mode?: UiOperatorExecutionMode;
   runner_configured?: boolean;
   runner_reachable?: boolean;
+  debug?: {
+    base_url: string | null;
+    base_url_source: string;
+    auth_url_preview: string | null;
+    route_target: string;
+    surface_target: string | null;
+    error_code: string | null;
+  };
 }
+
