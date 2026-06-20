@@ -10,6 +10,7 @@ export type VoiceCommandIntent =
   | "open_gmail_connector"
   | "cancel"
   | "confirm_pending"
+  | "capability_question"
   | "unknown";
 
 export type VoiceCommandConfidence = "high" | "medium" | "low";
