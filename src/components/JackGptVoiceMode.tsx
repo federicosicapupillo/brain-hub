@@ -298,7 +298,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastVoiceConfirmationIgnoredReason: null,
     voiceConfirmationInFlight: false,
     voiceConfirmationLastSource: null,
+    skippedBecauseNoPendingPreview: false,
+    genericConfirmationIgnored: false,
+    pendingPreviewExists: false,
   });
+
 
   const responseInProgressRef = useRef(false);
   const activeResponseIdRef = useRef<string | null>(null);
