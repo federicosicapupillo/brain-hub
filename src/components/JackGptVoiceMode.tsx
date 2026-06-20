@@ -375,6 +375,12 @@ type Diagnostics = {
   lastVoiceActionExecuted: string | null;
   lastVoiceActionResultStatus: VoiceActionStatus | null;
   sensitiveToolSuppressedCount: number;
+  // v3.25.1 — pending voice action confirmation bridge
+  pendingVoiceActionConfirmedByVoice: boolean;
+  lastPendingVoiceActionConfirmationText: string | null;
+  lastPendingVoiceActionExecutionStartedAt: number | null;
+  lastPendingVoiceActionExecutionFinishedAt: number | null;
+  lastPendingVoiceActionExecutionResult: "ok" | "failed" | null;
 };
 
 type Props = { brainId?: string | null };
