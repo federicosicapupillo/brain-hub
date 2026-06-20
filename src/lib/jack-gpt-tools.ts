@@ -393,6 +393,36 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       required: ["gmail_message_id"],
     },
   },
+  {
+    type: "function",
+    name: "search_emails",
+    description:
+      "Cerca email sincronizzate per testo (subject/from/snippet). Usare per follow-up tipo 'quella di Spotify' o 'la mail sulla richiesta API'. Read-only. Default range='week'.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string" },
+        date_range: { type: "string", enum: ["today", "week", "all"] },
+        limit: { type: "number" },
+        brain_id: { type: "string" },
+      },
+      required: ["query"],
+    },
+  },
+  {
+    type: "function",
+    name: "get_email_detail",
+    description:
+      "Dettaglio di una singola email sincronizzata: subject, from, snippet, body preview se disponibile, summary. Read-only. Nessuna modifica Gmail.",
+    parameters: {
+      type: "object",
+      properties: {
+        local_id: { type: "string" },
+        gmail_message_id: { type: "string" },
+      },
+      required: [],
+    },
+  },
 ] as const;
 
 // ---------- Helpers ----------
@@ -456,6 +486,8 @@ const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
   "list_important_emails",
   "summarize_email",
   "summarize_email_thread",
+  "search_emails",
+  "get_email_detail",
 ]);
 
 function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
@@ -528,6 +560,8 @@ const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "summarize_email",
   "summarize_email_thread",
   "preview_email_action",
+  "search_emails",
+  "get_email_detail",
 ]);
 type InFlightResult = { ok: boolean; [k: string]: unknown };
 const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
@@ -1628,6 +1662,30 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           });
           return { ok: res.ok, payload: res };
         }
+        case "search_emails": {
+          const { searchEmailsFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await searchEmailsFn({
+            data: {
+              query: (args.query as string | undefined) ?? "",
+              date_range: (args.date_range as "today" | "week" | "all" | undefined) ?? "week",
+              limit: typeof args.limit === "number" ? args.limit : 10,
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+        case "get_email_detail": {
+          const { getEmailDetailFn } = await import("@/lib/gmail-intelligence.functions");
+          const res = await getEmailDetailFn({
+            data: {
+              local_id: (args.local_id as string | undefined) ?? undefined,
+              gmail_message_id: (args.gmail_message_id as string | undefined) ?? undefined,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
+
+
 
         default:
           return { ok: false, error: "unknown_tool" };
