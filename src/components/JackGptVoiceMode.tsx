@@ -1563,6 +1563,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           toolArgs = pending.preview.payload;
           break;
       }
+      pushLog({ kind: "tool", text: `→ ${toolName}` });
       try {
         const result = (await toolFn({
           data: {
