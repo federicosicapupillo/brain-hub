@@ -1849,10 +1849,14 @@ export const runJackGptTool = createServerFn({ method: "POST" })
                 cache_stale: true,
                 safe_message: safeMsg,
                 error_code: sync.error_code ?? null,
+                technical_hint_sanitized:
+                  sync.error_code ? `code:${sync.error_code}` : null,
                 can_read_synced_cache: false,
                 should_not_fetch_brief: true,
                 should_not_cite_emails: true,
                 next_action: requires_reauth ? "reconnect_gmail" : "check_gmail_connector",
+                connector_url: "/gmail-connector",
+                suggested_screen: "/gmail-connector",
                 payload: { sync, brief_after: null },
               };
             };
