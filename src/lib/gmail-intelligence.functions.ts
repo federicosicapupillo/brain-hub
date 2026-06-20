@@ -405,21 +405,6 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
   };
 }
 
-type DebugTodayRawEntry = {
-  local_id: string;
-  from_domain: string | null;
-  from_preview: string | null;
-  subject_preview: string | null;
-  snippet_preview: string | null;
-  received_at: string | null;
-  label_ids: string[];
-  detected_category: string;
-  is_unread: boolean;
-  classified_as: "newsletter" | "unknown_personal" | "inbox_primary";
-  is_newsletter: boolean;
-  is_filtered: boolean;
-};
-
 const EMAIL_SELECT_COLS =
   "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,label_ids,detected_category";
 
