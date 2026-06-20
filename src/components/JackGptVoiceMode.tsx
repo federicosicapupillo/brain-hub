@@ -74,6 +74,19 @@ import {
   type VoiceCommandConfidence,
   type VoiceCommandRouterResult,
 } from "@/lib/jack-deterministic-command-router";
+
+// v3.25 — Realtime model is NOT allowed to call these tools directly. They are
+// stripped from session.tools_for_update and executed only via the
+// deterministic command router + confirmation buttons.
+const SENSITIVE_VOICE_TOOLS: ReadonlySet<string> = new Set([
+  "refresh_gmail_sync",
+  "open_brainhub_screen",
+  "observe_brainhub_screen",
+  "propose_ui_action",
+  "confirm_ui_action",
+  "execute_confirmed_ui_action",
+  "stop_ui_operator_session",
+]);
 import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
 import {
   classifyRealtimeStartError,
