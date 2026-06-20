@@ -488,6 +488,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   >(null);
   const restoreAttemptedRef = useRef(false);
 
+  // v3.24.2 — voice tool gate + echo guard refs
+  const lastValidUserUtteranceRef = useRef<{ text: string; at: number } | null>(null);
+  const lastAssistantSpokenTextRef = useRef<string | null>(null);
+  const lastAssistantSpokenAtRef = useRef<number | null>(null);
+  const lastAssistantAskedConfirmationAtRef = useRef<number | null>(null);
+
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id" | "ts">) => {
     setLog((prev) => [
