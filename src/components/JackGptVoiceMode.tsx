@@ -88,11 +88,25 @@ const SENSITIVE_VOICE_TOOLS: ReadonlySet<string> = new Set([
   "stop_ui_operator_session",
 ]);
 
-// v3.25.2 — allowed sources for sensitive action execution.
-type VoiceActionExecutionSource = "ui_button" | "voice_confirm";
-const ALLOWED_SENSITIVE_EXECUTION_SOURCES: ReadonlySet<VoiceActionExecutionSource> = new Set([
+// v3.25.2 — typed source for any sensitive action execution path. Only
+// `ui_button` and `voice_confirm` are allowed to actually run the tool;
+// every other value is recorded and rejected.
+type VoiceActionExecutionSource =
+  | "ui_button"
+  | "voice_confirm"
+  | "model_tool"
+  | "router_auto"
+  | "assistant_question"
+  | "generic_user_question"
+  | "unknown";
+const ALLOWED_SENSITIVE_EXECUTION_SOURCES: ReadonlySet<VoiceActionExecutionSource> = new Set<VoiceActionExecutionSource>([
   "ui_button",
   "voice_confirm",
+]);
+// Tools that must never be executed unless source ∈ ALLOWED set above —
+// even if they slip past the session.tools allowlist.
+const SENSITIVE_DIRECT_EXECUTION_TOOLS: ReadonlySet<string> = new Set([
+  "refresh_gmail_sync",
 ]);
 
 // v3.25.1 — Typed Realtime payload builders. Realtime GA requires:
@@ -395,6 +409,7 @@ type Diagnostics = {
   lastVoiceActionExecutionSource: VoiceActionExecutionSource | null;
   lastSensitiveActionBlockedSource: string | null;
   duplicateRouterMessageSuppressedCount: number;
+  lastResponseCreateBlockedReason: string | null;
 };
 
 type Props = { brainId?: string | null };
@@ -515,6 +530,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastVoiceActionExecutionSource: null,
     lastSensitiveActionBlockedSource: null,
     duplicateRouterMessageSuppressedCount: 0,
+    lastResponseCreateBlockedReason: null,
   });
 
   // v3.25 — pending voice action state for confirmation buttons
@@ -810,13 +826,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           safeLog("jack_gpt_response_create_queued", { reason });
           return "queued";
         }
+        const why = responseInProgressRef.current ? "in_progress" : "debounced";
         setDiagnostics((d) => ({
           ...d,
           skippedResponseCreateCount: d.skippedResponseCreateCount + 1,
+          lastResponseCreateBlockedReason: `${reason}:${why}`,
         }));
         safeLog("jack_gpt_response_create_skipped_active", {
           reason,
-          why: responseInProgressRef.current ? "in_progress" : "debounced",
+          why,
         });
         return "skipped";
       }
@@ -963,6 +981,58 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
   const handleToolCall = useCallback(
     async (callId: string, name: string, argsRaw: string) => {
+      // v3.25.2 — hard source gate for sensitive direct-execution tools.
+      // The Realtime model is not supposed to see refresh_gmail_sync at all
+      // (stripped via session.tools), but if it somehow emits the call, we
+      // must NOT execute it. The only valid sources are ui_button /
+      // voice_confirm via executeVoiceAction; a model-emitted call is
+      // source "model_tool" and gets a structured ok:false back.
+      if (SENSITIVE_DIRECT_EXECUTION_TOOLS.has(name)) {
+        processedToolCallIdsRef.current.add(callId);
+        safeLog("jack_voice_sensitive_action_blocked_invalid_source", {
+          tool_name: name,
+          source: "model_tool" as VoiceActionExecutionSource,
+          call_id: callId.slice(0, 8),
+        });
+        setDiagnostics((d) => ({
+          ...d,
+          lastSensitiveActionBlockedSource: "model_tool",
+          lastToolGateDecision: "blocked",
+          lastToolBlockedReason: "no_explicit_gmail_sync_command",
+        }));
+        pushLog({
+          kind: "warning",
+          text: `Azione bloccata: ${name}, source model_tool`,
+        });
+        const dcBlock = dcRef.current;
+        if (dcBlock && dcBlock.readyState === "open") {
+          try {
+            dcBlock.send(
+              JSON.stringify({
+                type: "conversation.item.create",
+                item: {
+                  type: "function_call_output",
+                  call_id: callId,
+                  output: JSON.stringify({
+                    ok: false,
+                    status: "blocked_invalid_source",
+                    blocked: true,
+                    reason: "model_tool_source_not_allowed",
+                    safe_message:
+                      "Serve una conferma esplicita: usa il pulsante o dimmi 'sì, sincronizza Gmail'.",
+                    should_not_retry_tool: true,
+                    requires_user_confirmation: true,
+                  }),
+                },
+              }),
+            );
+          } catch { /* noop */ }
+          safeCreateResponse("sensitive_tool_blocked_model_source", {
+            queueIfBusy: true,
+          });
+        }
+        return;
+      }
       // v3.24.2 — voice tool gate. Block gated tools if there is no recent
       // explicit user command / confirmation, especially right after Jack
       // has asked the user a question.
