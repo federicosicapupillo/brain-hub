@@ -165,6 +165,9 @@ type EmailBriefItem = {
   project_guess: string | null;
   has_attachments: boolean;
   labels: string[];
+  category: string;
+  is_newsletter: boolean;
+  is_filtered: boolean;
 };
 
 function domainOf(email: string | null | undefined): string | null {
@@ -182,6 +185,16 @@ function redactEmailForLog(email: string | null | undefined): string | null {
 
 function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
   const fromEmail = (r.from_email as string | null) ?? null;
+  const labels = Array.isArray(r.label_ids) ? (r.label_ids as string[]) : [];
+  const subject = (r.subject as string | null) ?? null;
+  const snippet = ((r.snippet as string | null) ?? "").slice(0, 280) || null;
+  const cls = classifyMail({
+    label_ids: labels,
+    detected_category: (r.detected_category as string | null) ?? null,
+    from_email: fromEmail,
+    subject,
+    snippet,
+  });
   return {
     local_id: String(r.id),
     selection_index: idx + 1,
@@ -190,8 +203,8 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
     from_name: (r.from_name as string | null) ?? null,
     from_email: fromEmail,
     from_domain: domainOf(fromEmail),
-    subject: (r.subject as string | null) ?? null,
-    snippet: ((r.snippet as string | null) ?? "").slice(0, 280) || null,
+    subject,
+    snippet,
     received_at: (r.internal_date as string | null) ?? null,
     unread: Boolean(r.is_unread),
     importance_score: Number(r.importance_score ?? 0),
@@ -199,12 +212,16 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
     importance_reason: (r.importance_reason as string | null) ?? null,
     project_guess: (r.project_guess as string | null) ?? null,
     has_attachments: Boolean(r.has_attachments),
-    labels: Array.isArray(r.label_ids) ? (r.label_ids as string[]) : [],
+    labels,
+    category: cls.category,
+    is_newsletter: cls.is_newsletter,
+    is_filtered: cls.is_filtered,
   };
 }
 
 const EMAIL_SELECT_COLS =
-  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,label_ids";
+  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,label_ids,detected_category";
+
 
 export const getEmailBriefFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
