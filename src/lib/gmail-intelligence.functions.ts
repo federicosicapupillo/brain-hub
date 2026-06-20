@@ -408,7 +408,18 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
 }
 
 const EMAIL_SELECT_COLS =
-  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,body_preview,label_ids,detected_category";
+  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,body_preview,label_ids,detected_category,metadata";
+
+// v3.24 — extract the active sync_run_id from a row's metadata.
+function rowSyncRunId(row: Record<string, unknown> | null | undefined): string | null {
+  if (!row) return null;
+  const md = (row as { metadata?: unknown }).metadata;
+  if (md && typeof md === "object" && md !== null) {
+    const v = (md as Record<string, unknown>).last_seen_sync_run_id;
+    return typeof v === "string" && v.length > 0 ? v : null;
+  }
+  return null;
+}
 
 
 export const getEmailBriefFn = createServerFn({ method: "POST" })
