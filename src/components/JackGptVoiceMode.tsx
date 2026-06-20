@@ -950,6 +950,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         lastToolRequiresReauth: requiresReauth,
         lastToolCacheStale: cacheStale,
         lastToolShouldNotCiteEmails: shouldNotCite,
+        ...(name === "refresh_gmail_sync"
+          ? {
+              lastGmailSyncStatus: lastToolStatus,
+              lastGmailSyncSafeMessage: lastToolSafeMessage,
+              lastGmailSyncErrorCode: lastToolErrorCode,
+              lastGmailRequiresReauth: requiresReauth,
+            }
+          : {}),
       }));
       safeLog("jack_realtime_tool_call_completed", {
         tool_name: name,
