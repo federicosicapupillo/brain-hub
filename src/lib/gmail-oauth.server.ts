@@ -306,7 +306,11 @@ export async function refreshGmailAccessToken(
   refreshToken: string,
 ): Promise<GmailTokenResponse> {
   const cfg = getGmailOauthConfig();
-  if (!cfg) throw new Error("Gmail OAuth non configurato");
+  if (!cfg) {
+    const err = new Error("Gmail OAuth non configurato");
+    (err as Error & { code?: string }).code = "config_missing";
+    throw err;
+  }
   const body = new URLSearchParams({
     client_id: cfg.clientId,
     client_secret: cfg.clientSecret,
@@ -320,10 +324,25 @@ export async function refreshGmailAccessToken(
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
+    let parsedError: string | null = null;
+    try {
+      const j = JSON.parse(txt) as { error?: string };
+      parsedError = typeof j.error === "string" ? j.error : null;
+    } catch {
+      /* ignore */
+    }
+    const reauth =
+      res.status === 401 ||
+      parsedError === "invalid_grant" ||
+      parsedError === "invalid_token" ||
+      parsedError === "unauthorized_client";
     const err = new Error(
-      `Gmail refresh fallito (${res.status}): ${sanitizeGoogleError(txt)}`,
+      `Gmail refresh fallito (${res.status}): ${sanitizeGoogleError(txt).slice(0, 120)}`,
     );
-    (err as Error & { status?: number }).status = res.status;
+    (err as Error & { status?: number; code?: string }).status = res.status;
+    (err as Error & { status?: number; code?: string }).code = reauth
+      ? "reauth_required"
+      : "google_api_error";
     throw err;
   }
   return (await res.json()) as GmailTokenResponse;
