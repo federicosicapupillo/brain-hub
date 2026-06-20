@@ -221,6 +221,152 @@ function redactEmailForLog(email: string | null | undefined): string | null {
   return `${email[0]}***@${email.slice(at + 1)}`;
 }
 
+function previewText(text: string | null | undefined, max: number): string | null {
+  if (!text) return null;
+  const compact = String(text).replace(/\s+/g, " ").trim();
+  if (!compact) return null;
+  return compact.length > max ? `${compact.slice(0, max - 1)}…` : compact;
+}
+
+type SupabaseReadClient = { from: (table: string) => any };
+
+type GmailConnectionCandidate = {
+  id: string;
+  status: string;
+  google_email: string | null;
+  last_sync_at: string | null;
+  updated_at: string | null;
+  messages_today_count: number;
+  latest_message_at: string | null;
+};
+
+type ConnectionCandidateDiagnostic = {
+  id_hash: string;
+  status: string;
+  email_preview?: string | null;
+  last_sync_at?: string | null;
+  messages_today_count: number;
+};
+
+type DebugTodayRawEntry = {
+  local_id: string;
+  gmail_message_id_hash?: string;
+  from_preview?: string | null;
+  from_domain?: string | null;
+  subject_preview?: string | null;
+  snippet_preview?: string | null;
+  internal_date?: string | null;
+  label_ids?: string[];
+  detected_category?: string | null;
+  is_unread?: boolean;
+  has_attachments?: boolean;
+  classified_as?: string;
+  included_in_buckets?: string[];
+};
+
+async function getRawTodayMessagesForDebug(
+  supabase: SupabaseReadClient,
+  opts: {
+    connectionId: string;
+    startIso: string;
+    endIso: string;
+    limit?: number;
+  },
+): Promise<{ rows: Array<Record<string, unknown>>; rawCount: number }> {
+  const { data, count } = await supabase
+    .from("gmail_message_map")
+    .select(EMAIL_SELECT_COLS, { count: "exact" })
+    .eq("connection_id", opts.connectionId)
+    .gte("internal_date", opts.startIso)
+    .lt("internal_date", opts.endIso)
+    .order("internal_date", { ascending: false, nullsFirst: false })
+    .limit(opts.limit ?? 200);
+
+  return {
+    rows: (data ?? []) as Array<Record<string, unknown>>,
+    rawCount: count ?? ((data ?? []) as unknown[]).length,
+  };
+}
+
+function syncMayBeStale(input: {
+  lastSyncAt: string | null;
+  partialSync: boolean;
+  rawTodayCount: number;
+  connected: boolean;
+}): boolean {
+  if (!input.connected) return false;
+  if (!input.lastSyncAt) return true;
+  const lastSyncMs = new Date(input.lastSyncAt).getTime();
+  if (!Number.isFinite(lastSyncMs) || lastSyncMs <= 0) return true;
+  if (Date.now() - lastSyncMs > 10 * 60 * 1000) return true;
+  if (input.partialSync) return true;
+  if (input.rawTodayCount === 0) return true;
+  return false;
+}
+
+async function buildConnectionCandidates(
+  supabase: SupabaseReadClient,
+  conns: Array<{
+    id: string;
+    status: string;
+    google_email?: string | null;
+    last_sync_at?: string | null;
+    updated_at?: string | null;
+  }>,
+  todayStart: string,
+  todayEnd: string,
+): Promise<GmailConnectionCandidate[]> {
+  return await Promise.all(
+    conns.map(async (conn) => {
+      const [{ count }, latestRes] = await Promise.all([
+        supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("connection_id", conn.id)
+          .gte("internal_date", todayStart)
+          .lt("internal_date", todayEnd),
+        supabase
+          .from("gmail_message_map")
+          .select("internal_date")
+          .eq("connection_id", conn.id)
+          .order("internal_date", { ascending: false, nullsFirst: false })
+          .limit(1),
+      ]);
+      const latestRow = ((latestRes.data ?? []) as Array<{ internal_date?: string | null }>)[0];
+      return {
+        id: conn.id,
+        status: conn.status,
+        google_email: conn.google_email ?? null,
+        last_sync_at: conn.last_sync_at ?? null,
+        updated_at: conn.updated_at ?? null,
+        messages_today_count: count ?? 0,
+        latest_message_at: latestRow?.internal_date ?? null,
+      };
+    }),
+  );
+}
+
+function pickActiveConnection(
+  candidates: GmailConnectionCandidate[],
+): GmailConnectionCandidate | null {
+  const active = candidates.filter(
+    (c) => c.status === "connected" || c.status === "active",
+  );
+  active.sort((a, b) => {
+    const aDate = new Date(
+      a.latest_message_at ?? a.last_sync_at ?? a.updated_at ?? 0,
+    ).getTime();
+    const bDate = new Date(
+      b.latest_message_at ?? b.last_sync_at ?? b.updated_at ?? 0,
+    ).getTime();
+    if (b.messages_today_count !== a.messages_today_count) {
+      return b.messages_today_count - a.messages_today_count;
+    }
+    return (Number.isFinite(bDate) ? bDate : 0) - (Number.isFinite(aDate) ? aDate : 0);
+  });
+  return active[0] ?? null;
+}
+
 function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
   const fromEmail = (r.from_email as string | null) ?? null;
   const labels = Array.isArray(r.label_ids) ? (r.label_ids as string[]) : [];
