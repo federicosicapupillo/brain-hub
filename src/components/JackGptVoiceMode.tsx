@@ -1528,6 +1528,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         setDiagnostics((d) => ({
           ...d,
           lastVoiceActionResultStatus: ok ? "executed" : "failed",
+          lastPendingVoiceActionExecutionFinishedAt: Date.now(),
+          lastPendingVoiceActionExecutionResult: ok ? "ok" : "failed",
         }));
         // Hand the result back to Jack so he speaks naturally.
         const summary = ok
@@ -1550,6 +1552,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         setDiagnostics((d) => ({
           ...d,
           lastVoiceActionResultStatus: "failed",
+          lastPendingVoiceActionExecutionFinishedAt: Date.now(),
+          lastPendingVoiceActionExecutionResult: "failed",
         }));
         injectAssistantNote(
           "Non sono riuscito a eseguire l'azione. Vuoi che proviamo dal pannello Brain Hub?",
