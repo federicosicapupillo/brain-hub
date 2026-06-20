@@ -450,7 +450,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
-      .select("id,status,google_email,last_sync_at,updated_at")
+      .select("id,status,google_email,last_sync_at,updated_at,metadata")
       .eq("user_id", userId)
       .order("last_sync_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
@@ -460,6 +460,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       google_email: string | null;
       last_sync_at: string | null;
       updated_at: string | null;
+      metadata?: Record<string, unknown> | null;
     }>;
     const connectionCandidates = await buildConnectionCandidates(
       supabase as SupabaseReadClient,
