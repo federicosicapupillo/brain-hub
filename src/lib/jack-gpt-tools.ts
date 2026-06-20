@@ -486,6 +486,8 @@ const READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
   "list_important_emails",
   "summarize_email",
   "summarize_email_thread",
+  "search_emails",
+  "get_email_detail",
 ]);
 
 function parseToolArgs(raw: ToolInput["arguments"]): Record<string, unknown> {
