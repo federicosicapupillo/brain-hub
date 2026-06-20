@@ -95,12 +95,46 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { mode, reason, force } = data;
 
+    const safeFail = (
+      status: RefreshGmailMetadataSyncResult["status"],
+      safe_message: string,
+      extras: Partial<RefreshGmailMetadataSyncResult> = {},
+    ): RefreshGmailMetadataSyncResult => ({
+      ok: false,
+      status,
+      safe_message,
+      mode,
+      reason,
+      ...extras,
+    });
+
+    try {
     void logEvt(supabase, userId, "jack_gmail_sync_requested", {
       mode,
       reason,
       brain_id: data.brain_id,
       force,
     });
+
+    // 0) Quick OAuth env check
+    const hasOauthCfg = !!(
+      (process.env.GOOGLE_CLIENT_ID || process.env.GOOGLE_OAUTH_CLIENT_ID) &&
+      (process.env.GOOGLE_CLIENT_SECRET ||
+        process.env.GOOGLE_OAUTH_CLIENT_SECRET) &&
+      (process.env.GMAIL_OAUTH_REDIRECT_URL ||
+        process.env.GOOGLE_OAUTH_REDIRECT_URL ||
+        process.env.GOOGLE_OAUTH_REDIRECT_URI)
+    );
+    if (!hasOauthCfg) {
+      void logEvt(supabase, userId, "jack_gmail_sync_config_missing", {
+        reason,
+      });
+      return safeFail(
+        "config_missing",
+        "Configurazione Google OAuth incompleta.",
+        { error_code: "config_missing" },
+      );
+    }
 
     // 1) Locate user's gmail connection (best-effort: most recent connected)
     type ConnRow = {
@@ -120,7 +154,34 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
       .eq("user_id", userId)
       .order("connected_at", { ascending: false });
     if (data.brain_id) q = q.eq("brain_id", data.brain_id);
-    const { data: conns } = await q;
+    const { data: conns, error: connsErr } = await q;
+    if (connsErr) {
+      const msg = String(connsErr.message ?? "").toLowerCase();
+      const code = String((connsErr as { code?: string }).code ?? "");
+      const isMissingColumn =
+        code === "42703" ||
+        code === "PGRST204" ||
+        msg.includes("does not exist") ||
+        msg.includes("column");
+      if (isMissingColumn) {
+        void logEvt(supabase, userId, "jack_gmail_sync_migration_missing", {
+          reason,
+          error_code: code || "missing_column",
+        });
+        return safeFail(
+          "migration_missing",
+          "La migration Gmail sync non risulta applicata correttamente.",
+          { error_code: "migration_missing" },
+        );
+      }
+      void logEvt(supabase, userId, "jack_gmail_sync_db_error", {
+        reason,
+        error_code: code || "db_error",
+      });
+      return safeFail("db_error", "Errore database Gmail.", {
+        error_code: "db_error",
+      });
+    }
     const list = ((conns ?? []) as unknown as ConnRow[]).filter(
       (c) => c.status === "connected",
     );
@@ -131,13 +192,7 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
         error_code: "not_connected",
         reason,
       });
-      return {
-        ok: false,
-        status: "not_connected",
-        safe_message: "Gmail non è collegato.",
-        mode,
-        reason,
-      };
+      return safeFail("not_connected", "Gmail non è collegato.");
     }
 
     const connHash = hashId(conn.id);
