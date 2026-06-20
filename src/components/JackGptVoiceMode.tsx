@@ -76,6 +76,13 @@ import {
   type VoiceCommandConfidence,
   type VoiceCommandRouterResult,
 } from "@/lib/jack-deterministic-command-router";
+import {
+  buildGmailVoiceResponse,
+  detectGmailBriefMode,
+  shouldIgnoreBargeIn,
+  type GmailBriefMode,
+  type GmailBriefVoicePayload,
+} from "@/lib/jack-gmail-voice-response";
 
 // v3.25 — Realtime model is NOT allowed to call these tools directly. They are
 // stripped from session.tools_for_update and executed only via the
@@ -233,7 +240,10 @@ type ResponseLifecycleState =
   | "response_active_unknown"
   | "error";
 
-type SafeCreateResponseOptions = { queueIfBusy?: boolean };
+type SafeCreateResponseOptions = {
+  queueIfBusy?: boolean;
+  instructionsOverride?: string;
+};
 
 type ActiveSession = Extract<CreateRealtimeSessionResult, { ok: true; probe: false }>;
 type RealtimeTrackedEventType =
@@ -559,6 +569,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const RESPONSE_CREATE_DEBOUNCE_MS = 400;
 
+  // v3.25.4 — assistant-speaking / barge-in guard refs.
+  const assistantSpeakingRef = useRef<boolean>(false);
+  const lastAssistantSpeechStartedAtRef = useRef<number | null>(null);
+  const lastAssistantSpeechEndedAtRef = useRef<number | null>(null);
+  const ignoredDuringAssistantSpeechCountRef = useRef<number>(0);
+  // v3.25.4 — track last Gmail brief mode for diagnostics/transcript.
+  const lastGmailVoiceModeRef = useRef<GmailBriefMode | null>(null);
+
   // v3.21.2 — tool-call dedup + batching + transcript dedup
   const toolCallInFlightCountRef = useRef<number>(0);
   const processedToolCallIdsRef = useRef<Set<string>>(new Set());
@@ -841,7 +859,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         return "skipped";
       }
       try {
-        dc.send(JSON.stringify({ type: "response.create" }));
+        const payload: Record<string, unknown> = { type: "response.create" };
+        if (options.instructionsOverride) {
+          payload.response = { instructions: options.instructionsOverride };
+        }
+        dc.send(JSON.stringify(payload));
         lastResponseCreateAtRef.current = now;
         setDiagnostics((d) => ({
           ...d,
@@ -849,7 +871,10 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           lastResponseCreateAt: now,
           responseState: "response_starting",
         }));
-        safeLog("jack_gpt_response_create_sent", { reason });
+        safeLog("jack_gpt_response_create_sent", {
+          reason,
+          has_instructions_override: Boolean(options.instructionsOverride),
+        });
         return "sent";
       } catch {
         return "skipped";
@@ -1301,7 +1326,55 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           tool_name: name,
           batch_size: processedToolCallIdsRef.current.size,
         });
-        safeCreateResponse("tool_result", { queueIfBusy: true });
+        // v3.25.4 — for get_email_brief, Brain Hub builds a deterministic
+        // length-bounded voice response and forces Jack to speak it verbatim
+        // via response.create instructions override. This stops the model
+        // from paraphrasing into long, interruption-prone monologues.
+        if (name === "get_email_brief" && okFlag) {
+          const userUtterance =
+            lastValidUserUtteranceRef.current?.text ?? null;
+          const mode = detectGmailBriefMode(userUtterance);
+          lastGmailVoiceModeRef.current = mode;
+          safeLog("jack_gmail_voice_mode_detected", {
+            mode,
+            has_user_utterance: Boolean(userUtterance),
+          });
+          const brief = result as GmailBriefVoicePayload;
+          const built = buildGmailVoiceResponse({ mode, brief });
+          safeLog("jack_gmail_voice_response_built", {
+            mode,
+            length: built.length,
+            truncated: built.truncated,
+          });
+          if (built.truncated) {
+            safeLog("jack_gmail_voice_response_truncated", {
+              mode,
+              length: built.length,
+              max_length: built.length,
+            });
+          }
+          setDiagnostics((d) => ({
+            ...d,
+            lastGmailVoiceMode: mode,
+            lastGmailVoiceResponseLength: built.length,
+            lastGmailVoiceResponseTruncated: built.truncated,
+          }));
+          pushLog({
+            kind: "system",
+            text: `Gmail mode: ${mode} (len ${built.length}${built.truncated ? ", troncato" : ""})`,
+          });
+          const instructions =
+            `Leggi a voce ESATTAMENTE il seguente testo in italiano, senza ` +
+            `aggiungere dettagli, mittenti, oggetti o snippet che non siano già ` +
+            `presenti nel testo. Non parafrasare. Termina con una breve pausa.\n\n` +
+            `TESTO DA LEGGERE:\n${built.text}`;
+          safeCreateResponse("gmail_voice_deterministic", {
+            queueIfBusy: true,
+            instructionsOverride: instructions,
+          });
+        } else {
+          safeCreateResponse("tool_result", { queueIfBusy: true });
+        }
       } else {
         safeLog("jack_response_create_deduplicated", {
           dedup_reason: "tool_batch_pending",
@@ -2577,6 +2650,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           }
           responseInProgressRef.current = true;
           activeResponseIdRef.current = id;
+          // v3.25.4 — barge-in guard: track when Jack starts speaking.
+          assistantSpeakingRef.current = true;
+          lastAssistantSpeechStartedAtRef.current = Date.now();
           // reset transcript dedup window for the new response
           transcriptDedupRef.current = {
             responseId: id,
@@ -2691,6 +2767,43 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           if (msg.transcript) {
             const transcript = String(msg.transcript);
             const nowTs = Date.now();
+            // v3.25.4 — barge-in guard. Ignore short noise / single-word
+            // backchannels ("mhm", "ok") that arrive while Jack is speaking
+            // or within 1200ms of his speech ending. We do NOT cancel the
+            // active response — we simply drop the turn so VAD echo cannot
+            // truncate Jack mid-sentence. Strong interrupt words
+            // ("fermati", "stop", "aspetta", "cambia domanda") still pass.
+            const bargeIn = shouldIgnoreBargeIn({
+              transcript,
+              assistantSpeaking: assistantSpeakingRef.current,
+              lastAssistantSpeechEndedAt: lastAssistantSpeechEndedAtRef.current,
+              now: nowTs,
+            });
+            if (bargeIn.ignore) {
+              ignoredDuringAssistantSpeechCountRef.current += 1;
+              safeLog("jack_voice_barge_in_ignored_short_noise", {
+                reason: bargeIn.reason,
+                transcript_length: transcript.length,
+                assistant_speaking: assistantSpeakingRef.current,
+                ms_since_speech_end:
+                  lastAssistantSpeechEndedAtRef.current === null
+                    ? null
+                    : nowTs - lastAssistantSpeechEndedAtRef.current,
+                ignored_count: ignoredDuringAssistantSpeechCountRef.current,
+              });
+              setDiagnostics((d) => ({
+                ...d,
+                lastBargeInIgnoredReason: bargeIn.reason,
+                lastBargeInIgnoredAt: nowTs,
+                ignoredDuringAssistantSpeechCount:
+                  ignoredDuringAssistantSpeechCountRef.current,
+              }));
+              pushLog({
+                kind: "warning",
+                text: `Barge-in ignorato (${bargeIn.reason}): "${transcript.slice(0, 40)}"`,
+              });
+              break;
+            }
             const classification = classifyUserUtterance({
               text: transcript,
               assistantText: lastAssistantSpokenTextRef.current,
@@ -2818,6 +2931,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           responseInProgressRef.current = false;
           activeResponseIdRef.current = null;
           lastResponseDoneAtRef.current = Date.now();
+          // v3.25.4 — barge-in guard: track when Jack stops speaking.
+          assistantSpeakingRef.current = false;
+          lastAssistantSpeechEndedAtRef.current = lastResponseDoneAtRef.current;
           // v3.21.2 — reset tool-batch counter so next turn starts clean.
           toolCallInFlightCountRef.current = 0;
           // Bound the processed callId set
