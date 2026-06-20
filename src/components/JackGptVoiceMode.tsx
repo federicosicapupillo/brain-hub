@@ -1610,11 +1610,34 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         return;
       }
       if (result.intent === "confirm_pending" && pendingVoiceActionRef.current) {
+        safeLog("jack_voice_pending_action_confirmed_by_voice", {
+          action_id: pendingVoiceActionRef.current.id,
+          action_type: pendingVoiceActionRef.current.type,
+          matched_terms_count: result.matched_terms.length,
+        });
+        setDiagnostics((d) => ({
+          ...d,
+          pendingVoiceActionConfirmedByVoice: true,
+          lastPendingVoiceActionConfirmationText: transcript.slice(0, 80),
+        }));
         await executeVoiceAction(
           pendingVoiceActionRef.current,
           "router_high_confidence",
         );
         return;
+      }
+      // v3.25.1 — pending action exists but utterance was not a confirmation
+      if (
+        pendingVoiceActionRef.current &&
+        result.intent !== "confirm_pending" &&
+        result.intent !== "cancel"
+      ) {
+        safeLog("jack_voice_pending_action_confirmation_rejected", {
+          action_id: pendingVoiceActionRef.current.id,
+          action_type: pendingVoiceActionRef.current.type,
+          router_intent: result.intent,
+          transcript_length: transcript.length,
+        });
       }
       if (result.action_preview && result.confidence !== "low") {
         const created = buildPendingVoiceAction(
