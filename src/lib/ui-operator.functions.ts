@@ -238,7 +238,42 @@ export const openUiOperatorRouteFn = createServerFn({ method: "POST" })
       };
     }
     const { openUiOperatorRoute } = await import("./ui-operator-browser.server");
-    const res = await openUiOperatorRoute(data.session_id, data.route);
+    const { createUiOperatorAuthToken, getBrainHubBaseUrl, buildUiOperatorAuthUrl, safeTokenPrefix } =
+      await import("./ui-operator-auth.server");
+
+    // Mint a one-time auth token so the runner can land on the route via the
+    // public handshake URL (Brain Hub never shares cookies or passwords).
+    let authUrl: string | null = null;
+    let tokenPrefix: string | null = null;
+    let tokenExpiresAt: string | null = null;
+    const tokenRes = await createUiOperatorAuthToken({
+      user_id: userId,
+      session_id: data.session_id,
+      allowed_routes: [data.route],
+      metadata: { source: "open_route" },
+    });
+    if (tokenRes.ok && tokenRes.token) {
+      authUrl = buildUiOperatorAuthUrl({
+        baseUrl: getBrainHubBaseUrl(),
+        token: tokenRes.token,
+        session_id: data.session_id,
+        route: data.route,
+      });
+      tokenPrefix = safeTokenPrefix(tokenRes.token);
+      tokenExpiresAt = tokenRes.expires_at;
+      await logEvt(supabase, userId, "ui_operator_auth_token_created", {
+        session_id: data.session_id, route: data.route,
+        token_prefix: tokenPrefix, expires_at: tokenExpiresAt, source: "open_route",
+      });
+    } else {
+      await logEvt(supabase, userId, "ui_operator_auth_token_invalid", {
+        reason: tokenRes.error, session_id: data.session_id, route: data.route,
+      });
+    }
+
+    const res = await openUiOperatorRoute(data.session_id, data.route, {
+      auth_url: authUrl,
+    });
     await sb
       .from("ui_operator_sessions")
       .update({
@@ -251,12 +286,20 @@ export const openUiOperatorRouteFn = createServerFn({ method: "POST" })
       session_id: data.session_id,
       route: data.route,
       execution_mode: res.execution_mode,
+      auth_url_used: res.auth_url_used,
+      token_prefix: tokenPrefix,
     });
     if (res.execution_mode === "real_runner") {
       await logEvt(supabase, userId, "ui_operator_runner_called", {
         endpoint: "/session/open-route",
         ok: res.ok,
       });
+      await logEvt(
+        supabase,
+        userId,
+        res.ok ? "ui_operator_auth_redirect_completed" : "ui_operator_auth_redirect_failed",
+        { session_id: data.session_id, route: data.route, token_prefix: tokenPrefix },
+      );
     }
     return {
       ok: res.ok,
