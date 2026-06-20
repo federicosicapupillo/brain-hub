@@ -240,11 +240,14 @@ export function routeVoiceCommand(
   }
 
   // 2. Confirm pending action if any is active and user said a confirm term.
+  // Question-shaped utterances ("…?") are NEVER confirmations, even with a
+  // confirm term inside them ("posso… ok?").
   const confirmHits = containsAny(normalized, CONFIRM_TERMS);
   if (
     ctx.pendingVoiceAction &&
     ctx.pendingVoiceAction.expiresAt > ctx.now &&
-    confirmHits.length > 0
+    confirmHits.length > 0 &&
+    !endsWithQuestionMark
   ) {
     return {
       intent: "confirm_pending",
@@ -253,6 +256,19 @@ export function routeVoiceCommand(
       action_preview: null,
       safe_message: "Confermato, procedo.",
       matched_terms: confirmHits,
+    };
+  }
+  // If user asks a question while a pending action exists, treat as
+  // capability_question (do not execute, do not cancel).
+  if (ctx.pendingVoiceAction && endsWithQuestionMark) {
+    return {
+      intent: "capability_question",
+      confidence: "medium",
+      requires_confirmation: false,
+      action_preview: null,
+      safe_message:
+        "Posso farlo, ma serve una conferma esplicita tramite pulsante o frase di conferma.",
+      matched_terms: ["__question_mark__"],
     };
   }
 
