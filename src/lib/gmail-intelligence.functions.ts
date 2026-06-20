@@ -201,6 +201,7 @@ type EmailBriefItem = {
   project_guess: string | null;
   has_attachments: boolean;
   labels: string[];
+  detected_category: string | null;
   category: string;
   is_newsletter: boolean;
   is_filtered: boolean;
@@ -397,6 +398,7 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
     project_guess: (r.project_guess as string | null) ?? null,
     has_attachments: Boolean(r.has_attachments),
     labels,
+    detected_category: (r.detected_category as string | null) ?? null,
     category: cls.category,
     is_newsletter: cls.is_newsletter,
     is_filtered: cls.is_filtered,
@@ -721,7 +723,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       snippet_preview: previewText(e.snippet, 120),
       internal_date: e.received_at,
       label_ids: e.labels,
-      detected_category: e.category,
+      detected_category: e.detected_category,
       is_unread: e.unread,
       has_attachments: e.has_attachments,
       classified_as: e.is_newsletter
