@@ -172,6 +172,30 @@ function hasOpenVerb(text: string): string[] {
   return OPEN_VERBS.filter((v) => text.includes(v));
 }
 
+// Capability/meta questions: user is asking whether Jack CAN do something,
+// not commanding him to do it. Must NOT trigger sensitive tools and must
+// NOT count as a confirmation of any pending action.
+const CAPABILITY_QUESTION_PATTERNS: ReadonlyArray<RegExp> = [
+  /\bnon\s+puoi\b/,
+  /\bpuoi\s+(farlo|fare|sincronizzarl|aprirl|leggerl)/,
+  /\bperche\s+non\s+(lo\s+)?fai\b/,
+  /\bperche\s+non\s+(lo\s+)?puoi\b/,
+  /\bnon\s+riesci\b/,
+  /\bcome\s+(faccio|si\s+fa)\b/,
+  /\briesci\s+(a|tu)\b/,
+  /\bsei\s+capace\b/,
+];
+
+function detectCapabilityQuestion(normalized: string): string[] {
+  const hits: string[] = [];
+  for (const rx of CAPABILITY_QUESTION_PATTERNS) {
+    const m = normalized.match(rx);
+    if (m) hits.push(m[0]);
+  }
+  return hits;
+}
+
+
 // ---------- Public API ----------
 
 const SAFE_FALLBACK =
