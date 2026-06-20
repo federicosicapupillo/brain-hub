@@ -408,7 +408,18 @@ function mapEmailRow(r: Record<string, unknown>, idx: number): EmailBriefItem {
 }
 
 const EMAIL_SELECT_COLS =
-  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,body_preview,label_ids,detected_category";
+  "id,gmail_message_id,gmail_thread_id,subject,from_email,from_name,internal_date,importance_score,importance_level,importance_reason,project_guess,is_unread,has_attachments,snippet,body_preview,label_ids,detected_category,metadata";
+
+// v3.24 — extract the active sync_run_id from a row's metadata.
+function rowSyncRunId(row: Record<string, unknown> | null | undefined): string | null {
+  if (!row) return null;
+  const md = (row as { metadata?: unknown }).metadata;
+  if (md && typeof md === "object" && md !== null) {
+    const v = (md as Record<string, unknown>).last_seen_sync_run_id;
+    return typeof v === "string" && v.length > 0 ? v : null;
+  }
+  return null;
+}
 
 
 export const getEmailBriefFn = createServerFn({ method: "POST" })
@@ -439,7 +450,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
-      .select("id,status,google_email,last_sync_at,updated_at")
+      .select("id,status,google_email,last_sync_at,updated_at,metadata")
       .eq("user_id", userId)
       .order("last_sync_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
@@ -449,6 +460,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       google_email: string | null;
       last_sync_at: string | null;
       updated_at: string | null;
+      metadata?: Record<string, unknown> | null;
     }>;
     const connectionCandidates = await buildConnectionCandidates(
       supabase as SupabaseReadClient,
@@ -635,18 +647,48 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const yesterdayEmails = yesterdayRows.map((r, idx) => mapEmailRow(r, idx));
     const prevUnreadEmails = prevUnreadRows.map((r, idx) => mapEmailRow(r, idx));
 
+    // v3.24 — Cache Truth Guard. Filter today's buckets to only messages
+    // verified in the most recent successful sync run, if known.
+    const connRaw = conns.find((c) => c.id === conn.id) ?? null;
+    const connMetadata =
+      connRaw &&
+      typeof connRaw.metadata === "object" &&
+      connRaw.metadata !== null
+        ? connRaw.metadata
+        : {};
+    const activeSyncRunId =
+      typeof (connMetadata as Record<string, unknown>).last_gmail_sync_run_id === "string"
+        ? ((connMetadata as Record<string, unknown>).last_gmail_sync_run_id as string)
+        : null;
+    const verifiedTodayIdx = new Set<number>();
+    if (activeSyncRunId) {
+      todayRows.forEach((row, idx) => {
+        if (rowSyncRunId(row) === activeSyncRunId) verifiedTodayIdx.add(idx);
+      });
+    }
+    const filterVerified = (arr: EmailBriefItem[]) =>
+      activeSyncRunId
+        ? arr.filter((_, idx) => verifiedTodayIdx.has(idx))
+        : arr;
+
     // v3.22.1 — anti-disappearance bucketing:
     // Every today email lands in `all_today` no matter what; primary,
-    // newsletter, and unknown buckets are derived from it. A mail can NEVER
-    // exist only in `newsletters_today` while being absent from `all_today`.
-    const allToday = todayEmails;
-    const inboxToday = todayEmails.filter(
+    // newsletter, and unknown buckets are derived from it.
+    const allTodayUnfiltered = todayEmails;
+    const allToday = filterVerified(allTodayUnfiltered);
+    const inboxToday = allToday.filter(
       (e) => e.is_inbox_primary === true && !e.is_newsletter,
     );
-    const newslettersToday = todayEmails.filter((e) => e.is_newsletter);
-    const unknownToday = todayEmails.filter(
+    const newslettersToday = allToday.filter((e) => e.is_newsletter);
+    const unknownToday = allToday.filter(
       (e) => !e.is_newsletter && !e.is_inbox_primary,
     );
+    const staleTodayHiddenCount =
+      activeSyncRunId ? allTodayUnfiltered.length - allToday.length : 0;
+    const cacheStale =
+      activeSyncRunId !== null &&
+      allTodayUnfiltered.length > 0 &&
+      allToday.length === 0;
     const unreadPreviousList = prevUnreadEmails.filter((e) => !e.is_newsletter);
     const newslettersPreviousList = yesterdayEmails.filter((e) => e.is_newsletter);
 
@@ -667,10 +709,15 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       newsletter_yesterday_total: newslettersPreviousList.length,
     };
 
-    const status: "connected_with_today_emails" | "connected_no_today_emails" =
-      allToday.length > 0
-        ? "connected_with_today_emails"
-        : "connected_no_today_emails";
+    const status:
+      | "connected_with_today_emails"
+      | "connected_no_today_emails"
+      | "connected_cache_stale" =
+      cacheStale
+        ? "connected_cache_stale"
+        : allToday.length > 0
+          ? "connected_with_today_emails"
+          : "connected_no_today_emails";
 
     const metadataMissing =
       allToday.length > 0 &&
@@ -714,7 +761,8 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       else buckets.push("unknown_today");
       return buckets;
     };
-    const debugTodayRaw: DebugTodayRawEntry[] = todayEmails.map((e) => ({
+    // v3.24 — never leak stale-row previews to Jack: only verified rows here.
+    const debugTodayRaw: DebugTodayRawEntry[] = allToday.map((e) => ({
       local_id: e.local_id,
       gmail_message_id_hash: hash(e.gmail_message_id),
       from_domain: e.from_domain,
@@ -747,9 +795,22 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       inbox_today_count: inboxToday.length,
       newsletters_today_count: newslettersToday.length,
       unknown_today_count: unknownToday.length,
-      missing_expected_mail_possible: possiblyStale || todayRaw.rawCount > allToday.length,
+      missing_expected_mail_possible:
+        possiblyStale || todayRaw.rawCount > allToday.length || cacheStale,
       sync_may_be_stale: possiblyStale,
+      // v3.24 cache truth guard
+      cache_truth_guard_active: true,
+      last_gmail_sync_run_id_present: activeSyncRunId !== null,
+      verified_today_count: allToday.length,
+      stale_today_hidden_count: staleTodayHiddenCount,
     };
+
+    if (cacheStale) {
+      void logEvent(supabase, userId, "jack_gmail_cache_stale_detected", {
+        stale_rows_hidden_count: staleTodayHiddenCount,
+        last_sync_at: lastSyncAt,
+      });
+    }
 
     void logEvent(supabase, userId, "jack_email_brief_served", {
       connected: true,
@@ -760,6 +821,8 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       label_scope: labelScope,
       metadata_missing: metadataMissing,
       partial_sync: partialSync,
+      cache_stale: cacheStale,
+      stale_today_hidden_count: staleTodayHiddenCount,
     });
     void logEvent(supabase, userId, "jack_email_today_raw_bucketed", {
       total_all: counts.today_total_all,
@@ -858,6 +921,10 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         ? "Il sync Gmail attuale non sta persistendo subject/from/snippet. Apri Gmail Connector e rilancia la sync."
         : null,
       partial_sync: partialSync,
+      // v3.24 cache truth guard
+      cache_stale: cacheStale,
+      stale_rows_hidden_count: staleTodayHiddenCount,
+      active_sync_run_id: activeSyncRunId,
       // legacy aliases
       total_today: counts.today_total_all,
       unread_today:
@@ -871,9 +938,11 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       emails: flat,
       top: flat.slice(0, 5),
       message:
-        status === "connected_with_today_emails"
-          ? `Oggi ${counts.today_inbox_total} mail normali, ${counts.today_newsletter_total} newsletter${counts.today_unknown_total > 0 ? `, ${counts.today_unknown_total} non classificate` : ""}; non lette totali ${counts.total_unread} (${counts.today_inbox_unread + counts.today_newsletter_unread + counts.today_unknown_unread} oggi, ${counts.previous_unread_total} precedenti).`
-          : "Gmail è collegato, ma non trovo email di oggi.",
+        cacheStale
+          ? "Gmail è collegato, ma le email cached non sono state verificate dall'ultimo sync riuscito."
+          : status === "connected_with_today_emails"
+            ? `Oggi ${counts.today_inbox_total} mail normali, ${counts.today_newsletter_total} newsletter${counts.today_unknown_total > 0 ? `, ${counts.today_unknown_total} non classificate` : ""}; non lette totali ${counts.total_unread} (${counts.today_inbox_unread + counts.today_newsletter_unread + counts.today_unknown_unread} oggi, ${counts.previous_unread_total} precedenti).`
+            : "Gmail è collegato, ma non trovo email di oggi.",
     };
   });
 
@@ -931,7 +1000,7 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
-      .select("id,status,google_email,last_sync_at,updated_at")
+      .select("id,status,google_email,last_sync_at,updated_at,metadata")
       .eq("user_id", userId)
       .order("last_sync_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
@@ -941,6 +1010,7 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       google_email: string | null;
       last_sync_at: string | null;
       updated_at: string | null;
+      metadata?: Record<string, unknown> | null;
     }>;
     const connectionCandidates = await buildConnectionCandidates(
       supabase as SupabaseReadClient,
@@ -958,6 +1028,15 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
         message: "Gmail non è collegato.",
       };
     }
+    const connRaw = conns.find((c) => c.id === conn.id) ?? null;
+    const activeSyncRunId =
+      connRaw && connRaw.metadata && typeof connRaw.metadata === "object"
+        ? (typeof (connRaw.metadata as Record<string, unknown>).last_gmail_sync_run_id ===
+          "string"
+            ? ((connRaw.metadata as Record<string, unknown>)
+                .last_gmail_sync_run_id as string)
+            : null)
+        : null;
 
     const safe = q.replace(/[%_\\]/g, "\\$&");
     const pattern = `%${safe}%`;
@@ -990,9 +1069,15 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
     if (error) {
       return { ok: false, error: "search_failed", emails: [] as EmailBriefItem[] };
     }
-    let emails = ((rows ?? []) as Array<Record<string, unknown>>).map(
-      (r, idx) => mapEmailRow(r, idx),
-    );
+    let rawRows = (rows ?? []) as Array<Record<string, unknown>>;
+    // v3.24 — drop stale-cache rows when a sync_run_id is available.
+    let staleHiddenCount = 0;
+    if (activeSyncRunId) {
+      const beforeLen = rawRows.length;
+      rawRows = rawRows.filter((r) => rowSyncRunId(r) === activeSyncRunId);
+      staleHiddenCount = beforeLen - rawRows.length;
+    }
+    let emails = rawRows.map((r, idx) => mapEmailRow(r, idx));
     if (!includeNewsletters) emails = emails.filter((e) => !e.is_newsletter);
     emails = emails.slice(0, limit).map((e, idx) => ({ ...e, selection_index: idx + 1 }));
 
@@ -1026,6 +1111,10 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       searched_today_raw_count: searchedTodayRawCount,
       sync_may_be_stale: syncStale,
       last_sync_at: conn.last_sync_at,
+      // v3.24 cache truth guard
+      cache_truth_guard_active: true,
+      active_sync_run_id: activeSyncRunId,
+      stale_rows_hidden_count: staleHiddenCount,
       message:
         emails.length === 0
           ? "No matching synced email found. Gmail sync may not have imported this message yet."
@@ -1043,6 +1132,7 @@ export const getEmailDetailFn = createServerFn({ method: "POST" })
       (d ?? {}) as {
         local_id?: string;
         gmail_message_id?: string;
+        allow_stale_debug?: boolean;
       },
   )
   .handler(async ({ data, context }) => {
@@ -1070,6 +1160,43 @@ export const getEmailDetailFn = createServerFn({ method: "POST" })
     if (!row) {
       return { ok: false, error: "email_not_found" };
     }
+
+    // v3.24 — Cache Truth Guard: require row.metadata.last_seen_sync_run_id
+    // to match the connection's last successful sync run id.
+    if (!data.allow_stale_debug && row.connection_id) {
+      try {
+        const { data: connRow } = await supabase
+          .from("gmail_connection_settings")
+          .select("metadata")
+          .eq("id", row.connection_id)
+          .maybeSingle();
+        const connMd =
+          connRow && typeof (connRow as { metadata?: unknown }).metadata === "object"
+            ? ((connRow as { metadata: Record<string, unknown> }).metadata)
+            : null;
+        const activeRunId =
+          connMd && typeof connMd.last_gmail_sync_run_id === "string"
+            ? (connMd.last_gmail_sync_run_id as string)
+            : null;
+        if (activeRunId) {
+          const rowRunId = rowSyncRunId(row as unknown as Record<string, unknown>);
+          if (rowRunId !== activeRunId) {
+            void logEvent(supabase, userId, "jack_email_detail_stale_blocked", {
+              message_id_hash: hash(row.gmail_message_id),
+            });
+            return {
+              ok: false,
+              error: "email_stale_not_verified",
+              message:
+                "Questa email è presente solo nella cache e non è stata verificata nell'ultimo sync Gmail.",
+            };
+          }
+        }
+      } catch {
+        /* best-effort */
+      }
+    }
+
 
     const summary = buildDeterministicSummary(row);
     const hasFullBody = Boolean(row.body_preview && row.body_preview.length > 0);

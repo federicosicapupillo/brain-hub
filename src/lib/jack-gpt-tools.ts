@@ -658,6 +658,8 @@ const JOINABLE_TOOL_NAMES: ReadonlySet<string> = new Set([
   "preview_email_action",
   "search_emails",
   "get_email_detail",
+  // v3.24 — dedup refresh to prevent voice-mode double sync.
+  "refresh_gmail_sync",
 ]);
 type InFlightResult = { ok: boolean; [k: string]: unknown };
 const inFlightToolCalls = new Map<string, Promise<InFlightResult>>();
@@ -1807,15 +1809,29 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               data: { brain_id: brainId, mode, reason },
             });
 
+            // v3.24 — only attempt the post-sync brief when the sync truly
+            // completed (or was skipped recently without a stale flag).
             let briefAfter: unknown = null;
-            if (sync.ok && sync.status === "synced") {
+            const shouldFetchBriefAfter =
+              sync.ok &&
+              (sync.status === "synced" || sync.status === "skipped_recent");
+            if (shouldFetchBriefAfter) {
               try {
                 const { getEmailBriefFn } = await import(
                   "@/lib/gmail-intelligence.functions"
                 );
-                briefAfter = await getEmailBriefFn({
+                const candidate = await getEmailBriefFn({
                   data: { brain_id: brainId, date_range: "today" },
                 });
+                const candidateRecord = candidate as Record<string, unknown>;
+                const isStale =
+                  candidateRecord.cache_stale === true ||
+                  candidateRecord.status === "connected_cache_stale";
+                if (sync.status === "skipped_recent" && isStale) {
+                  briefAfter = null;
+                } else {
+                  briefAfter = candidate;
+                }
                 void logSanitizedEvent(
                   supabase,
                   userId,
@@ -1824,18 +1840,44 @@ export const runJackGptTool = createServerFn({ method: "POST" })
                     brain_id: brainId,
                     new_messages_count: sync.new_messages_count ?? 0,
                     updated_messages_count: sync.updated_messages_count ?? 0,
+                    cache_stale: isStale,
+                    status: sync.status,
                   },
                 );
               } catch {
                 briefAfter = null;
               }
+            } else if (!sync.ok) {
+              void logSanitizedEvent(
+                supabase,
+                userId,
+                "jack_gmail_sync_failed_for_voice",
+                {
+                  status: sync.status,
+                  error_code: sync.error_code ?? null,
+                  mode,
+                  reason,
+                },
+              );
             }
 
-            // JSON-safe payload (server fn already returns plain objects)
             const safePayload = JSON.parse(
-              JSON.stringify({ sync, brief_after: briefAfter }),
+              JSON.stringify({
+                sync,
+                brief_after: briefAfter,
+                // Top-level mirror so the voice layer can branch quickly.
+                status: sync.status,
+                requires_reauth: sync.status === "reauth_required",
+                safe_message: sync.safe_message ?? null,
+              }),
             );
-            return { ok: true, payload: safePayload };
+            return {
+              ok: sync.ok,
+              status: sync.status,
+              requires_reauth: sync.status === "reauth_required",
+              safe_message: sync.safe_message ?? null,
+              payload: safePayload,
+            };
           } catch (err) {
             void logSanitizedEvent(
               supabase,
@@ -1849,7 +1891,10 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               },
             );
             return {
-              ok: true,
+              ok: false,
+              status: "failed",
+              requires_reauth: false,
+              safe_message: "Sincronizzazione Gmail non riuscita.",
               payload: {
                 sync: {
                   ok: false,

@@ -46,6 +46,7 @@ export type RefreshGmailMetadataSyncResult = {
   safe_message?: string;
   mode?: "today" | "recent";
   reason?: string;
+  sync_run_id?: string;
 };
 
 const COOLDOWN_MS = 2 * 60 * 1000;
@@ -110,6 +111,11 @@ export async function runRefreshGmailMetadataSyncCore(
   },
 ): Promise<RefreshGmailMetadataSyncResult> {
     const { mode, reason, force } = data;
+    // v3.24 — sync_run_id stamps every message verified in this run.
+    const syncRunId =
+      globalThis.crypto && "randomUUID" in globalThis.crypto
+        ? globalThis.crypto.randomUUID()
+        : `srun_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 
     const safeFail = (
       status: RefreshGmailMetadataSyncResult["status"],
@@ -130,6 +136,7 @@ export async function runRefreshGmailMetadataSyncCore(
       reason,
       brain_id: data.brain_id,
       force,
+      sync_run_id: syncRunId,
     });
 
     // 0) Quick OAuth env check
@@ -399,11 +406,25 @@ export async function runRefreshGmailMetadataSyncCore(
 
         const { data: existing } = await supabaseAdmin
           .from("gmail_message_map")
-          .select("id")
+          .select("id,metadata")
           .eq("user_id", userId)
           .eq("connection_id", conn.id)
           .eq("gmail_message_id", mid)
           .maybeSingle();
+
+        const existingMetadata =
+          existing && typeof (existing as { metadata?: unknown }).metadata === "object" &&
+          (existing as { metadata?: unknown }).metadata !== null
+            ? ((existing as { metadata: Record<string, unknown> }).metadata)
+            : {};
+        const stampedMetadata: Record<string, unknown> = {
+          ...existingMetadata,
+          last_seen_sync_run_id: syncRunId,
+          last_seen_at: new Date().toISOString(),
+          last_seen_source: "gmail_refresh_sync",
+          last_seen_query: query,
+          last_seen_mode: mode,
+        };
 
         const row = {
           user_id: userId,
@@ -427,6 +448,7 @@ export async function runRefreshGmailMetadataSyncCore(
           detected_priority: priority,
           suggested_action_type: suggestedType,
           source_query: query,
+          metadata: stampedMetadata,
         };
 
         if (existing) {
@@ -444,6 +466,34 @@ export async function runRefreshGmailMetadataSyncCore(
       }
 
       const completedIso = new Date().toISOString();
+
+      // v3.24 — read current conn.metadata and merge sync_run_id markers
+      let connExistingMetadata: Record<string, unknown> = {};
+      try {
+        const { data: connMetaRow } = await supabase
+          .from("gmail_connection_settings")
+          .select("metadata")
+          .eq("id", conn.id)
+          .maybeSingle();
+        if (
+          connMetaRow &&
+          typeof (connMetaRow as { metadata?: unknown }).metadata === "object" &&
+          (connMetaRow as { metadata?: unknown }).metadata !== null
+        ) {
+          connExistingMetadata = (connMetaRow as { metadata: Record<string, unknown> }).metadata;
+        }
+      } catch {
+        /* best-effort */
+      }
+      const mergedConnMetadata: Record<string, unknown> = {
+        ...connExistingMetadata,
+        last_gmail_sync_run_id: syncRunId,
+        last_gmail_sync_completed_at: completedIso,
+        last_gmail_sync_mode: mode,
+        last_gmail_sync_query: query,
+        last_gmail_sync_fetched_count: ids.length,
+      };
+
       await supabase
         .from("gmail_connection_settings")
         .update({
@@ -456,6 +506,7 @@ export async function runRefreshGmailMetadataSyncCore(
           sync_status: "idle",
           sync_lock_until: null,
           token_expires_at: newExpiresAt,
+          metadata: mergedConnMetadata,
         } as never)
         .eq("id", conn.id);
 
@@ -481,6 +532,7 @@ export async function runRefreshGmailMetadataSyncCore(
         fetched: ids.length,
         new_messages: added,
         updated_messages: updated,
+        sync_run_id: syncRunId,
       });
 
       return {
@@ -499,6 +551,7 @@ export async function runRefreshGmailMetadataSyncCore(
         mode,
         reason,
         safe_message: `Sincronizzati ${added + updated} messaggi (${added} nuovi).`,
+        sync_run_id: syncRunId,
       };
     } catch (err) {
       const errAny = err as Error & { status?: number; code?: string };
