@@ -8,7 +8,9 @@ export type VoiceToolBlockedReason =
   | "no_explicit_gmail_sync_command"
   | "no_explicit_open_screen_confirmation"
   | "tool_called_after_assistant_question_without_user_reply"
-  | "no_valid_user_utterance_yet";
+  | "no_valid_user_utterance_yet"
+  | "no_explicit_email_intent";
+
 
 export type VoiceToolGateStatus = "allowed" | "blocked";
 
@@ -40,6 +42,37 @@ export const GATED_VOICE_TOOLS: ReadonlySet<string> = new Set([
   "confirm_ui_action",
   "execute_confirmed_ui_action",
 ]);
+
+// v3.25.3 — Read-only Gmail tools gated by explicit email intent in the
+// user's last valid utterance. The model is instructed not to call these at
+// session start, but this is the programmatic guarantee.
+export const READ_GATED_VOICE_TOOLS: ReadonlySet<string> = new Set([
+  "get_email_brief",
+  "get_gmail_summary",
+]);
+
+const EMAIL_INTENT_KEYWORDS = [
+  "mail",
+  "email",
+  "gmail",
+  "posta",
+  "inbox",
+  "messaggi",
+  "brief",
+  "arrivate",
+  "leggi",
+  "leggimi",
+  "non lette",
+  "ultime",
+];
+
+export function hasExplicitEmailIntent(text: string): boolean {
+  if (!text) return false;
+  const n = normalizeVoiceText(text);
+  if (!n) return false;
+  return EMAIL_INTENT_KEYWORDS.some((k) => n.includes(k));
+}
+
 
 export function normalizeVoiceText(text: string): string {
   return text
@@ -176,7 +209,30 @@ export type GateDecision =
 const ANSWER_WINDOW_MS = 30_000;
 
 export function decideVoiceToolGate(input: GateDecisionInput): GateDecision {
+  // v3.25.3 — read-gated tools (get_email_brief / get_gmail_summary).
+  if (READ_GATED_VOICE_TOOLS.has(input.toolName)) {
+    const utterance = input.lastValidUserUtterance ?? "";
+    const validAt = input.lastValidUserUtteranceAt ?? 0;
+    if (!utterance || input.now - validAt > ANSWER_WINDOW_MS) {
+      return {
+        status: "blocked",
+        reason: "no_explicit_email_intent",
+        safe_message:
+          "Posso leggere le mail solo se me lo chiedi esplicitamente, ad esempio 'leggimi le mail di oggi'.",
+      };
+    }
+    if (!hasExplicitEmailIntent(utterance)) {
+      return {
+        status: "blocked",
+        reason: "no_explicit_email_intent",
+        safe_message:
+          "Posso leggere le mail solo se me lo chiedi esplicitamente, ad esempio 'leggimi le mail di oggi'.",
+      };
+    }
+    return { status: "allowed" };
+  }
   if (!GATED_VOICE_TOOLS.has(input.toolName)) return { status: "allowed" };
+
 
   // If assistant asked a question and there is no fresher valid user reply,
   // block any gated tool until the user actually answers.

@@ -1786,6 +1786,32 @@ export const runJackGptTool = createServerFn({ method: "POST" })
         case "refresh_gmail_sync": {
           // v3.24.1 — absolute outer try/catch: never throw, always return JSON-safe.
           try {
+            // v3.25.3 — server-side source gate (defense-in-depth). The client
+            // only attaches source="ui_button" or source="voice_confirm" when
+            // a user explicitly confirmed via the UI button or via the
+            // deterministic voice router. Any other source (including a
+            // model-emitted tool call that bypassed the client gate) must be
+            // refused without touching Gmail.
+            const ALLOWED_SOURCES = new Set(["ui_button", "voice_confirm"]);
+            const source =
+              typeof args.source === "string" ? (args.source as string) : "unknown";
+            if (!ALLOWED_SOURCES.has(source)) {
+              void logSanitizedEvent(
+                supabase,
+                userId,
+                "jack_gmail_sync_blocked_invalid_source",
+                { source, tool_name: "refresh_gmail_sync" },
+              );
+              return {
+                ok: false,
+                status: "blocked_invalid_source",
+                error_code: "source_not_allowed",
+                requires_user_confirmation: true,
+                should_not_retry_tool: true,
+                safe_message:
+                  "Serve una conferma esplicita tramite pulsante o comando vocale chiaro per sincronizzare Gmail.",
+              };
+            }
             const mode =
               args.mode === "recent" ? ("recent" as const) : ("today" as const);
             const reason =
@@ -1793,6 +1819,7 @@ export const runJackGptTool = createServerFn({ method: "POST" })
                 ? ("stale_before_read" as const)
                 : ("user_requested" as const);
             const brainId = (args.brain_id as string | undefined) ?? null;
+
 
             void logSanitizedEvent(
               supabase,

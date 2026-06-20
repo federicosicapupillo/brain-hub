@@ -57,6 +57,7 @@ import {
 import { JACK_GPT_PRIVACY_NOTICE, JACK_GPT_SYSTEM_INSTRUCTIONS } from "@/lib/jack-gpt-instructions";
 import {
   GATED_VOICE_TOOLS,
+  READ_GATED_VOICE_TOOLS,
   buildBlockedToolPayload,
   classifyUserUtterance,
   decideVoiceToolGate,
@@ -64,6 +65,7 @@ import {
   type IgnoredUtteranceReason,
   type VoiceToolBlockedReason,
 } from "@/lib/jack-voice-tool-gate";
+
 import {
   routeVoiceCommand,
   buildPendingVoiceAction,
@@ -1036,7 +1038,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       // v3.24.2 — voice tool gate. Block gated tools if there is no recent
       // explicit user command / confirmation, especially right after Jack
       // has asked the user a question.
-      if (GATED_VOICE_TOOLS.has(name)) {
+      if (GATED_VOICE_TOOLS.has(name) || READ_GATED_VOICE_TOOLS.has(name)) {
         const gateNow = Date.now();
         const decision = decideVoiceToolGate({
           toolName: name,
@@ -1058,7 +1060,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             decision.reason ===
               "tool_called_after_assistant_question_without_user_reply"
               ? "jack_voice_tool_blocked_after_assistant_question"
-              : "jack_voice_tool_blocked_confirmation_required",
+              : decision.reason === "no_explicit_email_intent"
+                ? "jack_voice_email_brief_blocked_no_explicit_email_intent"
+                : "jack_voice_tool_blocked_confirmation_required",
             {
               tool_name: name,
               reason: decision.reason,
@@ -1067,6 +1071,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               ),
             },
           );
+
           pushLog({
             kind: "warning",
             text: `Tool ${name} bloccato: ${decision.reason}.`,
@@ -1622,18 +1627,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       switch (pending.preview.type) {
         case "sync_gmail":
           toolName = "refresh_gmail_sync";
-          toolArgs = pending.preview.payload;
+          toolArgs = { ...pending.preview.payload, source };
           break;
         case "open_gmail_connector":
           toolName = "open_brainhub_screen";
-          toolArgs = pending.preview.payload;
+          toolArgs = { ...pending.preview.payload, source };
           break;
         case "ask_email_brief":
           toolName = "get_email_brief";
-          toolArgs = pending.preview.payload;
+          toolArgs = { ...pending.preview.payload, source };
           break;
       }
-      pushLog({ kind: "tool", text: `→ ${toolName}` });
+      pushLog({ kind: "tool", text: `→ ${toolName} (source=${source})` });
       try {
         const result = (await toolFn({
           data: {
@@ -1641,6 +1646,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             arguments: JSON.stringify(toolArgs),
           },
         })) as Record<string, unknown>;
+
         const ok = result.ok === true;
         const safeMessage =
           typeof result.safe_message === "string"
@@ -1736,7 +1742,15 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   );
 
   const runDeterministicVoiceRouter = useCallback(
-    async (transcript: string, nowTs: number) => {
+    async (
+      transcript: string,
+      nowTs: number,
+    ): Promise<{
+      handled: boolean;
+      intent: VoiceCommandRouterResult["intent"];
+      responseAlreadyQueued: boolean;
+      actionPreviewCreated: boolean;
+    }> => {
       // Expire stale pending action.
       const currentPending = pendingVoiceActionRef.current;
       if (currentPending && currentPending.expiresAt < nowTs) {
@@ -1766,7 +1780,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
       if (result.intent === "cancel") {
         cancelPendingVoiceAction("user_button");
-        return;
+        return {
+          handled: true,
+          intent: result.intent,
+          responseAlreadyQueued: true,
+          actionPreviewCreated: false,
+        };
       }
       // v3.25.2 — capability/meta questions ("non puoi farlo tu?", "puoi farlo?")
       // never confirm pending actions and never trigger sensitive tools.
@@ -1777,7 +1796,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         pushLog({ kind: "warning", text: "Domanda di capacità — serve conferma esplicita." });
         injectAssistantNote(result.safe_message);
         safeCreateResponse("voice_capability_question", { queueIfBusy: true });
-        return;
+        return {
+          handled: true,
+          intent: result.intent,
+          responseAlreadyQueued: true,
+          actionPreviewCreated: false,
+        };
       }
       if (result.intent === "confirm_pending" && pendingVoiceActionRef.current) {
         safeLog("jack_voice_pending_action_confirmed_by_voice", {
@@ -1798,7 +1822,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           pendingVoiceActionRef.current,
           "voice_confirm",
         );
-        return;
+        return {
+          handled: true,
+          intent: result.intent,
+          responseAlreadyQueued: true,
+          actionPreviewCreated: false,
+        };
       }
       // v3.25.1 — pending action exists but utterance was not a confirmation
       if (
@@ -1844,6 +1873,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           last !== null &&
           last.type === result.action_preview.type &&
           nowTs - last.at < ROUTER_PREVIEW_DEDUP_MS;
+        let queued = false;
         if (isDuplicate) {
           safeLog("jack_voice_router_message_suppressed_duplicate", {
             action_type: result.action_preview.type,
@@ -1866,8 +1896,21 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           safeCreateResponse("voice_router_action_preview_created", {
             queueIfBusy: true,
           });
+          queued = true;
         }
+        return {
+          handled: true,
+          intent: result.intent,
+          responseAlreadyQueued: queued,
+          actionPreviewCreated: true,
+        };
       }
+      return {
+        handled: false,
+        intent: result.intent,
+        responseAlreadyQueued: false,
+        actionPreviewCreated: false,
+      };
     },
     [
       safeLog,
@@ -1879,6 +1922,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       pushLog,
     ],
   );
+
 
   // v3.19.6 / v3.21.5 — confirm pending preview through the server bridge,
   // then verify the created action is actually readable as the same user.
@@ -2494,7 +2538,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
 
   const handleDcMessage = useCallback(
-    (ev: MessageEvent<string>) => {
+    async (ev: MessageEvent<string>) => {
+
       let msg: RealtimeEvent;
       try {
         msg = JSON.parse(typeof ev.data === "string" ? ev.data : "") as RealtimeEvent;
@@ -2713,7 +2758,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 classification.reason !== "suspected_echo"
               ) {
                 lastValidUserUtteranceRef.current = { text: transcript, at: nowTs };
-                void runDeterministicVoiceRouter(transcript, nowTs);
+                await runDeterministicVoiceRouter(transcript, nowTs);
               }
               break;
             }
@@ -2733,16 +2778,37 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               lastIgnoredReason: null,
             }));
             pushLog({ kind: "user", text: transcript });
-            handleVoiceConfirmationTranscript(transcript, msg.type);
-            // v3.25 — run deterministic command router for sensitive intents.
-            void runDeterministicVoiceRouter(transcript, nowTs);
-            // v3.25.2 — auto-response is disabled at the session level, so we
-            // must explicitly create a response for valid user utterances.
-            // safeCreateResponse dedups against router-triggered responses
-            // and against any in-flight response.
-            safeCreateResponse("user_utterance_valid", { queueIfBusy: true });
+            // v3.25.3 — single response path:
+            //   1) run deterministic router FIRST and await its result.
+            //   2) skip handleVoiceConfirmationTranscript on capability_question
+            //      or when router already handled the turn.
+            //   3) skip the catch-all safeCreateResponse if the router already
+            //      queued a spoken response or created an action preview.
+            const routerResult = await runDeterministicVoiceRouter(
+              transcript,
+              nowTs,
+            );
+            if (
+              routerResult.intent !== "capability_question" &&
+              !routerResult.handled
+            ) {
+              handleVoiceConfirmationTranscript(transcript, msg.type);
+            }
+            if (
+              !routerResult.responseAlreadyQueued &&
+              !routerResult.actionPreviewCreated
+            ) {
+              safeCreateResponse("user_utterance_valid", { queueIfBusy: true });
+            } else {
+              safeLog("jack_voice_user_utterance_response_skipped_router_owns_turn", {
+                router_intent: routerResult.intent,
+                response_already_queued: routerResult.responseAlreadyQueued,
+                action_preview_created: routerResult.actionPreviewCreated,
+              });
+            }
           }
           break;
+
 
 
         case "response.done":

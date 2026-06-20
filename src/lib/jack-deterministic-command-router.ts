@@ -136,23 +136,45 @@ const CANCEL_TERMS = [
   "ferma",
   "cancella",
 ];
-const CONFIRM_TERMS = [
-  "si",
+// v3.25.3 — STRONG vs WEAK confirmation terms.
+// STRONG terms confirm sensitive pending actions (sync_gmail) on their own.
+// WEAK terms only confirm low-risk pending actions (open_gmail_connector,
+// ask_email_brief) on their own; for sensitive actions they require an
+// action-specific keyword (sincronizz/gmail/mail/posta/email) in the same
+// utterance.
+const STRONG_CONFIRM_TERMS = [
   "si grazie",
   "si conferma",
   "si confermo",
   "confermo",
   "conferma",
   "procedi",
-  "vai",
   "fallo",
+];
+const WEAK_CONFIRM_TERMS = [
+  "si",
   "ok",
   "okay",
   "va bene",
   "perfetto",
   "daje",
   "dai",
+  "vai",
 ];
+const CONFIRM_TERMS = [...STRONG_CONFIRM_TERMS, ...WEAK_CONFIRM_TERMS];
+// Keywords that, combined with ANY confirm term, count as confirmation of a
+// sensitive sync_gmail pending action.
+const SENSITIVE_GMAIL_KEYWORDS = [
+  "sincronizz",
+  "gmail",
+  "mail",
+  "email",
+  "posta",
+  "sync",
+  "aggiorn",
+  "refresh",
+];
+
 
 function containsAny(text: string, terms: ReadonlyArray<string>): string[] {
   const hits: string[] = [];
@@ -242,22 +264,49 @@ export function routeVoiceCommand(
   // 2. Confirm pending action if any is active and user said a confirm term.
   // Question-shaped utterances ("…?") are NEVER confirmations, even with a
   // confirm term inside them ("posso… ok?").
-  const confirmHits = containsAny(normalized, CONFIRM_TERMS);
+  // v3.25.3 — confirmation strictness depends on pending action risk:
+  //   - sync_gmail (sensitive): STRONG term alone, OR ANY confirm term
+  //     combined with a gmail-specific keyword.
+  //   - other (low-risk): any confirm term works.
+  const strongConfirmHits = containsAny(normalized, STRONG_CONFIRM_TERMS);
+  const weakConfirmHits = containsAny(normalized, WEAK_CONFIRM_TERMS);
+  const confirmHits = [...strongConfirmHits, ...weakConfirmHits];
+  const sensitiveKeywordHits = containsAny(normalized, SENSITIVE_GMAIL_KEYWORDS);
   if (
     ctx.pendingVoiceAction &&
     ctx.pendingVoiceAction.expiresAt > ctx.now &&
     confirmHits.length > 0 &&
     !endsWithQuestionMark
   ) {
+    const isSensitive = ctx.pendingVoiceAction.type === "sync_gmail";
+    const isStrong =
+      strongConfirmHits.length > 0 ||
+      (isSensitive && sensitiveKeywordHits.length > 0) ||
+      (!isSensitive);
+    if (isStrong) {
+      return {
+        intent: "confirm_pending",
+        confidence: "high",
+        requires_confirmation: false,
+        action_preview: null,
+        safe_message: "Confermato, procedo.",
+        matched_terms: confirmHits,
+      };
+    }
+    // Weak confirm for a sensitive action without keyword: do NOT execute.
+    // Surface as capability_question so the client keeps the card alive and
+    // re-prompts the user for an explicit confirmation.
     return {
-      intent: "confirm_pending",
-      confidence: "high",
+      intent: "capability_question",
+      confidence: "low",
       requires_confirmation: false,
       action_preview: null,
-      safe_message: "Confermato, procedo.",
-      matched_terms: confirmHits,
+      safe_message:
+        "Per sincronizzare Gmail mi serve una conferma esplicita: dì 'sì, sincronizza Gmail' oppure usa il pulsante.",
+      matched_terms: weakConfirmHits,
     };
   }
+
   // If user asks a question while a pending action exists, treat as
   // capability_question (do not execute, do not cancel).
   if (ctx.pendingVoiceAction && endsWithQuestionMark) {
