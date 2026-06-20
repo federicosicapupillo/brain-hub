@@ -125,7 +125,7 @@ export async function listGmailConnections(
 ): Promise<GmailConnection[]> {
   let q = supabase
     .from("gmail_connection_settings")
-    .select("*")
+    .select("id,user_id,brain_id,google_email,google_user_id,status,scopes,connected_at,disconnected_at,last_sync_at,last_sync_status,last_sync_error,message_count,metadata,created_at,updated_at")
     .order("created_at", { ascending: false });
   if (brainId) q = q.or(`brain_id.eq.${brainId},brain_id.is.null`);
   const { data, error } = await q;

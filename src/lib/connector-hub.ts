@@ -296,7 +296,7 @@ async function detectStatuses(): Promise<
   try {
     const { data } = await supabase
       .from("gmail_connection_settings" as never)
-      .select("*")
+      .select("id,status,last_sync_at,updated_at")
       .limit(1)
       .maybeSingle();
     const row = data as Record<string, unknown> | null;
