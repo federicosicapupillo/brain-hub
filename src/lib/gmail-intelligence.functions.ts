@@ -1000,7 +1000,7 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
-      .select("id,status,google_email,last_sync_at,updated_at")
+      .select("id,status,google_email,last_sync_at,updated_at,metadata")
       .eq("user_id", userId)
       .order("last_sync_at", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false });
@@ -1010,6 +1010,7 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
       google_email: string | null;
       last_sync_at: string | null;
       updated_at: string | null;
+      metadata?: Record<string, unknown> | null;
     }>;
     const connectionCandidates = await buildConnectionCandidates(
       supabase as SupabaseReadClient,
@@ -1027,6 +1028,15 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
         message: "Gmail non è collegato.",
       };
     }
+    const connRaw = conns.find((c) => c.id === conn.id) ?? null;
+    const activeSyncRunId =
+      connRaw && connRaw.metadata && typeof connRaw.metadata === "object"
+        ? (typeof (connRaw.metadata as Record<string, unknown>).last_gmail_sync_run_id ===
+          "string"
+            ? ((connRaw.metadata as Record<string, unknown>)
+                .last_gmail_sync_run_id as string)
+            : null)
+        : null;
 
     const safe = q.replace(/[%_\\]/g, "\\$&");
     const pattern = `%${safe}%`;
@@ -1059,9 +1069,15 @@ export const searchEmailsFn = createServerFn({ method: "POST" })
     if (error) {
       return { ok: false, error: "search_failed", emails: [] as EmailBriefItem[] };
     }
-    let emails = ((rows ?? []) as Array<Record<string, unknown>>).map(
-      (r, idx) => mapEmailRow(r, idx),
-    );
+    let rawRows = (rows ?? []) as Array<Record<string, unknown>>;
+    // v3.24 — drop stale-cache rows when a sync_run_id is available.
+    let staleHiddenCount = 0;
+    if (activeSyncRunId) {
+      const beforeLen = rawRows.length;
+      rawRows = rawRows.filter((r) => rowSyncRunId(r) === activeSyncRunId);
+      staleHiddenCount = beforeLen - rawRows.length;
+    }
+    let emails = rawRows.map((r, idx) => mapEmailRow(r, idx));
     if (!includeNewsletters) emails = emails.filter((e) => !e.is_newsletter);
     emails = emails.slice(0, limit).map((e, idx) => ({ ...e, selection_index: idx + 1 }));
 
