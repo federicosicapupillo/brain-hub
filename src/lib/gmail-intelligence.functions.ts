@@ -688,35 +688,66 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       : 0;
     const partialSync =
       !lastSyncAt ||
-      Date.now() - lastSyncMs > 6 * 3600 * 1000;
+      Date.now() - lastSyncMs > 10 * 60 * 1000;
     const possiblyStale =
-      partialSync ||
+      syncMayBeStale({
+        lastSyncAt,
+        partialSync,
+        rawTodayCount: todayRaw.rawCount,
+        connected: true,
+      }) ||
       (latestMsgMs > 0 && lastSyncMs > 0 && lastSyncMs < latestMsgMs);
     const syncFreshness = {
       last_sync_at: lastSyncAt,
       latest_message_seen_at: latestMessageSeenAt,
       possibly_stale: possiblyStale,
+      sync_may_be_stale: possiblyStale,
     };
 
     // Sanitized debug for today's raw rows. No body, no full email address.
-    const debugTodayRaw = todayEmails.map((e) => ({
+    const includedBucketsFor = (e: EmailBriefItem): string[] => {
+      const buckets = ["all_today"];
+      if (e.is_newsletter) buckets.push("newsletters_today");
+      else if (e.is_inbox_primary) buckets.push("inbox_today");
+      else buckets.push("unknown_today");
+      return buckets;
+    };
+    const debugTodayRaw: DebugTodayRawEntry[] = todayEmails.map((e) => ({
       local_id: e.local_id,
+      gmail_message_id_hash: hash(e.gmail_message_id),
       from_domain: e.from_domain,
       from_preview: redactEmailForLog(e.from_email),
-      subject_preview: e.subject ? e.subject.slice(0, 80) : null,
-      snippet_preview: e.snippet ? e.snippet.slice(0, 120) : null,
-      received_at: e.received_at,
+      subject_preview: previewText(e.subject, 80),
+      snippet_preview: previewText(e.snippet, 120),
+      internal_date: e.received_at,
       label_ids: e.labels,
       detected_category: e.category,
       is_unread: e.unread,
+      has_attachments: e.has_attachments,
       classified_as: e.is_newsletter
         ? "newsletter"
         : e.is_unknown_personal
           ? "unknown_personal"
           : "inbox_primary",
-      is_newsletter: e.is_newsletter,
-      is_filtered: e.is_filtered,
+      included_in_buckets: includedBucketsFor(e),
     }));
+
+    const diagnostics = {
+      active_connection_id_hash: hash(conn.id),
+      active_connection_email_preview: redactEmailForLog(conn.google_email),
+      last_sync_at: lastSyncAt,
+      today_range_rome: { start: todayStart, end: todayEnd },
+      raw_today_count: todayRaw.rawCount,
+      raw_today_unread_count: allToday.filter((e) => e.unread).length,
+      raw_today_newsletter_count: newslettersToday.length,
+      raw_today_inbox_candidate_count: inboxToday.length + unknownToday.length,
+      all_today_count: allToday.length,
+      inbox_today_count: inboxToday.length,
+      newsletters_today_count: newslettersToday.length,
+      unknown_today_count: unknownToday.length,
+      missing_expected_mail_possible: possiblyStale || todayRaw.rawCount > allToday.length,
+      sync_may_be_stale: possiblyStale,
+    };
 
     void logEvent(supabase, userId, "jack_email_brief_served", {
       connected: true,
