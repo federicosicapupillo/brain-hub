@@ -859,7 +859,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         return "skipped";
       }
       try {
-        dc.send(JSON.stringify({ type: "response.create" }));
+        const payload: Record<string, unknown> = { type: "response.create" };
+        if (options.instructionsOverride) {
+          payload.response = { instructions: options.instructionsOverride };
+        }
+        dc.send(JSON.stringify(payload));
         lastResponseCreateAtRef.current = now;
         setDiagnostics((d) => ({
           ...d,
@@ -867,7 +871,10 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           lastResponseCreateAt: now,
           responseState: "response_starting",
         }));
-        safeLog("jack_gpt_response_create_sent", { reason });
+        safeLog("jack_gpt_response_create_sent", {
+          reason,
+          has_instructions_override: Boolean(options.instructionsOverride),
+        });
         return "sent";
       } catch {
         return "skipped";
