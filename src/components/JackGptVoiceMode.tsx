@@ -528,6 +528,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   >(null);
   const lastExecutedVoiceActionIdRef = useRef<string | null>(null);
   const voiceActionExecutingRef = useRef<boolean>(false);
+  // v3.25.2 — dedup router preview spoken messages within a short window.
+  const lastRouterPreviewMessageRef = useRef<{ type: string; at: number } | null>(null);
+  const ROUTER_PREVIEW_DEDUP_MS = 6000;
 
 
   const responseInProgressRef = useRef(false);
