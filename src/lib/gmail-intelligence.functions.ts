@@ -761,7 +761,8 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       else buckets.push("unknown_today");
       return buckets;
     };
-    const debugTodayRaw: DebugTodayRawEntry[] = todayEmails.map((e) => ({
+    // v3.24 — never leak stale-row previews to Jack: only verified rows here.
+    const debugTodayRaw: DebugTodayRawEntry[] = allToday.map((e) => ({
       local_id: e.local_id,
       gmail_message_id_hash: hash(e.gmail_message_id),
       from_domain: e.from_domain,
@@ -794,9 +795,22 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       inbox_today_count: inboxToday.length,
       newsletters_today_count: newslettersToday.length,
       unknown_today_count: unknownToday.length,
-      missing_expected_mail_possible: possiblyStale || todayRaw.rawCount > allToday.length,
+      missing_expected_mail_possible:
+        possiblyStale || todayRaw.rawCount > allToday.length || cacheStale,
       sync_may_be_stale: possiblyStale,
+      // v3.24 cache truth guard
+      cache_truth_guard_active: true,
+      last_gmail_sync_run_id_present: activeSyncRunId !== null,
+      verified_today_count: allToday.length,
+      stale_today_hidden_count: staleTodayHiddenCount,
     };
+
+    if (cacheStale) {
+      void logEvent(supabase, userId, "jack_gmail_cache_stale_detected", {
+        stale_rows_hidden_count: staleTodayHiddenCount,
+        last_sync_at: lastSyncAt,
+      });
+    }
 
     void logEvent(supabase, userId, "jack_email_brief_served", {
       connected: true,
@@ -807,6 +821,8 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       label_scope: labelScope,
       metadata_missing: metadataMissing,
       partial_sync: partialSync,
+      cache_stale: cacheStale,
+      stale_today_hidden_count: staleTodayHiddenCount,
     });
     void logEvent(supabase, userId, "jack_email_today_raw_bucketed", {
       total_all: counts.today_total_all,
