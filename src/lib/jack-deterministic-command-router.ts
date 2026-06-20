@@ -136,23 +136,45 @@ const CANCEL_TERMS = [
   "ferma",
   "cancella",
 ];
-const CONFIRM_TERMS = [
-  "si",
+// v3.25.3 — STRONG vs WEAK confirmation terms.
+// STRONG terms confirm sensitive pending actions (sync_gmail) on their own.
+// WEAK terms only confirm low-risk pending actions (open_gmail_connector,
+// ask_email_brief) on their own; for sensitive actions they require an
+// action-specific keyword (sincronizz/gmail/mail/posta/email) in the same
+// utterance.
+const STRONG_CONFIRM_TERMS = [
   "si grazie",
   "si conferma",
   "si confermo",
   "confermo",
   "conferma",
   "procedi",
-  "vai",
   "fallo",
+];
+const WEAK_CONFIRM_TERMS = [
+  "si",
   "ok",
   "okay",
   "va bene",
   "perfetto",
   "daje",
   "dai",
+  "vai",
 ];
+const CONFIRM_TERMS = [...STRONG_CONFIRM_TERMS, ...WEAK_CONFIRM_TERMS];
+// Keywords that, combined with ANY confirm term, count as confirmation of a
+// sensitive sync_gmail pending action.
+const SENSITIVE_GMAIL_KEYWORDS = [
+  "sincronizz",
+  "gmail",
+  "mail",
+  "email",
+  "posta",
+  "sync",
+  "aggiorn",
+  "refresh",
+];
+
 
 function containsAny(text: string, terms: ReadonlyArray<string>): string[] {
   const hits: string[] = [];
