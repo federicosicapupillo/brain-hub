@@ -1583,6 +1583,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         action_type: current.type,
         reason,
       });
+      if (reason === "expired") {
+        safeLog("jack_voice_pending_action_expired", {
+          action_id: current.id,
+          action_type: current.type,
+          source: "router_check",
+        });
+      }
       pendingVoiceActionRef.current = null;
       setPendingVoiceAction(null);
       setDiagnostics((d) => ({
