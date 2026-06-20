@@ -1443,11 +1443,22 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         safeLog("jack_voice_action_execution_skipped_duplicate", {
           action_id: pending.id,
         });
+        safeLog("jack_voice_action_duplicate_execution_blocked", {
+          action_id: pending.id,
+          action_type: pending.type,
+          source,
+        });
         return;
       }
       if (voiceActionExecutingRef.current) {
         safeLog("jack_voice_action_execution_skipped_in_flight", {
           action_id: pending.id,
+        });
+        safeLog("jack_voice_action_duplicate_execution_blocked", {
+          action_id: pending.id,
+          action_type: pending.type,
+          source,
+          reason: "in_flight",
         });
         return;
       }
@@ -1455,12 +1466,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         safeLog("jack_voice_action_execution_skipped_expired", {
           action_id: pending.id,
         });
+        safeLog("jack_voice_pending_action_expired", {
+          action_id: pending.id,
+          action_type: pending.type,
+          source: "execute_attempt",
+        });
         setPendingVoiceAction(null);
         pendingVoiceActionRef.current = null;
         return;
       }
       voiceActionExecutingRef.current = true;
       lastExecutedVoiceActionIdRef.current = pending.id;
+      const executionStartedAt = Date.now();
       safeLog("jack_voice_action_confirmed_by_button", {
         action_id: pending.id,
         action_type: pending.type,
@@ -1470,6 +1487,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         ...d,
         lastVoiceActionExecuted: pending.type,
         lastVoiceActionResultStatus: "executing",
+        lastPendingVoiceActionExecutionStartedAt: executionStartedAt,
+        lastPendingVoiceActionExecutionFinishedAt: null,
+        lastPendingVoiceActionExecutionResult: null,
       }));
       let toolName: string;
       let toolArgs: Record<string, unknown>;
