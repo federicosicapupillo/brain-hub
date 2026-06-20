@@ -465,6 +465,34 @@ export async function runRefreshGmailMetadataSyncCore(
       }
 
       const completedIso = new Date().toISOString();
+
+      // v3.24 — read current conn.metadata and merge sync_run_id markers
+      let connExistingMetadata: Record<string, unknown> = {};
+      try {
+        const { data: connMetaRow } = await supabase
+          .from("gmail_connection_settings")
+          .select("metadata")
+          .eq("id", conn.id)
+          .maybeSingle();
+        if (
+          connMetaRow &&
+          typeof (connMetaRow as { metadata?: unknown }).metadata === "object" &&
+          (connMetaRow as { metadata?: unknown }).metadata !== null
+        ) {
+          connExistingMetadata = (connMetaRow as { metadata: Record<string, unknown> }).metadata;
+        }
+      } catch {
+        /* best-effort */
+      }
+      const mergedConnMetadata: Record<string, unknown> = {
+        ...connExistingMetadata,
+        last_gmail_sync_run_id: syncRunId,
+        last_gmail_sync_completed_at: completedIso,
+        last_gmail_sync_mode: mode,
+        last_gmail_sync_query: query,
+        last_gmail_sync_fetched_count: ids.length,
+      };
+
       await supabase
         .from("gmail_connection_settings")
         .update({
@@ -477,6 +505,7 @@ export async function runRefreshGmailMetadataSyncCore(
           sync_status: "idle",
           sync_lock_until: null,
           token_expires_at: newExpiresAt,
+          metadata: mergedConnMetadata,
         } as never)
         .eq("id", conn.id);
 
@@ -502,6 +531,7 @@ export async function runRefreshGmailMetadataSyncCore(
         fetched: ids.length,
         new_messages: added,
         updated_messages: updated,
+        sync_run_id: syncRunId,
       });
 
       return {
