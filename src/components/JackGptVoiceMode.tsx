@@ -2767,6 +2767,43 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           if (msg.transcript) {
             const transcript = String(msg.transcript);
             const nowTs = Date.now();
+            // v3.25.4 — barge-in guard. Ignore short noise / single-word
+            // backchannels ("mhm", "ok") that arrive while Jack is speaking
+            // or within 1200ms of his speech ending. We do NOT cancel the
+            // active response — we simply drop the turn so VAD echo cannot
+            // truncate Jack mid-sentence. Strong interrupt words
+            // ("fermati", "stop", "aspetta", "cambia domanda") still pass.
+            const bargeIn = shouldIgnoreBargeIn({
+              transcript,
+              assistantSpeaking: assistantSpeakingRef.current,
+              lastAssistantSpeechEndedAt: lastAssistantSpeechEndedAtRef.current,
+              now: nowTs,
+            });
+            if (bargeIn.ignore) {
+              ignoredDuringAssistantSpeechCountRef.current += 1;
+              safeLog("jack_voice_barge_in_ignored_short_noise", {
+                reason: bargeIn.reason,
+                transcript_length: transcript.length,
+                assistant_speaking: assistantSpeakingRef.current,
+                ms_since_speech_end:
+                  lastAssistantSpeechEndedAtRef.current === null
+                    ? null
+                    : nowTs - lastAssistantSpeechEndedAtRef.current,
+                ignored_count: ignoredDuringAssistantSpeechCountRef.current,
+              });
+              setDiagnostics((d) => ({
+                ...d,
+                lastBargeInIgnoredReason: bargeIn.reason,
+                lastBargeInIgnoredAt: nowTs,
+                ignoredDuringAssistantSpeechCount:
+                  ignoredDuringAssistantSpeechCountRef.current,
+              }));
+              pushLog({
+                kind: "warning",
+                text: `Barge-in ignorato (${bargeIn.reason}): "${transcript.slice(0, 40)}"`,
+              });
+              break;
+            }
             const classification = classifyUserUtterance({
               text: transcript,
               assistantText: lastAssistantSpokenTextRef.current,
