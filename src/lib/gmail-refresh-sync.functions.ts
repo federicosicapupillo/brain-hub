@@ -27,6 +27,10 @@ export type RefreshGmailMetadataSyncResult = {
     | "already_in_progress"
     | "not_connected"
     | "reauth_required"
+    | "config_missing"
+    | "migration_missing"
+    | "google_api_error"
+    | "db_error"
     | "failed";
   connection_id_hash?: string;
   last_sync_before?: string | null;
