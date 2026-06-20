@@ -570,6 +570,7 @@ function OperatingDashboardRoute() {
               <DailyBriefMiniCard brainId={brainId} />
               <ProjectStateMiniCard brainId={brainId} />
               <ConnectorHubMiniCard />
+              <UiOperatorMiniCard />
               <CodeAgentJobsMiniCard brainId={brainId} />
             </div>
           </div>
