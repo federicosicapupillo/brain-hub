@@ -443,6 +443,9 @@ function UiOperatorLabRoute() {
         </CardContent>
       </Card>
 
+      <ControlledSurfaceCard sessionId={session?.id ?? null} />
+
+
       <Card>
         <CardHeader>
           <CardTitle className="text-sm">Storico azioni</CardTitle>
