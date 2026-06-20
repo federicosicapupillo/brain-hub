@@ -1132,6 +1132,7 @@ export const getEmailDetailFn = createServerFn({ method: "POST" })
       (d ?? {}) as {
         local_id?: string;
         gmail_message_id?: string;
+        allow_stale_debug?: boolean;
       },
   )
   .handler(async ({ data, context }) => {
@@ -1159,6 +1160,43 @@ export const getEmailDetailFn = createServerFn({ method: "POST" })
     if (!row) {
       return { ok: false, error: "email_not_found" };
     }
+
+    // v3.24 — Cache Truth Guard: require row.metadata.last_seen_sync_run_id
+    // to match the connection's last successful sync run id.
+    if (!data.allow_stale_debug && row.connection_id) {
+      try {
+        const { data: connRow } = await supabase
+          .from("gmail_connection_settings")
+          .select("metadata")
+          .eq("id", row.connection_id)
+          .maybeSingle();
+        const connMd =
+          connRow && typeof (connRow as { metadata?: unknown }).metadata === "object"
+            ? ((connRow as { metadata: Record<string, unknown> }).metadata)
+            : null;
+        const activeRunId =
+          connMd && typeof connMd.last_gmail_sync_run_id === "string"
+            ? (connMd.last_gmail_sync_run_id as string)
+            : null;
+        if (activeRunId) {
+          const rowRunId = rowSyncRunId(row as unknown as Record<string, unknown>);
+          if (rowRunId !== activeRunId) {
+            void logEvent(supabase, userId, "jack_email_detail_stale_blocked", {
+              message_id_hash: hash(row.gmail_message_id),
+            });
+            return {
+              ok: false,
+              error: "email_stale_not_verified",
+              message:
+                "Questa email è presente solo nella cache e non è stata verificata nell'ultimo sync Gmail.",
+            };
+          }
+        }
+      } catch {
+        /* best-effort */
+      }
+    }
+
 
     const summary = buildDeterministicSummary(row);
     const hasFullBody = Boolean(row.body_preview && row.body_preview.length > 0);
