@@ -1598,7 +1598,7 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               brain_id: (args.brain_id as string | undefined) ?? null,
               date_range: (args.date_range as "today" | "7d" | "all" | undefined) ?? "today",
               unread_only: Boolean(args.unread_only),
-              important_only: args.important_only !== false,
+              important_only: args.important_only === true,
             },
           });
           return { ok: res.ok, payload: res };
