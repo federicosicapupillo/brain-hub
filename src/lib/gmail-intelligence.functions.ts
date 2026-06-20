@@ -78,15 +78,30 @@ const NEWSLETTER_CATEGORY_LABELS = new Set([
   "CATEGORY_UPDATES",
   "CATEGORY_FORUMS",
 ]);
-const NEWSLETTER_RX =
-  /\b(newsletter|unsubscribe|disiscriviti|cancellati|promo|promozione|offerta|sconto|deal)\b/i;
-const NOREPLY_RX = /^(no[-_.]?reply|noreply|newsletter|news|info|marketing)@/i;
+// Strong newsletter heuristic: must contain explicit marketing/unsubscribe
+// vocabulary, not just an occurrence of "offerta" inside a personal message.
+const NEWSLETTER_STRONG_RX =
+  /\b(unsubscribe|disiscriviti|cancellati|newsletter|digest|marketing|promo(?:zione)?|coupon)\b/i;
+const NOREPLY_RX = /^(no[-_.]?reply|noreply|newsletter|news|marketing|mailer|notification|notifiche)@/i;
+const PERSONAL_DOMAIN_RX =
+  /@(gmail|googlemail|hotmail|outlook|live|yahoo|icloud|me|protonmail|pm|libero|tin|alice|fastwebnet|aruba|virgilio)\./i;
+
+const NEWSLETTER_DETECTED_CATEGORIES = new Set([
+  "newsletter",
+  "promotions",
+  "promo",
+  "updates",
+  "social",
+  "forums",
+  "marketing",
+]);
 
 export type EmailClassification = {
   category: string;
   is_newsletter: boolean;
   is_filtered: boolean;
   is_inbox_primary: boolean;
+  is_unknown_personal: boolean;
 };
 
 export function classifyMail(row: {
@@ -97,31 +112,52 @@ export function classifyMail(row: {
   snippet?: string | null;
 }): EmailClassification {
   const labels = Array.isArray(row.label_ids) ? row.label_ids : [];
-  const upper = labels.map((l) => l.toUpperCase());
+  const upper = labels.map((l) => String(l).toUpperCase());
   const hasInbox = upper.includes("INBOX");
   const newsletterLabel = upper.find((l) => NEWSLETTER_CATEGORY_LABELS.has(l));
   const detected = (row.detected_category ?? "").toLowerCase();
-  const heuristicNewsletter =
-    NEWSLETTER_RX.test(`${row.subject ?? ""} ${row.snippet ?? ""}`) ||
-    NOREPLY_RX.test((row.from_email ?? "").toLowerCase());
+  const fromLc = (row.from_email ?? "").toLowerCase();
+  const text = `${row.subject ?? ""} ${row.snippet ?? ""}`;
+
+  const strongHeuristic =
+    NEWSLETTER_STRONG_RX.test(text) || NOREPLY_RX.test(fromLc);
+  const detectedNewsletter = NEWSLETTER_DETECTED_CATEGORIES.has(detected);
+
+  // Newsletter ONLY when there's a strong signal. Missing labels alone never
+  // imply newsletter — otherwise personal mail (Federico → fedestic01@gmail.com)
+  // would get hidden in the filtered bucket.
   const isNewsletter =
-    Boolean(newsletterLabel) ||
-    ["newsletter", "promotions", "promo", "updates", "social"].includes(detected) ||
-    heuristicNewsletter;
-  const isPrimary = hasInbox && !newsletterLabel && !isNewsletter;
-  const isFiltered = !isPrimary;
+    Boolean(newsletterLabel) || detectedNewsletter || strongHeuristic;
+
+  const senderLooksPersonal =
+    !!fromLc && PERSONAL_DOMAIN_RX.test(fromLc) && !NOREPLY_RX.test(fromLc);
+
+  const labelsMissing = upper.length === 0;
+  // Unknown when we can't decide: no INBOX label, not classified as newsletter,
+  // and either labels are missing or sender looks personal.
+  const isUnknownPersonal =
+    !isNewsletter && !hasInbox && (labelsMissing || senderLooksPersonal);
+
+  const isPrimary = !isNewsletter && (hasInbox || senderLooksPersonal);
+  // Filtered = anything we'd hide from the primary inbox view.
+  const isFiltered = isNewsletter || (!isPrimary && !isUnknownPersonal);
+
   const category = newsletterLabel
     ? newsletterLabel.replace("CATEGORY_", "").toLowerCase()
     : isNewsletter
       ? "newsletter"
       : isPrimary
         ? "primary"
-        : detected || "other";
+        : isUnknownPersonal
+          ? "unknown_personal"
+          : detected || "other";
+
   return {
     category,
     is_newsletter: isNewsletter,
     is_filtered: isFiltered,
     is_inbox_primary: isPrimary,
+    is_unknown_personal: isUnknownPersonal,
   };
 }
 
