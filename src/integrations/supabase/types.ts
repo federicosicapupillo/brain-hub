@@ -3982,6 +3982,149 @@ export type Database = {
         }
         Relationships: []
       }
+      ui_operator_actions: {
+        Row: {
+          action_type: string
+          blocked_at: string | null
+          brain_id: string | null
+          confirmed_at: string | null
+          coordinates: Json | null
+          created_at: string
+          description: string | null
+          error_text: string | null
+          executed_at: string | null
+          failed_at: string | null
+          id: string
+          input_text_preview: string | null
+          metadata: Json
+          requires_confirmation: boolean
+          result_text: string | null
+          risk_level: string
+          route: string | null
+          safety_reason: string | null
+          selector: string | null
+          session_id: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          blocked_at?: string | null
+          brain_id?: string | null
+          confirmed_at?: string | null
+          coordinates?: Json | null
+          created_at?: string
+          description?: string | null
+          error_text?: string | null
+          executed_at?: string | null
+          failed_at?: string | null
+          id?: string
+          input_text_preview?: string | null
+          metadata?: Json
+          requires_confirmation?: boolean
+          result_text?: string | null
+          risk_level?: string
+          route?: string | null
+          safety_reason?: string | null
+          selector?: string | null
+          session_id: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          blocked_at?: string | null
+          brain_id?: string | null
+          confirmed_at?: string | null
+          coordinates?: Json | null
+          created_at?: string
+          description?: string | null
+          error_text?: string | null
+          executed_at?: string | null
+          failed_at?: string | null
+          id?: string
+          input_text_preview?: string | null
+          metadata?: Json
+          requires_confirmation?: boolean
+          result_text?: string | null
+          risk_level?: string
+          route?: string | null
+          safety_reason?: string | null
+          selector?: string | null
+          session_id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ui_operator_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ui_operator_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ui_operator_sessions: {
+        Row: {
+          brain_id: string | null
+          browserbase_session_id: string | null
+          created_at: string
+          current_url: string | null
+          ended_at: string | null
+          id: string
+          last_observation: string | null
+          last_observed_at: string | null
+          last_screenshot_hash: string | null
+          metadata: Json
+          provider: string
+          status: string
+          target_route: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          browserbase_session_id?: string | null
+          created_at?: string
+          current_url?: string | null
+          ended_at?: string | null
+          id?: string
+          last_observation?: string | null
+          last_observed_at?: string | null
+          last_screenshot_hash?: string | null
+          metadata?: Json
+          provider?: string
+          status?: string
+          target_route?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          browserbase_session_id?: string | null
+          created_at?: string
+          current_url?: string | null
+          ended_at?: string | null
+          id?: string
+          last_observation?: string | null
+          last_observed_at?: string | null
+          last_screenshot_hash?: string | null
+          metadata?: Json
+          provider?: string
+          status?: string
+          target_route?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       warehouses: {
         Row: {
           brain_id: string | null
