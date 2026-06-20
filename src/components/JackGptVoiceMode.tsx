@@ -372,7 +372,28 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastGmailSyncSafeMessage: null,
     lastGmailSyncErrorCode: null,
     lastGmailRequiresReauth: false,
+    lastRouterIntent: null,
+    lastRouterConfidence: null,
+    lastRouterMatchedTerms: [],
+    pendingVoiceActionId: null,
+    pendingVoiceActionType: null,
+    pendingVoiceActionExpiresAt: null,
+    lastVoiceActionExecuted: null,
+    lastVoiceActionResultStatus: null,
+    sensitiveToolSuppressedCount: 0,
   });
+
+  // v3.25 — pending voice action state for confirmation buttons
+  const [pendingVoiceAction, setPendingVoiceAction] = useState<
+    | (PendingVoiceActionLite & { preview: VoiceActionPreview })
+    | null
+  >(null);
+  const pendingVoiceActionRef = useRef<
+    | (PendingVoiceActionLite & { preview: VoiceActionPreview })
+    | null
+  >(null);
+  const lastExecutedVoiceActionIdRef = useRef<string | null>(null);
+  const voiceActionExecutingRef = useRef<boolean>(false);
 
 
   const responseInProgressRef = useRef(false);
