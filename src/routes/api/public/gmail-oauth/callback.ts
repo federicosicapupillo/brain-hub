@@ -268,18 +268,31 @@ export const Route = createFileRoute("/api/public/gmail-oauth/callback")({
 
           // 6) finalize connection
           const nowIso = new Date().toISOString();
+          const tokenExpiresAt = tokens.expires_in
+            ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+            : null;
+          const finalizeUpdate: Record<string, unknown> = {
+            status: "connected",
+            scopes: [GMAIL_OAUTH_SCOPE],
+            google_email: profile.emailAddress,
+            connected_at: nowIso,
+            last_sync_at: nowIso,
+            last_sync_completed_at: nowIso,
+            last_sync_status: "completed",
+            sync_status: "idle",
+            last_sync_error: null,
+            last_sync_error_code: null,
+            message_count: ids.length,
+            token_expires_at: tokenExpiresAt,
+          };
+          // Persist refresh_token only when Google returns one
+          // (offline + consent prompts the user, granting a refresh_token).
+          if (tokens.refresh_token) {
+            finalizeUpdate.refresh_token = tokens.refresh_token;
+          }
           await supabaseAdmin
             .from("gmail_connection_settings")
-            .update({
-              status: "connected",
-              scopes: [GMAIL_OAUTH_SCOPE],
-              google_email: profile.emailAddress,
-              connected_at: nowIso,
-              last_sync_at: nowIso,
-              last_sync_status: "completed",
-              last_sync_error: null,
-              message_count: ids.length,
-            } as never)
+            .update(finalizeUpdate as never)
             .eq("id", connectionId);
 
           try {
