@@ -1060,7 +1060,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             decision.reason ===
               "tool_called_after_assistant_question_without_user_reply"
               ? "jack_voice_tool_blocked_after_assistant_question"
-              : "jack_voice_tool_blocked_confirmation_required",
+              : decision.reason === "no_explicit_email_intent"
+                ? "jack_voice_email_brief_blocked_no_explicit_email_intent"
+                : "jack_voice_tool_blocked_confirmation_required",
             {
               tool_name: name,
               reason: decision.reason,
@@ -1069,6 +1071,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               ),
             },
           );
+
           pushLog({
             kind: "warning",
             text: `Tool ${name} bloccato: ${decision.reason}.`,
