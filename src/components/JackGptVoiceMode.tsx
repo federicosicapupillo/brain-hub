@@ -55,6 +55,15 @@ import {
   type PendingJackActionPreview,
 } from "@/lib/jack-action-confirmation";
 import { JACK_GPT_PRIVACY_NOTICE, JACK_GPT_SYSTEM_INSTRUCTIONS } from "@/lib/jack-gpt-instructions";
+import {
+  GATED_VOICE_TOOLS,
+  buildBlockedToolPayload,
+  classifyUserUtterance,
+  decideVoiceToolGate,
+  isAssistantQuestion,
+  type IgnoredUtteranceReason,
+  type VoiceToolBlockedReason,
+} from "@/lib/jack-voice-tool-gate";
 import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
 import {
   classifyRealtimeStartError,
@@ -230,6 +239,19 @@ type Diagnostics = {
   lastToolCacheStale: boolean;
   lastToolShouldNotCiteEmails: boolean;
   lastToolFailureRecoveryFiredAt: number | null;
+  // v3.24.2 — voice tool gate / echo guard
+  lastValidUserUtterance: string | null;
+  lastValidUserUtteranceAt: number | null;
+  lastIgnoredUserUtterance: string | null;
+  lastIgnoredReason: IgnoredUtteranceReason | null;
+  pendingToolConfirmation: boolean;
+  lastToolBlockedReason: VoiceToolBlockedReason | null;
+  lastToolGateDecision: "allowed" | "blocked" | null;
+  lastAssistantAskedConfirmationAt: number | null;
+  lastGmailSyncStatus: string | null;
+  lastGmailSyncSafeMessage: string | null;
+  lastGmailSyncErrorCode: string | null;
+  lastGmailRequiresReauth: boolean;
 };
 
 type Props = { brainId?: string | null };
@@ -318,6 +340,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastToolCacheStale: false,
     lastToolShouldNotCiteEmails: false,
     lastToolFailureRecoveryFiredAt: null,
+    lastValidUserUtterance: null,
+    lastValidUserUtteranceAt: null,
+    lastIgnoredUserUtterance: null,
+    lastIgnoredReason: null,
+    pendingToolConfirmation: false,
+    lastToolBlockedReason: null,
+    lastToolGateDecision: null,
+    lastAssistantAskedConfirmationAt: null,
+    lastGmailSyncStatus: null,
+    lastGmailSyncSafeMessage: null,
+    lastGmailSyncErrorCode: null,
+    lastGmailRequiresReauth: false,
   });
 
 
@@ -453,6 +487,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     "pending" | "confirmed" | "cancelled" | "expired" | null
   >(null);
   const restoreAttemptedRef = useRef(false);
+
+  // v3.24.2 — voice tool gate + echo guard refs
+  const lastValidUserUtteranceRef = useRef<{ text: string; at: number } | null>(null);
+  const lastAssistantSpokenTextRef = useRef<string | null>(null);
+  const lastAssistantSpokenAtRef = useRef<number | null>(null);
+  const lastAssistantAskedConfirmationAtRef = useRef<number | null>(null);
 
 
   const pushLog = useCallback((entry: Omit<LogEntry, "id" | "ts">) => {
@@ -745,6 +785,79 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
   const handleToolCall = useCallback(
     async (callId: string, name: string, argsRaw: string) => {
+      // v3.24.2 — voice tool gate. Block gated tools if there is no recent
+      // explicit user command / confirmation, especially right after Jack
+      // has asked the user a question.
+      if (GATED_VOICE_TOOLS.has(name)) {
+        const gateNow = Date.now();
+        const decision = decideVoiceToolGate({
+          toolName: name,
+          lastValidUserUtterance: lastValidUserUtteranceRef.current?.text ?? null,
+          lastValidUserUtteranceAt: lastValidUserUtteranceRef.current?.at ?? null,
+          lastAssistantQuestionAt: lastAssistantAskedConfirmationAtRef.current,
+          lastAssistantQuestionText: lastAssistantSpokenTextRef.current,
+          now: gateNow,
+        });
+        if (decision.status === "blocked") {
+          processedToolCallIdsRef.current.add(callId);
+          setDiagnostics((d) => ({
+            ...d,
+            lastToolGateDecision: "blocked",
+            lastToolBlockedReason: decision.reason,
+            pendingToolConfirmation: true,
+          }));
+          safeLog(
+            decision.reason ===
+              "tool_called_after_assistant_question_without_user_reply"
+              ? "jack_voice_tool_blocked_after_assistant_question"
+              : "jack_voice_tool_blocked_confirmation_required",
+            {
+              tool_name: name,
+              reason: decision.reason,
+              has_pending_assistant_question: Boolean(
+                lastAssistantAskedConfirmationAtRef.current,
+              ),
+            },
+          );
+          pushLog({
+            kind: "warning",
+            text: `Tool ${name} bloccato: ${decision.reason}.`,
+          });
+          const dcBlock = dcRef.current;
+          if (dcBlock && dcBlock.readyState === "open") {
+            try {
+              dcBlock.send(
+                JSON.stringify({
+                  type: "conversation.item.create",
+                  item: {
+                    type: "function_call_output",
+                    call_id: callId,
+                    output: JSON.stringify(
+                      buildBlockedToolPayload(
+                        decision.reason,
+                        decision.safe_message,
+                      ),
+                    ),
+                  },
+                }),
+              );
+            } catch {
+              /* noop */
+            }
+            safeCreateResponse("tool_blocked_confirmation_required", {
+              queueIfBusy: true,
+            });
+          }
+          return;
+        }
+        setDiagnostics((d) => ({
+          ...d,
+          lastToolGateDecision: "allowed",
+          lastToolBlockedReason: null,
+          pendingToolConfirmation: false,
+        }));
+      }
+
       // v3.21.2 — per-callId dedup (model occasionally re-emits the same call)
       if (processedToolCallIdsRef.current.has(callId)) {
         safeLog("jack_client_duplicate_tool_call_ignored", {
@@ -837,6 +950,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         lastToolRequiresReauth: requiresReauth,
         lastToolCacheStale: cacheStale,
         lastToolShouldNotCiteEmails: shouldNotCite,
+        ...(name === "refresh_gmail_sync"
+          ? {
+              lastGmailSyncStatus: lastToolStatus,
+              lastGmailSyncSafeMessage: lastToolSafeMessage,
+              lastGmailSyncErrorCode: lastToolErrorCode,
+              lastGmailRequiresReauth: requiresReauth,
+            }
+          : {}),
       }));
       safeLog("jack_realtime_tool_call_completed", {
         tool_name: name,
@@ -1859,6 +1980,17 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           }
           if (doneKey) transcriptDedupRef.current.appendedDoneIds.add(doneKey);
           pushLog({ kind: "jack", text: transcript });
+          // v3.24.2 — track what Jack said, for echo guard + question gate.
+          lastAssistantSpokenTextRef.current = transcript;
+          lastAssistantSpokenAtRef.current = Date.now();
+          if (isAssistantQuestion(transcript)) {
+            lastAssistantAskedConfirmationAtRef.current = Date.now();
+            setDiagnostics((d) => ({
+              ...d,
+              lastAssistantAskedConfirmationAt: Date.now(),
+              pendingToolConfirmation: true,
+            }));
+          }
           break;
         }
 
@@ -1876,6 +2008,60 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         case "conversation.item.input_audio_transcription.completed":
           if (msg.transcript) {
             const transcript = String(msg.transcript);
+            const nowTs = Date.now();
+            const classification = classifyUserUtterance({
+              text: transcript,
+              assistantText: lastAssistantSpokenTextRef.current,
+              assistantSpokeAt: lastAssistantSpokenAtRef.current,
+              now: nowTs,
+              hasPendingConfirmation: Boolean(pendingPreviewRef.current),
+            });
+            if (!classification.valid) {
+              safeLog(
+                classification.reason === "suspected_echo"
+                  ? "jack_voice_user_utterance_ignored_suspected_echo"
+                  : "jack_voice_user_utterance_ignored_too_ambiguous",
+                {
+                  reason: classification.reason,
+                  transcript_length: transcript.length,
+                  has_pending_preview: Boolean(pendingPreviewRef.current),
+                  has_pending_assistant_question: Boolean(
+                    lastAssistantAskedConfirmationAtRef.current,
+                  ),
+                },
+              );
+              setDiagnostics((d) => ({
+                ...d,
+                lastIgnoredUserUtterance: transcript.slice(0, 80),
+                lastIgnoredReason: classification.reason,
+              }));
+              pushLog({
+                kind: "warning",
+                text: `Utterance ignorato (${classification.reason}): "${transcript.slice(0, 60)}"`,
+              });
+              // Still hand off to confirmation pipeline only if there is a
+              // pending preview — voice confirmation has its own ambiguity
+              // checks and won't treat echo as confirmation.
+              if (pendingPreviewRef.current) {
+                handleVoiceConfirmationTranscript(transcript, msg.type);
+              }
+              break;
+            }
+            lastValidUserUtteranceRef.current = { text: transcript, at: nowTs };
+            // Once the user speaks, clear the "assistant just asked" gate if
+            // the user actually answered after the question.
+            if (
+              lastAssistantAskedConfirmationAtRef.current &&
+              nowTs > lastAssistantAskedConfirmationAtRef.current
+            ) {
+              setDiagnostics((d) => ({ ...d, pendingToolConfirmation: false }));
+            }
+            setDiagnostics((d) => ({
+              ...d,
+              lastValidUserUtterance: transcript.slice(0, 80),
+              lastValidUserUtteranceAt: nowTs,
+              lastIgnoredReason: null,
+            }));
             pushLog({ kind: "user", text: transcript });
             handleVoiceConfirmationTranscript(transcript, msg.type);
           }
