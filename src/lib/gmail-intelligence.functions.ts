@@ -522,6 +522,12 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       .eq("connection_id", conn.id);
 
     if ((totalAll ?? 0) === 0) {
+      const syncStale = syncMayBeStale({
+        lastSyncAt: conn.last_sync_at,
+        partialSync: true,
+        rawTodayCount: 0,
+        connected: true,
+      });
       void logEvent(supabase, userId, "jack_email_brief_served", {
         connected: true,
         status: "connected_no_sync",
@@ -546,6 +552,23 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           possibly_stale: true,
         },
         debug_today_raw: [] as DebugTodayRawEntry[],
+        diagnostics: {
+          active_connection_id_hash: hash(conn.id),
+          active_connection_email_preview: redactEmailForLog(conn.google_email),
+          last_sync_at: conn.last_sync_at,
+          today_range_rome: { start: todayStart, end: todayEnd },
+          raw_today_count: 0,
+          raw_today_unread_count: 0,
+          raw_today_newsletter_count: 0,
+          raw_today_inbox_candidate_count: 0,
+          all_today_count: 0,
+          inbox_today_count: 0,
+          newsletters_today_count: 0,
+          unknown_today_count: 0,
+          missing_expected_mail_possible: true,
+          sync_may_be_stale: syncStale,
+        },
+        connection_candidates: connectionCandidateDiagnostics,
         label_scope: "unknown" as const,
         metadata_missing: false,
         partial_sync: true,
@@ -558,13 +581,10 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       };
     }
 
-    let todayQ = supabase
-      .from("gmail_message_map")
-      .select(EMAIL_SELECT_COLS)
-      .eq("connection_id", conn.id)
-      .gte("internal_date", todayStart)
-      .order("internal_date", { ascending: false, nullsFirst: false })
-      .limit(50);
+    const todayRawPromise = getRawTodayMessagesForDebug(
+      supabase as SupabaseReadClient,
+      { connectionId: conn.id, startIso: todayStart, endIso: todayEnd, limit: 200 },
+    );
     let yesterdayQ = supabase
       .from("gmail_message_map")
       .select(EMAIL_SELECT_COLS)
@@ -582,14 +602,13 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       .order("internal_date", { ascending: false, nullsFirst: false })
       .limit(25);
     if (data.brain_id) {
-      todayQ = todayQ.eq("brain_id", data.brain_id);
       yesterdayQ = yesterdayQ.eq("brain_id", data.brain_id);
       prevUnreadQ = prevUnreadQ.eq("brain_id", data.brain_id);
     }
 
-    const [todayRes, yesterdayRes, prevUnreadRes, totalUnreadRes, unreadTodayRes] =
+    const [todayRaw, yesterdayRes, prevUnreadRes, totalUnreadRes, unreadTodayRes] =
       await Promise.all([
-        todayQ,
+        todayRawPromise,
         yesterdayQ,
         prevUnreadQ,
         supabase
@@ -602,10 +621,11 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           .select("id", { count: "exact", head: true })
           .eq("connection_id", conn.id)
           .eq("is_unread", true)
-          .gte("internal_date", todayStart),
+          .gte("internal_date", todayStart)
+          .lt("internal_date", todayEnd),
       ]);
 
-    const todayRows = (todayRes.data ?? []) as Array<Record<string, unknown>>;
+    const todayRows = todayRaw.rows;
     const yesterdayRows = (yesterdayRes.data ?? []) as Array<Record<string, unknown>>;
     const prevUnreadRows = (prevUnreadRes.data ?? []) as Array<Record<string, unknown>>;
 
