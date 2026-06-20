@@ -2843,6 +2843,12 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               event_type: "session.update",
             });
             safeLog("jack_gpt_session_update_sent", { mode: session.mode });
+            safeLog("jack_realtime_auto_response_disabled", {
+              turn_detection_type: "server_vad",
+              create_response: false,
+              interrupt_response: true,
+            });
+            setDiagnostics((d) => ({ ...d, realtimeAutoResponseDisabled: true }));
             // v3.13: inject natural memory context as additional instructions.
             void injectNaturalContext("initial");
           } catch { /* noop */ }
