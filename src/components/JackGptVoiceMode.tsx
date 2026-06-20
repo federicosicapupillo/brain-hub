@@ -1059,7 +1059,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 item: {
                   type: "message",
                   role: "assistant",
-                  content: [{ type: "text", text: fallbackText }],
+                  content: [{ type: "output_text", text: fallbackText }],
                 },
               }),
             );
