@@ -1,0 +1,27 @@
+{
+  "name": "ui-operator-runner",
+  "version": "0.1.0",
+  "private": true,
+  "description": "External Node runner for Brain Hub Jack UI Operator (Stagehand + Browserbase). Deploy separately on Railway/Render/Fly.io/VPS. Never bundled into the Brain Hub Worker.",
+  "type": "module",
+  "main": "src/server.ts",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "build": "tsc -p tsconfig.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@browserbasehq/stagehand": "^2.0.0",
+    "express": "^4.21.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

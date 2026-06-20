@@ -97,9 +97,8 @@ export const startUiOperatorSessionFn = createServerFn({ method: "POST" })
       };
     }
 
-    const { getUiOperatorConfig, isUiOperatorConfigured } = await import(
-      "./ui-operator-browser.server"
-    );
+    const { getUiOperatorConfig, isUiOperatorConfigured, startUiOperatorBrowserSession } =
+      await import("./ui-operator-browser.server");
     const cfg = getUiOperatorConfig();
     const provider = isUiOperatorConfigured() ? "browserbase_stagehand" : "mock";
 
@@ -115,6 +114,8 @@ export const startUiOperatorSessionFn = createServerFn({ method: "POST" })
         metadata: {
           configured: cfg.configured,
           model: cfg.model,
+          runner_configured: cfg.runner_configured,
+          execution_mode: cfg.execution_mode,
         },
       })
       .select("*")
@@ -128,30 +129,82 @@ export const startUiOperatorSessionFn = createServerFn({ method: "POST" })
       };
     }
 
-    if (!cfg.configured) {
-      await logEvt(supabase, userId, "ui_operator_not_configured", {
+    const brainHubSessionId = (row as { id: string }).id;
+    await logEvt(supabase, userId, "ui_operator_runner_config_checked", {
+      runner_configured: cfg.runner_configured,
+      execution_mode: cfg.execution_mode,
+    });
+
+    // attempt to start runner session (or mock)
+    const startRes = await startUiOperatorBrowserSession({
+      initialRoute: data.target_route,
+      brainId: data.brain_id,
+      sessionId: brainHubSessionId,
+    });
+
+    // persist runner-side ids in metadata
+    await sb
+      .from("ui_operator_sessions")
+      .update({
+        browserbase_session_id: startRes.browserbase_session_id,
+        metadata: {
+          configured: cfg.configured,
+          model: cfg.model,
+          runner_configured: cfg.runner_configured,
+          runner_reachable: startRes.runner_reachable,
+          runner_session_id: startRes.runner_session_id,
+          browserbase_session_id: startRes.browserbase_session_id,
+          execution_mode: startRes.execution_mode,
+          runner_status: startRes.message.slice(0, 200),
+        },
+      })
+      .eq("id", brainHubSessionId);
+
+    if (cfg.runner_configured && startRes.execution_mode === "real_runner") {
+      await logEvt(supabase, userId, "ui_operator_real_session_started", {
+        session_id: brainHubSessionId,
+        runner_session_id: startRes.runner_session_id,
         target_route: data.target_route,
       });
+    } else if (cfg.runner_configured && startRes.execution_mode === "mock") {
+      await logEvt(supabase, userId, "ui_operator_runner_unavailable", {
+        session_id: brainHubSessionId,
+        reason: startRes.message,
+      });
+      await logEvt(supabase, userId, "ui_operator_fallback_to_mock", {
+        session_id: brainHubSessionId,
+      });
+    } else {
       await logEvt(supabase, userId, "ui_operator_mock_mode_used", {
         target_route: data.target_route,
       });
     }
     await logEvt(supabase, userId, "ui_operator_session_started", {
-      session_id: (row as { id: string }).id,
+      session_id: brainHubSessionId,
       mode: provider,
+      execution_mode: startRes.execution_mode,
       target_route: data.target_route,
     });
+
+    const enrichedSession = {
+      ...(row as Record<string, unknown>),
+      browserbase_session_id: startRes.browserbase_session_id,
+    };
 
     return {
       ok: true,
       status: "active",
       message:
-        provider === "mock"
-          ? "Sessione UI Operator avviata in mock mode."
-          : "Sessione UI Operator avviata.",
-      session: asSession(row),
+        startRes.execution_mode === "real_runner"
+          ? "Sessione UI Operator avviata (runner reale)."
+          : "Sessione UI Operator avviata in mock mode.",
+      session: asSession(enrichedSession),
+      execution_mode: startRes.execution_mode,
+      runner_configured: cfg.runner_configured,
+      runner_reachable: startRes.runner_reachable ?? undefined,
     };
   });
+
 
 // ---------- open route ----------
 export const openUiOperatorRouteFn = createServerFn({ method: "POST" })
@@ -197,11 +250,19 @@ export const openUiOperatorRouteFn = createServerFn({ method: "POST" })
     await logEvt(supabase, userId, "ui_operator_route_opened", {
       session_id: data.session_id,
       route: data.route,
+      execution_mode: res.execution_mode,
     });
+    if (res.execution_mode === "real_runner") {
+      await logEvt(supabase, userId, "ui_operator_runner_called", {
+        endpoint: "/session/open-route",
+        ok: res.ok,
+      });
+    }
     return {
       ok: res.ok,
       status: "navigating",
       message: res.message,
+      execution_mode: res.execution_mode,
     };
   });
 
@@ -469,12 +530,20 @@ export const executeConfirmedUiOperatorActionFn = createServerFn({ method: "POST
       await logEvt(supabase, userId, "ui_operator_action_failed", {
         action_id: data.action_id,
         error_code: exec.error_text,
+        execution_mode: exec.execution_mode,
       });
+      if (exec.execution_mode === "real_runner") {
+        await logEvt(supabase, userId, "ui_operator_real_action_failed", {
+          action_id: data.action_id,
+          error_code: exec.error_text,
+        });
+      }
       return {
         ok: false,
         status: "failed",
         message: "Esecuzione fallita.",
         action: { ...act, status: "failed", error_text: exec.error_text },
+        execution_mode: exec.execution_mode,
       };
     }
     await sb
@@ -489,12 +558,20 @@ export const executeConfirmedUiOperatorActionFn = createServerFn({ method: "POST
       action_id: data.action_id,
       action_type: act.action_type,
       risk_level: act.risk_level,
+      execution_mode: exec.execution_mode,
     });
+    if (exec.execution_mode === "real_runner") {
+      await logEvt(supabase, userId, "ui_operator_real_action_executed", {
+        action_id: data.action_id,
+        action_type: act.action_type,
+      });
+    }
     return {
       ok: true,
       status: "executed",
       message: exec.result_text,
       action: { ...act, status: "executed", result_text: exec.result_text },
+      execution_mode: exec.execution_mode,
     };
   });
 
@@ -580,11 +657,31 @@ export const getUiOperatorConfigFn = createServerFn({ method: "POST" })
     return {
       ok: true,
       configured: cfg.configured,
-      mode: cfg.configured ? ("real" as const) : ("mock" as const),
+      mode: cfg.execution_mode === "real_runner" ? ("real" as const) : ("mock" as const),
+      execution_mode: cfg.execution_mode,
+      runner_configured: cfg.runner_configured,
+      runner_url_present: cfg.runner_url_present,
+      runner_secret_present: cfg.runner_secret_present,
       has_browserbase_api_key: cfg.has_browserbase_api_key,
       has_browserbase_project_id: cfg.has_browserbase_project_id,
       has_model_key: cfg.has_model_key,
       model: cfg.model,
       allowed_routes: ALLOWED_UI_ROUTES,
     };
+  });
+
+// ---------- runner health ----------
+export const getUiOperatorRunnerHealthFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((_d: unknown) => ({}))
+  .handler(async ({ context }) => {
+    const { healthCheckUiOperatorRunner } = await import("./ui-operator-browser.server");
+    const res = await healthCheckUiOperatorRunner();
+    await logEvt(context.supabase, context.userId, "ui_operator_runner_health_checked", {
+      ok: res.ok,
+      configured: res.configured,
+      reachable: res.reachable,
+      status: res.status,
+    });
+    return res;
   });

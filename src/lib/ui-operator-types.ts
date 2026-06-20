@@ -138,6 +138,8 @@ export interface UiOperatorSafetyDecision {
   warning: string | null;
 }
 
+export type UiOperatorExecutionMode = "real_runner" | "mock";
+
 export interface UiOperatorRunResult {
   ok: boolean;
   status: UiOperatorStatus | UiOperatorActionStatus | "not_configured";
@@ -146,4 +148,7 @@ export interface UiOperatorRunResult {
   action?: UiOperatorAction | null;
   observation?: UiOperatorObservation | null;
   safety?: UiOperatorSafetyDecision | null;
+  execution_mode?: UiOperatorExecutionMode;
+  runner_configured?: boolean;
+  runner_reachable?: boolean;
 }
