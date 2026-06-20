@@ -1704,6 +1704,66 @@ export const runJackGptTool = createServerFn({ method: "POST" })
 
 
 
+        case "refresh_gmail_sync": {
+          const { refreshGmailMetadataSyncFn } = await import(
+            "@/lib/gmail-refresh-sync.functions"
+          );
+          const mode =
+            args.mode === "recent" ? ("recent" as const) : ("today" as const);
+          const reason =
+            args.reason === "stale_before_read"
+              ? ("stale_before_read" as const)
+              : ("user_requested" as const);
+          const brainId = (args.brain_id as string | undefined) ?? null;
+
+          void logSanitizedEvent(
+            supabase,
+            userId,
+            reason === "stale_before_read"
+              ? "jack_gmail_auto_sync_before_brief"
+              : "jack_gmail_sync_requested",
+            { mode, reason, brain_id: brainId, tool_name: "refresh_gmail_sync" },
+          );
+
+          const sync = await refreshGmailMetadataSyncFn({
+            data: { brain_id: brainId, mode, reason },
+          });
+
+          let briefAfter: unknown = null;
+          if (sync.ok && sync.status === "synced") {
+            try {
+              const { getEmailBriefFn } = await import(
+                "@/lib/gmail-intelligence.functions"
+              );
+              briefAfter = await getEmailBriefFn({
+                data: { brain_id: brainId, date_range: "today" },
+              });
+              void logSanitizedEvent(
+                supabase,
+                userId,
+                "jack_gmail_brief_after_sync_served",
+                {
+                  brain_id: brainId,
+                  new_messages_count: sync.new_messages_count ?? 0,
+                  updated_messages_count: sync.updated_messages_count ?? 0,
+                },
+              );
+            } catch {
+              briefAfter = null;
+            }
+          }
+
+          return {
+            ok: sync.ok,
+            payload: {
+              sync,
+              brief_after: briefAfter,
+            },
+          };
+        }
+
+
+
         default:
           return { ok: false, error: "unknown_tool" };
       }
