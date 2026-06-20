@@ -709,10 +709,15 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       newsletter_yesterday_total: newslettersPreviousList.length,
     };
 
-    const status: "connected_with_today_emails" | "connected_no_today_emails" =
-      allToday.length > 0
-        ? "connected_with_today_emails"
-        : "connected_no_today_emails";
+    const status:
+      | "connected_with_today_emails"
+      | "connected_no_today_emails"
+      | "connected_cache_stale" =
+      cacheStale
+        ? "connected_cache_stale"
+        : allToday.length > 0
+          ? "connected_with_today_emails"
+          : "connected_no_today_emails";
 
     const metadataMissing =
       allToday.length > 0 &&
