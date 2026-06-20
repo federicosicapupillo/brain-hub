@@ -715,9 +715,10 @@ function GmailConnectActions({
     }
   }
 
+  const connected = status === "collegato" || status === "sincronizzato";
   return (
     <>
-      {status !== "collegato" && (
+      {!connected && (
         <Button size="sm" onClick={handleConnect} disabled={loading || oauthStatus.isLoading}>
           <Plug className="h-4 w-4 mr-1" />
           {loading ? "Reindirizzamento…" : "Collega Gmail"}
