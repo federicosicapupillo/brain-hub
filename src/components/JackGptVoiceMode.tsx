@@ -64,6 +64,16 @@ import {
   type IgnoredUtteranceReason,
   type VoiceToolBlockedReason,
 } from "@/lib/jack-voice-tool-gate";
+import {
+  routeVoiceCommand,
+  buildPendingVoiceAction,
+  type PendingVoiceActionLite,
+  type VoiceActionPreview,
+  type VoiceActionStatus,
+  type VoiceCommandIntent,
+  type VoiceCommandConfidence,
+  type VoiceCommandRouterResult,
+} from "@/lib/jack-deterministic-command-router";
 import { buildJackNaturalContext } from "@/lib/jack-natural-context.functions";
 import {
   classifyRealtimeStartError,
