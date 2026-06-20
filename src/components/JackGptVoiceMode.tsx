@@ -2666,6 +2666,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             handleVoiceConfirmationTranscript(transcript, msg.type);
             // v3.25 — run deterministic command router for sensitive intents.
             void runDeterministicVoiceRouter(transcript, nowTs);
+            // v3.25.2 — auto-response is disabled at the session level, so we
+            // must explicitly create a response for valid user utterances.
+            // safeCreateResponse dedups against router-triggered responses
+            // and against any in-flight response.
+            safeCreateResponse("user_utterance_valid", { queueIfBusy: true });
           }
           break;
 
