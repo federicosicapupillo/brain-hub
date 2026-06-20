@@ -92,9 +92,42 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
       | "manual_debug",
     force: d?.force === true,
   }))
-  .handler(async ({ data, context }): Promise<RefreshGmailMetadataSyncResult> =>
-    runRefreshGmailMetadataSyncCore(context.supabase, context.userId, data),
-  );
+  .handler(async ({ data, context }): Promise<RefreshGmailMetadataSyncResult> => {
+    // v3.24.1 — absolute boundary: never throw to the voice/tool layer.
+    try {
+      const res = await runRefreshGmailMetadataSyncCore(
+        context.supabase,
+        context.userId,
+        data,
+      );
+      // Enrich with requires_reauth flag mirror for downstream callers.
+      const requires_reauth = res.status === "reauth_required";
+      return { ...res, requires_reauth } as RefreshGmailMetadataSyncResult & {
+        requires_reauth?: boolean;
+      };
+    } catch (err) {
+      void logEvt(
+        context.supabase,
+        context.userId,
+        "jack_gmail_sync_structured_failure_returned",
+        {
+          mode: data.mode,
+          reason: data.reason,
+          error_code:
+            (err as Error & { code?: string }).code ?? "handler_unhandled",
+          has_safe_message: true,
+        },
+      );
+      return {
+        ok: false,
+        status: "failed",
+        mode: data.mode,
+        reason: data.reason,
+        error_code: "handler_unhandled",
+        safe_message: "Sincronizzazione Gmail non riuscita.",
+      } as RefreshGmailMetadataSyncResult;
+    }
+  });
 
 // Brain Hub v3.23.3 — extracted core so the public UI Operator surface
 // endpoint can reuse the same sync logic with supabaseAdmin.
