@@ -800,3 +800,31 @@ export const getUiOperatorRunnerHealthFn = createServerFn({ method: "POST" })
     });
     return res;
   });
+
+// ---------- URL diagnostics (v3.23.4) ----------
+export const getUiOperatorUrlDiagnosticsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((_d: unknown) => ({}))
+  .handler(async () => {
+    const { resolveBrainHubBaseUrl } = await import("./ui-operator-auth.server");
+    const { getUiOperatorRunnerConfig } = await import("./ui-operator-runner-client.server");
+    const baseRes = resolveBrainHubBaseUrl();
+    const runner = getUiOperatorRunnerConfig();
+    return {
+      ok: true,
+      brain_hub_base_url_configured: !!process.env.BRAIN_HUB_BASE_URL,
+      resolved_base_url: baseRes.url,
+      resolved_base_url_source: baseRes.source,
+      resolved_base_url_valid: baseRes.valid,
+      runner_url_configured: runner.runner_url_present,
+      runner_secret_configured: runner.runner_secret_present,
+      runner_base_url: runner.base_url,
+      auth_handshake_path: "/api/public/ui-operator-auth",
+      controlled_surface_path: "/ui-operator-surface/:sessionId",
+      forbidden_examples: [
+        "https://lovable.dev/projects/<id>/session/open-route",
+        "/session/open-route (relative)",
+      ],
+    };
+  });
+
