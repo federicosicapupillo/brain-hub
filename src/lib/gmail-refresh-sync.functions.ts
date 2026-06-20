@@ -551,6 +551,7 @@ export async function runRefreshGmailMetadataSyncCore(
         mode,
         reason,
         safe_message: `Sincronizzati ${added + updated} messaggi (${added} nuovi).`,
+        sync_run_id: syncRunId,
       };
     } catch (err) {
       const errAny = err as Error & { status?: number; code?: string };
