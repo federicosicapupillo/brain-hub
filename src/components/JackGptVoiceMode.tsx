@@ -310,6 +310,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     skippedBecauseNoPendingPreview: false,
     genericConfirmationIgnored: false,
     pendingPreviewExists: false,
+    lastToolStatus: null,
+    lastToolOk: null,
+    lastToolErrorCode: null,
+    lastToolSafeMessage: null,
+    lastToolRequiresReauth: false,
+    lastToolCacheStale: false,
+    lastToolShouldNotCiteEmails: false,
+    lastToolFailureRecoveryFiredAt: null,
   });
 
 
