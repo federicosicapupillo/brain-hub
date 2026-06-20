@@ -375,6 +375,12 @@ type Diagnostics = {
   lastVoiceActionExecuted: string | null;
   lastVoiceActionResultStatus: VoiceActionStatus | null;
   sensitiveToolSuppressedCount: number;
+  // v3.25.1 — pending voice action confirmation bridge
+  pendingVoiceActionConfirmedByVoice: boolean;
+  lastPendingVoiceActionConfirmationText: string | null;
+  lastPendingVoiceActionExecutionStartedAt: number | null;
+  lastPendingVoiceActionExecutionFinishedAt: number | null;
+  lastPendingVoiceActionExecutionResult: "ok" | "failed" | null;
 };
 
 type Props = { brainId?: string | null };
@@ -484,6 +490,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastVoiceActionExecuted: null,
     lastVoiceActionResultStatus: null,
     sensitiveToolSuppressedCount: 0,
+    pendingVoiceActionConfirmedByVoice: false,
+    lastPendingVoiceActionConfirmationText: null,
+    lastPendingVoiceActionExecutionStartedAt: null,
+    lastPendingVoiceActionExecutionFinishedAt: null,
+    lastPendingVoiceActionExecutionResult: null,
   });
 
   // v3.25 — pending voice action state for confirmation buttons
@@ -1432,11 +1443,22 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         safeLog("jack_voice_action_execution_skipped_duplicate", {
           action_id: pending.id,
         });
+        safeLog("jack_voice_action_duplicate_execution_blocked", {
+          action_id: pending.id,
+          action_type: pending.type,
+          source,
+        });
         return;
       }
       if (voiceActionExecutingRef.current) {
         safeLog("jack_voice_action_execution_skipped_in_flight", {
           action_id: pending.id,
+        });
+        safeLog("jack_voice_action_duplicate_execution_blocked", {
+          action_id: pending.id,
+          action_type: pending.type,
+          source,
+          reason: "in_flight",
         });
         return;
       }
@@ -1444,12 +1466,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         safeLog("jack_voice_action_execution_skipped_expired", {
           action_id: pending.id,
         });
+        safeLog("jack_voice_pending_action_expired", {
+          action_id: pending.id,
+          action_type: pending.type,
+          source: "execute_attempt",
+        });
         setPendingVoiceAction(null);
         pendingVoiceActionRef.current = null;
         return;
       }
       voiceActionExecutingRef.current = true;
       lastExecutedVoiceActionIdRef.current = pending.id;
+      const executionStartedAt = Date.now();
       safeLog("jack_voice_action_confirmed_by_button", {
         action_id: pending.id,
         action_type: pending.type,
@@ -1459,6 +1487,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         ...d,
         lastVoiceActionExecuted: pending.type,
         lastVoiceActionResultStatus: "executing",
+        lastPendingVoiceActionExecutionStartedAt: executionStartedAt,
+        lastPendingVoiceActionExecutionFinishedAt: null,
+        lastPendingVoiceActionExecutionResult: null,
       }));
       let toolName: string;
       let toolArgs: Record<string, unknown>;
@@ -1497,6 +1528,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         setDiagnostics((d) => ({
           ...d,
           lastVoiceActionResultStatus: ok ? "executed" : "failed",
+          lastPendingVoiceActionExecutionFinishedAt: Date.now(),
+          lastPendingVoiceActionExecutionResult: ok ? "ok" : "failed",
         }));
         // Hand the result back to Jack so he speaks naturally.
         const summary = ok
@@ -1519,6 +1552,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         setDiagnostics((d) => ({
           ...d,
           lastVoiceActionResultStatus: "failed",
+          lastPendingVoiceActionExecutionFinishedAt: Date.now(),
+          lastPendingVoiceActionExecutionResult: "failed",
         }));
         injectAssistantNote(
           "Non sono riuscito a eseguire l'azione. Vuoi che proviamo dal pannello Brain Hub?",
@@ -1548,6 +1583,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         action_type: current.type,
         reason,
       });
+      if (reason === "expired") {
+        safeLog("jack_voice_pending_action_expired", {
+          action_id: current.id,
+          action_type: current.type,
+          source: "router_check",
+        });
+      }
       pendingVoiceActionRef.current = null;
       setPendingVoiceAction(null);
       setDiagnostics((d) => ({
@@ -1599,11 +1641,33 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         return;
       }
       if (result.intent === "confirm_pending" && pendingVoiceActionRef.current) {
+        safeLog("jack_voice_pending_action_confirmed_by_voice", {
+          action_id: pendingVoiceActionRef.current.id,
+          action_type: pendingVoiceActionRef.current.type,
+          matched_terms_count: result.matched_terms.length,
+        });
+        setDiagnostics((d) => ({
+          ...d,
+          pendingVoiceActionConfirmedByVoice: true,
+          lastPendingVoiceActionConfirmationText: transcript.slice(0, 80),
+        }));
         await executeVoiceAction(
           pendingVoiceActionRef.current,
           "router_high_confidence",
         );
         return;
+      }
+      // v3.25.1 — pending action exists but utterance was not a confirmation
+      if (
+        pendingVoiceActionRef.current &&
+        result.intent !== "confirm_pending"
+      ) {
+        safeLog("jack_voice_pending_action_confirmation_rejected", {
+          action_id: pendingVoiceActionRef.current.id,
+          action_type: pendingVoiceActionRef.current.type,
+          router_intent: result.intent,
+          transcript_length: transcript.length,
+        });
       }
       if (result.action_preview && result.confidence !== "low") {
         const created = buildPendingVoiceAction(
@@ -2413,7 +2477,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               assistantText: lastAssistantSpokenTextRef.current,
               assistantSpokeAt: lastAssistantSpokenAtRef.current,
               now: nowTs,
-              hasPendingConfirmation: Boolean(pendingPreviewRef.current),
+              hasPendingConfirmation:
+                Boolean(pendingPreviewRef.current) ||
+                Boolean(pendingVoiceActionRef.current),
             });
             if (!classification.valid) {
               safeLog(
@@ -2424,6 +2490,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                   reason: classification.reason,
                   transcript_length: transcript.length,
                   has_pending_preview: Boolean(pendingPreviewRef.current),
+                  has_pending_voice_action: Boolean(pendingVoiceActionRef.current),
                   has_pending_assistant_question: Boolean(
                     lastAssistantAskedConfirmationAtRef.current,
                   ),
@@ -2443,6 +2510,20 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
               // checks and won't treat echo as confirmation.
               if (pendingPreviewRef.current) {
                 handleVoiceConfirmationTranscript(transcript, msg.type);
+              }
+              // v3.25.1 — bridge: if there is a v3.25 pending voice action,
+              // still run the deterministic router so explicit confirm phrases
+              // ("sì", "ok", "sincronizza gmail"…) execute the pending action
+              // even when classifier flagged them as too short/ambiguous.
+              // suspected_echo never reaches this branch's router because
+              // routeVoiceCommand will only match confirm/intent terms on the
+              // user's own words.
+              if (
+                pendingVoiceActionRef.current &&
+                classification.reason !== "suspected_echo"
+              ) {
+                lastValidUserUtteranceRef.current = { text: transcript, at: nowTs };
+                void runDeterministicVoiceRouter(transcript, nowTs);
               }
               break;
             }
