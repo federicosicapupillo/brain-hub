@@ -409,6 +409,7 @@ type Diagnostics = {
   lastVoiceActionExecutionSource: VoiceActionExecutionSource | null;
   lastSensitiveActionBlockedSource: string | null;
   duplicateRouterMessageSuppressedCount: number;
+  lastResponseCreateBlockedReason: string | null;
 };
 
 type Props = { brainId?: string | null };
