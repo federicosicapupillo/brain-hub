@@ -1821,12 +1821,20 @@ export type Database = {
           google_user_id: string | null
           id: string
           last_sync_at: string | null
+          last_sync_completed_at: string | null
           last_sync_error: string | null
+          last_sync_error_at: string | null
+          last_sync_error_code: string | null
+          last_sync_started_at: string | null
           last_sync_status: string | null
           message_count: number
           metadata: Json
+          refresh_token: string | null
           scopes: string[]
           status: string
+          sync_lock_until: string | null
+          sync_status: string | null
+          token_expires_at: string | null
           updated_at: string
           user_id: string
         }
@@ -1839,12 +1847,20 @@ export type Database = {
           google_user_id?: string | null
           id?: string
           last_sync_at?: string | null
+          last_sync_completed_at?: string | null
           last_sync_error?: string | null
+          last_sync_error_at?: string | null
+          last_sync_error_code?: string | null
+          last_sync_started_at?: string | null
           last_sync_status?: string | null
           message_count?: number
           metadata?: Json
+          refresh_token?: string | null
           scopes?: string[]
           status?: string
+          sync_lock_until?: string | null
+          sync_status?: string | null
+          token_expires_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -1857,12 +1873,20 @@ export type Database = {
           google_user_id?: string | null
           id?: string
           last_sync_at?: string | null
+          last_sync_completed_at?: string | null
           last_sync_error?: string | null
+          last_sync_error_at?: string | null
+          last_sync_error_code?: string | null
+          last_sync_started_at?: string | null
           last_sync_status?: string | null
           message_count?: number
           metadata?: Json
+          refresh_token?: string | null
           scopes?: string[]
           status?: string
+          sync_lock_until?: string | null
+          sync_status?: string | null
+          token_expires_at?: string | null
           updated_at?: string
           user_id?: string
         }
