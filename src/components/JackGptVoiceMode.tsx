@@ -88,6 +88,13 @@ const SENSITIVE_VOICE_TOOLS: ReadonlySet<string> = new Set([
   "stop_ui_operator_session",
 ]);
 
+// v3.25.2 — allowed sources for sensitive action execution.
+type VoiceActionExecutionSource = "ui_button" | "voice_confirm";
+const ALLOWED_SENSITIVE_EXECUTION_SOURCES: ReadonlySet<VoiceActionExecutionSource> = new Set([
+  "ui_button",
+  "voice_confirm",
+]);
+
 // v3.25.1 — Typed Realtime payload builders. Realtime GA requires:
 //   - user message content parts: { type: "input_text", text }
 //   - assistant message content parts: { type: "output_text", text }
