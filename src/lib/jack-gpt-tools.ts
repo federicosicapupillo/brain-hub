@@ -1640,7 +1640,17 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           const res = await searchEmailsFn({
             data: {
               query: (args.query as string | undefined) ?? "",
-              date_range: (args.date_range as "today" | "week" | "all" | undefined) ?? "week",
+              date_range:
+                (args.date_range as
+                  | "today"
+                  | "yesterday"
+                  | "week"
+                  | "all"
+                  | undefined) ?? "week",
+              include_newsletters:
+                typeof args.include_newsletters === "boolean"
+                  ? args.include_newsletters
+                  : true,
               limit: typeof args.limit === "number" ? args.limit : 10,
               brain_id: (args.brain_id as string | undefined) ?? null,
             },
