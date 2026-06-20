@@ -80,7 +80,7 @@ export interface UiOperatorSession {
   last_screenshot_hash: string | null;
   last_observation: string | null;
   last_observed_at: string | null;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, JsonValue>;
   created_at: string;
   updated_at: string;
   ended_at: string | null;
@@ -108,7 +108,7 @@ export interface UiOperatorAction {
   safety_reason: string | null;
   result_text: string | null;
   error_text: string | null;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, JsonValue>;
   created_at: string;
   updated_at: string;
 }
