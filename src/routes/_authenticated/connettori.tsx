@@ -316,6 +316,53 @@ function ConnectorsPage() {
   });
   const [n8nOpen, setN8nOpen] = useState(false);
 
+  const gmailStatus = useQuery({
+    queryKey: ["connettori-gmail-status"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      const uid = u.user?.id;
+      if (!uid) {
+        return { connected: false, lastSyncAt: null as string | null, imported: 0, important: 0 };
+      }
+      const [connRes, importedRes, importantRes] = await Promise.all([
+        supabase
+          .from("gmail_connection_settings")
+          .select("status,last_sync_at")
+          .eq("user_id", uid)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", uid),
+        supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", uid)
+          .in("importance_level", ["high", "critical"]),
+      ]);
+      const conn = connRes.data as { status?: string; last_sync_at?: string | null } | null;
+      const s = conn?.status ?? null;
+      const connected = s === "connected" || s === "active";
+      return {
+        connected,
+        lastSyncAt: conn?.last_sync_at ?? null,
+        imported: importedRes.count ?? 0,
+        important: importantRes.count ?? 0,
+      };
+    },
+    refetchOnWindowFocus: true,
+    staleTime: 15_000,
+  });
+
+  useEffect(() => {
+    const onFocus = () => {
+      qc.invalidateQueries({ queryKey: ["connettori-gmail-status"] });
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [qc]);
 
   const byName = useMemo(() => {
     const m = new Map<string, Connector>();
@@ -335,17 +382,30 @@ function ConnectorsPage() {
       if (c.key === "n8n") {
         status = n8nConnector && n8nConnector.is_active ? "collegato" : "da_collegare";
       }
+      let lastSyncAt: string | null = row?.last_sync_at ?? null;
+      let importedOverride: number | null = null;
+      if (c.key === "Gmail") {
+        if (!gmailStatus.isLoading && gmailStatus.data) {
+          if (gmailStatus.data.connected) {
+            status = gmailStatus.data.lastSyncAt ? "sincronizzato" : "collegato";
+            lastSyncAt = gmailStatus.data.lastSyncAt ?? lastSyncAt;
+            importedOverride = gmailStatus.data.imported;
+          } else {
+            status = "da_collegare";
+          }
+        }
+      }
       const use = usage[c.key];
       return {
         ...c,
         status,
-        lastSyncAt: row?.last_sync_at ?? null,
-        total: use?.total ?? 0,
+        lastSyncAt,
+        total: importedOverride ?? use?.total ?? 0,
         brainCount: use?.brainIds.size ?? 0,
         lastImportAt: use?.lastAt ?? null,
       };
     });
-  }, [byName, usage, n8nConnector]);
+  }, [byName, usage, n8nConnector, gmailStatus.data, gmailStatus.isLoading]);
 
 
   const [q, setQ] = useState("");
