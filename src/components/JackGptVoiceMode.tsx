@@ -2008,6 +2008,60 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         case "conversation.item.input_audio_transcription.completed":
           if (msg.transcript) {
             const transcript = String(msg.transcript);
+            const nowTs = Date.now();
+            const classification = classifyUserUtterance({
+              text: transcript,
+              assistantText: lastAssistantSpokenTextRef.current,
+              assistantSpokeAt: lastAssistantSpokenAtRef.current,
+              now: nowTs,
+              hasPendingConfirmation: Boolean(pendingPreviewRef.current),
+            });
+            if (!classification.valid) {
+              safeLog(
+                classification.reason === "suspected_echo"
+                  ? "jack_voice_user_utterance_ignored_suspected_echo"
+                  : "jack_voice_user_utterance_ignored_too_ambiguous",
+                {
+                  reason: classification.reason,
+                  transcript_length: transcript.length,
+                  has_pending_preview: Boolean(pendingPreviewRef.current),
+                  has_pending_assistant_question: Boolean(
+                    lastAssistantAskedConfirmationAtRef.current,
+                  ),
+                },
+              );
+              setDiagnostics((d) => ({
+                ...d,
+                lastIgnoredUserUtterance: transcript.slice(0, 80),
+                lastIgnoredReason: classification.reason,
+              }));
+              pushLog({
+                kind: "warning",
+                text: `Utterance ignorato (${classification.reason}): "${transcript.slice(0, 60)}"`,
+              });
+              // Still hand off to confirmation pipeline only if there is a
+              // pending preview — voice confirmation has its own ambiguity
+              // checks and won't treat echo as confirmation.
+              if (pendingPreviewRef.current) {
+                handleVoiceConfirmationTranscript(transcript, msg.type);
+              }
+              break;
+            }
+            lastValidUserUtteranceRef.current = { text: transcript, at: nowTs };
+            // Once the user speaks, clear the "assistant just asked" gate if
+            // the user actually answered after the question.
+            if (
+              lastAssistantAskedConfirmationAtRef.current &&
+              nowTs > lastAssistantAskedConfirmationAtRef.current
+            ) {
+              setDiagnostics((d) => ({ ...d, pendingToolConfirmation: false }));
+            }
+            setDiagnostics((d) => ({
+              ...d,
+              lastValidUserUtterance: transcript.slice(0, 80),
+              lastValidUserUtteranceAt: nowTs,
+              lastIgnoredReason: null,
+            }));
             pushLog({ kind: "user", text: transcript });
             handleVoiceConfirmationTranscript(transcript, msg.type);
           }
