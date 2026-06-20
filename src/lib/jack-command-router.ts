@@ -588,33 +588,140 @@ async function respondEmailSummary(
   ctx: JackCommandContext,
   matched: string[],
 ): Promise<JackCommandResult> {
-  const brief = (await resolveBrief(ctx)).brief;
   const cta: JackCommandCTA = {
     label: "Apri Gmail Connector",
     to: "/gmail-connector",
     search: { brain: ctx.brainId ?? undefined },
   };
-  if (brief && brief.email_summary.available) {
-    const e = brief.email_summary;
-    const text =
-      `Oggi ${e.total_today} email su ${e.account ?? "Gmail"}. ` +
-      `${e.high_priority_today} ad alta priorità, ${e.with_action_today} con action suggerita, ${e.without_action_today} ancora da valutare.`;
+
+  // v3.22.1 — Source of truth: gmail_connection_settings + gmail_message_map.
+  // Do NOT depend on daily brief existence to determine connection state.
+  try {
+    const { data: connsRaw } = await supabase
+      .from("gmail_connection_settings")
+      .select("id,status,last_sync_at,updated_at")
+      .order("updated_at", { ascending: false });
+    const conns = (connsRaw ?? []) as Array<{
+      id: string;
+      status: string;
+      last_sync_at: string | null;
+    }>;
+    const conn =
+      conns.find((c) => c.status === "connected" || c.status === "active") ??
+      null;
+
+    if (!conn) {
+      void logJackVoiceCommandEvent(
+        "jack_gmail_summary_not_connected",
+        "Gmail not connected (no connection row)",
+        {
+          brain_id: ctx.brainId,
+          gmailConnected: false,
+          gmailConnectionSource: "gmail_connection_settings",
+        },
+      );
+      return {
+        intent: "email_summary",
+        matched_phrases: matched,
+        response_text:
+          "Gmail non è collegato. Apri il Gmail Connector per collegarlo.",
+        cta,
+        source: "gmail_not_connected",
+      };
+    }
+
+    const todayIso = new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
+    const [totalRes, todayRes, importantRes] = await Promise.all([
+      supabase
+        .from("gmail_message_map")
+        .select("id", { count: "exact", head: true })
+        .eq("connection_id", conn.id),
+      supabase
+        .from("gmail_message_map")
+        .select("id", { count: "exact", head: true })
+        .eq("connection_id", conn.id)
+        .gte("internal_date", todayIso),
+      supabase
+        .from("gmail_message_map")
+        .select("id", { count: "exact", head: true })
+        .eq("connection_id", conn.id)
+        .gte("internal_date", todayIso)
+        .gte("importance_score", 55),
+    ]);
+
+    const total = totalRes.count ?? 0;
+    const todayCount = todayRes.count ?? 0;
+    const importantCount = importantRes.count ?? 0;
+
+    void logJackVoiceCommandEvent(
+      "jack_gmail_summary_served",
+      `Gmail connected; total=${total} today=${todayCount} important=${importantCount}`,
+      {
+        brain_id: ctx.brainId,
+        gmailConnected: true,
+        gmailConnectionSource: "gmail_connection_settings",
+        gmailConnectionStatus: conn.status,
+        gmailLastSyncAt: conn.last_sync_at,
+        gmailMessageCount: total,
+        gmailTodayCount: todayCount,
+        gmailImportantCount: importantCount,
+        gmailNeedsSync: total === 0,
+      },
+    );
+
+    if (total === 0) {
+      return {
+        intent: "email_summary",
+        matched_phrases: matched,
+        response_text:
+          "Gmail è collegato, ma non trovo email sincronizzate. Apri il Gmail Connector e avvia la sync.",
+        cta,
+        source: "gmail_needs_sync",
+      };
+    }
+    if (todayCount === 0) {
+      return {
+        intent: "email_summary",
+        matched_phrases: matched,
+        response_text:
+          "Gmail è collegato, ma non trovo email di oggi nella cache. Le ultime sincronizzate sono precedenti.",
+        cta,
+        source: "gmail_no_today",
+      };
+    }
+
+    // Optional richer brief if Daily Brief is present today
+    const brief = (await resolveBrief(ctx)).brief;
+    if (brief && brief.email_summary.available) {
+      const e = brief.email_summary;
+      return {
+        intent: "email_summary",
+        matched_phrases: matched,
+        response_text:
+          `Oggi ${e.total_today} email su ${e.account ?? "Gmail"}. ` +
+          `${e.high_priority_today} ad alta priorità, ${e.with_action_today} con action suggerita, ${e.without_action_today} ancora da valutare.`,
+        cta,
+        source: "daily_brief.email_summary",
+      };
+    }
+
     return {
       intent: "email_summary",
       matched_phrases: matched,
-      response_text: text,
+      response_text: `Oggi ${todayCount} email su Gmail, ${importantCount} ad alta priorità.`,
       cta,
-      source: "daily_brief.email_summary",
+      source: "gmail_message_map",
+    };
+  } catch {
+    return {
+      intent: "email_summary",
+      matched_phrases: matched,
+      response_text:
+        "Non riesco a leggere lo stato Gmail adesso. Riprova tra un istante.",
+      cta,
+      source: "error",
     };
   }
-  return {
-    intent: "email_summary",
-    matched_phrases: matched,
-    response_text:
-      "Gmail non risulta collegato o non c'è ancora un briefing di oggi. Apri il Gmail Connector per verificare.",
-    cta,
-    source: "gmail_missing",
-  };
 }
 
 async function respondWarnings(
@@ -1131,7 +1238,9 @@ export type JackVoiceCommandEvent =
   | "jack_operational_fallback_used"
   | "jack_daily_status_fallback_used"
   | "jack_daily_brief_missing"
-  | "jack_operational_status_used_without_daily_brief";
+  | "jack_operational_status_used_without_daily_brief"
+  | "jack_gmail_summary_not_connected"
+  | "jack_gmail_summary_served";
 
 function redactTranscript(t: string): string {
   return t

@@ -217,6 +217,10 @@ type Diagnostics = {
     | null;
   voiceConfirmationInFlight: boolean;
   voiceConfirmationLastSource: "voice_router" | "ui_button" | null;
+  // v3.22.1 — false-positive suppression diagnostics
+  skippedBecauseNoPendingPreview: boolean;
+  genericConfirmationIgnored: boolean;
+  pendingPreviewExists: boolean;
 };
 
 type Props = { brainId?: string | null };
@@ -294,7 +298,11 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastVoiceConfirmationIgnoredReason: null,
     voiceConfirmationInFlight: false,
     voiceConfirmationLastSource: null,
+    skippedBecauseNoPendingPreview: false,
+    genericConfirmationIgnored: false,
+    pendingPreviewExists: false,
   });
+
 
   const responseInProgressRef = useRef(false);
   const activeResponseIdRef = useRef<string | null>(null);
@@ -1502,14 +1510,38 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       }
 
       if (!preview) {
+        // v3.22.1 — Suppress false-positive warning for generic confirmation
+        // phrases ("va bene", "ok", "sì", "perfetto") when no pending preview
+        // exists. Only strong, explicit phrases that name the action are
+        // surfaced softly; everything else is silently ignored so the text
+        // flows to the normal Jack pipeline.
+        const isStrongConfirmation =
+          /\b(confermo|crea\s+(?:l['’]?\s*|questa\s+|quest['’]?\s*)?(?:action|azione|proposta)|approva|approval[oa])\b/i.test(
+            normalized,
+          );
         safeLog("jack_voice_confirmation_ignored_no_preview", {
           ...baseMeta,
           error_code: "no_pending_preview",
+          generic_confirmation_ignored: !isStrongConfirmation,
+          skipped_because_no_pending_preview: true,
+          pending_preview_exists: false,
         });
-        setDiagnostics((d) => ({ ...d, lastVoiceConfirmationIgnoredReason: "no_pending_preview" }));
-        pushLog({ kind: "warning", text: "Conferma vocale rilevata, ma non ho una proposta pendente." });
+        setDiagnostics((d) => ({
+          ...d,
+          lastVoiceConfirmationIgnoredReason: "no_pending_preview",
+          skippedBecauseNoPendingPreview: true,
+          genericConfirmationIgnored: !isStrongConfirmation,
+          pendingPreviewExists: false,
+        }));
+        if (isStrongConfirmation) {
+          pushLog({
+            kind: "system",
+            text: "Conferma esplicita ricevuta, ma non c'è una proposta pendente. Chiedi prima a Jack di prepararla.",
+          });
+        }
         return;
       }
+
 
       if (preview.confirmation_status !== "pending") {
         safeLog("jack_voice_confirmation_ignored_duplicate", {
