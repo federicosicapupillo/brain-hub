@@ -1627,18 +1627,18 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       switch (pending.preview.type) {
         case "sync_gmail":
           toolName = "refresh_gmail_sync";
-          toolArgs = pending.preview.payload;
+          toolArgs = { ...pending.preview.payload, source };
           break;
         case "open_gmail_connector":
           toolName = "open_brainhub_screen";
-          toolArgs = pending.preview.payload;
+          toolArgs = { ...pending.preview.payload, source };
           break;
         case "ask_email_brief":
           toolName = "get_email_brief";
-          toolArgs = pending.preview.payload;
+          toolArgs = { ...pending.preview.payload, source };
           break;
       }
-      pushLog({ kind: "tool", text: `→ ${toolName}` });
+      pushLog({ kind: "tool", text: `→ ${toolName} (source=${source})` });
       try {
         const result = (await toolFn({
           data: {
@@ -1646,6 +1646,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             arguments: JSON.stringify(toolArgs),
           },
         })) as Record<string, unknown>;
+
         const ok = result.ok === true;
         const safeMessage =
           typeof result.safe_message === "string"
