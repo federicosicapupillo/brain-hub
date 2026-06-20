@@ -239,6 +239,19 @@ type Diagnostics = {
   lastToolCacheStale: boolean;
   lastToolShouldNotCiteEmails: boolean;
   lastToolFailureRecoveryFiredAt: number | null;
+  // v3.24.2 — voice tool gate / echo guard
+  lastValidUserUtterance: string | null;
+  lastValidUserUtteranceAt: number | null;
+  lastIgnoredUserUtterance: string | null;
+  lastIgnoredReason: IgnoredUtteranceReason | null;
+  pendingToolConfirmation: boolean;
+  lastToolBlockedReason: VoiceToolBlockedReason | null;
+  lastToolGateDecision: "allowed" | "blocked" | null;
+  lastAssistantAskedConfirmationAt: number | null;
+  lastGmailSyncStatus: string | null;
+  lastGmailSyncSafeMessage: string | null;
+  lastGmailSyncErrorCode: string | null;
+  lastGmailRequiresReauth: boolean;
 };
 
 type Props = { brainId?: string | null };
