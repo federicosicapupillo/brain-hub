@@ -105,6 +105,29 @@ function UiOperatorLabRoute() {
     refetchInterval: session ? 4000 : false,
   });
 
+  const latestToken = useQuery({
+    queryKey: ["ui-operator-latest-token", session?.id ?? null],
+    queryFn: () => latestTokenFn({ data: { session_id: session?.id ?? "" } }),
+    enabled: !!session,
+    refetchInterval: session ? 5000 : false,
+  });
+
+  async function handleMintHandshake() {
+    if (!session) return;
+    const res = await mintTokenFn({
+      data: { session_id: session.id, route, allowed_routes: [route] },
+    });
+    setAuthHandshake({
+      url: res.url,
+      token_prefix: res.token_prefix,
+      expires_at: res.expires_at,
+      status: res.status,
+    });
+    if (res.ok) toast.success("Auth handshake URL generato.");
+    else toast.error(res.error ?? "Errore handshake.");
+    latestToken.refetch();
+  }
+
   async function handleStart() {
     const res = await startFn({ data: { target_route: route, brain_id: null } });
     if (!res.ok || !res.session) {
