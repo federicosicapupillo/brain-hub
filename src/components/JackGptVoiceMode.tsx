@@ -76,6 +76,13 @@ import {
   type VoiceCommandConfidence,
   type VoiceCommandRouterResult,
 } from "@/lib/jack-deterministic-command-router";
+import {
+  buildGmailVoiceResponse,
+  detectGmailBriefMode,
+  shouldIgnoreBargeIn,
+  type GmailBriefMode,
+  type GmailBriefVoicePayload,
+} from "@/lib/jack-gmail-voice-response";
 
 // v3.25 — Realtime model is NOT allowed to call these tools directly. They are
 // stripped from session.tools_for_update and executed only via the
