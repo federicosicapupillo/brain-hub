@@ -47,6 +47,7 @@ export type RefreshGmailMetadataSyncResult = {
   mode?: "today" | "recent";
   reason?: string;
   sync_run_id?: string;
+  requires_reauth?: boolean;
 };
 
 const COOLDOWN_MS = 2 * 60 * 1000;
