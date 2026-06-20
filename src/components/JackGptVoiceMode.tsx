@@ -1980,6 +1980,17 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           }
           if (doneKey) transcriptDedupRef.current.appendedDoneIds.add(doneKey);
           pushLog({ kind: "jack", text: transcript });
+          // v3.24.2 — track what Jack said, for echo guard + question gate.
+          lastAssistantSpokenTextRef.current = transcript;
+          lastAssistantSpokenAtRef.current = Date.now();
+          if (isAssistantQuestion(transcript)) {
+            lastAssistantAskedConfirmationAtRef.current = Date.now();
+            setDiagnostics((d) => ({
+              ...d,
+              lastAssistantAskedConfirmationAt: Date.now(),
+              pendingToolConfirmation: true,
+            }));
+          }
           break;
         }
 
