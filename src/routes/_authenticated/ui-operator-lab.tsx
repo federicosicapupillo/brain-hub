@@ -402,6 +402,49 @@ function UiOperatorLabRoute() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-sm flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4" /> Auth handshake (v3.23.2)
+          </CardTitle>
+          <CardDescription>
+            Token one-time scadenza 5 min, hashed in DB, route allowlisted. Niente password,
+            niente cookie, niente OAuth condiviso col runner.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline">
+              Disponibile: {session ? "sì" : "no (avvia sessione)"}
+            </Badge>
+            <Button size="sm" variant="secondary" onClick={handleMintHandshake} disabled={!session}>
+              Genera handshake per {route}
+            </Button>
+          </div>
+          {authHandshake ? (
+            <div className="space-y-1">
+              <div>Status: <Badge variant="outline">{authHandshake.status}</Badge></div>
+              <div>Token prefix: <code className="text-xs">{authHandshake.token_prefix ?? "—"}</code></div>
+              <div>Scade: <code className="text-xs">{authHandshake.expires_at ?? "—"}</code></div>
+              {authHandshake.url ? (
+                <div className="break-all text-xs text-muted-foreground">
+                  URL handshake: <code>{authHandshake.url}</code>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">Nessun handshake ancora generato.</p>
+          )}
+          {latestToken.data?.token ? (
+            <div className="text-xs text-muted-foreground">
+              Ultimo token DB: status{" "}
+              <code>{(latestToken.data.token as { status?: string }).status ?? "—"}</code> · expires{" "}
+              <code>{(latestToken.data.token as { expires_at?: string }).expires_at ?? "—"}</code>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-sm">Storico azioni</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
