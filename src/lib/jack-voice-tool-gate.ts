@@ -376,6 +376,8 @@ export function decideVoiceToolGate(input: GateDecisionInput): GateDecision {
   }
 
   return { status: "allowed", reason: "tool_not_gated" };
+}
+
 
 export function buildBlockedToolPayload(reason: VoiceToolBlockedReason, safe_message: string) {
   return {
