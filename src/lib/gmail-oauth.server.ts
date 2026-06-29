@@ -346,3 +346,66 @@ export async function refreshGmailAccessToken(
   }
   return (await res.json()) as GmailTokenResponse;
 }
+
+export type GmailModifyResult = {
+  id: string;
+  labelIds?: string[];
+};
+
+export async function modifyGmailMessage(
+  accessToken: string,
+  messageId: string,
+  opts: {
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  },
+): Promise<GmailModifyResult> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}/modify`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        addLabelIds: opts.addLabelIds ?? [],
+        removeLabelIds: opts.removeLabelIds ?? [],
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(
+      `Gmail modify errore (${res.status}): ${txt.slice(0, 200)}`,
+    );
+  }
+
+  return (await res.json()) as GmailModifyResult;
+}
+
+export async function trashGmailMessage(
+  accessToken: string,
+  messageId: string,
+): Promise<GmailModifyResult> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}/trash`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(
+      `Gmail trash errore (${res.status}): ${txt.slice(0, 200)}`,
+    );
+  }
+
+  return (await res.json()) as GmailModifyResult;
+}
