@@ -124,6 +124,53 @@ export function runGovernanceFixtures(): {
   return { passed, failed, records };
 }
 
+// Runtime fixtures — hit the real server endpoint to verify server-side enforcement.
+export async function runGovernanceRuntimeFixtures(
+  baseUrl: string = process.env.GOVERNANCE_FIXTURE_BASE_URL ??
+    "http://localhost:8080",
+): Promise<{ passed: number; failed: number }> {
+  let passed = 0;
+  let failed = 0;
+
+  async function check(name: string, path: string, expected: number) {
+    try {
+      const res = await fetch(`${baseUrl}${path}`);
+      const body = await res.json().catch(() => null);
+      const ok = res.status === expected;
+      // eslint-disable-next-line no-console
+      console.log(
+        `[${ok ? "OK" : "MISMATCH"}] ${name} → status=${res.status} expected=${expected}`,
+        body && typeof body === "object" && "governance" in body
+          ? { checks: (body as { governance?: { checks?: unknown } }).governance?.checks }
+          : body,
+      );
+      if (ok) passed += 1;
+      else failed += 1;
+    } catch (err) {
+      failed += 1;
+      // eslint-disable-next-line no-console
+      console.log(`[ERROR] ${name}`, err);
+    }
+  }
+
+  await check(
+    "Runtime PASS — agent:jack → 200",
+    "/api/architecture-audit-snapshot",
+    200,
+  );
+  await check(
+    "Runtime FAIL — agent:unknown → 403",
+    "/api/architecture-audit-snapshot?entity_id=agent:unknown",
+    403,
+  );
+
+  // eslint-disable-next-line no-console
+  console.log(
+    `\nGovernance Runtime Fixtures Summary: ${passed} passed, ${failed} failed`,
+  );
+  return { passed, failed };
+}
+
 // Auto-run when executed directly (bun run ...)
 declare const require: { main?: unknown } | undefined;
 declare const module: unknown;

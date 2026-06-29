@@ -13,13 +13,13 @@ export interface RbacPermissionSet {
 
 export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
   agent: {
-    allowed_actions: ["read", "suggest", "prepare"],
+    allowed_actions: ["read", "suggest", "prepare", "read_architecture_audit_snapshot"],
     denied_actions: ["delete", "send", "execute"],
     requires_confirmation: ["prepare"],
     max_risk_level: "medium",
   },
   module: {
-    allowed_actions: ["read", "suggest", "prepare", "execute"],
+    allowed_actions: ["read", "suggest", "prepare", "execute", "read_architecture_audit_snapshot"],
     denied_actions: ["delete", "send"],
     requires_confirmation: ["execute"],
     max_risk_level: "high",
@@ -34,7 +34,7 @@ export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
 
 export const AGENT_TOOL_CONTRACTS: Record<string, { allowed_tools: string[] }> = {
   "agent:jack": {
-    allowed_tools: ["read", "suggest", "prepare"],
+    allowed_tools: ["read", "suggest", "prepare", "read_architecture_audit_snapshot"],
   },
 };
 
