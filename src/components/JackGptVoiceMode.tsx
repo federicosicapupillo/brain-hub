@@ -577,6 +577,27 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const ignoredDuringAssistantSpeechCountRef = useRef<number>(0);
   // v3.25.4 — track last Gmail brief mode for diagnostics/transcript.
   const lastGmailVoiceModeRef = useRef<GmailBriefMode | null>(null);
+  // v3.26.2 — short-lived Gmail conversation context for follow-ups
+  // ("mi puoi dire i mittenti?", "leggimele", "sincronizza", ...).
+  type GmailVoiceContext = {
+    last_intent: string;
+    last_mode: GmailBriefMode | null;
+    last_scope: "inbox" | "all" | "today" | "today_all" | "category" | null;
+    last_date_scope: "today" | null;
+    last_category: string | null;
+    last_count: number | null;
+    last_messages_count: number;
+    messages_are_complete: boolean;
+    confidence: "high" | "partial" | "stale" | null;
+    last_sync_at: string | null;
+    created_at: number;
+    expires_at: number;
+  };
+  const lastGmailContextRef = useRef<GmailVoiceContext | null>(null);
+  const GMAIL_CONTEXT_TTL_MS = 3 * 60 * 1000;
+  const gmailSyncJustCompletedRef = useRef<number | null>(null);
+  const GMAIL_SYNC_RESUME_WINDOW_MS = 30_000;
+
 
   // v3.21.2 — tool-call dedup + batching + transcript dedup
   const toolCallInFlightCountRef = useRef<number>(0);
