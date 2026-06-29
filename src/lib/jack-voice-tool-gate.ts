@@ -71,12 +71,39 @@ const EMAIL_INTENT_KEYWORDS = [
   "ultime",
 ];
 
+// v3.26.2 — follow-up phrases that only make sense if a recent Gmail
+// conversation context exists. They MUST NOT match when there is no context.
+const EMAIL_FOLLOWUP_PHRASES = [
+  "mittenti",
+  "mittente",
+  "quali sono",
+  "dimmi quali",
+  "leggimele",
+  "leggimi",
+  "dimmele",
+  "apri la prima",
+  "apri quella",
+  "ripeti",
+  "e oggi",
+  "e in tutto",
+  "anche oggi",
+  "e le altre",
+];
+
 export function hasExplicitEmailIntent(text: string): boolean {
   if (!text) return false;
   const n = normalizeVoiceText(text);
   if (!n) return false;
   return EMAIL_INTENT_KEYWORDS.some((k) => n.includes(k));
 }
+
+export function looksLikeEmailFollowup(text: string): boolean {
+  if (!text) return false;
+  const n = normalizeVoiceText(text);
+  if (!n) return false;
+  return EMAIL_FOLLOWUP_PHRASES.some((k) => n.includes(k));
+}
+
 
 
 export function normalizeVoiceText(text: string): string {
