@@ -184,7 +184,10 @@ export async function getGmailMessageFull(
   messageId: string,
 ): Promise<GmailMessageFull> {
   // metadata + body text only, no attachments
-  const params = new URLSearchParams({ format: "full" });
+  const params = new URLSearchParams({
+    format: "full",
+    fields: "id,threadId,labelIds,snippet,internalDate,payload",
+  });
   const res = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(
       messageId,
