@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as UiOperatorSurfaceSessionIdRouteImport } from './routes/ui-operator-surface.$sessionId'
 import { Route as UiOperatorProxySessionIdRouteImport } from './routes/ui-operator-proxy.$sessionId'
+import { Route as ApiOsModuleMapRouteImport } from './routes/api/os-module-map'
 import { Route as ApiJackEventRouteImport } from './routes/api/jack-event'
 import { Route as ApiArchitectureAuditSnapshotRouteImport } from './routes/api/architecture-audit-snapshot'
 import { Route as AuthenticatedUiOperatorLabRouteImport } from './routes/_authenticated/ui-operator-lab'
@@ -29,6 +30,7 @@ import { Route as AuthenticatedProjectStateRouteImport } from './routes/_authent
 import { Route as AuthenticatedProjectLoopRouteImport } from './routes/_authenticated/project-loop'
 import { Route as AuthenticatedProjectConsoleRouteImport } from './routes/_authenticated/project-console'
 import { Route as AuthenticatedProgettiRouteImport } from './routes/_authenticated/progetti'
+import { Route as AuthenticatedOsRouteImport } from './routes/_authenticated/os'
 import { Route as AuthenticatedOperatingDashboardRouteImport } from './routes/_authenticated/operating-dashboard'
 import { Route as AuthenticatedN8nWorkflowsRouteImport } from './routes/_authenticated/n8n-workflows'
 import { Route as AuthenticatedMvpFactoryRouteImport } from './routes/_authenticated/mvp-factory'
@@ -73,6 +75,7 @@ import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedAgentRunsRouteImport } from './routes/_authenticated/agent-runs'
 import { Route as AuthenticatedAgentCenterRouteImport } from './routes/_authenticated/agent-center'
 import { Route as AuthenticatedActionQueueRouteImport } from './routes/_authenticated/action-queue'
+import { Route as AuthenticatedOsIndexRouteImport } from './routes/_authenticated/os.index'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
 import { Route as ApiPublicUiOperatorSurfaceStateRouteImport } from './routes/api/public/ui-operator-surface-state'
 import { Route as ApiPublicUiOperatorSurfaceActionRouteImport } from './routes/api/public/ui-operator-surface-action'
@@ -80,6 +83,15 @@ import { Route as ApiPublicUiOperatorAuthRouteImport } from './routes/api/public
 import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
+import { Route as AuthenticatedOsProjectCenterRouteImport } from './routes/_authenticated/os.project-center'
+import { Route as AuthenticatedOsKnowledgeCenterRouteImport } from './routes/_authenticated/os.knowledge-center'
+import { Route as AuthenticatedOsGovernanceRouteImport } from './routes/_authenticated/os.governance'
+import { Route as AuthenticatedOsDevelopmentCenterRouteImport } from './routes/_authenticated/os.development-center'
+import { Route as AuthenticatedOsCommunicationCenterRouteImport } from './routes/_authenticated/os.communication-center'
+import { Route as AuthenticatedOsCommandCenterRouteImport } from './routes/_authenticated/os.command-center'
+import { Route as AuthenticatedOsAutomationCenterRouteImport } from './routes/_authenticated/os.automation-center'
+import { Route as AuthenticatedOsAiCoreRouteImport } from './routes/_authenticated/os.ai-core'
+import { Route as AuthenticatedOsAgentCenterRouteImport } from './routes/_authenticated/os.agent-center'
 import { Route as AuthenticatedImportaPromptStoriciRouteImport } from './routes/_authenticated/importa.prompt-storici'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicGmailOauthCallbackRouteImport } from './routes/api/public/gmail-oauth/callback'
@@ -112,6 +124,11 @@ const UiOperatorProxySessionIdRoute =
     path: '/ui-operator-proxy/$sessionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiOsModuleMapRoute = ApiOsModuleMapRouteImport.update({
+  id: '/api/os-module-map',
+  path: '/api/os-module-map',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiJackEventRoute = ApiJackEventRouteImport.update({
   id: '/api/jack-event',
   path: '/api/jack-event',
@@ -195,6 +212,11 @@ const AuthenticatedProjectConsoleRoute =
 const AuthenticatedProgettiRoute = AuthenticatedProgettiRouteImport.update({
   id: '/progetti',
   path: '/progetti',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOsRoute = AuthenticatedOsRouteImport.update({
+  id: '/os',
+  path: '/os',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedOperatingDashboardRoute =
@@ -446,6 +468,11 @@ const AuthenticatedActionQueueRoute =
     path: '/action-queue',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedOsIndexRoute = AuthenticatedOsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedOsRoute,
+} as any)
 const AuthenticatedImportaIndexRoute =
   AuthenticatedImportaIndexRouteImport.update({
     id: '/',
@@ -485,6 +512,59 @@ const AuthenticatedProgettiBrainIdRoute =
     id: '/$brainId',
     path: '/$brainId',
     getParentRoute: () => AuthenticatedProgettiRoute,
+  } as any)
+const AuthenticatedOsProjectCenterRoute =
+  AuthenticatedOsProjectCenterRouteImport.update({
+    id: '/project-center',
+    path: '/project-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsKnowledgeCenterRoute =
+  AuthenticatedOsKnowledgeCenterRouteImport.update({
+    id: '/knowledge-center',
+    path: '/knowledge-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsGovernanceRoute =
+  AuthenticatedOsGovernanceRouteImport.update({
+    id: '/governance',
+    path: '/governance',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsDevelopmentCenterRoute =
+  AuthenticatedOsDevelopmentCenterRouteImport.update({
+    id: '/development-center',
+    path: '/development-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsCommunicationCenterRoute =
+  AuthenticatedOsCommunicationCenterRouteImport.update({
+    id: '/communication-center',
+    path: '/communication-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsCommandCenterRoute =
+  AuthenticatedOsCommandCenterRouteImport.update({
+    id: '/command-center',
+    path: '/command-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsAutomationCenterRoute =
+  AuthenticatedOsAutomationCenterRouteImport.update({
+    id: '/automation-center',
+    path: '/automation-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsAiCoreRoute = AuthenticatedOsAiCoreRouteImport.update({
+  id: '/ai-core',
+  path: '/ai-core',
+  getParentRoute: () => AuthenticatedOsRoute,
+} as any)
+const AuthenticatedOsAgentCenterRoute =
+  AuthenticatedOsAgentCenterRouteImport.update({
+    id: '/agent-center',
+    path: '/agent-center',
+    getParentRoute: () => AuthenticatedOsRoute,
   } as any)
 const AuthenticatedImportaPromptStoriciRoute =
   AuthenticatedImportaPromptStoriciRouteImport.update({
@@ -564,6 +644,7 @@ export interface FileRoutesByFullPath {
   '/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
+  '/os': typeof AuthenticatedOsRouteWithChildren
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/project-console': typeof AuthenticatedProjectConsoleRoute
   '/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -579,9 +660,19 @@ export interface FileRoutesByFullPath {
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/jack-event': typeof ApiJackEventRoute
+  '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
+  '/os/agent-center': typeof AuthenticatedOsAgentCenterRoute
+  '/os/ai-core': typeof AuthenticatedOsAiCoreRoute
+  '/os/automation-center': typeof AuthenticatedOsAutomationCenterRoute
+  '/os/command-center': typeof AuthenticatedOsCommandCenterRoute
+  '/os/communication-center': typeof AuthenticatedOsCommunicationCenterRoute
+  '/os/development-center': typeof AuthenticatedOsDevelopmentCenterRoute
+  '/os/governance': typeof AuthenticatedOsGovernanceRoute
+  '/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
+  '/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
@@ -589,6 +680,7 @@ export interface FileRoutesByFullPath {
   '/api/public/ui-operator-surface-action': typeof ApiPublicUiOperatorSurfaceActionRoute
   '/api/public/ui-operator-surface-state': typeof ApiPublicUiOperatorSurfaceStateRoute
   '/importa/': typeof AuthenticatedImportaIndexRoute
+  '/os/': typeof AuthenticatedOsIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
   '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
@@ -654,10 +746,20 @@ export interface FileRoutesByTo {
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/jack-event': typeof ApiJackEventRoute
+  '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/': typeof AuthenticatedIndexRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
+  '/os/agent-center': typeof AuthenticatedOsAgentCenterRoute
+  '/os/ai-core': typeof AuthenticatedOsAiCoreRoute
+  '/os/automation-center': typeof AuthenticatedOsAutomationCenterRoute
+  '/os/command-center': typeof AuthenticatedOsCommandCenterRoute
+  '/os/communication-center': typeof AuthenticatedOsCommunicationCenterRoute
+  '/os/development-center': typeof AuthenticatedOsDevelopmentCenterRoute
+  '/os/governance': typeof AuthenticatedOsGovernanceRoute
+  '/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
+  '/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
@@ -665,6 +767,7 @@ export interface FileRoutesByTo {
   '/api/public/ui-operator-surface-action': typeof ApiPublicUiOperatorSurfaceActionRoute
   '/api/public/ui-operator-surface-state': typeof ApiPublicUiOperatorSurfaceStateRoute
   '/importa': typeof AuthenticatedImportaIndexRoute
+  '/os': typeof AuthenticatedOsIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
   '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
@@ -718,6 +821,7 @@ export interface FileRoutesById {
   '/_authenticated/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/_authenticated/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/_authenticated/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
+  '/_authenticated/os': typeof AuthenticatedOsRouteWithChildren
   '/_authenticated/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/_authenticated/project-console': typeof AuthenticatedProjectConsoleRoute
   '/_authenticated/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -733,10 +837,20 @@ export interface FileRoutesById {
   '/_authenticated/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/jack-event': typeof ApiJackEventRoute
+  '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
+  '/_authenticated/os/agent-center': typeof AuthenticatedOsAgentCenterRoute
+  '/_authenticated/os/ai-core': typeof AuthenticatedOsAiCoreRoute
+  '/_authenticated/os/automation-center': typeof AuthenticatedOsAutomationCenterRoute
+  '/_authenticated/os/command-center': typeof AuthenticatedOsCommandCenterRoute
+  '/_authenticated/os/communication-center': typeof AuthenticatedOsCommunicationCenterRoute
+  '/_authenticated/os/development-center': typeof AuthenticatedOsDevelopmentCenterRoute
+  '/_authenticated/os/governance': typeof AuthenticatedOsGovernanceRoute
+  '/_authenticated/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
+  '/_authenticated/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
@@ -744,6 +858,7 @@ export interface FileRoutesById {
   '/api/public/ui-operator-surface-action': typeof ApiPublicUiOperatorSurfaceActionRoute
   '/api/public/ui-operator-surface-state': typeof ApiPublicUiOperatorSurfaceStateRoute
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
+  '/_authenticated/os/': typeof AuthenticatedOsIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
   '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
@@ -798,6 +913,7 @@ export interface FileRouteTypes {
     | '/mvp-factory'
     | '/n8n-workflows'
     | '/operating-dashboard'
+    | '/os'
     | '/progetti'
     | '/project-console'
     | '/project-loop'
@@ -813,9 +929,19 @@ export interface FileRouteTypes {
     | '/ui-operator-lab'
     | '/api/architecture-audit-snapshot'
     | '/api/jack-event'
+    | '/api/os-module-map'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/importa/prompt-storici'
+    | '/os/agent-center'
+    | '/os/ai-core'
+    | '/os/automation-center'
+    | '/os/command-center'
+    | '/os/communication-center'
+    | '/os/development-center'
+    | '/os/governance'
+    | '/os/knowledge-center'
+    | '/os/project-center'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
@@ -823,6 +949,7 @@ export interface FileRouteTypes {
     | '/api/public/ui-operator-surface-action'
     | '/api/public/ui-operator-surface-state'
     | '/importa/'
+    | '/os/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
     | '/api/public/gmail-oauth/callback'
@@ -888,10 +1015,20 @@ export interface FileRouteTypes {
     | '/ui-operator-lab'
     | '/api/architecture-audit-snapshot'
     | '/api/jack-event'
+    | '/api/os-module-map'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/'
     | '/importa/prompt-storici'
+    | '/os/agent-center'
+    | '/os/ai-core'
+    | '/os/automation-center'
+    | '/os/command-center'
+    | '/os/communication-center'
+    | '/os/development-center'
+    | '/os/governance'
+    | '/os/knowledge-center'
+    | '/os/project-center'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
@@ -899,6 +1036,7 @@ export interface FileRouteTypes {
     | '/api/public/ui-operator-surface-action'
     | '/api/public/ui-operator-surface-state'
     | '/importa'
+    | '/os'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
     | '/api/public/gmail-oauth/callback'
@@ -951,6 +1089,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mvp-factory'
     | '/_authenticated/n8n-workflows'
     | '/_authenticated/operating-dashboard'
+    | '/_authenticated/os'
     | '/_authenticated/progetti'
     | '/_authenticated/project-console'
     | '/_authenticated/project-loop'
@@ -966,10 +1105,20 @@ export interface FileRouteTypes {
     | '/_authenticated/ui-operator-lab'
     | '/api/architecture-audit-snapshot'
     | '/api/jack-event'
+    | '/api/os-module-map'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/_authenticated/'
     | '/_authenticated/importa/prompt-storici'
+    | '/_authenticated/os/agent-center'
+    | '/_authenticated/os/ai-core'
+    | '/_authenticated/os/automation-center'
+    | '/_authenticated/os/command-center'
+    | '/_authenticated/os/communication-center'
+    | '/_authenticated/os/development-center'
+    | '/_authenticated/os/governance'
+    | '/_authenticated/os/knowledge-center'
+    | '/_authenticated/os/project-center'
     | '/_authenticated/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
@@ -977,6 +1126,7 @@ export interface FileRouteTypes {
     | '/api/public/ui-operator-surface-action'
     | '/api/public/ui-operator-surface-state'
     | '/_authenticated/importa/'
+    | '/_authenticated/os/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
     | '/api/public/gmail-oauth/callback'
@@ -988,6 +1138,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiArchitectureAuditSnapshotRoute: typeof ApiArchitectureAuditSnapshotRoute
   ApiJackEventRoute: typeof ApiJackEventRoute
+  ApiOsModuleMapRoute: typeof ApiOsModuleMapRoute
   UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
   UiOperatorSurfaceSessionIdRoute: typeof UiOperatorSurfaceSessionIdRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
@@ -1036,6 +1187,13 @@ declare module '@tanstack/react-router' {
       path: '/ui-operator-proxy/$sessionId'
       fullPath: '/ui-operator-proxy/$sessionId'
       preLoaderRoute: typeof UiOperatorProxySessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/os-module-map': {
+      id: '/api/os-module-map'
+      path: '/api/os-module-map'
+      fullPath: '/api/os-module-map'
+      preLoaderRoute: typeof ApiOsModuleMapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/jack-event': {
@@ -1141,6 +1299,13 @@ declare module '@tanstack/react-router' {
       path: '/progetti'
       fullPath: '/progetti'
       preLoaderRoute: typeof AuthenticatedProgettiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/os': {
+      id: '/_authenticated/os'
+      path: '/os'
+      fullPath: '/os'
+      preLoaderRoute: typeof AuthenticatedOsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/operating-dashboard': {
@@ -1451,6 +1616,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedActionQueueRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/os/': {
+      id: '/_authenticated/os/'
+      path: '/'
+      fullPath: '/os/'
+      preLoaderRoute: typeof AuthenticatedOsIndexRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
     '/_authenticated/importa/': {
       id: '/_authenticated/importa/'
       path: '/'
@@ -1499,6 +1671,69 @@ declare module '@tanstack/react-router' {
       fullPath: '/progetti/$brainId'
       preLoaderRoute: typeof AuthenticatedProgettiBrainIdRouteImport
       parentRoute: typeof AuthenticatedProgettiRoute
+    }
+    '/_authenticated/os/project-center': {
+      id: '/_authenticated/os/project-center'
+      path: '/project-center'
+      fullPath: '/os/project-center'
+      preLoaderRoute: typeof AuthenticatedOsProjectCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/knowledge-center': {
+      id: '/_authenticated/os/knowledge-center'
+      path: '/knowledge-center'
+      fullPath: '/os/knowledge-center'
+      preLoaderRoute: typeof AuthenticatedOsKnowledgeCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/governance': {
+      id: '/_authenticated/os/governance'
+      path: '/governance'
+      fullPath: '/os/governance'
+      preLoaderRoute: typeof AuthenticatedOsGovernanceRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/development-center': {
+      id: '/_authenticated/os/development-center'
+      path: '/development-center'
+      fullPath: '/os/development-center'
+      preLoaderRoute: typeof AuthenticatedOsDevelopmentCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/communication-center': {
+      id: '/_authenticated/os/communication-center'
+      path: '/communication-center'
+      fullPath: '/os/communication-center'
+      preLoaderRoute: typeof AuthenticatedOsCommunicationCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/command-center': {
+      id: '/_authenticated/os/command-center'
+      path: '/command-center'
+      fullPath: '/os/command-center'
+      preLoaderRoute: typeof AuthenticatedOsCommandCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/automation-center': {
+      id: '/_authenticated/os/automation-center'
+      path: '/automation-center'
+      fullPath: '/os/automation-center'
+      preLoaderRoute: typeof AuthenticatedOsAutomationCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/ai-core': {
+      id: '/_authenticated/os/ai-core'
+      path: '/ai-core'
+      fullPath: '/os/ai-core'
+      preLoaderRoute: typeof AuthenticatedOsAiCoreRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/agent-center': {
+      id: '/_authenticated/os/agent-center'
+      path: '/agent-center'
+      fullPath: '/os/agent-center'
+      preLoaderRoute: typeof AuthenticatedOsAgentCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
     }
     '/_authenticated/importa/prompt-storici': {
       id: '/_authenticated/importa/prompt-storici'
@@ -1551,6 +1786,37 @@ const AuthenticatedImportaRouteChildren: AuthenticatedImportaRouteChildren = {
 
 const AuthenticatedImportaRouteWithChildren =
   AuthenticatedImportaRoute._addFileChildren(AuthenticatedImportaRouteChildren)
+
+interface AuthenticatedOsRouteChildren {
+  AuthenticatedOsAgentCenterRoute: typeof AuthenticatedOsAgentCenterRoute
+  AuthenticatedOsAiCoreRoute: typeof AuthenticatedOsAiCoreRoute
+  AuthenticatedOsAutomationCenterRoute: typeof AuthenticatedOsAutomationCenterRoute
+  AuthenticatedOsCommandCenterRoute: typeof AuthenticatedOsCommandCenterRoute
+  AuthenticatedOsCommunicationCenterRoute: typeof AuthenticatedOsCommunicationCenterRoute
+  AuthenticatedOsDevelopmentCenterRoute: typeof AuthenticatedOsDevelopmentCenterRoute
+  AuthenticatedOsGovernanceRoute: typeof AuthenticatedOsGovernanceRoute
+  AuthenticatedOsKnowledgeCenterRoute: typeof AuthenticatedOsKnowledgeCenterRoute
+  AuthenticatedOsProjectCenterRoute: typeof AuthenticatedOsProjectCenterRoute
+  AuthenticatedOsIndexRoute: typeof AuthenticatedOsIndexRoute
+}
+
+const AuthenticatedOsRouteChildren: AuthenticatedOsRouteChildren = {
+  AuthenticatedOsAgentCenterRoute: AuthenticatedOsAgentCenterRoute,
+  AuthenticatedOsAiCoreRoute: AuthenticatedOsAiCoreRoute,
+  AuthenticatedOsAutomationCenterRoute: AuthenticatedOsAutomationCenterRoute,
+  AuthenticatedOsCommandCenterRoute: AuthenticatedOsCommandCenterRoute,
+  AuthenticatedOsCommunicationCenterRoute:
+    AuthenticatedOsCommunicationCenterRoute,
+  AuthenticatedOsDevelopmentCenterRoute: AuthenticatedOsDevelopmentCenterRoute,
+  AuthenticatedOsGovernanceRoute: AuthenticatedOsGovernanceRoute,
+  AuthenticatedOsKnowledgeCenterRoute: AuthenticatedOsKnowledgeCenterRoute,
+  AuthenticatedOsProjectCenterRoute: AuthenticatedOsProjectCenterRoute,
+  AuthenticatedOsIndexRoute: AuthenticatedOsIndexRoute,
+}
+
+const AuthenticatedOsRouteWithChildren = AuthenticatedOsRoute._addFileChildren(
+  AuthenticatedOsRouteChildren,
+)
 
 interface AuthenticatedProgettiRouteChildren {
   AuthenticatedProgettiBrainIdRoute: typeof AuthenticatedProgettiBrainIdRoute
@@ -1610,6 +1876,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMvpFactoryRoute: typeof AuthenticatedMvpFactoryRoute
   AuthenticatedN8nWorkflowsRoute: typeof AuthenticatedN8nWorkflowsRoute
   AuthenticatedOperatingDashboardRoute: typeof AuthenticatedOperatingDashboardRoute
+  AuthenticatedOsRoute: typeof AuthenticatedOsRouteWithChildren
   AuthenticatedProgettiRoute: typeof AuthenticatedProgettiRouteWithChildren
   AuthenticatedProjectConsoleRoute: typeof AuthenticatedProjectConsoleRoute
   AuthenticatedProjectLoopRoute: typeof AuthenticatedProjectLoopRoute
@@ -1671,6 +1938,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMvpFactoryRoute: AuthenticatedMvpFactoryRoute,
   AuthenticatedN8nWorkflowsRoute: AuthenticatedN8nWorkflowsRoute,
   AuthenticatedOperatingDashboardRoute: AuthenticatedOperatingDashboardRoute,
+  AuthenticatedOsRoute: AuthenticatedOsRouteWithChildren,
   AuthenticatedProgettiRoute: AuthenticatedProgettiRouteWithChildren,
   AuthenticatedProjectConsoleRoute: AuthenticatedProjectConsoleRoute,
   AuthenticatedProjectLoopRoute: AuthenticatedProjectLoopRoute,
@@ -1695,6 +1963,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiArchitectureAuditSnapshotRoute: ApiArchitectureAuditSnapshotRoute,
   ApiJackEventRoute: ApiJackEventRoute,
+  ApiOsModuleMapRoute: ApiOsModuleMapRoute,
   UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
   UiOperatorSurfaceSessionIdRoute: UiOperatorSurfaceSessionIdRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
