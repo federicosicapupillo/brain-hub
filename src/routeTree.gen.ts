@@ -30,6 +30,7 @@ import { Route as AuthenticatedProjectStateRouteImport } from './routes/_authent
 import { Route as AuthenticatedProjectLoopRouteImport } from './routes/_authenticated/project-loop'
 import { Route as AuthenticatedProjectConsoleRouteImport } from './routes/_authenticated/project-console'
 import { Route as AuthenticatedProgettiRouteImport } from './routes/_authenticated/progetti'
+import { Route as AuthenticatedOsRouteImport } from './routes/_authenticated/os'
 import { Route as AuthenticatedOperatingDashboardRouteImport } from './routes/_authenticated/operating-dashboard'
 import { Route as AuthenticatedN8nWorkflowsRouteImport } from './routes/_authenticated/n8n-workflows'
 import { Route as AuthenticatedMvpFactoryRouteImport } from './routes/_authenticated/mvp-factory'
@@ -201,6 +202,11 @@ const AuthenticatedProjectConsoleRoute =
 const AuthenticatedProgettiRoute = AuthenticatedProgettiRouteImport.update({
   id: '/progetti',
   path: '/progetti',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedOsRoute = AuthenticatedOsRouteImport.update({
+  id: '/os',
+  path: '/os',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedOperatingDashboardRoute =
@@ -570,6 +576,7 @@ export interface FileRoutesByFullPath {
   '/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
+  '/os': typeof AuthenticatedOsRoute
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/project-console': typeof AuthenticatedProjectConsoleRoute
   '/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -646,6 +653,7 @@ export interface FileRoutesByTo {
   '/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
+  '/os': typeof AuthenticatedOsRoute
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/project-console': typeof AuthenticatedProjectConsoleRoute
   '/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -726,6 +734,7 @@ export interface FileRoutesById {
   '/_authenticated/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/_authenticated/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/_authenticated/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
+  '/_authenticated/os': typeof AuthenticatedOsRoute
   '/_authenticated/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/_authenticated/project-console': typeof AuthenticatedProjectConsoleRoute
   '/_authenticated/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -807,6 +816,7 @@ export interface FileRouteTypes {
     | '/mvp-factory'
     | '/n8n-workflows'
     | '/operating-dashboard'
+    | '/os'
     | '/progetti'
     | '/project-console'
     | '/project-loop'
@@ -883,6 +893,7 @@ export interface FileRouteTypes {
     | '/mvp-factory'
     | '/n8n-workflows'
     | '/operating-dashboard'
+    | '/os'
     | '/progetti'
     | '/project-console'
     | '/project-loop'
@@ -962,6 +973,7 @@ export interface FileRouteTypes {
     | '/_authenticated/mvp-factory'
     | '/_authenticated/n8n-workflows'
     | '/_authenticated/operating-dashboard'
+    | '/_authenticated/os'
     | '/_authenticated/progetti'
     | '/_authenticated/project-console'
     | '/_authenticated/project-loop'
@@ -1161,6 +1173,13 @@ declare module '@tanstack/react-router' {
       path: '/progetti'
       fullPath: '/progetti'
       preLoaderRoute: typeof AuthenticatedProgettiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/os': {
+      id: '/_authenticated/os'
+      path: '/os'
+      fullPath: '/os'
+      preLoaderRoute: typeof AuthenticatedOsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/operating-dashboard': {
@@ -1630,6 +1649,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMvpFactoryRoute: typeof AuthenticatedMvpFactoryRoute
   AuthenticatedN8nWorkflowsRoute: typeof AuthenticatedN8nWorkflowsRoute
   AuthenticatedOperatingDashboardRoute: typeof AuthenticatedOperatingDashboardRoute
+  AuthenticatedOsRoute: typeof AuthenticatedOsRoute
   AuthenticatedProgettiRoute: typeof AuthenticatedProgettiRouteWithChildren
   AuthenticatedProjectConsoleRoute: typeof AuthenticatedProjectConsoleRoute
   AuthenticatedProjectLoopRoute: typeof AuthenticatedProjectLoopRoute
@@ -1691,6 +1711,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMvpFactoryRoute: AuthenticatedMvpFactoryRoute,
   AuthenticatedN8nWorkflowsRoute: AuthenticatedN8nWorkflowsRoute,
   AuthenticatedOperatingDashboardRoute: AuthenticatedOperatingDashboardRoute,
+  AuthenticatedOsRoute: AuthenticatedOsRoute,
   AuthenticatedProgettiRoute: AuthenticatedProgettiRouteWithChildren,
   AuthenticatedProjectConsoleRoute: AuthenticatedProjectConsoleRoute,
   AuthenticatedProjectLoopRoute: AuthenticatedProjectLoopRoute,
