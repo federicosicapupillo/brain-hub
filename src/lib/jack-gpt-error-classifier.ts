@@ -186,6 +186,17 @@ export function classifyRealtimeStartError(
     };
   }
 
+  if (status === 429) {
+    return {
+      kind: "rate_limited",
+      retryable_with_minimal: false,
+      user_message:
+        "OpenAI Realtime: troppe richieste. Attendi qualche secondo e riprova.",
+      status,
+      openai_request_id: reqId,
+    };
+  }
+
   return {
     kind: "unknown",
     retryable_with_minimal: false,
