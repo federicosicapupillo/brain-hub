@@ -521,6 +521,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastIgnoredReason: null,
     pendingToolConfirmation: false,
     lastToolBlockedReason: null,
+    lastToolAllowedReason: null,
     lastToolGateDecision: null,
     lastAssistantAskedConfirmationAt: null,
     lastGmailSyncStatus: null,
