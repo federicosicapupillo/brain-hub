@@ -1050,9 +1050,11 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       unread_scope_counts: {
         inbox: inboxUnreadCount,
         all: allUnreadCount,
-        today: todayUnreadCount,
+        today: todayUnreadCount, // INBOX+UNREAD+today (default user-visible)
+        today_all: todayAllUnreadCount, // UNREAD+today across all labels
         category: categoryUnreadCount,
       },
+
       unread_category: data.category ?? null,
       // Detail completeness: Jack must not invent sender/subject if false.
       messages_are_complete: resolvedUnreadCount === flat.filter((e) => e.unread).length,
