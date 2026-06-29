@@ -768,6 +768,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     stream.getAudioTracks().forEach((track) => {
       track.enabled = !muted;
     });
+    console.log(`[JackVoice] setMicMuted(${muted}) — tracks: ${stream.getAudioTracks().length}, enabled: ${stream.getAudioTracks().map(t => t.enabled).join(',')}`);
     safeLog(muted ? "jack_voice_input_muted_during_speaking" : "jack_voice_input_resumed_after_speaking");
   }, [safeLog]);
 
