@@ -1527,3 +1527,127 @@ function hash(input: string): string {
   }
   return h.toString(16).padStart(8, "0");
 }
+
+// ---------- execute_email_action ----------
+
+export const executeEmailActionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (d: unknown) =>
+      (d ?? {}) as {
+        gmail_message_id?: string;
+        action_type?: string;
+        brain_id?: string | null;
+      },
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    if (!data.gmail_message_id) {
+      return { ok: false, error: "missing_gmail_message_id" };
+    }
+
+    const actionType = data.action_type ?? "archive";
+
+    // 1) Recupera refresh_token da gmail_connection_settings
+    const { data: conn, error: connErr } = await supabase
+      .from("gmail_connection_settings")
+      .select("refresh_token, token_expires_at, status")
+      .eq("user_id", userId)
+      .eq("status", "connected")
+      .maybeSingle();
+
+    if (connErr || !conn?.refresh_token) {
+      return { ok: false, error: "gmail_not_connected" };
+    }
+
+    // 2) Ottieni access token valido
+    const { refreshGmailAccessToken } = await import(
+      "@/lib/gmail-oauth.server"
+    );
+    let accessToken: string;
+    try {
+      const tokens = await refreshGmailAccessToken(conn.refresh_token);
+      accessToken = tokens.access_token;
+    } catch (err) {
+      const code =
+        (err as Error & { code?: string }).code === "reauth_required"
+          ? "reauth_required"
+          : "token_refresh_failed";
+      return { ok: false, error: code };
+    }
+
+    // 3) Esegui l'azione
+    const { modifyGmailMessage, trashGmailMessage } = await import(
+      "@/lib/gmail-oauth.server"
+    );
+
+    try {
+      switch (actionType) {
+        case "archive":
+          await modifyGmailMessage(accessToken, data.gmail_message_id, {
+            removeLabelIds: ["INBOX"],
+          });
+          break;
+
+        case "mark_read":
+          await modifyGmailMessage(accessToken, data.gmail_message_id, {
+            removeLabelIds: ["UNREAD"],
+          });
+          break;
+
+        case "archive_and_read":
+          await modifyGmailMessage(accessToken, data.gmail_message_id, {
+            removeLabelIds: ["INBOX", "UNREAD"],
+          });
+          break;
+
+        case "trash":
+          await trashGmailMessage(accessToken, data.gmail_message_id);
+          break;
+
+        default:
+          return { ok: false, error: `action_not_supported:${actionType}` };
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isScope = msg.includes("403");
+      return {
+        ok: false,
+        error: isScope ? "insufficient_gmail_scope" : "gmail_api_error",
+        detail: msg.slice(0, 200),
+      };
+    }
+
+    // 4) Aggiorna cache locale in gmail_message_map
+    if (actionType === "trash") {
+      await supabase
+        .from("gmail_message_map")
+        .update({ is_trashed: true, inbox: false })
+        .eq("gmail_message_id", data.gmail_message_id)
+        .eq("user_id", userId);
+    } else {
+      const cacheUpdate: { inbox?: boolean; is_unread?: boolean } = {};
+      if (["archive", "archive_and_read"].includes(actionType)) {
+        cacheUpdate.inbox = false;
+      }
+      if (["mark_read", "archive_and_read"].includes(actionType)) {
+        cacheUpdate.is_unread = false;
+      }
+      if (Object.keys(cacheUpdate).length > 0) {
+        await supabase
+          .from("gmail_message_map")
+          .update(cacheUpdate)
+          .eq("gmail_message_id", data.gmail_message_id)
+          .eq("user_id", userId);
+      }
+    }
+
+    // 5) Log
+    void logEvent(supabase, userId, "gmail_email_action_executed", {
+      action_type: actionType,
+      message_id_hash: hash(data.gmail_message_id),
+    });
+
+    return { ok: true, action_type: actionType };
+  });

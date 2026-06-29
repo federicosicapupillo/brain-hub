@@ -1910,8 +1910,10 @@ export type Database = {
           importance_level: string | null
           importance_reason: string | null
           importance_score: number
+          inbox: boolean
           internal_date: string | null
           is_important: boolean
+          is_trashed: boolean
           is_unread: boolean
           label_ids: string[]
           linked_action_id: string | null
@@ -1944,8 +1946,10 @@ export type Database = {
           importance_level?: string | null
           importance_reason?: string | null
           importance_score?: number
+          inbox?: boolean
           internal_date?: string | null
           is_important?: boolean
+          is_trashed?: boolean
           is_unread?: boolean
           label_ids?: string[]
           linked_action_id?: string | null
@@ -1978,8 +1982,10 @@ export type Database = {
           importance_level?: string | null
           importance_reason?: string | null
           importance_score?: number
+          inbox?: boolean
           internal_date?: string | null
           is_important?: boolean
+          is_trashed?: boolean
           is_unread?: boolean
           label_ids?: string[]
           linked_action_id?: string | null
