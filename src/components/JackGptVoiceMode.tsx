@@ -1406,7 +1406,41 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         if (name === "get_email_brief" && okFlag) {
           const userUtterance =
             lastValidUserUtteranceRef.current?.text ?? null;
-          const mode = detectGmailBriefMode(userUtterance);
+          let mode = detectGmailBriefMode(userUtterance);
+          // v3.26.2 — follow-up resolution: if previous Gmail context was
+          // an unread-* mode and the user's utterance is a follow-up
+          // ("mittenti", "leggimele", "quali sono", "e oggi"), keep the
+          // prior unread scope instead of falling into list_summary.
+          const now = Date.now();
+          const ctx = lastGmailContextRef.current;
+          const ctxFresh = Boolean(ctx && ctx.expires_at > now);
+          const isFollowupUtterance =
+            userUtterance != null && looksLikeEmailFollowup(userUtterance);
+          if (
+            ctxFresh &&
+            isFollowupUtterance &&
+            ctx &&
+            (ctx.last_mode === "unread_inbox" ||
+              ctx.last_mode === "unread_today" ||
+              ctx.last_mode === "unread_today_all" ||
+              ctx.last_mode === "unread_all" ||
+              ctx.last_mode === "unread_category" ||
+              ctx.last_mode === "unread_only") &&
+            (mode === "list_summary" || mode === "latest_only")
+          ) {
+            const overridden = ctx.last_mode;
+            safeLog("gmail_voice_followup_resolved", {
+              previous_mode: ctx.last_mode,
+              detected_mode: mode,
+              kept_mode: overridden,
+            });
+            mode = overridden;
+          } else if (isFollowupUtterance && !ctxFresh) {
+            safeLog("gmail_voice_followup_unresolved", {
+              detected_mode: mode,
+              had_context: false,
+            });
+          }
           lastGmailVoiceModeRef.current = mode;
           safeLog("jack_gmail_voice_mode_detected", {
             mode,
@@ -1431,6 +1465,44 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             })(),
           };
           const built = buildGmailVoiceResponse({ mode, brief });
+          // v3.26.2 — persist Gmail conversation context for follow-ups.
+          const resolvedScope: GmailVoiceContext["last_scope"] =
+            mode === "unread_inbox" || mode === "unread_only"
+              ? "inbox"
+              : mode === "unread_all"
+                ? "all"
+                : mode === "unread_today"
+                  ? "today"
+                  : mode === "unread_today_all"
+                    ? "today_all"
+                    : mode === "unread_category"
+                      ? "category"
+                      : (brief.unread_scope ?? null);
+          lastGmailContextRef.current = {
+            last_intent: "get_email_brief",
+            last_mode: mode,
+            last_scope: resolvedScope,
+            last_date_scope:
+              mode === "unread_today" || mode === "unread_today_all"
+                ? "today"
+                : null,
+            last_category: brief.unread_category ?? null,
+            last_count: brief.unread_count ?? null,
+            last_messages_count:
+              (brief.all_today?.length ?? 0) +
+              (brief.inbox_today?.length ?? 0),
+            messages_are_complete: brief.messages_are_complete === true,
+            confidence: brief.confidence ?? null,
+            last_sync_at: brief.last_sync_at ?? null,
+            created_at: now,
+            expires_at: now + GMAIL_CONTEXT_TTL_MS,
+          };
+          safeLog("gmail_voice_context_created", {
+            mode,
+            scope: resolvedScope,
+            count: brief.unread_count ?? null,
+            messages_are_complete: brief.messages_are_complete === true,
+          });
           safeLog("jack_gmail_voice_response_built", {
             mode,
             length: built.length,
@@ -1449,6 +1521,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             lastGmailVoiceResponseLength: built.length,
             lastGmailVoiceResponseTruncated: built.truncated,
           }));
+
           pushLog({
             kind: "system",
             text: `Gmail mode: ${mode} (len ${built.length}${built.truncated ? ", troncato" : ""})`,
