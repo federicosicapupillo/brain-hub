@@ -920,47 +920,6 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [safeLog],
   );
 
-  const disableVadWhileSpeaking = useCallback(() => {
-    const dc = dcRef.current;
-    if (!dc || dc.readyState !== "open") return;
-    try {
-      dc.send(JSON.stringify({
-        type: "session.update",
-        session: {
-          type: "realtime",
-          audio: {
-            input: {
-              turn_detection: null,
-            },
-          },
-        },
-      }));
-      safeLog("jack_voice_vad_disabled_while_speaking");
-    } catch { /* noop */ }
-  }, [safeLog]);
-
-  const enableVadAfterSpeaking = useCallback(() => {
-    const dc = dcRef.current;
-    if (!dc || dc.readyState !== "open") return;
-    try {
-      dc.send(JSON.stringify({
-        type: "session.update",
-        session: {
-          type: "realtime",
-          audio: {
-            input: {
-              turn_detection: {
-                type: "server_vad",
-                create_response: false,
-                interrupt_response: false,
-              },
-            },
-          },
-        },
-      }));
-      safeLog("jack_voice_vad_enabled_after_speaking");
-    } catch { /* noop */ }
-  }, [safeLog]);
 
   const flushPendingResponse = useCallback(() => {
     if (flushTimerRef.current) {
@@ -2750,7 +2709,6 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           assistantSpeakingRef.current = true;
           lastAssistantSpeechStartedAtRef.current = Date.now();
           setMicMuted(true); // muta microfono mentre Jack parla
-          disableVadWhileSpeaking();
           // reset transcript dedup window for the new response
           transcriptDedupRef.current = {
             responseId: id,
@@ -3052,7 +3010,6 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           assistantSpeakingRef.current = false;
           lastAssistantSpeechEndedAtRef.current = lastResponseDoneAtRef.current;
           setMicMuted(false); // riabilita microfono dopo che Jack finisce
-          enableVadAfterSpeaking();
           // v3.21.2 — reset tool-batch counter so next turn starts clean.
           toolCallInFlightCountRef.current = 0;
           // Bound the processed callId set
