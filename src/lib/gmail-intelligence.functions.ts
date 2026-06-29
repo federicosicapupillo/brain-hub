@@ -661,12 +661,15 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           .contains("label_ids", [requestedCategoryLabel])
       : null;
 
+    // v3.26.2 — today_unread DEFAULT is INBOX-scoped (user-visible inbox).
+    // A separate today_all count covers explicit "in tutto Gmail oggi".
     const [
       todayRaw,
       yesterdayRes,
       prevUnreadRes,
       totalUnreadRes,
-      unreadTodayRes,
+      unreadTodayInboxRes,
+      unreadTodayAllRes,
       inboxUnreadRes,
       categoryUnreadRes,
     ] = await Promise.all([
@@ -684,10 +687,19 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           .eq("connection_id", conn.id)
           .eq("is_unread", true)
           .gte("internal_date", todayStart)
+          .lt("internal_date", todayEnd)
+          .contains("label_ids", ["INBOX"]),
+        supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("connection_id", conn.id)
+          .eq("is_unread", true)
+          .gte("internal_date", todayStart)
           .lt("internal_date", todayEnd),
         inboxUnreadQ,
         categoryUnreadQ ?? Promise.resolve({ count: null as number | null }),
       ]);
+
 
 
     const todayRows = todayRaw.rows;
