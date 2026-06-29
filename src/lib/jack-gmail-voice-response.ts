@@ -78,9 +78,12 @@ const MAX_LEN: Record<GmailBriefMode, number> = {
 
 const MODE_PATTERNS: ReadonlyArray<[GmailBriefMode, RegExp]> = [
   ["detail_requested", /\b(leggimela|leggimelo|leggila|leggilo|apri\s+il\s+dettaglio|riassumi\s+quest[ao]\s+mail|dimmi\s+di\s+pi[uù]|fammi\s+il\s+dettaglio|dettaglio)\b/],
-  // v3.26.1 — scope-explicit unread modes (more specific patterns first)
+  // v3.26.1/v3.26.2 — scope-explicit unread modes (more specific patterns first)
   ["unread_category", /\bnon\s+lett[ei]\b.*\b(promo|promozion|social|aggiornament|forum|spam)\b|\b(promo|promozion|social|aggiornament|forum|spam)\b.*\bnon\s+lett[ei]\b/],
+  // explicit GLOBAL today ("non lette oggi in tutto gmail")
+  ["unread_today_all", /\bnon\s+lett[ei]\b.*\boggi\b.*\b(tutt[oa]|intero|globale|gmail)\b|\boggi\b.*\b(tutt[oa]|intero|globale)\s+(gmail|posta)\b.*\bnon\s+lett[ei]\b/],
   ["unread_all", /\bnon\s+lett[ei]\b.*\b(in\s+)?(tutt[oa]|intero|globale)\s+(gmail|posta|inbox|casella)|\b(tutt[oa]|intero|globale)\s+(gmail|posta).*\bnon\s+lett[ei]\b/],
+  // v3.26.2 — "non lette di oggi" → INBOX+today (default user-visible)
   ["unread_today", /\bnon\s+lett[ei]\b.*\boggi\b|\boggi\b.*\bnon\s+lett[ei]\b/],
   ["unread_inbox", /\bnon\s+lett[ei]\b.*\b(in\s+)?(posta\s+in\s+arrivo|inbox|in\s+arrivo|casella)|\b(posta\s+in\s+arrivo|inbox).*\bnon\s+lett[ei]\b/],
   ["unread_only", /\bnon\s+lett[ei]\b/],
@@ -89,6 +92,7 @@ const MODE_PATTERNS: ReadonlyArray<[GmailBriefMode, RegExp]> = [
   ["count_only", /\b(quant[ie])\s+(mail|email|ne\s+sono|messaggi)\b|\bnumero\s+(di\s+)?(mail|email)\b|\bci\s+sono\s+(mail|email|messaggi)\b/],
   ["list_summary", /\b(quali|che)\s+(mail|email|messaggi)\b|\b(fammi\s+(l['\s]?)?elenco|elenco\s+mail|elenco\s+email|lista\s+(mail|email))\b/],
 ];
+
 
 export function normalizeGmailQuery(text: string): string {
   return text
