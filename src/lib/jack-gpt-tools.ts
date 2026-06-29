@@ -315,12 +315,12 @@ export const JACK_GPT_TOOLS_SCHEMA = [
       "Connettori con warning, errori o non configurati. Risponde a 'Quali connettori hanno problemi?'. Read-only.",
     parameters: { type: "object", properties: {}, required: [] },
   },
-  // v3.22 — Gmail read-only intelligence tools
+  // v3.22 — Gmail read-only intelligence tools (v3.26.1 unread scope)
   {
     type: "function",
     name: "get_email_brief",
     description:
-      "Brief email: nuove mail nel range, non lette, importanti, top 5 con mittente/oggetto/motivo importanza. Read-only. Mai body completo.",
+      "Brief email + conteggio non lette per scope esplicito. Restituisce sempre unread_scope_counts {inbox, all, today, category} dove ogni count viene da una singola query non sovrapposta (mai sommare label/categorie). Read-only.",
     parameters: {
       type: "object",
       properties: {
@@ -328,10 +328,21 @@ export const JACK_GPT_TOOLS_SCHEMA = [
         date_range: { type: "string", enum: ["today", "7d", "all"] },
         unread_only: { type: "boolean" },
         important_only: { type: "boolean" },
+        scope: {
+          type: "string",
+          enum: ["inbox", "all", "today", "category"],
+          description:
+            "Scope conteggio non lette. inbox=Posta in arrivo (default). all=tutte Gmail (label UNREAD). today=non lette di oggi (Europe/Rome). category=usa anche `category`.",
+        },
+        category: {
+          type: "string",
+          enum: ["primary", "promotions", "social", "updates", "forums", "spam"],
+        },
       },
       required: [],
     },
   },
+
   {
     type: "function",
     name: "list_important_emails",
@@ -1696,10 +1707,20 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               date_range: (args.date_range as "today" | "7d" | "all" | undefined) ?? "today",
               unread_only: Boolean(args.unread_only),
               important_only: args.important_only === true,
+              scope: (args.scope as "inbox" | "all" | "today" | "category" | undefined),
+              category: (args.category as
+                | "primary"
+                | "promotions"
+                | "social"
+                | "updates"
+                | "forums"
+                | "spam"
+                | undefined),
             },
           });
           return { ok: res.ok, payload: res };
         }
+
         case "list_important_emails": {
           const { listImportantEmailsFn } = await import("@/lib/gmail-intelligence.functions");
           const res = await listImportantEmailsFn({

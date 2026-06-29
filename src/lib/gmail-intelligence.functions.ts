@@ -432,6 +432,16 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         unread_only?: boolean;
         important_only?: boolean;
         limit?: number;
+        // v3.26.1 — Gmail Unread Scope. Explicit scope avoids mixing
+        // inbox vs all vs today vs category unread counts.
+        scope?: "inbox" | "all" | "today" | "category";
+        category?:
+          | "primary"
+          | "promotions"
+          | "social"
+          | "updates"
+          | "forums"
+          | "spam";
       },
   )
   .handler(async ({ data, context }) => {
@@ -447,6 +457,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         : range === "7d"
           ? romeStartOfDayIso(-6)
           : null;
+
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
@@ -620,8 +631,45 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       prevUnreadQ = prevUnreadQ.eq("brain_id", data.brain_id);
     }
 
-    const [todayRaw, yesterdayRes, prevUnreadRes, totalUnreadRes, unreadTodayRes] =
-      await Promise.all([
+    // v3.26.1 — Gmail Unread Scope queries.
+    // Each scope is computed from a single, non-overlapping query.
+    // Never sum category counts to derive a total.
+    const categoryLabelMap: Record<string, string> = {
+      primary: "CATEGORY_PERSONAL",
+      promotions: "CATEGORY_PROMOTIONS",
+      social: "CATEGORY_SOCIAL",
+      updates: "CATEGORY_UPDATES",
+      forums: "CATEGORY_FORUMS",
+      spam: "SPAM",
+    };
+    const requestedCategoryLabel = data.category
+      ? categoryLabelMap[data.category] ?? null
+      : null;
+
+    const inboxUnreadQ = supabase
+      .from("gmail_message_map")
+      .select("id", { count: "exact", head: true })
+      .eq("connection_id", conn.id)
+      .eq("is_unread", true)
+      .contains("label_ids", ["INBOX"]);
+    const categoryUnreadQ = requestedCategoryLabel
+      ? supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("connection_id", conn.id)
+          .eq("is_unread", true)
+          .contains("label_ids", [requestedCategoryLabel])
+      : null;
+
+    const [
+      todayRaw,
+      yesterdayRes,
+      prevUnreadRes,
+      totalUnreadRes,
+      unreadTodayRes,
+      inboxUnreadRes,
+      categoryUnreadRes,
+    ] = await Promise.all([
         todayRawPromise,
         yesterdayQ,
         prevUnreadQ,
@@ -637,7 +685,10 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           .eq("is_unread", true)
           .gte("internal_date", todayStart)
           .lt("internal_date", todayEnd),
+        inboxUnreadQ,
+        categoryUnreadQ ?? Promise.resolve({ count: null as number | null }),
       ]);
+
 
     const todayRows = todayRaw.rows;
     const yesterdayRows = (yesterdayRes.data ?? []) as Array<Record<string, unknown>>;
@@ -695,6 +746,41 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const totalUnread = totalUnreadRes.count ?? 0;
     const unreadToday = unreadTodayRes.count ?? 0;
     const previousUnread = Math.max(0, totalUnread - unreadToday);
+
+    // v3.26.1 — Gmail Unread Scope. Each count comes from a single,
+    // non-overlapping query against UNREAD + the scope predicate.
+    // Never sum these together to derive a "totale": they overlap.
+    const inboxUnreadCount = inboxUnreadRes.count ?? 0;
+    const allUnreadCount = totalUnread;
+    const todayUnreadCount = unreadToday;
+    const categoryUnreadCount =
+      requestedCategoryLabel && categoryUnreadRes && "count" in categoryUnreadRes
+        ? (categoryUnreadRes.count ?? 0)
+        : null;
+    const resolvedUnreadScope: "inbox" | "all" | "today" | "category" =
+      data.scope ?? (data.unread_only ? "inbox" : "inbox");
+    const resolvedUnreadCount =
+      resolvedUnreadScope === "all"
+        ? allUnreadCount
+        : resolvedUnreadScope === "today"
+          ? todayUnreadCount
+          : resolvedUnreadScope === "category"
+            ? (categoryUnreadCount ?? 0)
+            : inboxUnreadCount;
+    void logEvent(supabase, userId, "gmail_unread_scope_resolved", {
+      requested_scope: data.scope ?? null,
+      resolved_scope: resolvedUnreadScope,
+      category: data.category ?? null,
+      category_label: requestedCategoryLabel,
+    });
+    void logEvent(supabase, userId, "gmail_unread_count_result", {
+      resolved_scope: resolvedUnreadScope,
+      inbox_unread_count: inboxUnreadCount,
+      all_unread_count: allUnreadCount,
+      today_unread_count: todayUnreadCount,
+      category_unread_count: categoryUnreadCount,
+    });
+
 
     const counts = {
       today_total_all: allToday.length,
@@ -897,6 +983,20 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     if (data.important_only === true) flat = flat.filter((e) => e.importance_score >= 55);
     flat = flat.slice(0, limit);
 
+    // v3.26.1 — detail/count mismatch guard. If the scoped count does not
+    // match the detailed items we can ground on, log it; consumers must
+    // treat the response as partial and NOT invent the missing items.
+    const flatUnreadCount = flat.filter((e) => e.unread).length;
+    if (resolvedUnreadCount !== flatUnreadCount) {
+      void logEvent(supabase, userId, "gmail_unread_count_detail_mismatch", {
+        resolved_scope: resolvedUnreadScope,
+        resolved_unread_count: resolvedUnreadCount,
+        detail_unread_count: flatUnreadCount,
+      });
+    }
+
+
+
     return {
       ok: true,
       connected: true,
@@ -925,6 +1025,21 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       cache_stale: cacheStale,
       stale_rows_hidden_count: staleTodayHiddenCount,
       active_sync_run_id: activeSyncRunId,
+      // v3.26.1 — Gmail Unread Scope. Single source of truth per scope.
+      // Jack must NEVER sum these to derive a total.
+      unread_scope: resolvedUnreadScope,
+      unread_count: resolvedUnreadCount,
+      unread_scope_counts: {
+        inbox: inboxUnreadCount,
+        all: allUnreadCount,
+        today: todayUnreadCount,
+        category: categoryUnreadCount,
+      },
+      unread_category: data.category ?? null,
+      // Detail completeness: Jack must not invent sender/subject if false.
+      messages_are_complete: resolvedUnreadCount === flat.filter((e) => e.unread).length,
+      confidence: cacheStale || possiblyStale ? "partial" : "high",
+      source: "gmail_message_map",
       // legacy aliases
       total_today: counts.today_total_all,
       unread_today:
