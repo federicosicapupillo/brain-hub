@@ -1796,7 +1796,19 @@ export const executeEmailActionFn = createServerFn({ method: "POST" })
         .update({ is_trashed: true, inbox: false })
         .eq("gmail_message_id", data.gmail_message_id)
         .eq("user_id", userId);
-    } else {
+    } else if (actionType === "restore") {
+      await supabase
+        .from("gmail_message_map")
+        .update({ is_trashed: false, inbox: true })
+        .eq("gmail_message_id", data.gmail_message_id)
+        .eq("user_id", userId);
+    } else if (actionType === "mark_unread") {
+      await supabase
+        .from("gmail_message_map")
+        .update({ is_unread: true })
+        .eq("gmail_message_id", data.gmail_message_id)
+        .eq("user_id", userId);
+    } else if (!labelOp) {
       const cacheUpdate: { inbox?: boolean; is_unread?: boolean } = {};
       if (["archive", "archive_and_read"].includes(actionType)) {
         cacheUpdate.inbox = false;
@@ -1812,6 +1824,7 @@ export const executeEmailActionFn = createServerFn({ method: "POST" })
           .eq("user_id", userId);
       }
     }
+
 
     // 5) Log
     void logEvent(supabase, userId, "gmail_email_action_executed", {
