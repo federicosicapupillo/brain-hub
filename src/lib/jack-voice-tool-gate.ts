@@ -13,9 +13,19 @@ export type VoiceToolBlockedReason =
   | "no_email_intent_no_context"
   | "email_followup_context_resolved"
   | "gmail_sync_context_resumed"
-  | "gmail_tool_blocked_missing_context";
+  | "gmail_tool_blocked_missing_context"
+  | "gmail_sync_resume_blocked_non_email_intent";
 
-
+// v3.26.3 — diagnostic reasons surfaced when the gate ALLOWS a gated tool.
+export type VoiceToolAllowedReason =
+  | "email_intent_explicit"
+  | "email_followup_with_recent_context"
+  | "gmail_sync_resume_allowed_email_intent"
+  | "gmail_sync_resume_allowed_followup"
+  | "open_screen_confirmation_after_question"
+  | "open_screen_explicit_command"
+  | "gmail_sync_explicit_command"
+  | "tool_not_gated";
 
 export type VoiceToolGateStatus = "allowed" | "blocked";
 
