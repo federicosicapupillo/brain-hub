@@ -63,17 +63,43 @@ function ConfidenceBadge({ value }: { value: number }) {
 }
 
 function ArchitectureAuditPage() {
-  const snap = auditSnapshot as unknown as Snapshot;
+  const snapQuery = useQuery({
+    queryKey: ["architecture-audit-snapshot"],
+    queryFn: async () => {
+      const res = await fetch("/api/architecture-audit-snapshot");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          `governance_denied:${res.status}:${(body as { reason?: string }).reason ?? "unknown"}`,
+        );
+      }
+      const json = (await res.json()) as { snapshot: Snapshot };
+      return json.snapshot;
+    },
+    staleTime: 60_000,
+  });
+
+  if (snapQuery.isLoading) {
+    return <div className="container mx-auto max-w-6xl p-6 text-sm text-muted-foreground">Loading snapshot…</div>;
+  }
+  if (snapQuery.isError || !snapQuery.data) {
+    return (
+      <div className="container mx-auto max-w-6xl p-6 text-sm text-rose-600">
+        Snapshot unavailable: {(snapQuery.error as Error | undefined)?.message ?? "unknown error"}
+      </div>
+    );
+  }
+  const snap = snapQuery.data;
 
   return (
     <div className="container mx-auto max-w-6xl space-y-8 p-6">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Architecture Audit · Phase 1</h1>
         <p className="text-sm text-muted-foreground">
-          Snapshot statico read-only. Nessun dato viene rigenerato da questa
-          pagina. Principio: {snap.principle}
+          Snapshot read-only servito tramite Governance Evaluator. Principio: {snap.principle}
         </p>
       </header>
+
 
       <section className="rounded-lg border border-border/60 bg-card p-4">
         <h2 className="mb-3 text-lg font-medium">Snapshot summary</h2>
