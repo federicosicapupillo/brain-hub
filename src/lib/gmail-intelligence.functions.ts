@@ -747,6 +747,41 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const unreadToday = unreadTodayRes.count ?? 0;
     const previousUnread = Math.max(0, totalUnread - unreadToday);
 
+    // v3.26.1 — Gmail Unread Scope. Each count comes from a single,
+    // non-overlapping query against UNREAD + the scope predicate.
+    // Never sum these together to derive a "totale": they overlap.
+    const inboxUnreadCount = inboxUnreadRes.count ?? 0;
+    const allUnreadCount = totalUnread;
+    const todayUnreadCount = unreadToday;
+    const categoryUnreadCount =
+      requestedCategoryLabel && categoryUnreadRes && "count" in categoryUnreadRes
+        ? (categoryUnreadRes.count ?? 0)
+        : null;
+    const resolvedUnreadScope: "inbox" | "all" | "today" | "category" =
+      data.scope ?? (data.unread_only ? "inbox" : "inbox");
+    const resolvedUnreadCount =
+      resolvedUnreadScope === "all"
+        ? allUnreadCount
+        : resolvedUnreadScope === "today"
+          ? todayUnreadCount
+          : resolvedUnreadScope === "category"
+            ? (categoryUnreadCount ?? 0)
+            : inboxUnreadCount;
+    void logEvent(supabase, userId, "gmail_unread_scope_resolved", {
+      requested_scope: data.scope ?? null,
+      resolved_scope: resolvedUnreadScope,
+      category: data.category ?? null,
+      category_label: requestedCategoryLabel,
+    });
+    void logEvent(supabase, userId, "gmail_unread_count_result", {
+      resolved_scope: resolvedUnreadScope,
+      inbox_unread_count: inboxUnreadCount,
+      all_unread_count: allUnreadCount,
+      today_unread_count: todayUnreadCount,
+      category_unread_count: categoryUnreadCount,
+    });
+
+
     const counts = {
       today_total_all: allToday.length,
       today_inbox_total: inboxToday.length,
