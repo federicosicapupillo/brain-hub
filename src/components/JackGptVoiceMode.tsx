@@ -1207,8 +1207,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           ...d,
           lastToolGateDecision: "allowed",
           lastToolBlockedReason: null,
+          lastToolAllowedReason: decision.reason,
           pendingToolConfirmation: false,
         }));
+        safeLog("jack_voice_tool_gate_allowed", {
+          tool_name: name,
+          reason: decision.reason,
+        });
       }
 
       // v3.21.2 — per-callId dedup (model occasionally re-emits the same call)
