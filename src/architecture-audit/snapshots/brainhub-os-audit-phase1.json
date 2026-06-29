@@ -1,0 +1,4644 @@
+{
+  "snapshot_id": "brainhub-os-audit-phase1",
+  "generated_at_utc": {
+    "value": "2026-06-29T00:00:00Z",
+    "source": "unknown",
+    "confidence": 50,
+    "note": "timestamp di generazione segnato come placeholder ISO; non letto da clock di runtime persistente"
+  },
+  "principle": "Preferibile audit incompleto ma corretto piuttosto che completo ma dedotto",
+  "categories_legend": {
+    "observed": "rilevato direttamente",
+    "inferred": "dedotto con motivazione",
+    "unknown": "non rilevabile"
+  },
+  "route_registry": {
+    "count": {
+      "value": 74,
+      "source": "route_scan",
+      "confidence": 100
+    },
+    "routes": [
+      {
+        "file": {
+          "value": "src/routes/_authenticated/action-queue.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/action-queue",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/agent-center.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/agent-center",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/agent-runs.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/agent-runs",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/agents.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/agents",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/allineamento.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/allineamento",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/archivio.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/archivio",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/automation-control.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/automation-control",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/automation-readiness.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/automation-readiness",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/build-engines.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/build-engines",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/calendar-knowledge.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/calendar-knowledge",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/client-onboarding.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/client-onboarding",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/clipboard-ai.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/clipboard-ai",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/code-agent-jobs.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/code-agent-jobs",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/code-agent-qa.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/code-agent-qa",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/code-handoffs.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/code-handoffs",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/company-blueprint.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/company-blueprint",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/company-home.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/company-home",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/company-os.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/company-os",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/connector-hub.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/connector-hub",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/connettori.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/connettori",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/daily-brief.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/daily-brief",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/drive-knowledge.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/drive-knowledge",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/email-daily-brief.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/email-daily-brief",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/fonti.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/fonti",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/github-coverage.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/github-coverage",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/github-operational.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/github-operational",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/github-sync.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/github-sync",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/gmail-connector.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/gmail-connector",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/gmail-console.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/gmail-console",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/gmail-intelligence.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/gmail-intelligence",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/guida.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/guida",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/health-check.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/health-check",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/importa.index.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/importa/",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/importa.prompt-storici.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/importa/prompt-storici",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/importa.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/importa",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/impostazioni.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/impostazioni",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/index.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/jack-memory.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/jack-memory",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/knowledge-map.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/knowledge-map",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/live.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/live",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/logs.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/logs",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/loop-qa.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/loop-qa",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/master-snapshot.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/master-snapshot",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/mvp-factory.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/mvp-factory",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/n8n-workflows.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/n8n-workflows",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/operating-dashboard.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/operating-dashboard",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/progetti.$brainId.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/progetti/$brainId",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/progetti.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/progetti",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/project-console.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/project-console",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/project-loop.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/project-loop",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/project-state.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/project-state",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/prossime-azioni.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/prossime-azioni",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/result-review.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/result-review",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/roadmap.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/roadmap",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/route.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/runbooks.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/runbooks",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/strumenti-progetti.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/strumenti-progetti",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/tasks.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/tasks",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/telegram-approvals.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/telegram-approvals",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/tool-connections.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/tool-connections",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/_authenticated/ui-operator-lab.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/_authenticated/ui-operator-lab",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "authenticated",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/jack-event.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/jack-event",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/public/calendar-oauth/callback.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/public/calendar-oauth/callback",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api_public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/public/drive-oauth/callback.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/public/drive-oauth/callback",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api_public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/public/gmail-oauth/callback.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/public/gmail-oauth/callback",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api_public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/public/n8n-callback.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/public/n8n-callback",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api_public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/public/n8n-pilot-callback.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/public/n8n-pilot-callback",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api_public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/public/telegram/webhook.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/public/telegram/webhook",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api_public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/public/ui-operator-auth.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/public/ui-operator-auth",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api_public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/public/ui-operator-surface-action.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/public/ui-operator-surface-action",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api_public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/api/public/ui-operator-surface-state.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/api/public/ui-operator-surface-state",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "api_public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/auth.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/auth",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "auth",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/ui-operator-proxy.$sessionId.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/ui-operator-proxy/$sessionId",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/routes/ui-operator-surface.$sessionId.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "route_path": {
+          "value": "/ui-operator-surface/$sessionId",
+          "source": "route_scan",
+          "confidence": 100
+        },
+        "category": {
+          "value": "public",
+          "source": "route_scan",
+          "confidence": 100
+        }
+      }
+    ]
+  },
+  "service_registry": {
+    "count": {
+      "value": 110,
+      "source": "file_analysis",
+      "confidence": 100
+    },
+    "services": [
+      {
+        "file": {
+          "value": "src/lib/action-queue-cta.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "action-queue-cta",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/action-queue.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "action-queue",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/agent-center.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "agent-center",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/agent-runs.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "agent-runs",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/automation-normalize.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "automation-normalize",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/automation-readiness.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "automation-readiness",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/automation-run.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "automation-run",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/brains-api.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "brains-api",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/build-engines.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "build-engines",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/calendar-knowledge.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "calendar-knowledge",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/calendar-oauth.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "calendar-oauth.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/calendar-oauth.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "calendar-oauth.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/client-onboarding.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "client-onboarding",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/code-agent-orchestrator.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "code-agent-orchestrator.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/code-agent-orchestrator.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "code-agent-orchestrator",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/code-agent-qa.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "code-agent-qa",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/code-agent-server-runtime.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "code-agent-server-runtime.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/code-engine-handoff.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "code-engine-handoff",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/company-blueprint.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "company-blueprint",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/company-os.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "company-os",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/company-simple-home.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "company-simple-home",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/config.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "config.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/connector-hub.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "connector-hub",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/daily-operating-brief.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "daily-operating-brief",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/demo-data.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "demo-data",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/drive-knowledge.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "drive-knowledge.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/drive-knowledge.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "drive-knowledge",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/drive-oauth.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "drive-oauth.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/drive-oauth.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "drive-oauth.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/dry-run.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "dry-run",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/embeddings.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "embeddings.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/error-capture.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "error-capture",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/error-page.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "error-page",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/export-utils.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "export-utils",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/github-operational.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "github-operational",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/github-repository-parse.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "github-repository-parse",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/gmail-connector.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "gmail-connector",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/gmail-console.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "gmail-console.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/gmail-daily-brief.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "gmail-daily-brief",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/gmail-intelligence.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "gmail-intelligence.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/gmail-intelligence.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "gmail-intelligence",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/gmail-oauth.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "gmail-oauth.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/gmail-oauth.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "gmail-oauth.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/gmail-refresh-sync.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "gmail-refresh-sync.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-action-confirmation.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-action-confirmation",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-action-previews.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-action-previews.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-best-next-action.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-best-next-action",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-command-intents.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-command-intents",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-command-router.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-command-router",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-controlled-actions.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-controlled-actions.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-deterministic-command-router.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-deterministic-command-router",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-gmail-voice-response.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-gmail-voice-response",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-gpt-error-classifier.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-gpt-error-classifier",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-gpt-instructions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-gpt-instructions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-gpt-log.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-gpt-log.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-gpt-tools.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-gpt-tools",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-memory-persistence.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-memory-persistence",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-memory.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-memory",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-natural-context.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-natural-context.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-voice-profile.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-voice-profile",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-voice-tool-gate.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-voice-tool-gate",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/jack-voice.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "jack-voice.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/knowledge-api.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "knowledge-api",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/knowledge-map.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "knowledge-map",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/learning-loop.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "learning-loop",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/loop-qa.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "loop-qa",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/loop-remediation.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "loop-remediation",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/lovable-error-reporting.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "lovable-error-reporting",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/master-snapshot.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "master-snapshot",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/mvp-factory.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "mvp-factory",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/n8n-execution.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "n8n-execution",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/n8n-hmac.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "n8n-hmac.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/n8n-hmac.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "n8n-hmac.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/n8n-hmac.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "n8n-hmac",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/n8n-real-execution.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "n8n-real-execution.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/n8n-real-execution.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "n8n-real-execution",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/n8n-workflows.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "n8n-workflows",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/n8n.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "n8n.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/obsidian-export.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "obsidian-export",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/obsidian-import.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "obsidian-import",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/openai-realtime.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "openai-realtime.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/project-aliases.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "project-aliases",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/project-console.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "project-console",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/project-links-api.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "project-links-api",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/project-state-sync.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "project-state-sync",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/projects-meta.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "projects-meta",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/reset-workspace.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "reset-workspace",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/result-review.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "result-review",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/runbooks.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "runbooks",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/semantic-api.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "semantic-api",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/source-to-graph.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "source-to-graph",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/stagehand-browserbase.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "stagehand-browserbase.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/starter-api.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "starter-api",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/telegram-approvals.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "telegram-approvals",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/telegram-callback-qa.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "telegram-callback-qa",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/telegram-connections.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "telegram-connections",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/telegram-send.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "telegram-send.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/telegram-webhook.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "telegram-webhook.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/tool-connections.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "tool-connections",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/ui-operator-auth.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "ui-operator-auth.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/ui-operator-auth.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "ui-operator-auth.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/ui-operator-browser.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "ui-operator-browser.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/ui-operator-runner-client.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "ui-operator-runner-client.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/ui-operator-runner-contract.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "ui-operator-runner-contract",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/ui-operator-safety.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "ui-operator-safety",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/ui-operator-surface.server.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "ui-operator-surface.server",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_only",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/ui-operator-types.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "ui-operator-types",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/ui-operator.functions.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "ui-operator.functions",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "server_function",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/utils.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "utils",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "file": {
+          "value": "src/lib/workspace-api.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "module": {
+          "value": "workspace-api",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "kind": {
+          "value": "shared",
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      }
+    ],
+    "note": "Solo file in src/lib root; sottocartelle (api/, integrations/, components/, hooks/, context/) escluse per scope Phase 1"
+  },
+  "data_registry": {
+    "count": {
+      "value": 67,
+      "source": "supabase_schema",
+      "confidence": 100
+    },
+    "tables": [
+      {
+        "table_name": {
+          "value": "agent_permission_matrix",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "agent_registry",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "agent_run_logs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "agents",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "app_logs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "automation_actions",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "automation_connectors",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "brain_edges",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "brain_nodes",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "brains",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "build_engine_handoffs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "build_engine_registry",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "calendar_connection_settings",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "calendar_event_map",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "clipboard_execution_logs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "clipboard_items",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "code_agent_job_events",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "code_agent_jobs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "code_engine_handoffs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "code_file_map",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "company_os_blueprints",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "company_os_profiles",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "connector_registry",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "connectors",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "content_project_links",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "daily_operating_briefs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "drive_connection_settings",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "drive_file_map",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "github_repository_registry",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "gmail_connection_settings",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "gmail_console_drafts",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "gmail_message_map",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "gmail_oauth_states",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "google_calendar_oauth_states",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "google_drive_oauth_states",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "import_jobs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "jack_action_previews",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "jack_memory_documents",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "jack_memory_entries",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "jack_voice_generations",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "knowledge_chunks",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "knowledge_sources",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "learning_loop_suggestions",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "live_events",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "master_snapshot_versions",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "mvp_build_projects",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "n8n_execution_logs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "n8n_workflow_registry",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "profiles",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "project_console_configs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "project_knowledge_sources",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "project_links",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "project_source_mappings",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "project_state_snapshots",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "project_tool_links",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "prompt_execution_logs",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "result_review_items",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "roadmap_items",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "runbook_instances",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "tasks",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "telegram_approval_requests",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "telegram_connection_settings",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "telegram_delivery_attempts",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "ui_operator_actions",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "ui_operator_auth_tokens",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "ui_operator_sessions",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      },
+      {
+        "table_name": {
+          "value": "warehouses",
+          "source": "supabase_schema",
+          "confidence": 100
+        }
+      }
+    ],
+    "note": "Schema columns/policies non inclusi in Phase 1 per mantenere snapshot leggero"
+  },
+  "dependency_map": {
+    "route_to_lib": [
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/action-queue.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "action-queue",
+            "automation-readiness",
+            "automation-run",
+            "n8n-execution",
+            "n8n-workflows",
+            "telegram-approvals"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/agent-center.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "action-queue",
+            "agent-center"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/agent-runs.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "agent-center",
+            "agent-runs"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/agents.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/allineamento.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/archivio.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "brains-api",
+            "demo-data",
+            "export-utils"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/automation-control.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "automation-normalize",
+            "n8n.functions"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/automation-readiness.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "action-queue",
+            "automation-readiness",
+            "n8n-workflows"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/build-engines.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "action-queue",
+            "build-engines",
+            "result-review"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/calendar-knowledge.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "calendar-knowledge",
+            "calendar-oauth.functions"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/client-onboarding.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "client-onboarding"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/code-agent-jobs.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "code-agent-orchestrator",
+            "code-agent-orchestrator.functions",
+            "github-repository-parse"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/code-agent-qa.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "code-agent-orchestrator",
+            "code-agent-qa"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/code-handoffs.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "code-engine-handoff"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/company-blueprint.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "company-blueprint",
+            "company-os"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/company-home.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "company-simple-home"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/company-os.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "company-os"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/connector-hub.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "connector-hub",
+            "project-state-sync"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/connettori.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "gmail-oauth.functions",
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/daily-brief.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "daily-operating-brief"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/drive-knowledge.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "drive-knowledge",
+            "drive-oauth.functions"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/email-daily-brief.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "gmail-connector",
+            "gmail-daily-brief",
+            "gmail-oauth.functions"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/fonti.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "brains-api",
+            "demo-data",
+            "knowledge-api",
+            "obsidian-export",
+            "obsidian-import",
+            "semantic-api",
+            "source-to-graph"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/github-operational.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "github-operational",
+            "github-repository-parse"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/github-sync.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "knowledge-api",
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/gmail-connector.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "gmail-connector",
+            "gmail-oauth.functions"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/gmail-console.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "gmail-connector",
+            "gmail-console.functions",
+            "gmail-intelligence.functions"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/gmail-intelligence.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "gmail-connector",
+            "gmail-intelligence",
+            "gmail-intelligence.functions"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/importa.index.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "brains-api",
+            "knowledge-api",
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/importa.prompt-storici.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "brains-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/impostazioni.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "reset-workspace"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/index.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "brains-api",
+            "demo-data"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/jack-memory.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "jack-memory"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/knowledge-map.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "knowledge-map",
+            "project-console"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/live.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/logs.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/loop-qa.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "loop-qa",
+            "loop-remediation",
+            "n8n-hmac.functions"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/master-snapshot.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "master-snapshot"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/mvp-factory.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "mvp-factory"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/n8n-workflows.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "action-queue",
+            "automation-readiness",
+            "n8n-hmac",
+            "n8n-hmac.functions",
+            "n8n-real-execution",
+            "n8n-workflows",
+            "tool-connections"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/operating-dashboard.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "action-queue",
+            "automation-readiness",
+            "n8n-real-execution",
+            "project-console",
+            "runbooks",
+            "telegram-approvals",
+            "telegram-connections"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/progetti.$brainId.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "export-utils",
+            "project-links-api",
+            "projects-meta"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/progetti.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "project-links-api",
+            "projects-meta"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/project-console.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "project-console"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/project-state.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "project-state-sync"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/prossime-azioni.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/result-review.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "result-review"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/roadmap.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/runbooks.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "action-queue",
+            "runbooks"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/tasks.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "workspace-api"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/telegram-approvals.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "action-queue",
+            "telegram-approvals",
+            "telegram-webhook.functions",
+            "tool-connections"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/tool-connections.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "project-console",
+            "tool-connections"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/_authenticated/ui-operator-lab.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "ui-operator-auth.functions",
+            "ui-operator-safety",
+            "ui-operator-types",
+            "ui-operator.functions"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/api/jack-event.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "jack-gpt-log.server"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/api/public/ui-operator-auth.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "ui-operator-auth.server",
+            "ui-operator-safety",
+            "ui-operator-surface.server"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/api/public/ui-operator-surface-action.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "gmail-refresh-sync.functions",
+            "ui-operator-surface.server"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/api/public/ui-operator-surface-state.ts",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "ui-operator-surface.server"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      },
+      {
+        "route_file": {
+          "value": "src/routes/ui-operator-proxy.$sessionId.tsx",
+          "source": "file_analysis",
+          "confidence": 100
+        },
+        "imports_lib": {
+          "value": [
+            "ui-operator-safety"
+          ],
+          "source": "file_analysis",
+          "confidence": 100
+        }
+      }
+    ],
+    "note": {
+      "value": "Solo import statici di @/lib/* da file di route; non include catene transitive né runtime calls",
+      "source": "file_analysis",
+      "confidence": 100
+    }
+  },
+  "os_target_map": {
+    "layers": [
+      {
+        "layer": {
+          "value": "perception",
+          "source": "file_analysis",
+          "confidence": 80,
+          "note": "dedotto da connectors gmail/drive/calendar/telegram presenti"
+        },
+        "modules": {
+          "value": [
+            "gmail-connector",
+            "drive-knowledge",
+            "calendar-knowledge",
+            "telegram-connections"
+          ],
+          "source": "file_analysis",
+          "confidence": 80,
+          "note": "lista derivata da nomi file in src/lib"
+        }
+      },
+      {
+        "layer": {
+          "value": "cognition",
+          "source": "file_analysis",
+          "confidence": 70,
+          "note": "dedotto da jack-* e knowledge-* modules"
+        },
+        "modules": {
+          "value": [
+            "jack-memory",
+            "jack-natural-context",
+            "knowledge-api",
+            "semantic-api",
+            "embeddings"
+          ],
+          "source": "file_analysis",
+          "confidence": 70,
+          "note": "raggruppamento manuale per ruolo presumibile"
+        }
+      },
+      {
+        "layer": {
+          "value": "action",
+          "source": "file_analysis",
+          "confidence": 80,
+          "note": "dedotto da action-queue, automation-run, jack-controlled-actions"
+        },
+        "modules": {
+          "value": [
+            "action-queue",
+            "automation-run",
+            "jack-controlled-actions",
+            "ui-operator",
+            "n8n-real-execution"
+          ],
+          "source": "file_analysis",
+          "confidence": 80,
+          "note": "raggruppamento per dominio"
+        }
+      },
+      {
+        "layer": {
+          "value": "governance",
+          "source": "file_analysis",
+          "confidence": 60,
+          "note": "dedotto da agent_permission_matrix + telegram-approvals; livelli formali non ancora definiti"
+        },
+        "modules": {
+          "value": [
+            "telegram-approvals",
+            "jack-action-confirmation",
+            "agent_permission_matrix"
+          ],
+          "source": "file_analysis",
+          "confidence": 60,
+          "note": "manca tabella governance_action_levels alla data dell'audit"
+        }
+      },
+      {
+        "layer": {
+          "value": "memory",
+          "source": "file_analysis",
+          "confidence": 80,
+          "note": "tabelle jack_memory_* e knowledge_* presenti"
+        },
+        "modules": {
+          "value": [
+            "jack-memory-persistence",
+            "knowledge-api",
+            "master-snapshot"
+          ],
+          "source": "file_analysis",
+          "confidence": 80,
+          "note": "raggruppamento per ruolo"
+        }
+      }
+    ],
+    "limits": {
+      "value": "OS Target Map è interpretazione architetturale: nessuna fonte runtime, solo nomi di file e tabelle",
+      "source": "file_analysis",
+      "confidence": 50,
+      "note": "nessun documento canonico OS layers presente nel repo"
+    }
+  },
+  "limits_of_audit": [
+    "Nessun dato runtime/usage incluso (log non interrogati in Phase 1)",
+    "Service registry limitato a src/lib root level",
+    "Data registry elenca solo nomi tabella; columns/policies/grants non snapshotted",
+    "Dependency map è statica, non include dipendenze service→service o service→tabella",
+    "OS Target Map è inferenza architetturale (confidence 50-80)",
+    "Nessuna relazione Brain Graph generata: brain_graph_relation_candidates resta vuota"
+  ]
+}

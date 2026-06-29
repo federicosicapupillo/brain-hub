@@ -66,6 +66,7 @@ import { Route as AuthenticatedBuildEnginesRouteImport } from './routes/_authent
 import { Route as AuthenticatedAutomationReadinessRouteImport } from './routes/_authenticated/automation-readiness'
 import { Route as AuthenticatedAutomationControlRouteImport } from './routes/_authenticated/automation-control'
 import { Route as AuthenticatedArchivioRouteImport } from './routes/_authenticated/archivio'
+import { Route as AuthenticatedArchitectureAuditRouteImport } from './routes/_authenticated/architecture-audit'
 import { Route as AuthenticatedAllineamentoRouteImport } from './routes/_authenticated/allineamento'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedAgentRunsRouteImport } from './routes/_authenticated/agent-runs'
@@ -404,6 +405,12 @@ const AuthenticatedArchivioRoute = AuthenticatedArchivioRouteImport.update({
   path: '/archivio',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedArchitectureAuditRoute =
+  AuthenticatedArchitectureAuditRouteImport.update({
+    id: '/architecture-audit',
+    path: '/architecture-audit',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAllineamentoRoute =
   AuthenticatedAllineamentoRouteImport.update({
     id: '/allineamento',
@@ -511,6 +518,7 @@ export interface FileRoutesByFullPath {
   '/agent-runs': typeof AuthenticatedAgentRunsRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
+  '/architecture-audit': typeof AuthenticatedArchitectureAuditRoute
   '/archivio': typeof AuthenticatedArchivioRoute
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
@@ -585,6 +593,7 @@ export interface FileRoutesByTo {
   '/agent-runs': typeof AuthenticatedAgentRunsRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/allineamento': typeof AuthenticatedAllineamentoRoute
+  '/architecture-audit': typeof AuthenticatedArchitectureAuditRoute
   '/archivio': typeof AuthenticatedArchivioRoute
   '/automation-control': typeof AuthenticatedAutomationControlRoute
   '/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
@@ -661,6 +670,7 @@ export interface FileRoutesById {
   '/_authenticated/agent-runs': typeof AuthenticatedAgentRunsRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/allineamento': typeof AuthenticatedAllineamentoRoute
+  '/_authenticated/architecture-audit': typeof AuthenticatedArchitectureAuditRoute
   '/_authenticated/archivio': typeof AuthenticatedArchivioRoute
   '/_authenticated/automation-control': typeof AuthenticatedAutomationControlRoute
   '/_authenticated/automation-readiness': typeof AuthenticatedAutomationReadinessRoute
@@ -739,6 +749,7 @@ export interface FileRouteTypes {
     | '/agent-runs'
     | '/agents'
     | '/allineamento'
+    | '/architecture-audit'
     | '/archivio'
     | '/automation-control'
     | '/automation-readiness'
@@ -813,6 +824,7 @@ export interface FileRouteTypes {
     | '/agent-runs'
     | '/agents'
     | '/allineamento'
+    | '/architecture-audit'
     | '/archivio'
     | '/automation-control'
     | '/automation-readiness'
@@ -888,6 +900,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agent-runs'
     | '/_authenticated/agents'
     | '/_authenticated/allineamento'
+    | '/_authenticated/architecture-audit'
     | '/_authenticated/archivio'
     | '/_authenticated/automation-control'
     | '/_authenticated/automation-readiness'
@@ -1375,6 +1388,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedArchivioRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/architecture-audit': {
+      id: '/_authenticated/architecture-audit'
+      path: '/architecture-audit'
+      fullPath: '/architecture-audit'
+      preLoaderRoute: typeof AuthenticatedArchitectureAuditRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/allineamento': {
       id: '/_authenticated/allineamento'
       path: '/allineamento'
@@ -1530,6 +1550,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentRunsRoute: typeof AuthenticatedAgentRunsRoute
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAllineamentoRoute: typeof AuthenticatedAllineamentoRoute
+  AuthenticatedArchitectureAuditRoute: typeof AuthenticatedArchitectureAuditRoute
   AuthenticatedArchivioRoute: typeof AuthenticatedArchivioRoute
   AuthenticatedAutomationControlRoute: typeof AuthenticatedAutomationControlRoute
   AuthenticatedAutomationReadinessRoute: typeof AuthenticatedAutomationReadinessRoute
@@ -1590,6 +1611,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentRunsRoute: AuthenticatedAgentRunsRoute,
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAllineamentoRoute: AuthenticatedAllineamentoRoute,
+  AuthenticatedArchitectureAuditRoute: AuthenticatedArchitectureAuditRoute,
   AuthenticatedArchivioRoute: AuthenticatedArchivioRoute,
   AuthenticatedAutomationControlRoute: AuthenticatedAutomationControlRoute,
   AuthenticatedAutomationReadinessRoute: AuthenticatedAutomationReadinessRoute,
