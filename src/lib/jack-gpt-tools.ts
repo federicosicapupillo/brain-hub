@@ -435,7 +435,7 @@ export const JACK_GPT_TOOLS_SCHEMA = [
         mode: { type: "string", enum: ["today", "recent"] },
         reason: {
           type: "string",
-          enum: ["user_requested", "stale_before_read"],
+          enum: ["user_requested", "stale_before_read", "auto"],
         },
         brain_id: { type: "string" },
       },
@@ -1817,7 +1817,9 @@ export const runJackGptTool = createServerFn({ method: "POST" })
             const reason =
               args.reason === "stale_before_read"
                 ? ("stale_before_read" as const)
-                : ("user_requested" as const);
+                : args.reason === "auto"
+                  ? ("auto" as const)
+                  : ("user_requested" as const);
             const brainId = (args.brain_id as string | undefined) ?? null;
 
 
