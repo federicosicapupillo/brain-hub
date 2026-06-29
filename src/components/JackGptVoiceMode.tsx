@@ -2734,6 +2734,9 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         case "response.audio.delta":
         case "response.audio_transcript.delta":
         case "response.text.delta": {
+          if (msg.type === "response.output_audio.delta" || msg.type === "response.audio.delta") {
+            console.log(`[JackVoice] audio_delta — mic_muted: ${localStreamRef.current?.getAudioTracks()[0]?.enabled === false}`);
+          }
           // v3.21.2 — drop identical consecutive transcript deltas
           const delta = typeof msg.delta === "string" ? msg.delta : null;
           if (delta) {
