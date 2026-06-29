@@ -143,7 +143,7 @@ export async function runRefreshGmailMetadataSyncCore(
   data: {
     brain_id: string | null;
     mode: "today" | "recent";
-    reason: "user_requested" | "stale_before_read" | "manual_debug";
+    reason: "user_requested" | "stale_before_read" | "manual_debug" | "auto";
     force: boolean;
   },
 ): Promise<RefreshGmailMetadataSyncResult> {
