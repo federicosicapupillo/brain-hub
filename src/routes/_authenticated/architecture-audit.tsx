@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import auditSnapshot from "@/architecture-audit/snapshots/brainhub-os-audit-phase1.json";
+import type auditSnapshotType from "@/architecture-audit/snapshots/brainhub-os-audit-phase1.json";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/architecture-audit")({
@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/architecture-audit")({
   component: ArchitectureAuditPage,
 });
 
-type Snapshot = typeof auditSnapshot;
+type Snapshot = typeof auditSnapshotType;
 
 const LIVE_TABLES = [
   "agent_tool_contracts",
