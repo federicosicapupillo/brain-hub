@@ -63,6 +63,8 @@ import {
   classifyUserUtterance,
   decideVoiceToolGate,
   isAssistantQuestion,
+  looksLikeEmailFollowup,
+
   type IgnoredUtteranceReason,
   type VoiceToolBlockedReason,
 } from "@/lib/jack-voice-tool-gate";
@@ -577,6 +579,27 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
   const ignoredDuringAssistantSpeechCountRef = useRef<number>(0);
   // v3.25.4 — track last Gmail brief mode for diagnostics/transcript.
   const lastGmailVoiceModeRef = useRef<GmailBriefMode | null>(null);
+  // v3.26.2 — short-lived Gmail conversation context for follow-ups
+  // ("mi puoi dire i mittenti?", "leggimele", "sincronizza", ...).
+  type GmailVoiceContext = {
+    last_intent: string;
+    last_mode: GmailBriefMode | null;
+    last_scope: "inbox" | "all" | "today" | "today_all" | "category" | null;
+    last_date_scope: "today" | null;
+    last_category: string | null;
+    last_count: number | null;
+    last_messages_count: number;
+    messages_are_complete: boolean;
+    confidence: "high" | "partial" | "stale" | null;
+    last_sync_at: string | null;
+    created_at: number;
+    expires_at: number;
+  };
+  const lastGmailContextRef = useRef<GmailVoiceContext | null>(null);
+  const GMAIL_CONTEXT_TTL_MS = 3 * 60 * 1000;
+  const gmailSyncJustCompletedRef = useRef<number | null>(null);
+  const GMAIL_SYNC_RESUME_WINDOW_MS = 30_000;
+
 
   // v3.21.2 — tool-call dedup + batching + transcript dedup
   const toolCallInFlightCountRef = useRef<number>(0);
@@ -1106,6 +1129,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       // has asked the user a question.
       if (GATED_VOICE_TOOLS.has(name) || READ_GATED_VOICE_TOOLS.has(name)) {
         const gateNow = Date.now();
+        const ctx = lastGmailContextRef.current;
+        const hasRecentGmailContext = Boolean(
+          ctx && ctx.expires_at > gateNow,
+        );
+        const recentSyncResumeContext = Boolean(
+          gmailSyncJustCompletedRef.current &&
+            gateNow - gmailSyncJustCompletedRef.current < GMAIL_SYNC_RESUME_WINDOW_MS,
+        );
         const decision = decideVoiceToolGate({
           toolName: name,
           lastValidUserUtterance: lastValidUserUtteranceRef.current?.text ?? null,
@@ -1113,7 +1144,10 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           lastAssistantQuestionAt: lastAssistantAskedConfirmationAtRef.current,
           lastAssistantQuestionText: lastAssistantSpokenTextRef.current,
           now: gateNow,
+          hasRecentGmailContext,
+          recentSyncResumeContext,
         });
+
         if (decision.status === "blocked") {
           processedToolCallIdsRef.current.add(callId);
           setDiagnostics((d) => ({
@@ -1260,6 +1294,20 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       const requiresReauth = resultRecord.requires_reauth === true;
       const cacheStale = resultRecord.cache_stale === true;
       const shouldNotCite = resultRecord.should_not_cite_emails === true;
+      // v3.26.2 — mark gmail sync as "just completed" to enable
+      // context-resume on the immediate follow-up get_email_brief.
+      if (
+        name === "refresh_gmail_sync" &&
+        okFlag &&
+        (lastToolStatus === "synced" || lastToolStatus === "skipped_recent")
+      ) {
+        gmailSyncJustCompletedRef.current = Date.now();
+        safeLog("gmail_sync_completed_context_resume", {
+          status: lastToolStatus,
+          had_prior_context: Boolean(lastGmailContextRef.current),
+        });
+      }
+
       setDiagnostics((d) => ({
         ...d,
         lastToolStatus,
@@ -1374,7 +1422,41 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         if (name === "get_email_brief" && okFlag) {
           const userUtterance =
             lastValidUserUtteranceRef.current?.text ?? null;
-          const mode = detectGmailBriefMode(userUtterance);
+          let mode = detectGmailBriefMode(userUtterance);
+          // v3.26.2 — follow-up resolution: if previous Gmail context was
+          // an unread-* mode and the user's utterance is a follow-up
+          // ("mittenti", "leggimele", "quali sono", "e oggi"), keep the
+          // prior unread scope instead of falling into list_summary.
+          const now = Date.now();
+          const ctx = lastGmailContextRef.current;
+          const ctxFresh = Boolean(ctx && ctx.expires_at > now);
+          const isFollowupUtterance =
+            userUtterance != null && looksLikeEmailFollowup(userUtterance);
+          if (
+            ctxFresh &&
+            isFollowupUtterance &&
+            ctx &&
+            (ctx.last_mode === "unread_inbox" ||
+              ctx.last_mode === "unread_today" ||
+              ctx.last_mode === "unread_today_all" ||
+              ctx.last_mode === "unread_all" ||
+              ctx.last_mode === "unread_category" ||
+              ctx.last_mode === "unread_only") &&
+            (mode === "list_summary" || mode === "latest_only")
+          ) {
+            const overridden = ctx.last_mode;
+            safeLog("gmail_voice_followup_resolved", {
+              previous_mode: ctx.last_mode,
+              detected_mode: mode,
+              kept_mode: overridden,
+            });
+            mode = overridden;
+          } else if (isFollowupUtterance && !ctxFresh) {
+            safeLog("gmail_voice_followup_unresolved", {
+              detected_mode: mode,
+              had_context: false,
+            });
+          }
           lastGmailVoiceModeRef.current = mode;
           safeLog("jack_gmail_voice_mode_detected", {
             mode,
@@ -1399,6 +1481,44 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             })(),
           };
           const built = buildGmailVoiceResponse({ mode, brief });
+          // v3.26.2 — persist Gmail conversation context for follow-ups.
+          const resolvedScope: GmailVoiceContext["last_scope"] =
+            mode === "unread_inbox" || mode === "unread_only"
+              ? "inbox"
+              : mode === "unread_all"
+                ? "all"
+                : mode === "unread_today"
+                  ? "today"
+                  : mode === "unread_today_all"
+                    ? "today_all"
+                    : mode === "unread_category"
+                      ? "category"
+                      : (brief.unread_scope ?? null);
+          lastGmailContextRef.current = {
+            last_intent: "get_email_brief",
+            last_mode: mode,
+            last_scope: resolvedScope,
+            last_date_scope:
+              mode === "unread_today" || mode === "unread_today_all"
+                ? "today"
+                : null,
+            last_category: brief.unread_category ?? null,
+            last_count: brief.unread_count ?? null,
+            last_messages_count:
+              (brief.all_today?.length ?? 0) +
+              (brief.inbox_today?.length ?? 0),
+            messages_are_complete: brief.messages_are_complete === true,
+            confidence: brief.confidence ?? null,
+            last_sync_at: brief.last_sync_at ?? null,
+            created_at: now,
+            expires_at: now + GMAIL_CONTEXT_TTL_MS,
+          };
+          safeLog("gmail_voice_context_created", {
+            mode,
+            scope: resolvedScope,
+            count: brief.unread_count ?? null,
+            messages_are_complete: brief.messages_are_complete === true,
+          });
           safeLog("jack_gmail_voice_response_built", {
             mode,
             length: built.length,
@@ -1417,6 +1537,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             lastGmailVoiceResponseLength: built.length,
             lastGmailVoiceResponseTruncated: built.truncated,
           }));
+
           pushLog({
             kind: "system",
             text: `Gmail mode: ${mode} (len ${built.length}${built.truncated ? ", troncato" : ""})`,

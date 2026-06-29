@@ -11,8 +11,10 @@ export type GmailBriefMode =
   | "unread_inbox"
   | "unread_all"
   | "unread_today"
+  | "unread_today_all"
   | "unread_category"
   | "detail_requested";
+
 
 
 export type GmailBriefVoiceItem = {
@@ -42,19 +44,21 @@ export type GmailBriefVoicePayload = {
   newsletters_today?: GmailBriefVoiceItem[] | null;
   all_today?: GmailBriefVoiceItem[] | null;
   unread_previous?: GmailBriefVoiceItem[] | null;
-  // v3.26.1 — Gmail Unread Scope (single source of truth per scope)
-  unread_scope?: "inbox" | "all" | "today" | "category" | null;
+  // v3.26.1/v3.26.2 — Gmail Unread Scope (single source of truth per scope)
+  unread_scope?: "inbox" | "all" | "today" | "today_all" | "category" | null;
   unread_count?: number | null;
   unread_scope_counts?: {
     inbox?: number | null;
     all?: number | null;
     today?: number | null;
+    today_all?: number | null;
     category?: number | null;
   } | null;
   unread_category?: string | null;
   messages_are_complete?: boolean | null;
   confidence?: "high" | "partial" | "stale" | null;
 };
+
 
 
 const MAX_LEN: Record<GmailBriefMode, number> = {
@@ -64,17 +68,22 @@ const MAX_LEN: Record<GmailBriefMode, number> = {
   unread_inbox: 220,
   unread_all: 220,
   unread_today: 220,
+  unread_today_all: 220,
   unread_category: 220,
   list_summary: 500,
   detail_requested: 700,
 };
 
 
+
 const MODE_PATTERNS: ReadonlyArray<[GmailBriefMode, RegExp]> = [
   ["detail_requested", /\b(leggimela|leggimelo|leggila|leggilo|apri\s+il\s+dettaglio|riassumi\s+quest[ao]\s+mail|dimmi\s+di\s+pi[uù]|fammi\s+il\s+dettaglio|dettaglio)\b/],
-  // v3.26.1 — scope-explicit unread modes (more specific patterns first)
+  // v3.26.1/v3.26.2 — scope-explicit unread modes (more specific patterns first)
   ["unread_category", /\bnon\s+lett[ei]\b.*\b(promo|promozion|social|aggiornament|forum|spam)\b|\b(promo|promozion|social|aggiornament|forum|spam)\b.*\bnon\s+lett[ei]\b/],
+  // explicit GLOBAL today ("non lette oggi in tutto gmail")
+  ["unread_today_all", /\bnon\s+lett[ei]\b.*\boggi\b.*\b(tutt[oa]|intero|globale|gmail)\b|\boggi\b.*\b(tutt[oa]|intero|globale)\s+(gmail|posta)\b.*\bnon\s+lett[ei]\b/],
   ["unread_all", /\bnon\s+lett[ei]\b.*\b(in\s+)?(tutt[oa]|intero|globale)\s+(gmail|posta|inbox|casella)|\b(tutt[oa]|intero|globale)\s+(gmail|posta).*\bnon\s+lett[ei]\b/],
+  // v3.26.2 — "non lette di oggi" → INBOX+today (default user-visible)
   ["unread_today", /\bnon\s+lett[ei]\b.*\boggi\b|\boggi\b.*\bnon\s+lett[ei]\b/],
   ["unread_inbox", /\bnon\s+lett[ei]\b.*\b(in\s+)?(posta\s+in\s+arrivo|inbox|in\s+arrivo|casella)|\b(posta\s+in\s+arrivo|inbox).*\bnon\s+lett[ei]\b/],
   ["unread_only", /\bnon\s+lett[ei]\b/],
@@ -83,6 +92,7 @@ const MODE_PATTERNS: ReadonlyArray<[GmailBriefMode, RegExp]> = [
   ["count_only", /\b(quant[ie])\s+(mail|email|ne\s+sono|messaggi)\b|\bnumero\s+(di\s+)?(mail|email)\b|\bci\s+sono\s+(mail|email|messaggi)\b/],
   ["list_summary", /\b(quali|che)\s+(mail|email|messaggi)\b|\b(fammi\s+(l['\s]?)?elenco|elenco\s+mail|elenco\s+email|lista\s+(mail|email))\b/],
 ];
+
 
 export function normalizeGmailQuery(text: string): string {
   return text
@@ -215,12 +225,13 @@ function buildCountOnly(p: GmailBriefVoicePayload, name: string): string {
 // NEVER invents sender/subject. If the scoped count and the detailed
 // items don't line up perfectly, returns count-only + suggestion.
 
-type UnreadScope = "inbox" | "all" | "today" | "category";
+type UnreadScope = "inbox" | "all" | "today" | "today_all" | "category";
 
 const SCOPE_PHRASE: Record<UnreadScope, string> = {
   inbox: "in Posta in arrivo",
   all: "in tutto Gmail",
-  today: "oggi",
+  today: "oggi in Posta in arrivo",
+  today_all: "oggi in tutto Gmail",
   category: "nella categoria selezionata",
 };
 
@@ -234,12 +245,14 @@ function scopedUnreadCount(p: GmailBriefVoicePayload, scope: UnreadScope): numbe
     if (scope === "inbox" && typeof sc.inbox === "number") return sc.inbox;
     if (scope === "all" && typeof sc.all === "number") return sc.all;
     if (scope === "today" && typeof sc.today === "number") return sc.today;
+    if (scope === "today_all" && typeof sc.today_all === "number") return sc.today_all;
     if (scope === "category" && typeof sc.category === "number") return sc.category;
   }
   if (typeof p.unread_count === "number" && p.unread_scope === scope) return p.unread_count;
   // Fallback: do NOT cross scopes. Return -1 to signal "unknown".
   return -1;
 }
+
 
 function buildScopedUnread(
   p: GmailBriefVoicePayload,
@@ -364,6 +377,10 @@ export function buildGmailVoiceResponse(
     case "unread_today":
       raw = buildScopedUnread(p, name, "today");
       break;
+    case "unread_today_all":
+      raw = buildScopedUnread(p, name, "today_all");
+      break;
+
     case "unread_category":
       raw = buildScopedUnread(p, name, "category");
       break;

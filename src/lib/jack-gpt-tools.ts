@@ -330,10 +330,11 @@ export const JACK_GPT_TOOLS_SCHEMA = [
         important_only: { type: "boolean" },
         scope: {
           type: "string",
-          enum: ["inbox", "all", "today", "category"],
+          enum: ["inbox", "all", "today", "today_all", "category"],
           description:
-            "Scope conteggio non lette. inbox=Posta in arrivo (default). all=tutte Gmail (label UNREAD). today=non lette di oggi (Europe/Rome). category=usa anche `category`.",
+            "Scope conteggio non lette. inbox=Posta in arrivo (DEFAULT). today=non lette di oggi in INBOX (DEFAULT per 'non lette di oggi'). all=tutte Gmail (label UNREAD globale). today_all=non lette di oggi su tutto Gmail (solo se l'utente lo chiede esplicitamente). category=usa anche `category`.",
         },
+
         category: {
           type: "string",
           enum: ["primary", "promotions", "social", "updates", "forums", "spam"],
@@ -1707,7 +1708,7 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               date_range: (args.date_range as "today" | "7d" | "all" | undefined) ?? "today",
               unread_only: Boolean(args.unread_only),
               important_only: args.important_only === true,
-              scope: (args.scope as "inbox" | "all" | "today" | "category" | undefined),
+              scope: (args.scope as "inbox" | "all" | "today" | "today_all" | "category" | undefined),
               category: (args.category as
                 | "primary"
                 | "promotions"

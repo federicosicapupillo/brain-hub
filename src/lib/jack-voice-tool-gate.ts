@@ -9,7 +9,12 @@ export type VoiceToolBlockedReason =
   | "no_explicit_open_screen_confirmation"
   | "tool_called_after_assistant_question_without_user_reply"
   | "no_valid_user_utterance_yet"
-  | "no_explicit_email_intent";
+  | "no_explicit_email_intent"
+  | "no_email_intent_no_context"
+  | "email_followup_context_resolved"
+  | "gmail_sync_context_resumed"
+  | "gmail_tool_blocked_missing_context";
+
 
 
 export type VoiceToolGateStatus = "allowed" | "blocked";
@@ -66,12 +71,39 @@ const EMAIL_INTENT_KEYWORDS = [
   "ultime",
 ];
 
+// v3.26.2 — follow-up phrases that only make sense if a recent Gmail
+// conversation context exists. They MUST NOT match when there is no context.
+const EMAIL_FOLLOWUP_PHRASES = [
+  "mittenti",
+  "mittente",
+  "quali sono",
+  "dimmi quali",
+  "leggimele",
+  "leggimi",
+  "dimmele",
+  "apri la prima",
+  "apri quella",
+  "ripeti",
+  "e oggi",
+  "e in tutto",
+  "anche oggi",
+  "e le altre",
+];
+
 export function hasExplicitEmailIntent(text: string): boolean {
   if (!text) return false;
   const n = normalizeVoiceText(text);
   if (!n) return false;
   return EMAIL_INTENT_KEYWORDS.some((k) => n.includes(k));
 }
+
+export function looksLikeEmailFollowup(text: string): boolean {
+  if (!text) return false;
+  const n = normalizeVoiceText(text);
+  if (!n) return false;
+  return EMAIL_FOLLOWUP_PHRASES.some((k) => n.includes(k));
+}
+
 
 
 export function normalizeVoiceText(text: string): string {
@@ -196,6 +228,10 @@ export type GateDecisionInput = {
   lastAssistantQuestionAt: number | null;
   lastAssistantQuestionText: string | null;
   now: number;
+  // v3.26.2 — short-lived Gmail conversation context. When present,
+  // the gate allows follow-up tool calls referencing the prior context.
+  hasRecentGmailContext?: boolean;
+  recentSyncResumeContext?: boolean;
 };
 
 export type GateDecision =
@@ -213,24 +249,28 @@ export function decideVoiceToolGate(input: GateDecisionInput): GateDecision {
   if (READ_GATED_VOICE_TOOLS.has(input.toolName)) {
     const utterance = input.lastValidUserUtterance ?? "";
     const validAt = input.lastValidUserUtteranceAt ?? 0;
-    if (!utterance || input.now - validAt > ANSWER_WINDOW_MS) {
-      return {
-        status: "blocked",
-        reason: "no_explicit_email_intent",
-        safe_message:
-          "Posso leggere le mail solo se me lo chiedi esplicitamente, ad esempio 'leggimi le mail di oggi'.",
-      };
+    const fresh = utterance && input.now - validAt <= ANSWER_WINDOW_MS;
+    // v3.26.2 — context-aware: allow follow-ups when a recent Gmail
+    // context exists OR a sync just completed and Jack is resuming.
+    if (fresh && hasExplicitEmailIntent(utterance)) {
+      return { status: "allowed" };
     }
-    if (!hasExplicitEmailIntent(utterance)) {
-      return {
-        status: "blocked",
-        reason: "no_explicit_email_intent",
-        safe_message:
-          "Posso leggere le mail solo se me lo chiedi esplicitamente, ad esempio 'leggimi le mail di oggi'.",
-      };
+    if (fresh && input.hasRecentGmailContext && looksLikeEmailFollowup(utterance)) {
+      return { status: "allowed" };
     }
-    return { status: "allowed" };
+    if (input.recentSyncResumeContext) {
+      return { status: "allowed" };
+    }
+    return {
+      status: "blocked",
+      reason: input.hasRecentGmailContext
+        ? "gmail_tool_blocked_missing_context"
+        : "no_email_intent_no_context",
+      safe_message:
+        "Posso leggere le mail solo se me lo chiedi esplicitamente, ad esempio 'leggimi le mail di oggi'.",
+    };
   }
+
   if (!GATED_VOICE_TOOLS.has(input.toolName)) return { status: "allowed" };
 
 

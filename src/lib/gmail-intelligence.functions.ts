@@ -434,7 +434,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         limit?: number;
         // v3.26.1 — Gmail Unread Scope. Explicit scope avoids mixing
         // inbox vs all vs today vs category unread counts.
-        scope?: "inbox" | "all" | "today" | "category";
+        scope?: "inbox" | "all" | "today" | "today_all" | "category";
         category?:
           | "primary"
           | "promotions"
@@ -661,12 +661,15 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           .contains("label_ids", [requestedCategoryLabel])
       : null;
 
+    // v3.26.2 — today_unread DEFAULT is INBOX-scoped (user-visible inbox).
+    // A separate today_all count covers explicit "in tutto Gmail oggi".
     const [
       todayRaw,
       yesterdayRes,
       prevUnreadRes,
       totalUnreadRes,
-      unreadTodayRes,
+      unreadTodayInboxRes,
+      unreadTodayAllRes,
       inboxUnreadRes,
       categoryUnreadRes,
     ] = await Promise.all([
@@ -684,10 +687,19 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           .eq("connection_id", conn.id)
           .eq("is_unread", true)
           .gte("internal_date", todayStart)
+          .lt("internal_date", todayEnd)
+          .contains("label_ids", ["INBOX"]),
+        supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("connection_id", conn.id)
+          .eq("is_unread", true)
+          .gte("internal_date", todayStart)
           .lt("internal_date", todayEnd),
         inboxUnreadQ,
         categoryUnreadQ ?? Promise.resolve({ count: null as number | null }),
       ]);
+
 
 
     const todayRows = todayRaw.rows;
@@ -744,29 +756,35 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const newslettersPreviousList = yesterdayEmails.filter((e) => e.is_newsletter);
 
     const totalUnread = totalUnreadRes.count ?? 0;
-    const unreadToday = unreadTodayRes.count ?? 0;
-    const previousUnread = Math.max(0, totalUnread - unreadToday);
+    // v3.26.2 — today scope defaults to INBOX (user-visible inbox).
+    const unreadTodayInbox = unreadTodayInboxRes.count ?? 0;
+    const unreadTodayAll = unreadTodayAllRes.count ?? 0;
+    const previousUnread = Math.max(0, totalUnread - unreadTodayAll);
 
-    // v3.26.1 — Gmail Unread Scope. Each count comes from a single,
+    // v3.26.1/v3.26.2 — Gmail Unread Scope. Each count comes from a single,
     // non-overlapping query against UNREAD + the scope predicate.
     // Never sum these together to derive a "totale": they overlap.
     const inboxUnreadCount = inboxUnreadRes.count ?? 0;
     const allUnreadCount = totalUnread;
-    const todayUnreadCount = unreadToday;
+    const todayUnreadCount = unreadTodayInbox; // default = INBOX-scoped today
+    const todayAllUnreadCount = unreadTodayAll; // global today (explicit only)
     const categoryUnreadCount =
       requestedCategoryLabel && categoryUnreadRes && "count" in categoryUnreadRes
         ? (categoryUnreadRes.count ?? 0)
         : null;
-    const resolvedUnreadScope: "inbox" | "all" | "today" | "category" =
+    const resolvedUnreadScope: "inbox" | "all" | "today" | "today_all" | "category" =
       data.scope ?? (data.unread_only ? "inbox" : "inbox");
     const resolvedUnreadCount =
       resolvedUnreadScope === "all"
         ? allUnreadCount
         : resolvedUnreadScope === "today"
           ? todayUnreadCount
-          : resolvedUnreadScope === "category"
-            ? (categoryUnreadCount ?? 0)
-            : inboxUnreadCount;
+          : resolvedUnreadScope === "today_all"
+            ? todayAllUnreadCount
+            : resolvedUnreadScope === "category"
+              ? (categoryUnreadCount ?? 0)
+              : inboxUnreadCount;
+
     void logEvent(supabase, userId, "gmail_unread_scope_resolved", {
       requested_scope: data.scope ?? null,
       resolved_scope: resolvedUnreadScope,
@@ -1032,9 +1050,11 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       unread_scope_counts: {
         inbox: inboxUnreadCount,
         all: allUnreadCount,
-        today: todayUnreadCount,
+        today: todayUnreadCount, // INBOX+UNREAD+today (default user-visible)
+        today_all: todayAllUnreadCount, // UNREAD+today across all labels
         category: categoryUnreadCount,
       },
+
       unread_category: data.category ?? null,
       // Detail completeness: Jack must not invent sender/subject if false.
       messages_are_complete: resolvedUnreadCount === flat.filter((e) => e.unread).length,
