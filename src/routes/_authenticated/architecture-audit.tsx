@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import type auditSnapshotType from "@/architecture-audit/snapshots/brainhub-os-audit-phase1.json";
+import auditSnapshotType from "@/architecture-audit/snapshots/brainhub-os-audit-phase1.json";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/architecture-audit")({
