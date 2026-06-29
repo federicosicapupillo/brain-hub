@@ -1127,6 +1127,14 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       // has asked the user a question.
       if (GATED_VOICE_TOOLS.has(name) || READ_GATED_VOICE_TOOLS.has(name)) {
         const gateNow = Date.now();
+        const ctx = lastGmailContextRef.current;
+        const hasRecentGmailContext = Boolean(
+          ctx && ctx.expires_at > gateNow,
+        );
+        const recentSyncResumeContext = Boolean(
+          gmailSyncJustCompletedRef.current &&
+            gateNow - gmailSyncJustCompletedRef.current < GMAIL_SYNC_RESUME_WINDOW_MS,
+        );
         const decision = decideVoiceToolGate({
           toolName: name,
           lastValidUserUtterance: lastValidUserUtteranceRef.current?.text ?? null,
@@ -1134,7 +1142,10 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           lastAssistantQuestionAt: lastAssistantAskedConfirmationAtRef.current,
           lastAssistantQuestionText: lastAssistantSpokenTextRef.current,
           now: gateNow,
+          hasRecentGmailContext,
+          recentSyncResumeContext,
         });
+
         if (decision.status === "blocked") {
           processedToolCallIdsRef.current.add(callId);
           setDiagnostics((d) => ({
