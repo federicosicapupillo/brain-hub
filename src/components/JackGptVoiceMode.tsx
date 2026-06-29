@@ -63,6 +63,8 @@ import {
   classifyUserUtterance,
   decideVoiceToolGate,
   isAssistantQuestion,
+  looksLikeEmailFollowup,
+
   type IgnoredUtteranceReason,
   type VoiceToolBlockedReason,
 } from "@/lib/jack-voice-tool-gate";
