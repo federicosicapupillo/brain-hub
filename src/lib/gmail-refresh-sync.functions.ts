@@ -92,7 +92,8 @@ export const refreshGmailMetadataSyncFn = createServerFn({ method: "POST" })
     reason: (d?.reason ?? "user_requested") as
       | "user_requested"
       | "stale_before_read"
-      | "manual_debug",
+      | "manual_debug"
+      | "auto",
     force: d?.force === true,
   }))
   .handler(async ({ data, context }): Promise<RefreshGmailMetadataSyncResult> => {
