@@ -1294,6 +1294,20 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       const requiresReauth = resultRecord.requires_reauth === true;
       const cacheStale = resultRecord.cache_stale === true;
       const shouldNotCite = resultRecord.should_not_cite_emails === true;
+      // v3.26.2 — mark gmail sync as "just completed" to enable
+      // context-resume on the immediate follow-up get_email_brief.
+      if (
+        name === "refresh_gmail_sync" &&
+        okFlag &&
+        (lastToolStatus === "synced" || lastToolStatus === "skipped_recent")
+      ) {
+        gmailSyncJustCompletedRef.current = Date.now();
+        safeLog("gmail_sync_completed_context_resume", {
+          status: lastToolStatus,
+          had_prior_context: Boolean(lastGmailContextRef.current),
+        });
+      }
+
       setDiagnostics((d) => ({
         ...d,
         lastToolStatus,
