@@ -756,29 +756,35 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     const newslettersPreviousList = yesterdayEmails.filter((e) => e.is_newsletter);
 
     const totalUnread = totalUnreadRes.count ?? 0;
-    const unreadToday = unreadTodayRes.count ?? 0;
-    const previousUnread = Math.max(0, totalUnread - unreadToday);
+    // v3.26.2 — today scope defaults to INBOX (user-visible inbox).
+    const unreadTodayInbox = unreadTodayInboxRes.count ?? 0;
+    const unreadTodayAll = unreadTodayAllRes.count ?? 0;
+    const previousUnread = Math.max(0, totalUnread - unreadTodayAll);
 
-    // v3.26.1 — Gmail Unread Scope. Each count comes from a single,
+    // v3.26.1/v3.26.2 — Gmail Unread Scope. Each count comes from a single,
     // non-overlapping query against UNREAD + the scope predicate.
     // Never sum these together to derive a "totale": they overlap.
     const inboxUnreadCount = inboxUnreadRes.count ?? 0;
     const allUnreadCount = totalUnread;
-    const todayUnreadCount = unreadToday;
+    const todayUnreadCount = unreadTodayInbox; // default = INBOX-scoped today
+    const todayAllUnreadCount = unreadTodayAll; // global today (explicit only)
     const categoryUnreadCount =
       requestedCategoryLabel && categoryUnreadRes && "count" in categoryUnreadRes
         ? (categoryUnreadRes.count ?? 0)
         : null;
-    const resolvedUnreadScope: "inbox" | "all" | "today" | "category" =
+    const resolvedUnreadScope: "inbox" | "all" | "today" | "today_all" | "category" =
       data.scope ?? (data.unread_only ? "inbox" : "inbox");
     const resolvedUnreadCount =
       resolvedUnreadScope === "all"
         ? allUnreadCount
         : resolvedUnreadScope === "today"
           ? todayUnreadCount
-          : resolvedUnreadScope === "category"
-            ? (categoryUnreadCount ?? 0)
-            : inboxUnreadCount;
+          : resolvedUnreadScope === "today_all"
+            ? todayAllUnreadCount
+            : resolvedUnreadScope === "category"
+              ? (categoryUnreadCount ?? 0)
+              : inboxUnreadCount;
+
     void logEvent(supabase, userId, "gmail_unread_scope_resolved", {
       requested_scope: data.scope ?? null,
       resolved_scope: resolvedUnreadScope,
