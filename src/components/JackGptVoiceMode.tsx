@@ -762,6 +762,16 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [logFn, brainId],
   );
 
+  const setMicMuted = useCallback((muted: boolean) => {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+    stream.getAudioTracks().forEach((track) => {
+      track.enabled = !muted;
+    });
+    safeLog(muted ? "jack_voice_input_muted_during_speaking" : "jack_voice_input_resumed_after_speaking");
+  }, [safeLog]);
+
+
 
   const trackRealtimeEventType = useCallback(
     (eventType: string, transcript?: string | null) => {
