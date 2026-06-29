@@ -68,10 +68,12 @@ const MAX_LEN: Record<GmailBriefMode, number> = {
   unread_inbox: 220,
   unread_all: 220,
   unread_today: 220,
+  unread_today_all: 220,
   unread_category: 220,
   list_summary: 500,
   detail_requested: 700,
 };
+
 
 
 const MODE_PATTERNS: ReadonlyArray<[GmailBriefMode, RegExp]> = [
