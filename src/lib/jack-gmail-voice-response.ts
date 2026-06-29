@@ -355,6 +355,18 @@ export function buildGmailVoiceResponse(
     case "unread_only":
       raw = buildUnreadOnly(p, name);
       break;
+    case "unread_inbox":
+      raw = buildScopedUnread(p, name, "inbox");
+      break;
+    case "unread_all":
+      raw = buildScopedUnread(p, name, "all");
+      break;
+    case "unread_today":
+      raw = buildScopedUnread(p, name, "today");
+      break;
+    case "unread_category":
+      raw = buildScopedUnread(p, name, "category");
+      break;
     case "latest_only":
       raw = buildLatestOnly(p, name);
       break;
@@ -366,6 +378,7 @@ export function buildGmailVoiceResponse(
       raw = buildListSummary(p, name);
       break;
   }
+
 
   const withStale = raw + staleSuffix(p, now);
   const { text, truncated } = truncateSafe(withStale, MAX_LEN[input.mode]);
