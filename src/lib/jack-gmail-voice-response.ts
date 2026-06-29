@@ -211,18 +211,78 @@ function buildCountOnly(p: GmailBriefVoicePayload, name: string): string {
   return `${name}, oggi risultano ${c.total} ${c.total === 1 ? "email" : "email"}${detail}`;
 }
 
-function buildUnreadOnly(p: GmailBriefVoicePayload, name: string): string {
-  const c = safeCounts(p);
-  if (c.unread === 0) return `${name}, oggi non ci sono email non lette.`;
-  const items = sortByReceivedDesc(pickItems(p).filter((i) => i.unread === true)).slice(0, 2);
-  if (items.length === 0) {
-    return `${name}, oggi risultano ${c.unread} ${c.unread === 1 ? "email non letta" : "email non lette"}.`;
+// v3.26.1 — Grounded unread responses with explicit scope.
+// NEVER invents sender/subject. If the scoped count and the detailed
+// items don't line up perfectly, returns count-only + suggestion.
+
+type UnreadScope = "inbox" | "all" | "today" | "category";
+
+const SCOPE_PHRASE: Record<UnreadScope, string> = {
+  inbox: "in Posta in arrivo",
+  all: "in tutto Gmail",
+  today: "oggi",
+  category: "nella categoria selezionata",
+};
+
+function pluralUnread(n: number): string {
+  return n === 1 ? "email non letta" : "email non lette";
+}
+
+function scopedUnreadCount(p: GmailBriefVoicePayload, scope: UnreadScope): number {
+  const sc = p.unread_scope_counts ?? null;
+  if (sc) {
+    if (scope === "inbox" && typeof sc.inbox === "number") return sc.inbox;
+    if (scope === "all" && typeof sc.all === "number") return sc.all;
+    if (scope === "today" && typeof sc.today === "number") return sc.today;
+    if (scope === "category" && typeof sc.category === "number") return sc.category;
   }
-  const samples = items
+  if (typeof p.unread_count === "number" && p.unread_scope === scope) return p.unread_count;
+  // Fallback: do NOT cross scopes. Return -1 to signal "unknown".
+  return -1;
+}
+
+function buildScopedUnread(
+  p: GmailBriefVoicePayload,
+  name: string,
+  scope: UnreadScope,
+): string {
+  const n = scopedUnreadCount(p, scope);
+  if (n < 0) {
+    return `${name}, non ho un conteggio affidabile delle ${pluralUnread(2)} ${SCOPE_PHRASE[scope]}. Vuoi che aggiorni Gmail?`;
+  }
+  if (n === 0) {
+    return `${name}, non hai email non lette ${SCOPE_PHRASE[scope]}.`;
+  }
+  const head = n === 1
+    ? `${name}, hai 1 email non letta ${SCOPE_PHRASE[scope]}.`
+    : `${name}, hai ${n} ${pluralUnread(n)} ${SCOPE_PHRASE[scope]}.`;
+
+  // Only name senders/subjects when the detail set is verifiably complete
+  // for THIS scope. Otherwise, count-only.
+  const detailsComplete = p.messages_are_complete === true;
+  if (!detailsComplete) return head;
+  const items = sortByReceivedDesc(pickItems(p).filter((i) => i.unread === true));
+  if (items.length === 0 || items.length !== n) {
+    // Mismatch — don't invent. Offer partial.
+    if (items.length > 0 && items.length < n) {
+      const sample = items.slice(0, 1)
+        .map((i) => `${senderLabel(i)} oggetto "${shortSubject(i, 40)}"`)
+        .join("");
+      return `${head} Ho il dettaglio aggiornato solo di ${items.length === 1 ? "una" : `${items.length}`}: ${sample}. Vuoi che aggiorni Gmail per leggere le altre?`;
+    }
+    return head;
+  }
+  const samples = items.slice(0, Math.min(3, items.length))
     .map((i) => `${senderLabel(i)} su "${shortSubject(i, 40)}"`)
     .join("; ");
-  return `${name}, oggi ${c.unread === 1 ? "c'è 1 email non letta" : `ci sono ${c.unread} email non lette`}: ${samples}.`;
+  return `${head} ${samples}.`;
 }
+
+function buildUnreadOnly(p: GmailBriefVoicePayload, name: string): string {
+  // Default: inbox scope. Never mix with all/today in the same sentence.
+  return buildScopedUnread(p, name, (p.unread_scope as UnreadScope) ?? "inbox");
+}
+
 
 function buildLatestOnly(p: GmailBriefVoicePayload, name: string): string {
   const items = sortByReceivedDesc(pickItems(p));
