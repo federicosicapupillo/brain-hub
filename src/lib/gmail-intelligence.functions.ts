@@ -1627,7 +1627,7 @@ export const executeEmailActionFn = createServerFn({ method: "POST" })
         .eq("gmail_message_id", data.gmail_message_id)
         .eq("user_id", userId);
     } else {
-      const cacheUpdate: Record<string, unknown> = {};
+      const cacheUpdate: { inbox?: boolean; is_unread?: boolean } = {};
       if (["archive", "archive_and_read"].includes(actionType)) {
         cacheUpdate.inbox = false;
       }
