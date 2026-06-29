@@ -11,8 +11,10 @@ export type GmailBriefMode =
   | "unread_inbox"
   | "unread_all"
   | "unread_today"
+  | "unread_today_all"
   | "unread_category"
   | "detail_requested";
+
 
 
 export type GmailBriefVoiceItem = {
