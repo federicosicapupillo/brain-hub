@@ -377,6 +377,10 @@ export function buildGmailVoiceResponse(
     case "unread_today":
       raw = buildScopedUnread(p, name, "today");
       break;
+    case "unread_today_all":
+      raw = buildScopedUnread(p, name, "today_all");
+      break;
+
     case "unread_category":
       raw = buildScopedUnread(p, name, "category");
       break;
