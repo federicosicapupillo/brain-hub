@@ -900,6 +900,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         if (options.instructionsOverride) {
           payload.response = { instructions: options.instructionsOverride };
         }
+        // Muta microfono prima che Jack inizi a parlare
+        setMicMuted(true);
         dc.send(JSON.stringify(payload));
         lastResponseCreateAtRef.current = now;
         setDiagnostics((d) => ({
@@ -917,7 +919,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
         return "skipped";
       }
     },
-    [safeLog],
+    [safeLog, setMicMuted],
   );
 
 
