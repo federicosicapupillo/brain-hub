@@ -42,7 +42,20 @@ export type GmailBriefVoicePayload = {
   newsletters_today?: GmailBriefVoiceItem[] | null;
   all_today?: GmailBriefVoiceItem[] | null;
   unread_previous?: GmailBriefVoiceItem[] | null;
+  // v3.26.1 — Gmail Unread Scope (single source of truth per scope)
+  unread_scope?: "inbox" | "all" | "today" | "category" | null;
+  unread_count?: number | null;
+  unread_scope_counts?: {
+    inbox?: number | null;
+    all?: number | null;
+    today?: number | null;
+    category?: number | null;
+  } | null;
+  unread_category?: string | null;
+  messages_are_complete?: boolean | null;
+  confidence?: "high" | "partial" | "stale" | null;
 };
+
 
 const MAX_LEN: Record<GmailBriefMode, number> = {
   count_only: 180,
