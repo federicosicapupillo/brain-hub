@@ -3093,7 +3093,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                   turn_detection: {
                     type: "server_vad",
                     create_response: false,
-                    interrupt_response: true,
+                    interrupt_response: false,
                   },
                 },
                 output: { voice: "alloy" },
