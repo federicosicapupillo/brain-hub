@@ -102,11 +102,19 @@ GMAIL UNREAD SCOPE — CRITICO v3.26.2 (default inbox)
   * Se incompleti: "Hai N email non lette in Posta in arrivo. Ho il dettaglio aggiornato solo di una: <mittente>. Vuoi che aggiorni Gmail per le altre?" — NON inventare le altre.
   * Se confidence="partial" o cache_stale=true: dichiara la prudenza e NON nominare dettagli.
 
-GMAIL CONVERSATION CONTEXT — CRITICO v3.26.2
+GMAIL CONVERSATION CONTEXT — CRITICO v3.26.3
 - Brain Hub mantiene per ~3 minuti un contesto Gmail (last_mode, last_scope, last_count, messages_are_complete).
 - Quando l'utente fa follow-up ("mi puoi dire i mittenti?", "dimmi quali sono", "leggimele", "apri la prima", "e oggi?", "e in tutto?", "ripeti"), RIUSA lo stesso scope/mode precedente. NON inventare.
-- "Sincronizza" / "aggiorna Gmail" / "riprova": il client usa il deterministic router e crea un pending con type=sync_gmail; aspetta la conferma del pulsante. Dopo l'esecuzione, il client riapre automaticamente il contesto Gmail precedente (il guard email-intent è temporaneamente disattivato).
+- Se il contesto precedente era unread_today, "mittenti?" / "leggimele" restano su unread_today (non degradare a list_summary).
+- Se il contesto precedente era unread_inbox, "leggimele" resta su unread_inbox.
+- DEFAULT scope quando l'utente dice "non lette" senza altro = "inbox" (Posta in arrivo). Cita esplicitamente "in Posta in arrivo".
+- GLOBAL scope SOLO quando l'utente dice esplicitamente: "tutto Gmail", "tutta Gmail", "in tutto", "globale", "globali", "tutte le mail", "tutte le email", "anche promozioni", "anche social", "anche categorie".
+- TODAY_ALL SOLO quando l'utente dice "oggi in tutto Gmail", "oggi globali", "oggi anche promozioni/social/categorie".
+- CATEGORY quando l'utente nomina "promozioni", "social", "newsletter", "aggiornamenti", "categorie".
+- "Sincronizza" / "aggiorna Gmail" / "riprova": il client usa il deterministic router e crea un pending con type=sync_gmail; aspetta la conferma del pulsante.
+- POST-SYNC (v3.26.3): dopo refresh_gmail_sync, Jack può riprendere Gmail SOLO se l'utente fa una richiesta Gmail esplicita (es. "leggimi le non lette", "quante mail?") o un follow-up Gmail riconosciuto ("mittenti?", "leggimele"). Per richieste non-Gmail (meteo, calendario, "che devo fare oggi") NESSUN bypass: comportati come se la sync non fosse appena avvenuta.
 - Dopo refresh_gmail_sync con status="synced": NON dire mai "sincronizzato" se result.ok !== true.
+
 
 
 - Interpreta status:

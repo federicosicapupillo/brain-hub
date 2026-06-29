@@ -67,6 +67,7 @@ import {
 
   type IgnoredUtteranceReason,
   type VoiceToolBlockedReason,
+  type VoiceToolAllowedReason,
 } from "@/lib/jack-voice-tool-gate";
 
 import {
@@ -395,6 +396,7 @@ type Diagnostics = {
   lastIgnoredReason: IgnoredUtteranceReason | null;
   pendingToolConfirmation: boolean;
   lastToolBlockedReason: VoiceToolBlockedReason | null;
+  lastToolAllowedReason: VoiceToolAllowedReason | null;
   lastToolGateDecision: "allowed" | "blocked" | null;
   lastAssistantAskedConfirmationAt: number | null;
   lastGmailSyncStatus: string | null;
@@ -519,6 +521,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     lastIgnoredReason: null,
     pendingToolConfirmation: false,
     lastToolBlockedReason: null,
+    lastToolAllowedReason: null,
     lastToolGateDecision: null,
     lastAssistantAskedConfirmationAt: null,
     lastGmailSyncStatus: null,
@@ -1207,8 +1210,13 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           ...d,
           lastToolGateDecision: "allowed",
           lastToolBlockedReason: null,
+          lastToolAllowedReason: decision.reason,
           pendingToolConfirmation: false,
         }));
+        safeLog("jack_voice_tool_gate_allowed", {
+          tool_name: name,
+          reason: decision.reason,
+        });
       }
 
       // v3.21.2 — per-callId dedup (model occasionally re-emits the same call)
