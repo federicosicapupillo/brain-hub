@@ -47,10 +47,15 @@ export type GmailBriefVoicePayload = {
 const MAX_LEN: Record<GmailBriefMode, number> = {
   count_only: 180,
   latest_only: 280,
-  unread_only: 280,
+  unread_only: 220,
+  unread_inbox: 220,
+  unread_all: 220,
+  unread_today: 220,
+  unread_category: 220,
   list_summary: 500,
   detail_requested: 700,
 };
+
 
 const MODE_PATTERNS: ReadonlyArray<[GmailBriefMode, RegExp]> = [
   ["detail_requested", /\b(leggimela|leggimelo|leggila|leggilo|apri\s+il\s+dettaglio|riassumi\s+quest[ao]\s+mail|dimmi\s+di\s+pi[uù]|fammi\s+il\s+dettaglio|dettaglio)\b/],
