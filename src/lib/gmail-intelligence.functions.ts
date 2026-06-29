@@ -434,7 +434,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         limit?: number;
         // v3.26.1 — Gmail Unread Scope. Explicit scope avoids mixing
         // inbox vs all vs today vs category unread counts.
-        scope?: "inbox" | "all" | "today" | "category";
+        scope?: "inbox" | "all" | "today" | "today_all" | "category";
         category?:
           | "primary"
           | "promotions"
