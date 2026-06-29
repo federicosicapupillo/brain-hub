@@ -50,7 +50,9 @@ export type RefreshGmailMetadataSyncResult = {
   requires_reauth?: boolean;
 };
 
-const COOLDOWN_MS = 2 * 60 * 1000;
+// v3.25.5 — Smart Gmail Sync Scheduler: bumped cooldown to 4 minutes so that
+// the 5-minute auto interval is the effective minimum gap between real syncs.
+const COOLDOWN_MS = 4 * 60 * 1000;
 const LOCK_TIMEOUT_MS = 60 * 1000;
 
 function hashId(id: string): string {
