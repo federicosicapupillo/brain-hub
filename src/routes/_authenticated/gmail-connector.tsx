@@ -41,6 +41,7 @@ import {
   type GmailCategory,
   logGmailConnectorEvent,
 } from "@/lib/gmail-connector";
+import { useGmailAutoSync, GMAIL_AUTO_SYNC_INTERVAL_MS } from "@/hooks/use-gmail-auto-sync";
 
 export const Route = createFileRoute("/_authenticated/gmail-connector")({
   head: () => ({
