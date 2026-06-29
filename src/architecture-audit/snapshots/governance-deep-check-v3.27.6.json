@@ -1,0 +1,557 @@
+{
+  "patch": "v3.27.6",
+  "name": "Governance Deep Check",
+  "generated_at": "2026-06-29",
+  "principle": "Confidence assegnata solo su evidenze osservabili. Nessuna deduzione. Un 60 dimostrato vale piu di un 90 stimato.",
+  "scope": {
+    "value": "Audit read-only del layer Governance di Brain Hub. Nessuna modifica funzionale, nessuna migrazione, nessun refactor.",
+    "source": "user_prompt_v3.27.6",
+    "confidence": 100,
+    "note": "Documento di analisi unico output di questa patch."
+  },
+
+  "governance_components": [
+    {
+      "id": "ui_operator_safety",
+      "name": {
+        "value": "UI Operator Safety Policy",
+        "source": "src/lib/ui-operator-safety.ts",
+        "confidence": 95,
+        "note": "Funzioni pure: classifyUiOperatorActionRisk, isRouteAllowedForUiOperator, decideUiOperatorSafety. Definisce risk levels low/medium/high/forbidden e route allowlist."
+      },
+      "kind": "risk_classifier + route_allowlist + confirmation_gate",
+      "implementation_state": "implementato",
+      "consumers": {
+        "value": ["src/lib/ui-operator.functions.ts", "src/lib/ui-operator-surface.server.ts", "src/routes/api/public/ui-operator-surface-action.ts"],
+        "source": "rg ui-operator-safety",
+        "confidence": 80,
+        "note": "Verificato via ricerca testuale, non via analisi statica del grafo di import."
+      }
+    },
+    {
+      "id": "jack_voice_tool_gate",
+      "name": {
+        "value": "Jack Voice Tool Gate",
+        "source": "src/lib/jack-voice-tool-gate.ts",
+        "confidence": 95,
+        "note": "GATED_VOICE_TOOLS + READ_GATED_VOICE_TOOLS + decideVoiceToolGate. Echo guard e classifyUserUtterance."
+      },
+      "kind": "intent_gate + echo_guard + confirmation_gate",
+      "implementation_state": "implementato",
+      "consumers": {
+        "value": ["src/components/JackGptVoiceMode.tsx"],
+        "source": "rg jack-voice-tool-gate",
+        "confidence": 80,
+        "note": "Usato esclusivamente dal componente voice mode."
+      }
+    },
+    {
+      "id": "jack_deterministic_router",
+      "name": {
+        "value": "Jack Deterministic Command Router",
+        "source": "src/lib/jack-deterministic-command-router.ts",
+        "confidence": 85,
+        "note": "Source gate ui_button|voice_confirm (v3.25.2). Mappa transcript a intent confermabili."
+      },
+      "kind": "command_router + source_gate",
+      "implementation_state": "implementato"
+    },
+    {
+      "id": "jack_action_confirmation",
+      "name": {
+        "value": "Jack Action Confirmation",
+        "source": "src/lib/jack-action-confirmation.ts",
+        "confidence": 80,
+        "note": "Wrapper per conferma azioni. 396 righe."
+      },
+      "kind": "confirmation_gate",
+      "implementation_state": "implementato"
+    },
+    {
+      "id": "jack_action_previews",
+      "name": {
+        "value": "Jack Action Previews",
+        "source": "src/lib/jack-action-previews.functions.ts",
+        "confidence": 80,
+        "note": "Tabella jack_action_previews (19 colonne). Persistenza preview con app_logs telemetry."
+      },
+      "kind": "preview_store + audit_log",
+      "implementation_state": "implementato"
+    },
+    {
+      "id": "jack_controlled_actions",
+      "name": {
+        "value": "Jack Controlled Actions",
+        "source": "src/lib/jack-controlled-actions.functions.ts",
+        "confidence": 85,
+        "note": "1054 righe. Layer di esecuzione controllata invocato dal voice/UI bridge."
+      },
+      "kind": "execution_controller + audit_log",
+      "implementation_state": "implementato"
+    },
+    {
+      "id": "telegram_approvals",
+      "name": {
+        "value": "Telegram Approval Bridge",
+        "source": "src/lib/telegram-approvals.ts + telegram_approval_requests (28 col)",
+        "confidence": 90,
+        "note": "Tabella + servizio + webhook src/routes/api/public/telegram/webhook.ts."
+      },
+      "kind": "out_of_band_approval",
+      "implementation_state": "implementato",
+      "consumers": {
+        "value": ["src/lib/code-agent-orchestrator.ts:1838"],
+        "source": "rg telegram_approval_requests",
+        "confidence": 90,
+        "note": "Code Agent crea draft approval per risk medium/high."
+      }
+    },
+    {
+      "id": "action_queue",
+      "name": {
+        "value": "Action Queue",
+        "source": "src/lib/action-queue.ts (363 righe) + src/routes/_authenticated/action-queue.tsx",
+        "confidence": 85,
+        "note": "Coda approvazioni con CTA dedicata (action-queue-cta.ts)."
+      },
+      "kind": "approval_queue",
+      "implementation_state": "implementato"
+    },
+    {
+      "id": "code_agent_approval_state_machine",
+      "name": {
+        "value": "Code Agent Approval State Machine",
+        "source": "src/lib/code-agent-orchestrator.ts (CODE_AGENT_APPROVAL_STATUSES)",
+        "confidence": 90,
+        "note": "Stati pending|approved|rejected|needs_strong_approval. Gating per risk_level high."
+      },
+      "kind": "state_machine_approval",
+      "implementation_state": "implementato"
+    },
+    {
+      "id": "gmail_console_action_controls",
+      "name": {
+        "value": "Gmail Console Controlled Actions",
+        "source": "src/routes/_authenticated/gmail-console.tsx + src/lib/gmail-intelligence.functions.ts (executeEmailActionFn)",
+        "confidence": 85,
+        "note": "Preview -> confirmation -> execution flow (v3.27)."
+      },
+      "kind": "confirmation_gate_per_domain",
+      "implementation_state": "implementato"
+    },
+    {
+      "id": "gmail_oauth_scope_guard",
+      "name": {
+        "value": "Gmail OAuth Scope Guard",
+        "source": "src/lib/gmail-oauth.server.ts (FORBIDDEN_SCOPES)",
+        "confidence": 80,
+        "note": "Scope hardcoded gmail.modify. Nessuna escalation runtime."
+      },
+      "kind": "scope_allowlist",
+      "implementation_state": "implementato"
+    },
+    {
+      "id": "rls_per_user",
+      "name": {
+        "value": "RLS Policies per-user (auth.uid)",
+        "source": "supabase/migrations (~160 occorrenze auth.uid)",
+        "confidence": 90,
+        "note": "Ogni tabella public ha policy. RLS unico vero meccanismo di project_isolation a livello DB."
+      },
+      "kind": "data_isolation",
+      "implementation_state": "implementato"
+    },
+    {
+      "id": "app_logs_telemetry",
+      "name": {
+        "value": "app_logs telemetry",
+        "source": "src/lib/jack-gpt-log.server.ts + 10 writers (rg from(\"app_logs\"))",
+        "confidence": 85,
+        "note": "Funge da audit log de-facto. Scrittori sparsi, nessun adapter unico."
+      },
+      "kind": "audit_log_de_facto",
+      "implementation_state": "parziale"
+    },
+    {
+      "id": "agent_permission_matrix_table",
+      "name": {
+        "value": "agent_permission_matrix",
+        "source": "src/lib/agent-center.ts:299,332",
+        "confidence": 70,
+        "note": "Tabella (12 col) letta/scritta solo da agent-center. Non usata come gate da nessun executor."
+      },
+      "kind": "permission_registry",
+      "implementation_state": "parziale"
+    },
+    {
+      "id": "agent_tool_contracts_table",
+      "name": {
+        "value": "agent_tool_contracts",
+        "source": "supabase migrations + src/routes/_authenticated/architecture-audit.tsx",
+        "confidence": 60,
+        "note": "Tabella creata in v3.27 Phase 1. Solo letta per count nella audit page. Nessun runtime consumer."
+      },
+      "kind": "tool_contract_registry",
+      "implementation_state": "previsto ma non implementato"
+    },
+    {
+      "id": "governance_action_levels_table",
+      "name": {
+        "value": "governance_action_levels",
+        "source": "supabase migrations + architecture-audit page",
+        "confidence": 60,
+        "note": "Tabella vuota, mai consultata da risk classifier. La logica risk vive in ui-operator-safety.ts hardcoded."
+      },
+      "kind": "risk_policy_registry",
+      "implementation_state": "previsto ma non implementato"
+    }
+  ],
+
+  "approval_layer_analysis": [
+    {
+      "system": "Telegram approvals",
+      "where": {"value": "src/lib/telegram-approvals.ts + telegram_approval_requests table + webhook", "source": "files", "confidence": 90, "note": ""},
+      "when": "Out-of-band quando code agent o automazione marca risk_level medium/high.",
+      "protects": "Code Agent jobs, future automation actions.",
+      "trigger": "Insert in telegram_approval_requests + invio Telegram via telegram-send.functions.ts.",
+      "dependencies": ["telegram_connection_settings", "telegram_delivery_attempts", "code_agent_orchestrator"]
+    },
+    {
+      "system": "Action Queue approvals",
+      "where": {"value": "src/lib/action-queue.ts + route _authenticated/action-queue.tsx", "source": "files", "confidence": 80, "note": ""},
+      "when": "Azioni queued che richiedono review UI.",
+      "protects": "Azioni broad-scope, automation actions.",
+      "trigger": "Inserimento riga + CTA in UI (action-queue-cta.ts).",
+      "dependencies": ["automation_actions", "app_logs"]
+    },
+    {
+      "system": "Gmail confirmations",
+      "where": {"value": "src/lib/jack-gpt-instructions.ts (preview->conferma->execute) + executeEmailActionFn + gmail-console route", "source": "v3.27 patch", "confidence": 85, "note": ""},
+      "when": "Prima di archive/trash/label/draft/send.",
+      "protects": "Mutazioni su gmail_message_map e Gmail API.",
+      "trigger": "preview_email_action -> execute_email_action.",
+      "dependencies": ["gmail_message_map", "gmail_console_drafts", "gmail-oauth.server"]
+    },
+    {
+      "system": "Drive confirmations",
+      "where": {"value": "Non trovato un gate dedicato; solo OAuth scope.", "source": "rg drive + conferma", "confidence": 70, "note": "Nessun preview/confirm flow per Drive analogo a Gmail."},
+      "when": "n/a",
+      "protects": "Solo lettura (drive_knowledge), nessuna mutazione documentata.",
+      "trigger": "n/a",
+      "dependencies": ["drive_connection_settings"]
+    },
+    {
+      "system": "Calendar confirmations",
+      "where": {"value": "Non trovato gate; calendar-oauth solo lettura.", "source": "rg calendar + confirm", "confidence": 70, "note": "Nessun flusso preview->confirm su scrittura eventi."},
+      "when": "n/a",
+      "protects": "Solo lettura calendar_event_map.",
+      "trigger": "n/a",
+      "dependencies": ["calendar_connection_settings"]
+    },
+    {
+      "system": "Voice confirmations",
+      "where": {"value": "src/lib/jack-voice-tool-gate.ts + jack-deterministic-command-router.ts + JackGptVoiceMode.tsx (pendingVoiceAction)", "source": "files v3.25.x", "confidence": 90, "note": ""},
+      "when": "Su tool gated o azioni sensibili invocate via voice.",
+      "protects": "refresh_gmail_sync, open_brainhub_screen, propose_ui_action, execute_confirmed_ui_action, get_email_brief.",
+      "trigger": "Intent classifier + gate decision + pending action bridge.",
+      "dependencies": ["jack-gpt-tools", "jack-deterministic-command-router"]
+    },
+    {
+      "system": "Code Agent approvals",
+      "where": {"value": "src/lib/code-agent-orchestrator.ts state machine", "source": "rg approval_status", "confidence": 90, "note": ""},
+      "when": "Job creation se risk medium/high o requires_approval.",
+      "protects": "Esecuzione job di code agent.",
+      "trigger": "approval_status pending -> approved via UI o Telegram.",
+      "dependencies": ["code_agent_jobs", "telegram_approval_requests"]
+    },
+    {
+      "system": "UI Operator safety",
+      "where": {"value": "src/lib/ui-operator-safety.ts + ui-operator.functions.ts", "source": "files", "confidence": 95, "note": ""},
+      "when": "Ogni azione di Jack UI Operator (open_route, click, ecc.).",
+      "protects": "Routing e azioni in-app eseguite dal runner esterno.",
+      "trigger": "decideUiOperatorSafety prima dell'enqueue.",
+      "dependencies": ["ui_operator_sessions", "ui_operator_actions", "ui_operator_auth_tokens"]
+    }
+  ],
+
+  "conflict_detection": [
+    {
+      "conflict": "Doppia logica di risk classification: ui-operator-safety.ts (hardcoded) vs governance_action_levels (tabella vuota).",
+      "severity": "High",
+      "evidence": ["src/lib/ui-operator-safety.ts:33-58", "governance_action_levels mai letta a runtime"],
+      "candidate_ssot": "governance_action_levels (tabella) una volta popolata; oggi SSOT effettivo e ui-operator-safety.ts.",
+      "rationale_ssot": "La tabella consente policy editabili senza redeploy; il file e statico ma e l'unico realmente in uso."
+    },
+    {
+      "conflict": "Approvazione duplicata: telegram_approval_requests e action_queue possono entrambi richiedere review su azioni simili.",
+      "severity": "Medium",
+      "evidence": ["code-agent-orchestrator.ts:1838 (telegram)", "action-queue.ts (queue)"],
+      "candidate_ssot": "Action Queue come SSOT di approval; Telegram come canale di notifica/conferma out-of-band.",
+      "rationale_ssot": "Action Queue ha gia UI dedicata; Telegram dovrebbe essere transport, non store parallelo di stato."
+    },
+    {
+      "conflict": "Doppio confirmation gate per voice: jack-voice-tool-gate.ts (intent gate) + jack-action-confirmation.ts (preview gate).",
+      "severity": "Low",
+      "evidence": ["jack-voice-tool-gate.ts", "jack-action-confirmation.ts"],
+      "candidate_ssot": "jack-voice-tool-gate per intent + jack-action-confirmation per preview: ruoli distinti ma overlap su 'pending confirmation'.",
+      "rationale_ssot": "Allineare i due moduli condividendo lo stato pendingAction unico."
+    },
+    {
+      "conflict": "Permission registry non collegato: agent_permission_matrix esiste ma nessun executor la consulta come gate.",
+      "severity": "High",
+      "evidence": ["src/lib/agent-center.ts:299,332 (read/write only)"],
+      "candidate_ssot": "agent_permission_matrix una volta integrata; oggi nessun SSOT permission-based.",
+      "rationale_ssot": "Senza enforcement la matrice e documentazione, non governance."
+    },
+    {
+      "conflict": "Audit log frammentato: 10+ writers di app_logs senza schema/adapter unico.",
+      "severity": "Medium",
+      "evidence": ["rg \"from(\\\"app_logs\\\")\" -> 10 hit"],
+      "candidate_ssot": "Un singolo logger (es. jack-gpt-log.server.ts esteso) come adapter unico verso app_logs.",
+      "rationale_ssot": "Riduce divergenza schema event_type e migliora ricerca/telemetria."
+    },
+    {
+      "conflict": "Drive e Calendar non hanno preview->confirm gate; bypassano il pattern adottato da Gmail.",
+      "severity": "Medium",
+      "evidence": ["nessun executeXxxActionFn analogo trovato"],
+      "candidate_ssot": "Estendere il pattern Gmail Console agli altri connettori scrittura.",
+      "rationale_ssot": "Coerenza governance cross-connector richiesta per v3.28."
+    },
+    {
+      "conflict": "Nessun ruolo/RBAC: assente tabella user_roles e funzione has_role nonostante linee guida progetto.",
+      "severity": "Critical",
+      "evidence": ["rg \"user_roles|app_role|has_role\" -> 0 in supabase migrations (escluso mvp-factory che e dato applicativo)"],
+      "candidate_ssot": "Da introdurre tabella user_roles + has_role security definer (vedi user-roles guidelines).",
+      "rationale_ssot": "Senza RBAC, ogni utente autenticato e implicitamente admin; blocco per multi-utente enterprise."
+    }
+  ],
+
+  "governance_data_sources": [
+    {
+      "name": "telegram_approval_requests",
+      "usage": {"value": "Store stato approvals out-of-band.", "source": "supabase table list", "confidence": 90, "note": "28 colonne."},
+      "state": "attiva",
+      "coverage": "code_agent_orchestrator + (potenziale) automation"
+    },
+    {
+      "name": "ui_operator_sessions / ui_operator_actions / ui_operator_auth_tokens",
+      "usage": {"value": "Sessioni Jack UI Operator con safety gate.", "source": "tables + ui-operator-safety", "confidence": 90, "note": ""},
+      "state": "attiva",
+      "coverage": "UI Operator runner"
+    },
+    {
+      "name": "jack_action_previews",
+      "usage": {"value": "Persistenza preview azioni Jack.", "source": "jack-action-previews.functions.ts", "confidence": 85, "note": ""},
+      "state": "attiva",
+      "coverage": "Voice + UI confirmations"
+    },
+    {
+      "name": "app_logs",
+      "usage": {"value": "Audit log applicativo de-facto.", "source": "10 writers", "confidence": 80, "note": "Schema non normalizzato."},
+      "state": "attiva ma frammentata",
+      "coverage": "trasversale"
+    },
+    {
+      "name": "agent_permission_matrix",
+      "usage": {"value": "Letta/scritta solo da agent-center.", "source": "rg", "confidence": 70, "note": "Nessun gate la consulta."},
+      "state": "isolata",
+      "coverage": "agent-center UI"
+    },
+    {
+      "name": "agent_tool_contracts",
+      "usage": {"value": "Solo count in architecture-audit page.", "source": "v3.27 Phase 1 migration", "confidence": 60, "note": ""},
+      "state": "vuota / non consumata",
+      "coverage": "nessuna"
+    },
+    {
+      "name": "governance_action_levels",
+      "usage": {"value": "Solo count in architecture-audit page.", "source": "v3.27 Phase 1 migration", "confidence": 60, "note": ""},
+      "state": "vuota / non consumata",
+      "coverage": "nessuna"
+    },
+    {
+      "name": "action_queue (via automation_actions)",
+      "usage": {"value": "Queue review UI.", "source": "action-queue.ts", "confidence": 80, "note": ""},
+      "state": "attiva",
+      "coverage": "automation"
+    },
+    {
+      "name": "code_agent_jobs.approval_status",
+      "usage": {"value": "State machine approvals job.", "source": "code-agent-orchestrator.ts", "confidence": 90, "note": ""},
+      "state": "attiva",
+      "coverage": "code agent"
+    },
+    {
+      "name": "user_roles / app_role / has_role()",
+      "usage": {"value": "Assenti.", "source": "rg negativo", "confidence": 95, "note": "Nessuna definizione in supabase/migrations."},
+      "state": "assente",
+      "coverage": "nessuna"
+    }
+  ],
+
+  "coverage_analysis": {
+    "implemented": {
+      "value": [
+        "ui_operator_safety (risk + route allowlist + confirmation)",
+        "jack_voice_tool_gate (intent + echo guard)",
+        "jack_deterministic_command_router (source gate)",
+        "jack_action_confirmation",
+        "jack_action_previews persistence",
+        "jack_controlled_actions execution",
+        "telegram_approvals out-of-band",
+        "action_queue UI",
+        "code_agent approval state machine",
+        "gmail_console preview->confirm->execute",
+        "gmail_oauth scope guard",
+        "RLS per-user su tutte le tabelle public",
+        "OAuth state tables (gmail/drive/calendar)"
+      ],
+      "source": "evidenza diretta nei file citati",
+      "confidence": 85,
+      "note": ""
+    },
+    "partial": {
+      "value": [
+        "app_logs come audit log (writers sparsi, schema non normalizzato)",
+        "agent_permission_matrix (esiste ma non gate)",
+        "Action Queue vs Telegram approvals overlap"
+      ],
+      "source": "evidenza diretta",
+      "confidence": 80,
+      "note": ""
+    },
+    "absent": {
+      "value": [
+        "RBAC: user_roles + has_role()",
+        "Centralized risk policy adapter che legge governance_action_levels",
+        "Centralized audit log adapter",
+        "Drive/Calendar preview->confirm gate",
+        "Project isolation a livello applicativo (oltre RLS auth.uid)"
+      ],
+      "source": "rg negativo + analisi gap",
+      "confidence": 85,
+      "note": ""
+    },
+    "planned_not_implemented": {
+      "value": [
+        "agent_tool_contracts (tabella v3.27 Phase 1, nessun consumer runtime)",
+        "governance_action_levels (tabella v3.27 Phase 1, nessun consumer runtime)",
+        "brain_graph_relation_candidates (foundation, non consumata)"
+      ],
+      "source": "supabase migrations v3.27 + architecture-audit.tsx",
+      "confidence": 90,
+      "note": "Esistono come scaffolding, non come governance attiva."
+    }
+  },
+
+  "confidence_assessment": {
+    "governance_layer_confidence": {
+      "value": 62,
+      "source": "media pesata su components implementati (85) vs assenze critiche RBAC/policy adapter (0).",
+      "confidence": 80,
+      "note": "Approvals/voice/UI operator solidi; RBAC e policy registries assenti o non collegati."
+    },
+    "method": "Conteggio componenti con evidenza diretta nei file vs componenti dichiarati ma non collegati a runtime. Nessuna confidence aumentata per deduzione."
+  },
+
+  "gap_report": [
+    {
+      "gap": "Assenza RBAC: nessuna tabella user_roles, nessuna funzione has_role, nessun gate basato su ruoli.",
+      "impact": "Ogni utente autenticato puo invocare qualsiasi server function; impossibile differenziare permessi per la v3.28 enterprise navigation.",
+      "priority": "critical",
+      "complexity": "medium",
+      "blocks_v328": true,
+      "required_before": "v3.28"
+    },
+    {
+      "gap": "governance_action_levels e agent_tool_contracts esistono come tabelle ma nessun executor le consulta. Risk policy resta hardcoded.",
+      "impact": "Policy non editabile senza deploy; doppia fonte di verita potenziale tra codice e DB.",
+      "priority": "high",
+      "complexity": "medium",
+      "blocks_v328": true,
+      "required_before": "v3.28"
+    },
+    {
+      "gap": "Audit log frammentato: 10+ writers app_logs senza adapter centrale ne schema normalizzato.",
+      "impact": "Telemetria governance non interrogabile in modo coerente; difficile tracciare chi/cosa/quando per audit.",
+      "priority": "high",
+      "complexity": "low",
+      "blocks_v328": false,
+      "required_before": "v3.29"
+    },
+    {
+      "gap": "Telegram approvals e Action Queue duplicano lo stato di approvazione.",
+      "impact": "Rischio stati divergenti; UX confusa su 'dove approvare cosa'.",
+      "priority": "medium",
+      "complexity": "medium",
+      "blocks_v328": false,
+      "required_before": "v3.29"
+    },
+    {
+      "gap": "Drive e Calendar non hanno preview->confirm gate analogo a Gmail Console.",
+      "impact": "Quando si abiliteranno scope di scrittura, governance non sara coerente cross-connector.",
+      "priority": "medium",
+      "complexity": "medium",
+      "blocks_v328": false,
+      "required_before": "v3.29"
+    },
+    {
+      "gap": "agent_permission_matrix isolata: usata solo da UI agent-center, non da nessun executor.",
+      "impact": "La matrice e documentale e non enforcement; falsa sensazione di governance attiva.",
+      "priority": "high",
+      "complexity": "medium",
+      "blocks_v328": true,
+      "required_before": "v3.28"
+    },
+    {
+      "gap": "Nessun project_isolation a livello applicativo oltre RLS auth.uid. brain_id non e cross-checkato sistematicamente nei server fn.",
+      "impact": "Utenti multi-brain potrebbero leggere/scrivere risorse cross-brain se RLS e bypassata via service role.",
+      "priority": "high",
+      "complexity": "medium",
+      "blocks_v328": true,
+      "required_before": "v3.28"
+    },
+    {
+      "gap": "jack-voice-tool-gate e jack-action-confirmation gestiscono pending state in due posti diversi.",
+      "impact": "Possibile race condition tra intent gate e preview gate.",
+      "priority": "low",
+      "complexity": "low",
+      "blocks_v328": false,
+      "required_before": "future"
+    },
+    {
+      "gap": "Nessuna policy versioning: cambi a ui-operator-safety o jack-gpt-instructions non sono auditabili nel DB.",
+      "impact": "Impossibile dimostrare quale policy era attiva al momento di un'azione passata.",
+      "priority": "medium",
+      "complexity": "medium",
+      "blocks_v328": false,
+      "required_before": "v3.29"
+    },
+    {
+      "gap": "Nessun rate limiting o quota a livello governance sui tool sensibili.",
+      "impact": "Un loop di voice intent malformato puo invocare ripetutamente tool gated.",
+      "priority": "medium",
+      "complexity": "low",
+      "blocks_v328": false,
+      "required_before": "future"
+    }
+  ],
+
+  "limits_of_audit": [
+    "Analisi basata su ripgrep e lettura file, non su analisi statica del grafo di import.",
+    "Confidence dei consumer e stimata sulle occorrenze testuali; possibili consumer dinamici non rilevati.",
+    "Nessuna esecuzione runtime per verificare gate effettivamente attivi in produzione.",
+    "Tabelle marcate 'non consumate' potrebbero essere lette in funzioni server non ancora indicizzate."
+  ],
+
+  "executive_summary": {
+    "governance_confidence": 62,
+    "governance_coverage": "Approvazioni e safety gate solidi su UI Operator, Voice, Code Agent e Gmail Console. RBAC assente, policy registries scaffolded ma non consumati, audit log frammentato.",
+    "critical_conflicts": 1,
+    "high_priority_gaps": 4,
+    "gaps_blocking_v328": 4,
+    "gaps_required_before_v329": 3,
+    "readiness_v328": "NOT READY",
+    "recommendation": "Prima di v3.28: (1) introdurre RBAC reale (user_roles + has_role); (2) collegare governance_action_levels e agent_tool_contracts come SSOT consumate da ui-operator-safety e jack tool gates; (3) attivare agent_permission_matrix come enforcement; (4) formalizzare project_isolation cross-brain nei server fn. Solo dopo procedere con enterprise navigation."
+  }
+}
