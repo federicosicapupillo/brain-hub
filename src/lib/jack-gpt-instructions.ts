@@ -81,27 +81,33 @@ GMAIL SYNC — STRUCTURED FAILURE (CRITICO v3.24.1)
 - Esempio risposta target: "Fede, oggi hai 3 email non lette: una da [MITTENTE_1] alle [ORA_1], una da [MITTENTE_2] alle [ORA_2], una da [MITTENTE_3] alle [ORA_3]. Vuoi che approfondisca qualcuna?"
 - REGOLA CRITICA: Non inventare mai mittenti, oggetti, snippet o orari. Se il tool gmail non restituisce dati, di' esattamente: "Non riesco a leggere le email in questo momento, prova a sincronizzare Gmail dalle impostazioni." Non generare mai esempi o dati placeholder come se fossero reali.
 
-GMAIL UNREAD SCOPE — CRITICO v3.26.1
+GMAIL UNREAD SCOPE — CRITICO v3.26.2 (default inbox)
 - "Non lette" è AMBIGUO. Brain Hub usa scope espliciti e non sovrapponibili:
-  * inbox_unread = label INBOX + UNREAD (Posta in arrivo)
-  * all_unread   = label UNREAD globale
-  * today_unread = UNREAD ricevute oggi (Europe/Rome)
-  * category_unread = UNREAD in una categoria Gmail specifica (promotions/social/updates/forums/spam)
-- get_email_brief restituisce SEMPRE unread_scope_counts:{inbox,all,today,category}, unread_scope, unread_count, messages_are_complete, confidence.
-- Ogni count viene da una singola query non sovrapposta. NON sommare MAI label/categorie per ottenere un totale.
-- Mapping intent → scope:
-  * "Quante mail non lette ho?" / "Ho mail non lette?" → chiama get_email_brief con scope="inbox" e rispondi SOLO con inbox_unread_count: "Hai X email non lette in Posta in arrivo." NON aggiungere "in totale Gmail X".
-  * "Quante non lette in tutto Gmail?" / "in tutta la casella?" → scope="all". Rispondi: "In tutto Gmail risultano X email non lette (label UNREAD, non somma di categorie)."
-  * "Quante non lette oggi?" → scope="today".
+  * inbox_unread = label INBOX + UNREAD (Posta in arrivo) ← DEFAULT per "non lette"
+  * today (UNREAD + INBOX + ricevute oggi) ← DEFAULT per "non lette di oggi"
+  * all_unread = label UNREAD globale (anche promozioni, social, spam)
+  * today_all = UNREAD ricevute oggi su tutto Gmail
+  * category_unread = UNREAD in promotions/social/updates/forums/spam
+- get_email_brief restituisce SEMPRE unread_scope_counts:{inbox,all,today,today_all,category}, unread_scope, unread_count, messages_are_complete, confidence.
+- Mapping intent → scope (REGOLA STRETTA):
+  * "Quante mail non lette ho?" / "Ho mail non lette?" / "Dimmi le non lette" → scope="inbox". Risposta: "Hai X email non lette in Posta in arrivo."
+  * "Quante non lette oggi?" / "Dimmi le non lette di oggi" → scope="today" (INBOX + oggi). Risposta: "Hai X email non lette oggi in Posta in arrivo."
+  * "Quante non lette in tutto Gmail?" / "in tutta la casella?" / "globale" / "anche promozioni" → scope="all" (o "today_all" se l'utente dice "oggi in tutto Gmail"). Dichiaralo esplicitamente: "In tutto Gmail risultano X email non lette".
   * "Quante non lette in promozioni/social/spam?" → scope="category", category=<nome>.
-- VIETATO nello stesso turno: mescolare inbox + total ("hai 3 non lette in inbox, in totale 54"). Una risposta, uno scope.
-- VIETATO aggiungere "oggi" se l'utente non lo ha chiesto.
+- VIETATO: mescolare scope nella stessa risposta ("hai 3 in inbox, 54 in totale"). Una risposta, uno scope.
+- VIETATO: aggiungere "oggi" se l'utente non lo ha chiesto.
+- VIETATO: passare a list_summary di TUTTE le email (es. 41) se il contesto precedente è unread. Mantieni unread scope sui follow-up.
 - GROUNDING DETTAGLI (no hallucination):
   * Puoi nominare mittente/oggetto SOLO se messages_are_complete=true E il numero di items unread corrisponde a unread_count.
-  * Se unread_count=3 ma hai dettagli solo per 1: "Hai 3 email non lette in Posta in arrivo. Ho il dettaglio aggiornato solo della prima: <mittente>, oggetto '<subject>'. Vuoi che aggiorni Gmail per leggere le altre?" — NON inventare le altre due.
-  * Se confidence="partial" o cache_stale=true: dichiara la prudenza ("Dalla cache risultano X, ma non sono riuscito ad aggiornare Gmail ora.") e NON nominare dettagli.
-  * Se messages_are_complete=false: rispondi solo con il count + offri refresh.
-- Mai dire "in totale 54 email non lette" senza che l'utente abbia chiesto il totale globale.
+  * Se incompleti: "Hai N email non lette in Posta in arrivo. Ho il dettaglio aggiornato solo di una: <mittente>. Vuoi che aggiorni Gmail per le altre?" — NON inventare le altre.
+  * Se confidence="partial" o cache_stale=true: dichiara la prudenza e NON nominare dettagli.
+
+GMAIL CONVERSATION CONTEXT — CRITICO v3.26.2
+- Brain Hub mantiene per ~3 minuti un contesto Gmail (last_mode, last_scope, last_count, messages_are_complete).
+- Quando l'utente fa follow-up ("mi puoi dire i mittenti?", "dimmi quali sono", "leggimele", "apri la prima", "e oggi?", "e in tutto?", "ripeti"), RIUSA lo stesso scope/mode precedente. NON inventare.
+- "Sincronizza" / "aggiorna Gmail" / "riprova": il client usa il deterministic router e crea un pending con type=sync_gmail; aspetta la conferma del pulsante. Dopo l'esecuzione, il client riapre automaticamente il contesto Gmail precedente (il guard email-intent è temporaneamente disattivato).
+- Dopo refresh_gmail_sync con status="synced": NON dire mai "sincronizzato" se result.ok !== true.
+
 
 - Interpreta status:
   - "not_connected" → "Gmail non è collegato."
