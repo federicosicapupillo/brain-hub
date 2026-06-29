@@ -718,9 +718,8 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
 
   const safeLog = useCallback(
     (event: string, metadata: Record<string, unknown> = {}) => {
-      // v3.21.6 — JSON-roundtrip the payload so undefined values, Dates,
-      // class instances, or non-serializable references never reach the
-      // server-fn Seroval parser (which 500s on malformed payloads).
+      // v3.21.6 — JSON-roundtrip the payload so undefined / Date / class
+      // instances / circular refs never reach the server parser.
       let safeMeta: Record<string, unknown>;
       try {
         safeMeta = JSON.parse(
@@ -729,12 +728,39 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
       } catch {
         safeMeta = { brain_id: brainId ?? null, _serialize_error: true };
       }
-      void logFn({ data: { event, metadata: safeMeta } }).catch(
-        () => undefined,
-      );
+      // v3.25.7 — bypass the createServerFn dispatcher (which in dev can 500
+      // during HMR when getServerFnById misses) and POST directly to the
+      // dedicated public route. Fire-and-forget via keepalive so a
+      // transient failure can never blank the UI or surface as a runtime
+      // error. `logFn` is kept imported to preserve type wiring but the
+      // request is sent through fetch.
+      void logFn; // referenced to satisfy unused-import lint in dev
+      try {
+        const session = supabase.auth.getSession?.();
+        Promise.resolve(session)
+          .then((res) => {
+            const token =
+              (res as { data?: { session?: { access_token?: string } } } | undefined)
+                ?.data?.session?.access_token ?? null;
+            const headers: Record<string, string> = {
+              "Content-Type": "application/json",
+            };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            return fetch("/api/jack-event", {
+              method: "POST",
+              headers,
+              body: JSON.stringify({ event, metadata: safeMeta }),
+              keepalive: true,
+            });
+          })
+          .catch(() => undefined);
+      } catch {
+        /* never throw from telemetry */
+      }
     },
     [logFn, brainId],
   );
+
 
   const trackRealtimeEventType = useCallback(
     (eventType: string, transcript?: string | null) => {
