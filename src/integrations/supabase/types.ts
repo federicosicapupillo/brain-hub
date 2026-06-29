@@ -1892,6 +1892,63 @@ export type Database = {
         }
         Relationships: []
       }
+      gmail_console_drafts: {
+        Row: {
+          bcc_emails: string[]
+          body: string | null
+          brain_id: string | null
+          cc_emails: string[]
+          created_at: string
+          forward_of_gmail_message_id: string | null
+          generated_by_ai: boolean
+          id: string
+          in_reply_to_gmail_message_id: string | null
+          in_reply_to_gmail_thread_id: string | null
+          metadata: Json
+          status: string
+          subject: string | null
+          to_emails: string[]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bcc_emails?: string[]
+          body?: string | null
+          brain_id?: string | null
+          cc_emails?: string[]
+          created_at?: string
+          forward_of_gmail_message_id?: string | null
+          generated_by_ai?: boolean
+          id?: string
+          in_reply_to_gmail_message_id?: string | null
+          in_reply_to_gmail_thread_id?: string | null
+          metadata?: Json
+          status?: string
+          subject?: string | null
+          to_emails?: string[]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bcc_emails?: string[]
+          body?: string | null
+          brain_id?: string | null
+          cc_emails?: string[]
+          created_at?: string
+          forward_of_gmail_message_id?: string | null
+          generated_by_ai?: boolean
+          id?: string
+          in_reply_to_gmail_message_id?: string | null
+          in_reply_to_gmail_thread_id?: string | null
+          metadata?: Json
+          status?: string
+          subject?: string | null
+          to_emails?: string[]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       gmail_message_map: {
         Row: {
           body_preview: string | null
