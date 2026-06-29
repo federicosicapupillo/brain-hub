@@ -83,6 +83,15 @@ import { Route as ApiPublicUiOperatorAuthRouteImport } from './routes/api/public
 import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
+import { Route as AuthenticatedOsProjectCenterRouteImport } from './routes/_authenticated/os.project-center'
+import { Route as AuthenticatedOsKnowledgeCenterRouteImport } from './routes/_authenticated/os.knowledge-center'
+import { Route as AuthenticatedOsGovernanceRouteImport } from './routes/_authenticated/os.governance'
+import { Route as AuthenticatedOsDevelopmentCenterRouteImport } from './routes/_authenticated/os.development-center'
+import { Route as AuthenticatedOsCommunicationCenterRouteImport } from './routes/_authenticated/os.communication-center'
+import { Route as AuthenticatedOsCommandCenterRouteImport } from './routes/_authenticated/os.command-center'
+import { Route as AuthenticatedOsAutomationCenterRouteImport } from './routes/_authenticated/os.automation-center'
+import { Route as AuthenticatedOsAiCoreRouteImport } from './routes/_authenticated/os.ai-core'
+import { Route as AuthenticatedOsAgentCenterRouteImport } from './routes/_authenticated/os.agent-center'
 import { Route as AuthenticatedImportaPromptStoriciRouteImport } from './routes/_authenticated/importa.prompt-storici'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 import { Route as ApiPublicGmailOauthCallbackRouteImport } from './routes/api/public/gmail-oauth/callback'
@@ -504,6 +513,59 @@ const AuthenticatedProgettiBrainIdRoute =
     path: '/$brainId',
     getParentRoute: () => AuthenticatedProgettiRoute,
   } as any)
+const AuthenticatedOsProjectCenterRoute =
+  AuthenticatedOsProjectCenterRouteImport.update({
+    id: '/project-center',
+    path: '/project-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsKnowledgeCenterRoute =
+  AuthenticatedOsKnowledgeCenterRouteImport.update({
+    id: '/knowledge-center',
+    path: '/knowledge-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsGovernanceRoute =
+  AuthenticatedOsGovernanceRouteImport.update({
+    id: '/governance',
+    path: '/governance',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsDevelopmentCenterRoute =
+  AuthenticatedOsDevelopmentCenterRouteImport.update({
+    id: '/development-center',
+    path: '/development-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsCommunicationCenterRoute =
+  AuthenticatedOsCommunicationCenterRouteImport.update({
+    id: '/communication-center',
+    path: '/communication-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsCommandCenterRoute =
+  AuthenticatedOsCommandCenterRouteImport.update({
+    id: '/command-center',
+    path: '/command-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsAutomationCenterRoute =
+  AuthenticatedOsAutomationCenterRouteImport.update({
+    id: '/automation-center',
+    path: '/automation-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
+const AuthenticatedOsAiCoreRoute = AuthenticatedOsAiCoreRouteImport.update({
+  id: '/ai-core',
+  path: '/ai-core',
+  getParentRoute: () => AuthenticatedOsRoute,
+} as any)
+const AuthenticatedOsAgentCenterRoute =
+  AuthenticatedOsAgentCenterRouteImport.update({
+    id: '/agent-center',
+    path: '/agent-center',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
 const AuthenticatedImportaPromptStoriciRoute =
   AuthenticatedImportaPromptStoriciRouteImport.update({
     id: '/prompt-storici',
@@ -602,6 +664,15 @@ export interface FileRoutesByFullPath {
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
+  '/os/agent-center': typeof AuthenticatedOsAgentCenterRoute
+  '/os/ai-core': typeof AuthenticatedOsAiCoreRoute
+  '/os/automation-center': typeof AuthenticatedOsAutomationCenterRoute
+  '/os/command-center': typeof AuthenticatedOsCommandCenterRoute
+  '/os/communication-center': typeof AuthenticatedOsCommunicationCenterRoute
+  '/os/development-center': typeof AuthenticatedOsDevelopmentCenterRoute
+  '/os/governance': typeof AuthenticatedOsGovernanceRoute
+  '/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
+  '/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
@@ -680,6 +751,15 @@ export interface FileRoutesByTo {
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/': typeof AuthenticatedIndexRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
+  '/os/agent-center': typeof AuthenticatedOsAgentCenterRoute
+  '/os/ai-core': typeof AuthenticatedOsAiCoreRoute
+  '/os/automation-center': typeof AuthenticatedOsAutomationCenterRoute
+  '/os/command-center': typeof AuthenticatedOsCommandCenterRoute
+  '/os/communication-center': typeof AuthenticatedOsCommunicationCenterRoute
+  '/os/development-center': typeof AuthenticatedOsDevelopmentCenterRoute
+  '/os/governance': typeof AuthenticatedOsGovernanceRoute
+  '/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
+  '/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
@@ -762,6 +842,15 @@ export interface FileRoutesById {
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
+  '/_authenticated/os/agent-center': typeof AuthenticatedOsAgentCenterRoute
+  '/_authenticated/os/ai-core': typeof AuthenticatedOsAiCoreRoute
+  '/_authenticated/os/automation-center': typeof AuthenticatedOsAutomationCenterRoute
+  '/_authenticated/os/command-center': typeof AuthenticatedOsCommandCenterRoute
+  '/_authenticated/os/communication-center': typeof AuthenticatedOsCommunicationCenterRoute
+  '/_authenticated/os/development-center': typeof AuthenticatedOsDevelopmentCenterRoute
+  '/_authenticated/os/governance': typeof AuthenticatedOsGovernanceRoute
+  '/_authenticated/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
+  '/_authenticated/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
@@ -844,6 +933,15 @@ export interface FileRouteTypes {
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/importa/prompt-storici'
+    | '/os/agent-center'
+    | '/os/ai-core'
+    | '/os/automation-center'
+    | '/os/command-center'
+    | '/os/communication-center'
+    | '/os/development-center'
+    | '/os/governance'
+    | '/os/knowledge-center'
+    | '/os/project-center'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
@@ -922,6 +1020,15 @@ export interface FileRouteTypes {
     | '/ui-operator-surface/$sessionId'
     | '/'
     | '/importa/prompt-storici'
+    | '/os/agent-center'
+    | '/os/ai-core'
+    | '/os/automation-center'
+    | '/os/command-center'
+    | '/os/communication-center'
+    | '/os/development-center'
+    | '/os/governance'
+    | '/os/knowledge-center'
+    | '/os/project-center'
     | '/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
@@ -1003,6 +1110,15 @@ export interface FileRouteTypes {
     | '/ui-operator-surface/$sessionId'
     | '/_authenticated/'
     | '/_authenticated/importa/prompt-storici'
+    | '/_authenticated/os/agent-center'
+    | '/_authenticated/os/ai-core'
+    | '/_authenticated/os/automation-center'
+    | '/_authenticated/os/command-center'
+    | '/_authenticated/os/communication-center'
+    | '/_authenticated/os/development-center'
+    | '/_authenticated/os/governance'
+    | '/_authenticated/os/knowledge-center'
+    | '/_authenticated/os/project-center'
     | '/_authenticated/progetti/$brainId'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
@@ -1556,6 +1672,69 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProgettiBrainIdRouteImport
       parentRoute: typeof AuthenticatedProgettiRoute
     }
+    '/_authenticated/os/project-center': {
+      id: '/_authenticated/os/project-center'
+      path: '/project-center'
+      fullPath: '/os/project-center'
+      preLoaderRoute: typeof AuthenticatedOsProjectCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/knowledge-center': {
+      id: '/_authenticated/os/knowledge-center'
+      path: '/knowledge-center'
+      fullPath: '/os/knowledge-center'
+      preLoaderRoute: typeof AuthenticatedOsKnowledgeCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/governance': {
+      id: '/_authenticated/os/governance'
+      path: '/governance'
+      fullPath: '/os/governance'
+      preLoaderRoute: typeof AuthenticatedOsGovernanceRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/development-center': {
+      id: '/_authenticated/os/development-center'
+      path: '/development-center'
+      fullPath: '/os/development-center'
+      preLoaderRoute: typeof AuthenticatedOsDevelopmentCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/communication-center': {
+      id: '/_authenticated/os/communication-center'
+      path: '/communication-center'
+      fullPath: '/os/communication-center'
+      preLoaderRoute: typeof AuthenticatedOsCommunicationCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/command-center': {
+      id: '/_authenticated/os/command-center'
+      path: '/command-center'
+      fullPath: '/os/command-center'
+      preLoaderRoute: typeof AuthenticatedOsCommandCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/automation-center': {
+      id: '/_authenticated/os/automation-center'
+      path: '/automation-center'
+      fullPath: '/os/automation-center'
+      preLoaderRoute: typeof AuthenticatedOsAutomationCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/ai-core': {
+      id: '/_authenticated/os/ai-core'
+      path: '/ai-core'
+      fullPath: '/os/ai-core'
+      preLoaderRoute: typeof AuthenticatedOsAiCoreRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
+    '/_authenticated/os/agent-center': {
+      id: '/_authenticated/os/agent-center'
+      path: '/agent-center'
+      fullPath: '/os/agent-center'
+      preLoaderRoute: typeof AuthenticatedOsAgentCenterRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
     '/_authenticated/importa/prompt-storici': {
       id: '/_authenticated/importa/prompt-storici'
       path: '/prompt-storici'
@@ -1609,10 +1788,29 @@ const AuthenticatedImportaRouteWithChildren =
   AuthenticatedImportaRoute._addFileChildren(AuthenticatedImportaRouteChildren)
 
 interface AuthenticatedOsRouteChildren {
+  AuthenticatedOsAgentCenterRoute: typeof AuthenticatedOsAgentCenterRoute
+  AuthenticatedOsAiCoreRoute: typeof AuthenticatedOsAiCoreRoute
+  AuthenticatedOsAutomationCenterRoute: typeof AuthenticatedOsAutomationCenterRoute
+  AuthenticatedOsCommandCenterRoute: typeof AuthenticatedOsCommandCenterRoute
+  AuthenticatedOsCommunicationCenterRoute: typeof AuthenticatedOsCommunicationCenterRoute
+  AuthenticatedOsDevelopmentCenterRoute: typeof AuthenticatedOsDevelopmentCenterRoute
+  AuthenticatedOsGovernanceRoute: typeof AuthenticatedOsGovernanceRoute
+  AuthenticatedOsKnowledgeCenterRoute: typeof AuthenticatedOsKnowledgeCenterRoute
+  AuthenticatedOsProjectCenterRoute: typeof AuthenticatedOsProjectCenterRoute
   AuthenticatedOsIndexRoute: typeof AuthenticatedOsIndexRoute
 }
 
 const AuthenticatedOsRouteChildren: AuthenticatedOsRouteChildren = {
+  AuthenticatedOsAgentCenterRoute: AuthenticatedOsAgentCenterRoute,
+  AuthenticatedOsAiCoreRoute: AuthenticatedOsAiCoreRoute,
+  AuthenticatedOsAutomationCenterRoute: AuthenticatedOsAutomationCenterRoute,
+  AuthenticatedOsCommandCenterRoute: AuthenticatedOsCommandCenterRoute,
+  AuthenticatedOsCommunicationCenterRoute:
+    AuthenticatedOsCommunicationCenterRoute,
+  AuthenticatedOsDevelopmentCenterRoute: AuthenticatedOsDevelopmentCenterRoute,
+  AuthenticatedOsGovernanceRoute: AuthenticatedOsGovernanceRoute,
+  AuthenticatedOsKnowledgeCenterRoute: AuthenticatedOsKnowledgeCenterRoute,
+  AuthenticatedOsProjectCenterRoute: AuthenticatedOsProjectCenterRoute,
   AuthenticatedOsIndexRoute: AuthenticatedOsIndexRoute,
 }
 
