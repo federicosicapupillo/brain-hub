@@ -75,6 +75,7 @@ import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedAgentRunsRouteImport } from './routes/_authenticated/agent-runs'
 import { Route as AuthenticatedAgentCenterRouteImport } from './routes/_authenticated/agent-center'
 import { Route as AuthenticatedActionQueueRouteImport } from './routes/_authenticated/action-queue'
+import { Route as AuthenticatedOsIndexRouteImport } from './routes/_authenticated/os.index'
 import { Route as AuthenticatedImportaIndexRouteImport } from './routes/_authenticated/importa.index'
 import { Route as ApiPublicUiOperatorSurfaceStateRouteImport } from './routes/api/public/ui-operator-surface-state'
 import { Route as ApiPublicUiOperatorSurfaceActionRouteImport } from './routes/api/public/ui-operator-surface-action'
@@ -458,6 +459,11 @@ const AuthenticatedActionQueueRoute =
     path: '/action-queue',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedOsIndexRoute = AuthenticatedOsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedOsRoute,
+} as any)
 const AuthenticatedImportaIndexRoute =
   AuthenticatedImportaIndexRouteImport.update({
     id: '/',
@@ -576,7 +582,7 @@ export interface FileRoutesByFullPath {
   '/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
-  '/os': typeof AuthenticatedOsRoute
+  '/os': typeof AuthenticatedOsRouteWithChildren
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/project-console': typeof AuthenticatedProjectConsoleRoute
   '/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -603,6 +609,7 @@ export interface FileRoutesByFullPath {
   '/api/public/ui-operator-surface-action': typeof ApiPublicUiOperatorSurfaceActionRoute
   '/api/public/ui-operator-surface-state': typeof ApiPublicUiOperatorSurfaceStateRoute
   '/importa/': typeof AuthenticatedImportaIndexRoute
+  '/os/': typeof AuthenticatedOsIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
   '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
@@ -653,7 +660,6 @@ export interface FileRoutesByTo {
   '/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
-  '/os': typeof AuthenticatedOsRoute
   '/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/project-console': typeof AuthenticatedProjectConsoleRoute
   '/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -681,6 +687,7 @@ export interface FileRoutesByTo {
   '/api/public/ui-operator-surface-action': typeof ApiPublicUiOperatorSurfaceActionRoute
   '/api/public/ui-operator-surface-state': typeof ApiPublicUiOperatorSurfaceStateRoute
   '/importa': typeof AuthenticatedImportaIndexRoute
+  '/os': typeof AuthenticatedOsIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
   '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
@@ -734,7 +741,7 @@ export interface FileRoutesById {
   '/_authenticated/mvp-factory': typeof AuthenticatedMvpFactoryRoute
   '/_authenticated/n8n-workflows': typeof AuthenticatedN8nWorkflowsRoute
   '/_authenticated/operating-dashboard': typeof AuthenticatedOperatingDashboardRoute
-  '/_authenticated/os': typeof AuthenticatedOsRoute
+  '/_authenticated/os': typeof AuthenticatedOsRouteWithChildren
   '/_authenticated/progetti': typeof AuthenticatedProgettiRouteWithChildren
   '/_authenticated/project-console': typeof AuthenticatedProjectConsoleRoute
   '/_authenticated/project-loop': typeof AuthenticatedProjectLoopRoute
@@ -762,6 +769,7 @@ export interface FileRoutesById {
   '/api/public/ui-operator-surface-action': typeof ApiPublicUiOperatorSurfaceActionRoute
   '/api/public/ui-operator-surface-state': typeof ApiPublicUiOperatorSurfaceStateRoute
   '/_authenticated/importa/': typeof AuthenticatedImportaIndexRoute
+  '/_authenticated/os/': typeof AuthenticatedOsIndexRoute
   '/api/public/calendar-oauth/callback': typeof ApiPublicCalendarOauthCallbackRoute
   '/api/public/drive-oauth/callback': typeof ApiPublicDriveOauthCallbackRoute
   '/api/public/gmail-oauth/callback': typeof ApiPublicGmailOauthCallbackRoute
@@ -843,6 +851,7 @@ export interface FileRouteTypes {
     | '/api/public/ui-operator-surface-action'
     | '/api/public/ui-operator-surface-state'
     | '/importa/'
+    | '/os/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
     | '/api/public/gmail-oauth/callback'
@@ -893,7 +902,6 @@ export interface FileRouteTypes {
     | '/mvp-factory'
     | '/n8n-workflows'
     | '/operating-dashboard'
-    | '/os'
     | '/progetti'
     | '/project-console'
     | '/project-loop'
@@ -921,6 +929,7 @@ export interface FileRouteTypes {
     | '/api/public/ui-operator-surface-action'
     | '/api/public/ui-operator-surface-state'
     | '/importa'
+    | '/os'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
     | '/api/public/gmail-oauth/callback'
@@ -1001,6 +1010,7 @@ export interface FileRouteTypes {
     | '/api/public/ui-operator-surface-action'
     | '/api/public/ui-operator-surface-state'
     | '/_authenticated/importa/'
+    | '/_authenticated/os/'
     | '/api/public/calendar-oauth/callback'
     | '/api/public/drive-oauth/callback'
     | '/api/public/gmail-oauth/callback'
@@ -1490,6 +1500,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedActionQueueRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/os/': {
+      id: '/_authenticated/os/'
+      path: '/'
+      fullPath: '/os/'
+      preLoaderRoute: typeof AuthenticatedOsIndexRouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
     '/_authenticated/importa/': {
       id: '/_authenticated/importa/'
       path: '/'
@@ -1591,6 +1608,18 @@ const AuthenticatedImportaRouteChildren: AuthenticatedImportaRouteChildren = {
 const AuthenticatedImportaRouteWithChildren =
   AuthenticatedImportaRoute._addFileChildren(AuthenticatedImportaRouteChildren)
 
+interface AuthenticatedOsRouteChildren {
+  AuthenticatedOsIndexRoute: typeof AuthenticatedOsIndexRoute
+}
+
+const AuthenticatedOsRouteChildren: AuthenticatedOsRouteChildren = {
+  AuthenticatedOsIndexRoute: AuthenticatedOsIndexRoute,
+}
+
+const AuthenticatedOsRouteWithChildren = AuthenticatedOsRoute._addFileChildren(
+  AuthenticatedOsRouteChildren,
+)
+
 interface AuthenticatedProgettiRouteChildren {
   AuthenticatedProgettiBrainIdRoute: typeof AuthenticatedProgettiBrainIdRoute
 }
@@ -1649,7 +1678,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedMvpFactoryRoute: typeof AuthenticatedMvpFactoryRoute
   AuthenticatedN8nWorkflowsRoute: typeof AuthenticatedN8nWorkflowsRoute
   AuthenticatedOperatingDashboardRoute: typeof AuthenticatedOperatingDashboardRoute
-  AuthenticatedOsRoute: typeof AuthenticatedOsRoute
+  AuthenticatedOsRoute: typeof AuthenticatedOsRouteWithChildren
   AuthenticatedProgettiRoute: typeof AuthenticatedProgettiRouteWithChildren
   AuthenticatedProjectConsoleRoute: typeof AuthenticatedProjectConsoleRoute
   AuthenticatedProjectLoopRoute: typeof AuthenticatedProjectLoopRoute
@@ -1711,7 +1740,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedMvpFactoryRoute: AuthenticatedMvpFactoryRoute,
   AuthenticatedN8nWorkflowsRoute: AuthenticatedN8nWorkflowsRoute,
   AuthenticatedOperatingDashboardRoute: AuthenticatedOperatingDashboardRoute,
-  AuthenticatedOsRoute: AuthenticatedOsRoute,
+  AuthenticatedOsRoute: AuthenticatedOsRouteWithChildren,
   AuthenticatedProgettiRoute: AuthenticatedProgettiRouteWithChildren,
   AuthenticatedProjectConsoleRoute: AuthenticatedProjectConsoleRoute,
   AuthenticatedProjectLoopRoute: AuthenticatedProjectLoopRoute,
