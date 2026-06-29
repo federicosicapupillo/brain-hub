@@ -41,7 +41,8 @@ import {
   type GmailCategory,
   logGmailConnectorEvent,
 } from "@/lib/gmail-connector";
-import { useGmailAutoSync, GMAIL_AUTO_SYNC_INTERVAL_MS } from "@/hooks/use-gmail-auto-sync";
+import { GMAIL_AUTO_SYNC_INTERVAL_MS } from "@/hooks/use-gmail-auto-sync";
+import { useGmailAutoSyncContextStrict } from "@/context/gmail-auto-sync-context";
 
 export const Route = createFileRoute("/_authenticated/gmail-connector")({
   head: () => ({
@@ -158,8 +159,15 @@ function GmailConnectorRoute() {
   const isConnected = !!summary.data?.connected;
   const conn = summary.data?.connection ?? null;
 
-  // v3.25.5 — Smart Gmail Sync Scheduler
-  const autoSync = useGmailAutoSync(brainId);
+  // v3.25.6 — read scheduler state from the global provider mounted in
+  // _authenticated/route.tsx. Do NOT call useGmailAutoSync() again or a
+  // second 5-minute interval would run in parallel.
+  const autoSyncCtx = useGmailAutoSyncContextStrict();
+  const autoSync = {
+    state: autoSyncCtx.state,
+    triggerManualRefresh: autoSyncCtx.triggerManualSync,
+  };
+
 
   async function handleConnect() {
     void logGmailConnectorEvent("gmail_oauth_started", "Avvio OAuth Gmail", {
