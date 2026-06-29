@@ -1717,32 +1717,67 @@ export const executeEmailActionFn = createServerFn({ method: "POST" })
       "@/lib/gmail-oauth.server"
     );
 
+    // v3.27 — support dynamic label actions via "add_label:LABEL_ID" /
+    // "remove_label:LABEL_ID" alongside the v3.26 deterministic verbs.
+    let labelOp: "add" | "remove" | null = null;
+    let labelArg: string | null = null;
+    if (actionType.startsWith("add_label:")) {
+      labelOp = "add";
+      labelArg = actionType.slice("add_label:".length).trim();
+    } else if (actionType.startsWith("remove_label:")) {
+      labelOp = "remove";
+      labelArg = actionType.slice("remove_label:".length).trim();
+    }
+
     try {
-      switch (actionType) {
-        case "archive":
-          await modifyGmailMessage(accessToken, data.gmail_message_id, {
-            removeLabelIds: ["INBOX"],
-          });
-          break;
+      if (labelOp && labelArg) {
+        if (!/^[A-Za-z0-9_\-]{1,80}$/.test(labelArg)) {
+          return { ok: false, error: "invalid_label_id" };
+        }
+        await modifyGmailMessage(accessToken, data.gmail_message_id, {
+          addLabelIds: labelOp === "add" ? [labelArg] : [],
+          removeLabelIds: labelOp === "remove" ? [labelArg] : [],
+        });
+      } else {
+        switch (actionType) {
+          case "archive":
+            await modifyGmailMessage(accessToken, data.gmail_message_id, {
+              removeLabelIds: ["INBOX"],
+            });
+            break;
 
-        case "mark_read":
-          await modifyGmailMessage(accessToken, data.gmail_message_id, {
-            removeLabelIds: ["UNREAD"],
-          });
-          break;
+          case "mark_read":
+            await modifyGmailMessage(accessToken, data.gmail_message_id, {
+              removeLabelIds: ["UNREAD"],
+            });
+            break;
 
-        case "archive_and_read":
-          await modifyGmailMessage(accessToken, data.gmail_message_id, {
-            removeLabelIds: ["INBOX", "UNREAD"],
-          });
-          break;
+          case "mark_unread":
+            await modifyGmailMessage(accessToken, data.gmail_message_id, {
+              addLabelIds: ["UNREAD"],
+            });
+            break;
 
-        case "trash":
-          await trashGmailMessage(accessToken, data.gmail_message_id);
-          break;
+          case "archive_and_read":
+            await modifyGmailMessage(accessToken, data.gmail_message_id, {
+              removeLabelIds: ["INBOX", "UNREAD"],
+            });
+            break;
 
-        default:
-          return { ok: false, error: `action_not_supported:${actionType}` };
+          case "trash":
+            await trashGmailMessage(accessToken, data.gmail_message_id);
+            break;
+
+          case "restore":
+            await modifyGmailMessage(accessToken, data.gmail_message_id, {
+              addLabelIds: ["INBOX"],
+              removeLabelIds: ["TRASH"],
+            });
+            break;
+
+          default:
+            return { ok: false, error: `action_not_supported:${actionType}` };
+        }
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
