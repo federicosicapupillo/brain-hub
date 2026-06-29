@@ -225,12 +225,13 @@ function buildCountOnly(p: GmailBriefVoicePayload, name: string): string {
 // NEVER invents sender/subject. If the scoped count and the detailed
 // items don't line up perfectly, returns count-only + suggestion.
 
-type UnreadScope = "inbox" | "all" | "today" | "category";
+type UnreadScope = "inbox" | "all" | "today" | "today_all" | "category";
 
 const SCOPE_PHRASE: Record<UnreadScope, string> = {
   inbox: "in Posta in arrivo",
   all: "in tutto Gmail",
-  today: "oggi",
+  today: "oggi in Posta in arrivo",
+  today_all: "oggi in tutto Gmail",
   category: "nella categoria selezionata",
 };
 
@@ -244,12 +245,14 @@ function scopedUnreadCount(p: GmailBriefVoicePayload, scope: UnreadScope): numbe
     if (scope === "inbox" && typeof sc.inbox === "number") return sc.inbox;
     if (scope === "all" && typeof sc.all === "number") return sc.all;
     if (scope === "today" && typeof sc.today === "number") return sc.today;
+    if (scope === "today_all" && typeof sc.today_all === "number") return sc.today_all;
     if (scope === "category" && typeof sc.category === "number") return sc.category;
   }
   if (typeof p.unread_count === "number" && p.unread_scope === scope) return p.unread_count;
   // Fallback: do NOT cross scopes. Return -1 to signal "unknown".
   return -1;
 }
+
 
 function buildScopedUnread(
   p: GmailBriefVoicePayload,
