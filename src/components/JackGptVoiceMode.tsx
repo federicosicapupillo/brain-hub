@@ -910,6 +910,48 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     [safeLog],
   );
 
+  const disableVadWhileSpeaking = useCallback(() => {
+    const dc = dcRef.current;
+    if (!dc || dc.readyState !== "open") return;
+    try {
+      dc.send(JSON.stringify({
+        type: "session.update",
+        session: {
+          type: "realtime",
+          audio: {
+            input: {
+              turn_detection: null,
+            },
+          },
+        },
+      }));
+      safeLog("jack_voice_vad_disabled_while_speaking");
+    } catch { /* noop */ }
+  }, [safeLog]);
+
+  const enableVadAfterSpeaking = useCallback(() => {
+    const dc = dcRef.current;
+    if (!dc || dc.readyState !== "open") return;
+    try {
+      dc.send(JSON.stringify({
+        type: "session.update",
+        session: {
+          type: "realtime",
+          audio: {
+            input: {
+              turn_detection: {
+                type: "server_vad",
+                create_response: false,
+                interrupt_response: false,
+              },
+            },
+          },
+        },
+      }));
+      safeLog("jack_voice_vad_enabled_after_speaking");
+    } catch { /* noop */ }
+  }, [safeLog]);
+
   const flushPendingResponse = useCallback(() => {
     if (flushTimerRef.current) {
       clearTimeout(flushTimerRef.current);
