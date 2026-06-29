@@ -435,7 +435,7 @@ export const JACK_GPT_TOOLS_SCHEMA = [
         mode: { type: "string", enum: ["today", "recent"] },
         reason: {
           type: "string",
-          enum: ["user_requested", "stale_before_read"],
+          enum: ["user_requested", "stale_before_read", "auto"],
         },
         brain_id: { type: "string" },
       },
