@@ -42,6 +42,7 @@ import { Route as AuthenticatedImportaRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedHealthCheckRouteImport } from './routes/_authenticated/health-check'
 import { Route as AuthenticatedGuidaRouteImport } from './routes/_authenticated/guida'
 import { Route as AuthenticatedGmailIntelligenceRouteImport } from './routes/_authenticated/gmail-intelligence'
+import { Route as AuthenticatedGmailConsoleRouteImport } from './routes/_authenticated/gmail-console'
 import { Route as AuthenticatedGmailConnectorRouteImport } from './routes/_authenticated/gmail-connector'
 import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authenticated/github-sync'
 import { Route as AuthenticatedGithubOperationalRouteImport } from './routes/_authenticated/github-operational'
@@ -263,6 +264,12 @@ const AuthenticatedGmailIntelligenceRoute =
   AuthenticatedGmailIntelligenceRouteImport.update({
     id: '/gmail-intelligence',
     path: '/gmail-intelligence',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedGmailConsoleRoute =
+  AuthenticatedGmailConsoleRouteImport.update({
+    id: '/gmail-console',
+    path: '/gmail-console',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedGmailConnectorRoute =
@@ -527,6 +534,7 @@ export interface FileRoutesByFullPath {
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/gmail-connector': typeof AuthenticatedGmailConnectorRoute
+  '/gmail-console': typeof AuthenticatedGmailConsoleRoute
   '/gmail-intelligence': typeof AuthenticatedGmailIntelligenceRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/health-check': typeof AuthenticatedHealthCheckRoute
@@ -600,6 +608,7 @@ export interface FileRoutesByTo {
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
   '/github-sync': typeof AuthenticatedGithubSyncRoute
   '/gmail-connector': typeof AuthenticatedGmailConnectorRoute
+  '/gmail-console': typeof AuthenticatedGmailConsoleRoute
   '/gmail-intelligence': typeof AuthenticatedGmailIntelligenceRoute
   '/guida': typeof AuthenticatedGuidaRoute
   '/health-check': typeof AuthenticatedHealthCheckRoute
@@ -675,6 +684,7 @@ export interface FileRoutesById {
   '/_authenticated/github-operational': typeof AuthenticatedGithubOperationalRoute
   '/_authenticated/github-sync': typeof AuthenticatedGithubSyncRoute
   '/_authenticated/gmail-connector': typeof AuthenticatedGmailConnectorRoute
+  '/_authenticated/gmail-console': typeof AuthenticatedGmailConsoleRoute
   '/_authenticated/gmail-intelligence': typeof AuthenticatedGmailIntelligenceRoute
   '/_authenticated/guida': typeof AuthenticatedGuidaRoute
   '/_authenticated/health-check': typeof AuthenticatedHealthCheckRoute
@@ -752,6 +762,7 @@ export interface FileRouteTypes {
     | '/github-operational'
     | '/github-sync'
     | '/gmail-connector'
+    | '/gmail-console'
     | '/gmail-intelligence'
     | '/guida'
     | '/health-check'
@@ -825,6 +836,7 @@ export interface FileRouteTypes {
     | '/github-operational'
     | '/github-sync'
     | '/gmail-connector'
+    | '/gmail-console'
     | '/gmail-intelligence'
     | '/guida'
     | '/health-check'
@@ -899,6 +911,7 @@ export interface FileRouteTypes {
     | '/_authenticated/github-operational'
     | '/_authenticated/github-sync'
     | '/_authenticated/gmail-connector'
+    | '/_authenticated/gmail-console'
     | '/_authenticated/gmail-intelligence'
     | '/_authenticated/guida'
     | '/_authenticated/health-check'
@@ -1192,6 +1205,13 @@ declare module '@tanstack/react-router' {
       path: '/gmail-intelligence'
       fullPath: '/gmail-intelligence'
       preLoaderRoute: typeof AuthenticatedGmailIntelligenceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gmail-console': {
+      id: '/_authenticated/gmail-console'
+      path: '/gmail-console'
+      fullPath: '/gmail-console'
+      preLoaderRoute: typeof AuthenticatedGmailConsoleRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/gmail-connector': {
@@ -1533,6 +1553,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedGithubOperationalRoute: typeof AuthenticatedGithubOperationalRoute
   AuthenticatedGithubSyncRoute: typeof AuthenticatedGithubSyncRoute
   AuthenticatedGmailConnectorRoute: typeof AuthenticatedGmailConnectorRoute
+  AuthenticatedGmailConsoleRoute: typeof AuthenticatedGmailConsoleRoute
   AuthenticatedGmailIntelligenceRoute: typeof AuthenticatedGmailIntelligenceRoute
   AuthenticatedGuidaRoute: typeof AuthenticatedGuidaRoute
   AuthenticatedHealthCheckRoute: typeof AuthenticatedHealthCheckRoute
@@ -1592,6 +1613,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGithubOperationalRoute: AuthenticatedGithubOperationalRoute,
   AuthenticatedGithubSyncRoute: AuthenticatedGithubSyncRoute,
   AuthenticatedGmailConnectorRoute: AuthenticatedGmailConnectorRoute,
+  AuthenticatedGmailConsoleRoute: AuthenticatedGmailConsoleRoute,
   AuthenticatedGmailIntelligenceRoute: AuthenticatedGmailIntelligenceRoute,
   AuthenticatedGuidaRoute: AuthenticatedGuidaRoute,
   AuthenticatedHealthCheckRoute: AuthenticatedHealthCheckRoute,
