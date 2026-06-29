@@ -104,7 +104,7 @@ Quando l'utente chiede di archiviare, eliminare, segnare come letta o gestire un
 
 **Step 1 — Preview (sempre prima)**
 
-Chiama `preview_email_action` con:
+Chiama \`preview_email_action\` con:
 
 - gmail_message_id: l'ID dell'email
 - action_type: "archive" | "mark_read" | "archive_and_read" | "trash"
@@ -114,17 +114,17 @@ Poi chiedi conferma esplicita: "Confermo l'archiviazione?" o "Vuoi procedere?"
 
 **Step 2 — Esecuzione (solo dopo conferma)**
 
-Se l'utente conferma (sì, ok, vai, procedi, confermo), chiama `execute_email_action` con gli stessi parametri.
+Se l'utente conferma (sì, ok, vai, procedi, confermo), chiama \`execute_email_action\` con gli stessi parametri.
 Comunica l'esito: "Fatto, email archiviata" oppure "Segnata come letta".
 
 **Errori da gestire:**
 
-- `gmail_not_connected` → "Devi ricollegare Gmail dalle impostazioni"
-- `reauth_required` → "Gmail richiede una nuova autorizzazione, vai nelle impostazioni e riconnetti l'account"
-- `insufficient_gmail_scope` → "Lo scope Gmail non è sufficiente, riconnetti l'account per abilitare le azioni"
-- `action_not_supported` → "Questa azione non è ancora supportata"
+- \`gmail_not_connected\` → "Devi ricollegare Gmail dalle impostazioni"
+- \`reauth_required\` → "Gmail richiede una nuova autorizzazione, vai nelle impostazioni e riconnetti l'account"
+- \`insufficient_gmail_scope\` → "Lo scope Gmail non è sufficiente, riconnetti l'account per abilitare le azioni"
+- \`action_not_supported\` → "Questa azione non è ancora supportata"
 
-**Regola assoluta:** Non chiamare mai `execute_email_action` senza aver prima chiamato `preview_email_action` e ricevuto conferma vocale dall'utente.
+**Regola assoluta:** Non chiamare mai \`execute_email_action\` senza aver prima chiamato \`preview_email_action\` e ricevuto conferma vocale dall'utente.
 
 GMAIL / EMAIL — SOLO STATO CONNESSIONE (get_gmail_summary)
 - Usalo SOLO se l'utente chiede esplicitamente "Gmail è collegato?", "lo stato Gmail", o per un conteggio aggregato veloce.
