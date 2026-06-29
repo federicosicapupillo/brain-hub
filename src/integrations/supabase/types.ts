@@ -232,6 +232,51 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_tool_contracts: {
+        Row: {
+          agent_key: string
+          capabilities: Json
+          confidence: number
+          constraints: Json
+          contract_version: string
+          created_at: string
+          id: string
+          note: string | null
+          source: string
+          tool_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_key: string
+          capabilities?: Json
+          confidence?: number
+          constraints?: Json
+          contract_version?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          source?: string
+          tool_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_key?: string
+          capabilities?: Json
+          confidence?: number
+          constraints?: Json
+          contract_version?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          source?: string
+          tool_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agents: {
         Row: {
           brain_id: string | null
@@ -334,6 +379,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      architecture_audit_runs: {
+        Row: {
+          created_at: string
+          dependencies_count: number
+          id: string
+          limits: Json
+          low_confidence_count: number
+          phase: string
+          routes_count: number
+          services_count: number
+          snapshot_id: string
+          snapshot_path: string | null
+          tables_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dependencies_count?: number
+          id?: string
+          limits?: Json
+          low_confidence_count?: number
+          phase: string
+          routes_count?: number
+          services_count?: number
+          snapshot_id: string
+          snapshot_path?: string | null
+          tables_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dependencies_count?: number
+          id?: string
+          limits?: Json
+          low_confidence_count?: number
+          phase?: string
+          routes_count?: number
+          services_count?: number
+          snapshot_id?: string
+          snapshot_path?: string | null
+          tables_count?: number
+          user_id?: string
+        }
+        Relationships: []
       }
       automation_actions: {
         Row: {
@@ -509,6 +599,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      brain_graph_relation_candidates: {
+        Row: {
+          brain_id: string | null
+          confidence: number
+          created_at: string
+          from_node_id: string | null
+          id: string
+          metadata: Json
+          note: string | null
+          relation_type: string
+          source: string
+          status: string
+          to_node_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brain_id?: string | null
+          confidence: number
+          created_at?: string
+          from_node_id?: string | null
+          id?: string
+          metadata?: Json
+          note?: string | null
+          relation_type: string
+          source: string
+          status?: string
+          to_node_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brain_id?: string | null
+          confidence?: number
+          created_at?: string
+          from_node_id?: string | null
+          id?: string
+          metadata?: Json
+          note?: string | null
+          relation_type?: string
+          source?: string
+          status?: string
+          to_node_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       brain_nodes: {
         Row: {
@@ -2208,6 +2346,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      governance_action_levels: {
+        Row: {
+          approval_channels: Json
+          confidence: number
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          level_key: string
+          note: string | null
+          requires_approval: boolean
+          risk_score: number
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approval_channels?: Json
+          confidence?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          level_key: string
+          note?: string | null
+          requires_approval?: boolean
+          risk_score?: number
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approval_channels?: Json
+          confidence?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          level_key?: string
+          note?: string | null
+          requires_approval?: boolean
+          risk_score?: number
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       import_jobs: {
         Row: {
