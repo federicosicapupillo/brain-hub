@@ -2749,6 +2749,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           // v3.25.4 — barge-in guard: track when Jack starts speaking.
           assistantSpeakingRef.current = true;
           lastAssistantSpeechStartedAtRef.current = Date.now();
+          setMicMuted(true); // muta microfono mentre Jack parla
           disableVadWhileSpeaking();
           // reset transcript dedup window for the new response
           transcriptDedupRef.current = {
