@@ -1748,6 +1748,19 @@ export const runJackGptTool = createServerFn({ method: "POST" })
           });
           return { ok: res.ok, payload: res };
         }
+        case "execute_email_action": {
+          const { executeEmailActionFn } = await import(
+            "@/lib/gmail-intelligence.functions"
+          );
+          const res = await executeEmailActionFn({
+            data: {
+              gmail_message_id: args.gmail_message_id as string | undefined,
+              action_type: (args.action_type as string | undefined) ?? "archive",
+              brain_id: (args.brain_id as string | undefined) ?? null,
+            },
+          });
+          return { ok: res.ok, payload: res };
+        }
         case "search_emails": {
           const { searchEmailsFn } = await import("@/lib/gmail-intelligence.functions");
           const res = await searchEmailsFn({
