@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as UiOperatorSurfaceSessionIdRouteImport } from './routes/ui-operator-surface.$sessionId'
 import { Route as UiOperatorProxySessionIdRouteImport } from './routes/ui-operator-proxy.$sessionId'
+import { Route as ApiJackEventRouteImport } from './routes/api/jack-event'
 import { Route as AuthenticatedUiOperatorLabRouteImport } from './routes/_authenticated/ui-operator-lab'
 import { Route as AuthenticatedToolConnectionsRouteImport } from './routes/_authenticated/tool-connections'
 import { Route as AuthenticatedTelegramApprovalsRouteImport } from './routes/_authenticated/telegram-approvals'
@@ -108,6 +109,11 @@ const UiOperatorProxySessionIdRoute =
     path: '/ui-operator-proxy/$sessionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiJackEventRoute = ApiJackEventRouteImport.update({
+  id: '/api/jack-event',
+  path: '/api/jack-event',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedUiOperatorLabRoute =
   AuthenticatedUiOperatorLabRouteImport.update({
     id: '/ui-operator-lab',
@@ -548,6 +554,7 @@ export interface FileRoutesByFullPath {
   '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
+  '/api/jack-event': typeof ApiJackEventRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
@@ -619,6 +626,7 @@ export interface FileRoutesByTo {
   '/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
+  '/api/jack-event': typeof ApiJackEventRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/': typeof AuthenticatedIndexRoute
@@ -694,6 +702,7 @@ export interface FileRoutesById {
   '/_authenticated/telegram-approvals': typeof AuthenticatedTelegramApprovalsRoute
   '/_authenticated/tool-connections': typeof AuthenticatedToolConnectionsRoute
   '/_authenticated/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
+  '/api/jack-event': typeof ApiJackEventRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -770,6 +779,7 @@ export interface FileRouteTypes {
     | '/telegram-approvals'
     | '/tool-connections'
     | '/ui-operator-lab'
+    | '/api/jack-event'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/importa/prompt-storici'
@@ -841,6 +851,7 @@ export interface FileRouteTypes {
     | '/telegram-approvals'
     | '/tool-connections'
     | '/ui-operator-lab'
+    | '/api/jack-event'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/'
@@ -915,6 +926,7 @@ export interface FileRouteTypes {
     | '/_authenticated/telegram-approvals'
     | '/_authenticated/tool-connections'
     | '/_authenticated/ui-operator-lab'
+    | '/api/jack-event'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/_authenticated/'
@@ -935,6 +947,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiJackEventRoute: typeof ApiJackEventRoute
   UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
   UiOperatorSurfaceSessionIdRoute: typeof UiOperatorSurfaceSessionIdRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
@@ -983,6 +996,13 @@ declare module '@tanstack/react-router' {
       path: '/ui-operator-proxy/$sessionId'
       fullPath: '/ui-operator-proxy/$sessionId'
       preLoaderRoute: typeof UiOperatorProxySessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/jack-event': {
+      id: '/api/jack-event'
+      path: '/api/jack-event'
+      fullPath: '/api/jack-event'
+      preLoaderRoute: typeof ApiJackEventRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/ui-operator-lab': {
@@ -1608,6 +1628,7 @@ const AuthenticatedRouteRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiJackEventRoute: ApiJackEventRoute,
   UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
   UiOperatorSurfaceSessionIdRoute: UiOperatorSurfaceSessionIdRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
