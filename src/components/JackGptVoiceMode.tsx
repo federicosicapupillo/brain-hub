@@ -395,6 +395,7 @@ type Diagnostics = {
   lastIgnoredReason: IgnoredUtteranceReason | null;
   pendingToolConfirmation: boolean;
   lastToolBlockedReason: VoiceToolBlockedReason | null;
+  lastToolAllowedReason: VoiceToolAllowedReason | null;
   lastToolGateDecision: "allowed" | "blocked" | null;
   lastAssistantAskedConfirmationAt: number | null;
   lastGmailSyncStatus: string | null;
