@@ -3149,7 +3149,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             safeLog("jack_realtime_auto_response_disabled", {
               turn_detection_type: "server_vad",
               create_response: false,
-              interrupt_response: true,
+              interrupt_response: false,
             });
             setDiagnostics((d) => ({ ...d, realtimeAutoResponseDisabled: true }));
             // v3.13: inject natural memory context as additional instructions.
