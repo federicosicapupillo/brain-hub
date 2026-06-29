@@ -1366,7 +1366,24 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
             mode,
             has_user_utterance: Boolean(userUtterance),
           });
-          const brief = result as GmailBriefVoicePayload;
+          const rawPayload = (result as { payload?: GmailBriefVoicePayload }).payload ?? (result as GmailBriefVoicePayload);
+          // Normalize field names: get_email_brief returns *_preview suffixed arrays
+          const brief: GmailBriefVoicePayload = {
+            ...rawPayload,
+            all_today: rawPayload.all_today ?? (rawPayload as Record<string, unknown>).all_today_preview as typeof rawPayload.all_today ?? null,
+            inbox_today: rawPayload.inbox_today ?? (rawPayload as Record<string, unknown>).inbox_today_preview as typeof rawPayload.inbox_today ?? null,
+            newsletters_today: rawPayload.newsletters_today ?? (rawPayload as Record<string, unknown>).newsletters_today_preview as typeof rawPayload.newsletters_today ?? null,
+            counts: rawPayload.counts ?? (() => {
+              const t = (rawPayload as Record<string, unknown>).today as Record<string, number> | undefined;
+              if (!t) return null;
+              return {
+                today_total: t.total_all ?? 0,
+                today_unread: t.unread_total ?? 0,
+                today_newsletters: t.newsletter_total ?? 0,
+                today_inbox: t.inbox_total ?? 0,
+              };
+            })(),
+          };
           const built = buildGmailVoiceResponse({ mode, brief });
           safeLog("jack_gmail_voice_response_built", {
             mode,
