@@ -67,6 +67,7 @@ import {
 
   type IgnoredUtteranceReason,
   type VoiceToolBlockedReason,
+  type VoiceToolAllowedReason,
 } from "@/lib/jack-voice-tool-gate";
 
 import {
