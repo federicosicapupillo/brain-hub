@@ -376,35 +376,6 @@ export function decideVoiceToolGate(input: GateDecisionInput): GateDecision {
   }
 
   return { status: "allowed", reason: "tool_not_gated" };
-}
-
-  if (
-    input.toolName === "open_brainhub_screen" ||
-    input.toolName === "observe_brainhub_screen" ||
-    input.toolName === "propose_ui_action" ||
-    input.toolName === "confirm_ui_action" ||
-    input.toolName === "execute_confirmed_ui_action"
-  ) {
-    // Require either an explicit confirmation right after an assistant question,
-    // or an explicit open/controllo command.
-    const recentlyAsked =
-      askedAt > 0 && input.now - askedAt < ANSWER_WINDOW_MS;
-    if (recentlyAsked && isExplicitOpenScreenConfirmation(utterance)) {
-      return { status: "allowed" };
-    }
-    if (/\b(apri|controlla|controlliamo|vai\s+su)\b/i.test(utterance)) {
-      return { status: "allowed" };
-    }
-    return {
-      status: "blocked",
-      reason: "no_explicit_open_screen_confirmation",
-      safe_message:
-        "Prima di aprire una schermata di Brain Hub ho bisogno di una conferma esplicita.",
-    };
-  }
-
-  return { status: "allowed" };
-}
 
 export function buildBlockedToolPayload(reason: VoiceToolBlockedReason, safe_message: string) {
   return {
