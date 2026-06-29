@@ -1708,7 +1708,7 @@ export const runJackGptTool = createServerFn({ method: "POST" })
               date_range: (args.date_range as "today" | "7d" | "all" | undefined) ?? "today",
               unread_only: Boolean(args.unread_only),
               important_only: args.important_only === true,
-              scope: (args.scope as "inbox" | "all" | "today" | "category" | undefined),
+              scope: (args.scope as "inbox" | "all" | "today" | "today_all" | "category" | undefined),
               category: (args.category as
                 | "primary"
                 | "promotions"
