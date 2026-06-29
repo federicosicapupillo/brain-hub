@@ -1011,6 +1011,21 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       cache_stale: cacheStale,
       stale_rows_hidden_count: staleTodayHiddenCount,
       active_sync_run_id: activeSyncRunId,
+      // v3.26.1 — Gmail Unread Scope. Single source of truth per scope.
+      // Jack must NEVER sum these to derive a total.
+      unread_scope: resolvedUnreadScope,
+      unread_count: resolvedUnreadCount,
+      unread_scope_counts: {
+        inbox: inboxUnreadCount,
+        all: allUnreadCount,
+        today: todayUnreadCount,
+        category: categoryUnreadCount,
+      },
+      unread_category: data.category ?? null,
+      // Detail completeness: Jack must not invent sender/subject if false.
+      messages_are_complete: resolvedUnreadCount === flat.filter((e) => e.unread).length,
+      confidence: cacheStale || possiblyStale ? "partial" : "high",
+      source: "gmail_message_map",
       // legacy aliases
       total_today: counts.today_total_all,
       unread_today:
