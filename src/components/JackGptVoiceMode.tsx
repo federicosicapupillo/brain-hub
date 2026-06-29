@@ -952,6 +952,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
     } catch { /* noop */ }
   }, [safeLog]);
 
+  const flushPendingResponse = useCallback(() => {
     if (flushTimerRef.current) {
       clearTimeout(flushTimerRef.current);
       flushTimerRef.current = null;
