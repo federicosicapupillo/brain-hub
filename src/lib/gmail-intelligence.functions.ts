@@ -983,6 +983,20 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
     if (data.important_only === true) flat = flat.filter((e) => e.importance_score >= 55);
     flat = flat.slice(0, limit);
 
+    // v3.26.1 — detail/count mismatch guard. If the scoped count does not
+    // match the detailed items we can ground on, log it; consumers must
+    // treat the response as partial and NOT invent the missing items.
+    const flatUnreadCount = flat.filter((e) => e.unread).length;
+    if (resolvedUnreadCount !== flatUnreadCount) {
+      void logEvent(supabase, userId, "gmail_unread_count_detail_mismatch", {
+        resolved_scope: resolvedUnreadScope,
+        resolved_unread_count: resolvedUnreadCount,
+        detail_unread_count: flatUnreadCount,
+      });
+    }
+
+
+
     return {
       ok: true,
       connected: true,
