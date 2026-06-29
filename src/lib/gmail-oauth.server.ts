@@ -1,17 +1,16 @@
 // ============================================================
 // Brain Hub v3.8 — Gmail OAuth (server-only helpers)
 // ============================================================
-// READ-ONLY: scope strict to gmail.readonly. No send / modify /
-// compose / delete / label changes. Tokens NEVER logged or returned
-// to the client. Refresh tokens not persisted in this version.
+// Scope: gmail.modify. Allows read, label changes, archive and
+// trash. No send / compose / delete / label admin. Tokens NEVER
+// logged or returned to the client.
 // ============================================================
 
 export const GMAIL_OAUTH_SCOPE =
-  "https://www.googleapis.com/auth/gmail.readonly";
+  "https://www.googleapis.com/auth/gmail.modify";
 
 const FORBIDDEN_SCOPES = [
   "https://mail.google.com/",
-  "https://www.googleapis.com/auth/gmail.modify",
   "https://www.googleapis.com/auth/gmail.compose",
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/gmail.insert",
@@ -346,4 +345,67 @@ export async function refreshGmailAccessToken(
     throw err;
   }
   return (await res.json()) as GmailTokenResponse;
+}
+
+export type GmailModifyResult = {
+  id: string;
+  labelIds?: string[];
+};
+
+export async function modifyGmailMessage(
+  accessToken: string,
+  messageId: string,
+  opts: {
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  },
+): Promise<GmailModifyResult> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}/modify`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        addLabelIds: opts.addLabelIds ?? [],
+        removeLabelIds: opts.removeLabelIds ?? [],
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(
+      `Gmail modify errore (${res.status}): ${txt.slice(0, 200)}`,
+    );
+  }
+
+  return (await res.json()) as GmailModifyResult;
+}
+
+export async function trashGmailMessage(
+  accessToken: string,
+  messageId: string,
+): Promise<GmailModifyResult> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}/trash`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    },
+  );
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(
+      `Gmail trash errore (${res.status}): ${txt.slice(0, 200)}`,
+    );
+  }
+
+  return (await res.json()) as GmailModifyResult;
 }
