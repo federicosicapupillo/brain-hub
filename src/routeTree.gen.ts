@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as UiOperatorSurfaceSessionIdRouteImport } from './routes/ui-operator-surface.$sessionId'
 import { Route as UiOperatorProxySessionIdRouteImport } from './routes/ui-operator-proxy.$sessionId'
+import { Route as ApiOsModuleMapRouteImport } from './routes/api/os-module-map'
 import { Route as ApiJackEventRouteImport } from './routes/api/jack-event'
 import { Route as ApiArchitectureAuditSnapshotRouteImport } from './routes/api/architecture-audit-snapshot'
 import { Route as AuthenticatedUiOperatorLabRouteImport } from './routes/_authenticated/ui-operator-lab'
@@ -112,6 +113,11 @@ const UiOperatorProxySessionIdRoute =
     path: '/ui-operator-proxy/$sessionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiOsModuleMapRoute = ApiOsModuleMapRouteImport.update({
+  id: '/api/os-module-map',
+  path: '/api/os-module-map',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiJackEventRoute = ApiJackEventRouteImport.update({
   id: '/api/jack-event',
   path: '/api/jack-event',
@@ -579,6 +585,7 @@ export interface FileRoutesByFullPath {
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/jack-event': typeof ApiJackEventRoute
+  '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
@@ -654,6 +661,7 @@ export interface FileRoutesByTo {
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/jack-event': typeof ApiJackEventRoute
+  '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/': typeof AuthenticatedIndexRoute
@@ -733,6 +741,7 @@ export interface FileRoutesById {
   '/_authenticated/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/jack-event': typeof ApiJackEventRoute
+  '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -813,6 +822,7 @@ export interface FileRouteTypes {
     | '/ui-operator-lab'
     | '/api/architecture-audit-snapshot'
     | '/api/jack-event'
+    | '/api/os-module-map'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/importa/prompt-storici'
@@ -888,6 +898,7 @@ export interface FileRouteTypes {
     | '/ui-operator-lab'
     | '/api/architecture-audit-snapshot'
     | '/api/jack-event'
+    | '/api/os-module-map'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/'
@@ -966,6 +977,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ui-operator-lab'
     | '/api/architecture-audit-snapshot'
     | '/api/jack-event'
+    | '/api/os-module-map'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/_authenticated/'
@@ -988,6 +1000,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiArchitectureAuditSnapshotRoute: typeof ApiArchitectureAuditSnapshotRoute
   ApiJackEventRoute: typeof ApiJackEventRoute
+  ApiOsModuleMapRoute: typeof ApiOsModuleMapRoute
   UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
   UiOperatorSurfaceSessionIdRoute: typeof UiOperatorSurfaceSessionIdRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
@@ -1036,6 +1049,13 @@ declare module '@tanstack/react-router' {
       path: '/ui-operator-proxy/$sessionId'
       fullPath: '/ui-operator-proxy/$sessionId'
       preLoaderRoute: typeof UiOperatorProxySessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/os-module-map': {
+      id: '/api/os-module-map'
+      path: '/api/os-module-map'
+      fullPath: '/api/os-module-map'
+      preLoaderRoute: typeof ApiOsModuleMapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/jack-event': {
@@ -1695,6 +1715,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiArchitectureAuditSnapshotRoute: ApiArchitectureAuditSnapshotRoute,
   ApiJackEventRoute: ApiJackEventRoute,
+  ApiOsModuleMapRoute: ApiOsModuleMapRoute,
   UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
   UiOperatorSurfaceSessionIdRoute: UiOperatorSurfaceSessionIdRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
