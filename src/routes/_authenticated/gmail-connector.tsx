@@ -322,6 +322,106 @@ function GmailConnectorRoute() {
         </CardContent>
       </Card>
 
+      {/* v3.25.5 — Smart Gmail Sync Scheduler box */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <RefreshCw className="h-4 w-4" /> Allineamento automatico Gmail
+            {(() => {
+              const s = autoSync.state.runState;
+              const label =
+                s === "running"
+                  ? "Sincronizzazione in corso"
+                  : s === "error"
+                    ? "Errore"
+                    : s === "reauth_required"
+                      ? "Riconnessione richiesta"
+                      : s === "disabled"
+                        ? "Disattivato"
+                        : "Attivo";
+              const cls =
+                s === "running"
+                  ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                  : s === "error"
+                    ? "bg-destructive/10 text-destructive border-destructive/30"
+                    : s === "reauth_required"
+                      ? "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                      : s === "disabled"
+                        ? "bg-muted text-muted-foreground"
+                        : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30";
+              return <Badge className={`ml-2 ${cls}`}>{label}</Badge>;
+            })()}
+          </CardTitle>
+          <CardDescription>
+            Controllo automatico ogni {Math.round(GMAIL_AUTO_SYNC_INTERVAL_MS / 60000)} minuti.
+            Nessuna chiamata Gmail in eccesso: lo stato qui sotto viene aggiornato
+            dal database ogni 30 secondi.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+            <div>
+              <span className="font-medium text-foreground">Ultimo allineamento:</span>{" "}
+              {autoSync.state.lastSyncAt
+                ? new Date(autoSync.state.lastSyncAt).toLocaleString()
+                : "—"}
+            </div>
+            <div>
+              <span className="font-medium text-foreground">Prossimo controllo:</span>{" "}
+              {autoSync.state.nextAutoCheckAt
+                ? new Date(autoSync.state.nextAutoCheckAt).toLocaleString()
+                : autoSync.state.runState === "reauth_required"
+                  ? "Fermato"
+                  : "—"}
+            </div>
+          </div>
+          {autoSync.state.runState === "error" && autoSync.state.lastSafeMessage ? (
+            <div className="rounded border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" /> {autoSync.state.lastSafeMessage}
+            </div>
+          ) : null}
+          {autoSync.state.runState === "reauth_required" ? (
+            <div className="rounded border border-amber-500/30 bg-amber-500/5 p-2 text-xs text-amber-700 flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                Serve riconnettere Gmail per riprendere l'allineamento.
+              </span>
+              <Button size="sm" variant="outline" onClick={handleConnect}>
+                Ricollega Gmail
+              </Button>
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void autoSync.triggerManualRefresh()}
+              disabled={
+                autoSync.state.isManualSyncing ||
+                autoSync.state.runState === "running" ||
+                autoSync.state.runState === "disabled" ||
+                autoSync.state.runState === "reauth_required"
+              }
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${
+                  autoSync.state.isManualSyncing || autoSync.state.runState === "running"
+                    ? "animate-spin"
+                    : ""
+                }`}
+              />
+              Aggiorna ora
+            </Button>
+            <span className="text-xs text-muted-foreground">
+              Il pulsante rispetta il blocco anti-overlap: non avvia una nuova sync se
+              ce n'è una già in corso.
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+
+
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
