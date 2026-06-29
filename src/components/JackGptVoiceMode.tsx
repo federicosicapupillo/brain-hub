@@ -3051,6 +3051,7 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
           // v3.25.4 — barge-in guard: track when Jack stops speaking.
           assistantSpeakingRef.current = false;
           lastAssistantSpeechEndedAtRef.current = lastResponseDoneAtRef.current;
+          setMicMuted(false); // riabilita microfono dopo che Jack finisce
           enableVadAfterSpeaking();
           // v3.21.2 — reset tool-batch counter so next turn starts clean.
           toolCallInFlightCountRef.current = 0;
