@@ -2862,19 +2862,38 @@ export function JackGptVoiceMode({ brainId = null }: Props) {
                 lastIgnoredUtteranceSuppressed: transcript.slice(0, 80),
                 lastSuppressedAssistantResponseReason: classification.reason,
               }));
-              // v3.25.2 — defense-in-depth: even with turn_detection
-              // create_response=false, also cancel any in-flight response that
-              // may have started before the suppression decision landed.
-              try {
-                const dc = dcRef.current;
-                if (dc && dc.readyState === "open" && responseInProgressRef.current) {
-                  dc.send(JSON.stringify({ type: "response.cancel" }));
-                }
-              } catch { /* noop */ }
+              // v3.26.0 — No-Cutoff patch: do NOT cancel the response if Jack is
+              // currently speaking. The echo/noise transcript that triggered this
+              // suppression path is exactly what caused the cutoff. We only cancel
+              // if Jack is idle and a stale response is somehow still marked active.
+              const jackCurrentlySpeaking = assistantSpeakingRef.current;
+              if (!jackCurrentlySpeaking) {
+                try {
+                  const dc = dcRef.current;
+                  if (dc && dc.readyState === "open" && responseInProgressRef.current) {
+                    dc.send(JSON.stringify({ type: "response.cancel" }));
+                    safeLog("jack_voice_response_cancel_allowed", {
+                      reason: classification.reason,
+                      transcript_length: transcript.length,
+                      assistant_speaking: false,
+                      was_user_initiated: false,
+                    });
+                  }
+                } catch { /* noop */ }
+              } else {
+                safeLog("jack_voice_response_cancel_blocked", {
+                  reason: "assistant_speaking_no_cutoff",
+                  transcript_reason: classification.reason,
+                  transcript_length: transcript.length,
+                  response_id: redactResponseId(activeResponseIdRef.current),
+                  was_user_initiated: false,
+                });
+              }
               safeLog("jack_realtime_ignored_utterance_response_suppressed", {
                 reason: classification.reason,
                 transcript_length: transcript.length,
                 auto_response_disabled: true,
+                cancel_sent: !jackCurrentlySpeaking,
               });
               pushLog({
                 kind: "warning",
