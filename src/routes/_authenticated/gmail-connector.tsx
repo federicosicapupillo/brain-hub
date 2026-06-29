@@ -158,6 +158,9 @@ function GmailConnectorRoute() {
   const isConnected = !!summary.data?.connected;
   const conn = summary.data?.connection ?? null;
 
+  // v3.25.5 — Smart Gmail Sync Scheduler
+  const autoSync = useGmailAutoSync(brainId);
+
   async function handleConnect() {
     void logGmailConnectorEvent("gmail_oauth_started", "Avvio OAuth Gmail", {
       brain_id: brainId,
