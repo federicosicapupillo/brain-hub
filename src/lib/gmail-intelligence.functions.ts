@@ -432,6 +432,16 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         unread_only?: boolean;
         important_only?: boolean;
         limit?: number;
+        // v3.26.1 — Gmail Unread Scope. Explicit scope avoids mixing
+        // inbox vs all vs today vs category unread counts.
+        scope?: "inbox" | "all" | "today" | "category";
+        category?:
+          | "primary"
+          | "promotions"
+          | "social"
+          | "updates"
+          | "forums"
+          | "spam";
       },
   )
   .handler(async ({ data, context }) => {
@@ -447,6 +457,7 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
         : range === "7d"
           ? romeStartOfDayIso(-6)
           : null;
+
 
     const { data: connsRaw } = await supabase
       .from("gmail_connection_settings")
