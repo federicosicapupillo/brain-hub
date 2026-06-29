@@ -631,8 +631,45 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
       prevUnreadQ = prevUnreadQ.eq("brain_id", data.brain_id);
     }
 
-    const [todayRaw, yesterdayRes, prevUnreadRes, totalUnreadRes, unreadTodayRes] =
-      await Promise.all([
+    // v3.26.1 — Gmail Unread Scope queries.
+    // Each scope is computed from a single, non-overlapping query.
+    // Never sum category counts to derive a total.
+    const categoryLabelMap: Record<string, string> = {
+      primary: "CATEGORY_PERSONAL",
+      promotions: "CATEGORY_PROMOTIONS",
+      social: "CATEGORY_SOCIAL",
+      updates: "CATEGORY_UPDATES",
+      forums: "CATEGORY_FORUMS",
+      spam: "SPAM",
+    };
+    const requestedCategoryLabel = data.category
+      ? categoryLabelMap[data.category] ?? null
+      : null;
+
+    const inboxUnreadQ = supabase
+      .from("gmail_message_map")
+      .select("id", { count: "exact", head: true })
+      .eq("connection_id", conn.id)
+      .eq("is_unread", true)
+      .contains("label_ids", ["INBOX"]);
+    const categoryUnreadQ = requestedCategoryLabel
+      ? supabase
+          .from("gmail_message_map")
+          .select("id", { count: "exact", head: true })
+          .eq("connection_id", conn.id)
+          .eq("is_unread", true)
+          .contains("label_ids", [requestedCategoryLabel])
+      : null;
+
+    const [
+      todayRaw,
+      yesterdayRes,
+      prevUnreadRes,
+      totalUnreadRes,
+      unreadTodayRes,
+      inboxUnreadRes,
+      categoryUnreadRes,
+    ] = await Promise.all([
         todayRawPromise,
         yesterdayQ,
         prevUnreadQ,
@@ -648,7 +685,10 @@ export const getEmailBriefFn = createServerFn({ method: "POST" })
           .eq("is_unread", true)
           .gte("internal_date", todayStart)
           .lt("internal_date", todayEnd),
+        inboxUnreadQ,
+        categoryUnreadQ ?? Promise.resolve({ count: null as number | null }),
       ]);
+
 
     const todayRows = todayRaw.rows;
     const yesterdayRows = (yesterdayRes.data ?? []) as Array<Record<string, unknown>>;
