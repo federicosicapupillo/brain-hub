@@ -11,6 +11,7 @@ export type RealtimeStartErrorKind =
   | "sdp_call_failed"
   | "ga_endpoint_mismatch"
   | "active_response_in_progress"
+  | "rate_limited"
   | "network"
   | "microphone"
   | "unknown";
@@ -178,7 +179,7 @@ export function classifyRealtimeStartError(
   if (input.error === "sdp_call_failed" || input.error === "sdp_exchange_failed") {
     return {
       kind: "sdp_call_failed",
-      retryable_with_minimal: true,
+      retryable_with_minimal: false,
       user_message: "Negoziazione WebRTC GA fallita (/v1/realtime/calls).",
       status,
       openai_request_id: reqId,
