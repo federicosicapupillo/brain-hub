@@ -78,20 +78,55 @@ const MAX_LEN: Record<GmailBriefMode, number> = {
 
 const MODE_PATTERNS: ReadonlyArray<[GmailBriefMode, RegExp]> = [
   ["detail_requested", /\b(leggimela|leggimelo|leggila|leggilo|apri\s+il\s+dettaglio|riassumi\s+quest[ao]\s+mail|dimmi\s+di\s+pi[uù]|fammi\s+il\s+dettaglio|dettaglio)\b/],
-  // v3.26.1/v3.26.2 — scope-explicit unread modes (more specific patterns first)
-  ["unread_category", /\bnon\s+lett[ei]\b.*\b(promo|promozion|social|aggiornament|forum|spam)\b|\b(promo|promozion|social|aggiornament|forum|spam)\b.*\bnon\s+lett[ei]\b/],
-  // explicit GLOBAL today ("non lette oggi in tutto gmail")
-  ["unread_today_all", /\bnon\s+lett[ei]\b.*\boggi\b.*\b(tutt[oa]|intero|globale|gmail)\b|\boggi\b.*\b(tutt[oa]|intero|globale)\s+(gmail|posta)\b.*\bnon\s+lett[ei]\b/],
-  ["unread_all", /\bnon\s+lett[ei]\b.*\b(in\s+)?(tutt[oa]|intero|globale)\s+(gmail|posta|inbox|casella)|\b(tutt[oa]|intero|globale)\s+(gmail|posta).*\bnon\s+lett[ei]\b/],
+  // v3.26.1/v3.26.2/v3.26.3 — scope-explicit unread modes (more specific patterns first)
+  ["unread_category", /\bnon\s+lett[ei]\b.*\b(promo|promozion|social|newsletter|aggiornament|forum|spam|categori)\b|\b(promo|promozion|social|newsletter|aggiornament|forum|spam|categori)\b.*\bnon\s+lett[ei]\b/],
+  // v3.26.3 — explicit GLOBAL today ("oggi in tutto gmail", "oggi globali",
+  // "oggi anche promozioni/social/categorie", "oggi in tutte le mail")
+  ["unread_today_all", /\boggi\b.*\b(in\s+)?(tutt[oaie]|intero|globale|globali)\b.*\b(gmail|posta|mail|email|categori|promo|promozion|social)\b|\boggi\b.*\banche\s+(promo|promozion|social|newsletter|categori)\b|\bnon\s+lett[ei]\b.*\boggi\b.*\b(tutt[oaie]|globale|globali|intero)\b/],
+  // v3.26.3 — explicit GLOBAL ("tutto gmail", "tutta gmail", "globali",
+  // "globale", "tutte le mail/email", "in tutto")
+  ["unread_all", /\bnon\s+lett[ei]\b.*\b(in\s+)?(tutt[oaie]|intero|globale|globali)\s+(gmail|posta|inbox|casella|mail|email)|\b(tutt[oaie]|intero|globale|globali)\s+(gmail|posta|mail|email).*\bnon\s+lett[ei]\b|\bnon\s+lett[ei]\b.*\bin\s+tutto\b|\banche\s+(promo|promozion|social|newsletter|categori|aggiornament)\b/],
   // v3.26.2 — "non lette di oggi" → INBOX+today (default user-visible)
   ["unread_today", /\bnon\s+lett[ei]\b.*\boggi\b|\boggi\b.*\bnon\s+lett[ei]\b/],
-  ["unread_inbox", /\bnon\s+lett[ei]\b.*\b(in\s+)?(posta\s+in\s+arrivo|inbox|in\s+arrivo|casella)|\b(posta\s+in\s+arrivo|inbox).*\bnon\s+lett[ei]\b/],
+  ["unread_inbox", /\bnon\s+lett[ei]\b.*\b(in\s+)?(posta\s+in\s+arrivo|inbox|in\s+arrivo|casella|solo\s+inbox)|\b(posta\s+in\s+arrivo|inbox).*\bnon\s+lett[ei]\b/],
   ["unread_only", /\bnon\s+lett[ei]\b/],
 
   ["latest_only", /\b(ultim[ao])\s+(mail|email|arrivat|messaggio)|qual\s*[èe']?\s*l['\s]?ultim/],
   ["count_only", /\b(quant[ie])\s+(mail|email|ne\s+sono|messaggi)\b|\bnumero\s+(di\s+)?(mail|email)\b|\bci\s+sono\s+(mail|email|messaggi)\b/],
   ["list_summary", /\b(quali|che)\s+(mail|email|messaggi)\b|\b(fammi\s+(l['\s]?)?elenco|elenco\s+mail|elenco\s+email|lista\s+(mail|email))\b/],
 ];
+
+// v3.26.3 — Deterministic explicit-scope detector for diagnostics & routing.
+// Returns the most specific scope the user explicitly named, or null if the
+// utterance does not name a scope. Caller decides how to combine with mode.
+export type ExplicitGmailScope =
+  | "inbox"
+  | "all"
+  | "today_all"
+  | "category";
+
+const EXPLICIT_SCOPE_PATTERNS: ReadonlyArray<[ExplicitGmailScope, RegExp]> = [
+  // today_all (must come BEFORE plain "all" — "oggi in tutto gmail" etc.)
+  ["today_all", /\boggi\b.*\b(in\s+)?(tutt[oaie]|globale|globali|intero)\b.*\b(gmail|posta|mail|email|categori)\b|\boggi\b.*\banche\s+(promo|promozion|social|newsletter|categori|aggiornament)\b|\boggi\b.*\bglobal[ie]\b|\boggi\b.*\bin\s+tutto\b/],
+  // category (promozioni / social / newsletter / aggiornamenti / categorie)
+  ["category", /\b(promo|promozion|social|newsletter|aggiornament|forum|spam|categori)\b/],
+  // all / global
+  ["all", /\b(tutt[oa]\s+gmail|tutta\s+gmail|tutto\s+gmail|in\s+tutto|global[ie]|tutte\s+le\s+(mail|email)|tutti\s+i\s+messaggi)\b/],
+  // inbox (posta in arrivo, inbox, solo inbox, solo posta in arrivo)
+  ["inbox", /\b(posta\s+in\s+arrivo|inbox|solo\s+inbox|solo\s+posta\s+in\s+arrivo|in\s+arrivo)\b/],
+];
+
+export function detectExplicitGmailScope(
+  userUtterance: string | null,
+): ExplicitGmailScope | null {
+  if (!userUtterance) return null;
+  const norm = normalizeGmailQuery(userUtterance);
+  for (const [scope, rx] of EXPLICIT_SCOPE_PATTERNS) {
+    if (rx.test(norm)) return scope;
+  }
+  return null;
+}
+
 
 
 export function normalizeGmailQuery(text: string): string {
