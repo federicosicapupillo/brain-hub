@@ -8,7 +8,12 @@ export type GmailBriefMode =
   | "list_summary"
   | "latest_only"
   | "unread_only"
+  | "unread_inbox"
+  | "unread_all"
+  | "unread_today"
+  | "unread_category"
   | "detail_requested";
+
 
 export type GmailBriefVoiceItem = {
   from_name?: string | null;
