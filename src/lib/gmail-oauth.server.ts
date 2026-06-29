@@ -1,9 +1,9 @@
 // ============================================================
 // Brain Hub v3.8 — Gmail OAuth (server-only helpers)
 // ============================================================
-// READ-ONLY: scope strict to gmail.readonly. No send / modify /
-// compose / delete / label changes. Tokens NEVER logged or returned
-// to the client. Refresh tokens not persisted in this version.
+// Scope: gmail.modify. Allows read, label changes, archive and
+// trash. No send / compose / delete / label admin. Tokens NEVER
+// logged or returned to the client.
 // ============================================================
 
 export const GMAIL_OAUTH_SCOPE =
