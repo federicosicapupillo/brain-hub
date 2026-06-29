@@ -136,7 +136,7 @@ function GmailConsoleRoute() {
   const [aiTone, setAiTone] = useState<"neutro" | "cordiale" | "formale" | "diretto">("cordiale");
 
   // Debounce search
-  useMemo(() => {
+  useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
