@@ -245,7 +245,7 @@ export type GateDecisionInput = {
 };
 
 export type GateDecision =
-  | { status: "allowed" }
+  | { status: "allowed"; reason: VoiceToolAllowedReason }
   | {
       status: "blocked";
       reason: VoiceToolBlockedReason;
@@ -255,21 +255,42 @@ export type GateDecision =
 const ANSWER_WINDOW_MS = 30_000;
 
 export function decideVoiceToolGate(input: GateDecisionInput): GateDecision {
-  // v3.25.3 — read-gated tools (get_email_brief / get_gmail_summary).
+  // v3.25.3 / v3.26.3 — read-gated tools (get_email_brief / get_gmail_summary).
   if (READ_GATED_VOICE_TOOLS.has(input.toolName)) {
     const utterance = input.lastValidUserUtterance ?? "";
     const validAt = input.lastValidUserUtteranceAt ?? 0;
-    const fresh = utterance && input.now - validAt <= ANSWER_WINDOW_MS;
-    // v3.26.2 — context-aware: allow follow-ups when a recent Gmail
-    // context exists OR a sync just completed and Jack is resuming.
-    if (fresh && hasExplicitEmailIntent(utterance)) {
-      return { status: "allowed" };
+    const fresh = Boolean(utterance) && input.now - validAt <= ANSWER_WINDOW_MS;
+    const hasEmailIntent = fresh && hasExplicitEmailIntent(utterance);
+    const isFollowup =
+      fresh && Boolean(input.hasRecentGmailContext) && looksLikeEmailFollowup(utterance);
+
+    if (hasEmailIntent) {
+      // v3.26.3 — explicit email intent wins, regardless of sync resume window.
+      return {
+        status: "allowed",
+        reason: input.recentSyncResumeContext
+          ? "gmail_sync_resume_allowed_email_intent"
+          : "email_intent_explicit",
+      };
     }
-    if (fresh && input.hasRecentGmailContext && looksLikeEmailFollowup(utterance)) {
-      return { status: "allowed" };
+    if (isFollowup) {
+      return {
+        status: "allowed",
+        reason: input.recentSyncResumeContext
+          ? "gmail_sync_resume_allowed_followup"
+          : "email_followup_with_recent_context",
+      };
     }
+    // v3.26.3 — sync just completed but utterance has no email intent and
+    // no recognized Gmail follow-up: do NOT bypass. Block to prevent Jack
+    // from auto-briefing on unrelated requests (weather, calendar, ...).
     if (input.recentSyncResumeContext) {
-      return { status: "allowed" };
+      return {
+        status: "blocked",
+        reason: "gmail_sync_resume_blocked_non_email_intent",
+        safe_message:
+          "Ho sincronizzato Gmail. Se vuoi un riepilogo dimmi 'leggimi le mail non lette' o 'mittenti'.",
+      };
     }
     return {
       status: "blocked",
@@ -281,7 +302,8 @@ export function decideVoiceToolGate(input: GateDecisionInput): GateDecision {
     };
   }
 
-  if (!GATED_VOICE_TOOLS.has(input.toolName)) return { status: "allowed" };
+  if (!GATED_VOICE_TOOLS.has(input.toolName))
+    return { status: "allowed", reason: "tool_not_gated" };
 
 
   // If assistant asked a question and there is no fresher valid user reply,
@@ -325,8 +347,36 @@ export function decideVoiceToolGate(input: GateDecisionInput): GateDecision {
           "Posso sincronizzare Gmail solo se me lo chiedi esplicitamente, ad esempio 'sincronizza Gmail'.",
       };
     }
-    return { status: "allowed" };
+    return { status: "allowed", reason: "gmail_sync_explicit_command" };
   }
+
+  if (
+    input.toolName === "open_brainhub_screen" ||
+    input.toolName === "observe_brainhub_screen" ||
+    input.toolName === "propose_ui_action" ||
+    input.toolName === "confirm_ui_action" ||
+    input.toolName === "execute_confirmed_ui_action"
+  ) {
+    // Require either an explicit confirmation right after an assistant question,
+    // or an explicit open/controllo command.
+    const recentlyAsked =
+      askedAt > 0 && input.now - askedAt < ANSWER_WINDOW_MS;
+    if (recentlyAsked && isExplicitOpenScreenConfirmation(utterance)) {
+      return { status: "allowed", reason: "open_screen_confirmation_after_question" };
+    }
+    if (/\b(apri|controlla|controlliamo|vai\s+su)\b/i.test(utterance)) {
+      return { status: "allowed", reason: "open_screen_explicit_command" };
+    }
+    return {
+      status: "blocked",
+      reason: "no_explicit_open_screen_confirmation",
+      safe_message:
+        "Prima di aprire una schermata di Brain Hub ho bisogno di una conferma esplicita.",
+    };
+  }
+
+  return { status: "allowed", reason: "tool_not_gated" };
+}
 
   if (
     input.toolName === "open_brainhub_screen" ||
