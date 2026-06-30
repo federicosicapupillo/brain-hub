@@ -76,9 +76,11 @@ def fetch_receipt_audit(key: str) -> dict:
     )
     return json.loads(out) if out else {}
 
-def cleanup(key: str) -> None:
-    psql(f"DELETE FROM public.execute_idempotency WHERE owner_id='{OWNER}' AND idempotency_key='{key}'")
-    psql(f"DELETE FROM public.execute_receipts WHERE owner_id='{OWNER}' AND idempotency_key='{key}'")
+def cleanup(_key: str) -> None:
+    # psql in this sandbox is SELECT/INSERT only — no DELETE allowed.
+    # Unique UUID keys guarantee no cross-test interference, so rows are
+    # left behind intentionally and the test harness stays read-safe.
+    return
 
 results: list[tuple[str, bool, str]] = []
 def check(name: str, cond: bool, detail: str = "") -> None:
