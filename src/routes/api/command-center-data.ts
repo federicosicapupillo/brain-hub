@@ -370,8 +370,8 @@ export const Route = createFileRoute("/api/command-center-data")({
         const t_total = Date.now();
         const url = new URL(request.url);
         const entity = resolveEntity(url);
-        const forceFail = url.searchParams.get("__force_fail"); // dev-only partial-failure switch
-        const isDev = process.env.NODE_ENV !== "production";
+        // v3.32: `__force_fail` query param removed. See
+        // scripts/test-partial-failure.ts for the isolated harness.
 
         const govRequest: GovernanceRequest = {
           action: "read_command_center_data",
