@@ -201,7 +201,12 @@ function emitActionBlocked(
       reason: `Action bloccata (priority ${a.priority ?? "—"})`,
       source_id: a.id,
       source_key: "action_queue",
-      trust: trustFor("action_blocked", input.freshness, 100),
+      trust: trustFor(
+        "action_blocked",
+        input.freshness,
+        100,
+        "rule:action_blocked → fixed score 100 (status=blocked letto direttamente da automation_actions)",
+      ),
     }));
 }
 
