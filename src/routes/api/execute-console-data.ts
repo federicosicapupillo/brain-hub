@@ -69,14 +69,26 @@ export const Route = createFileRoute("/api/execute-console-data")({
 
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { fetchExecuteConsoleData } = await import(
+          const { fetchExecuteConsoleDataOutcome } = await import(
             "@/lib/execute-console/execute-console-data.server"
           );
-          const data = await fetchExecuteConsoleData({
+          // v3.36 — Principio 3: route consumes ServiceOutcome<T> and
+          // projects it (trust + duration + safe error) onto the HTTP
+          // payload. The legacy `{ ok, data }` shape is preserved for
+          // backwards compat with the existing UI hook; new fields are
+          // additive.
+          const outcome = await fetchExecuteConsoleDataOutcome({
             admin: supabaseAdmin,
             userId,
           });
-          return jsonResp(200, { ok: true, data });
+          const httpStatus = outcome.trust.status === "error" ? 502 : 200;
+          return jsonResp(httpStatus, {
+            ok: outcome.trust.status !== "error",
+            data: outcome.data,
+            trust: outcome.trust,
+            duration_ms: outcome.duration_ms,
+            error_safe_message: outcome.error_safe_message ?? null,
+          });
         } catch (err) {
           return jsonResp(500, { error: "fetch_failed", reason: safe(err) });
         }
