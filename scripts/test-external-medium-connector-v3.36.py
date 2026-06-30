@@ -625,6 +625,308 @@ def main():
         mock.shutdown()
 
 
+# ---------------------------------------------------------------------------
+# v3.36.2 — Real n8n controlled environment evidence mode.
+#
+# Activated with `--real-env`. Runs exactly TWO single-call scenarios
+# against a REAL n8n controlled webhook (NOT the in-process mock):
+#   1) happy path  (1 call, expect dispatch_status=executed)
+#   2) controlled failure boundary (1 call, expect dispatch_status=failed)
+#
+# Required env (all read by THIS python process, never logged in clear):
+#   LOVABLE_BROWSER_SUPABASE_SESSION_JSON
+#   LOVABLE_BROWSER_SUPABASE_STORAGE_KEY
+#   BRAINHUB_REAL_N8N_WEBHOOK_URL          — full https URL to controlled n8n webhook
+#   BRAINHUB_REAL_N8N_WORKFLOW_KIND        — "synthetic_echo" | "production_representative"
+#   BRAINHUB_REAL_N8N_FAILURE_URL          — URL for the controlled failure boundary
+#                                            (invalid token/header OR invalid path on same host)
+#   BRAINHUB_REAL_N8N_FAILURE_SCENARIO     — "invalid_token" | "invalid_path"
+#   BRAINHUB_REAL_N8N_WORKFLOW_KEY         — allowlisted workflow key (see n8n-controlled-workflows.ts)
+#
+# Optional:
+#   PG* / DATABASE_URL — enables DB row count assertions via psql.
+#
+# Safety contract (enforced):
+#   - URL/headers/secrets are NEVER printed.
+#   - No 8-way race against real n8n.
+#   - No retry.
+#   - No destructive test (no OAuth expiry, no rate-limit force, no n8n down).
+#   - On missing env → exit code 3 with status=NOT_CONFIGURED; readiness stays false.
+# ---------------------------------------------------------------------------
+
+REAL_ENV_REQUIRED = [
+    "LOVABLE_BROWSER_SUPABASE_SESSION_JSON",
+    "LOVABLE_BROWSER_SUPABASE_STORAGE_KEY",
+    "BRAINHUB_REAL_N8N_WEBHOOK_URL",
+    "BRAINHUB_REAL_N8N_WORKFLOW_KIND",
+    "BRAINHUB_REAL_N8N_FAILURE_URL",
+    "BRAINHUB_REAL_N8N_FAILURE_SCENARIO",
+    "BRAINHUB_REAL_N8N_WORKFLOW_KEY",
+]
+
+
+def _start_app_with_url(webhook_url, port):
+    env = os.environ.copy()
+    env["BRAINHUB_N8N_CONTROLLED_WEBHOOK_URL"] = webhook_url
+    env["PORT"] = str(port)
+    cmd = ["bun", "run", "dev", "--", "--port", str(port), "--host", "127.0.0.1"]
+    proc = subprocess.Popen(
+        cmd, env=env,
+        stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+        cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    )
+    if not wait_for(f"http://127.0.0.1:{port}/", timeout_s=240):
+        proc.terminate()
+        raise SystemExit("[real-env] dev server failed to come up")
+    return proc
+
+
+async def _drive_real_call(app_base, body):
+    from playwright.async_api import async_playwright
+    storage_key = os.environ["LOVABLE_BROWSER_SUPABASE_STORAGE_KEY"]
+    session_json = os.environ["LOVABLE_BROWSER_SUPABASE_SESSION_JSON"]
+    access = json.loads(session_json).get("access_token")
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        ctx = await browser.new_context(viewport={"width": 1280, "height": 1600})
+        page = await ctx.new_page()
+        await page.goto(app_base)
+        await page.evaluate(
+            f"window.localStorage.setItem({json.dumps(storage_key)}, {json.dumps(session_json)})"
+        )
+        out = await page.evaluate(
+            """async ({path, body, token}) => {
+                const r = await fetch(path, {
+                    method: 'POST',
+                    headers: {'content-type':'application/json','authorization':'Bearer '+token},
+                    body: JSON.stringify(body),
+                });
+                const text = await r.text();
+                let j; try { j = JSON.parse(text); } catch { j = { raw: text }; }
+                return { status: r.status, body: j };
+            }""",
+            {"path": "/api/execute-external-action", "body": body, "token": access},
+        )
+        await browser.close()
+        return out
+
+
+def _scan_leaks(blob_text):
+    import re
+    leaks = []
+    # raw JWT
+    if re.search(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+", blob_text):
+        leaks.append("jwt")
+    if re.search(r"(?i)bearer\s+[A-Za-z0-9._\-+/=]{8,}", blob_text):
+        leaks.append("bearer")
+    if re.search(r"[?&](token|key|secret|access_token)=[^&\s\"']+", blob_text):
+        leaks.append("querystring_secret")
+    if re.search(r"sk-[A-Za-z0-9_\-]{6,}", blob_text):
+        leaks.append("sk_key")
+    return leaks
+
+
+def run_real_env():
+    missing = [k for k in REAL_ENV_REQUIRED if not os.environ.get(k)]
+    if missing:
+        report = {
+            "mode": "real-env",
+            "status": "NOT_CONFIGURED",
+            "missing_env_vars": missing,
+            "ready_for_external_medium_connector_real_env": False,
+            "ready_for_external_medium_connector": False,
+            "notes": (
+                "Real n8n controlled environment variables are not provisioned in "
+                "this sandbox. No real call attempted. No destructive action. "
+                "v3.37 NOT started. Re-run with the documented env to obtain "
+                "real-env evidence."
+            ),
+        }
+        out_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+            "scripts", "test-external-medium-connector-v3.36.real-env.json",
+        )
+        with open(out_path, "w") as f:
+            json.dump(report, f, indent=2)
+        print(json.dumps(report, indent=2))
+        sys.exit(3)
+
+    workflow_kind = os.environ["BRAINHUB_REAL_N8N_WORKFLOW_KIND"]
+    if workflow_kind not in ("synthetic_echo", "production_representative"):
+        print(f"[real-env] invalid BRAINHUB_REAL_N8N_WORKFLOW_KIND={workflow_kind}")
+        sys.exit(3)
+    failure_scenario = os.environ["BRAINHUB_REAL_N8N_FAILURE_SCENARIO"]
+    if failure_scenario not in ("invalid_token", "invalid_path"):
+        print(f"[real-env] invalid BRAINHUB_REAL_N8N_FAILURE_SCENARIO={failure_scenario}")
+        sys.exit(3)
+
+    workflow_key = os.environ["BRAINHUB_REAL_N8N_WORKFLOW_KEY"]
+    happy_url = os.environ["BRAINHUB_REAL_N8N_WEBHOOK_URL"]
+    failure_url = os.environ["BRAINHUB_REAL_N8N_FAILURE_URL"]
+    port_a = int(os.environ.get("APP_PORT", "39003"))
+    port_b = port_a + 1
+    base_a = f"http://127.0.0.1:{port_a}"
+    base_b = f"http://127.0.0.1:{port_b}"
+    corr_a = f"v3362-real-happy-{uuid.uuid4().hex[:8]}"
+    corr_b = f"v3362-real-fail-{uuid.uuid4().hex[:8]}"
+    idem_a = f"idem-real-happy-{uuid.uuid4().hex[:8]}"
+    idem_b = f"idem-real-fail-{uuid.uuid4().hex[:8]}"
+
+    happy_proc = None
+    fail_proc = None
+    try:
+        happy_proc = _start_app_with_url(happy_url, port_a)
+        happy_body = {
+            "action_type": "external_n8n_controlled_webhook",
+            "idempotency_key": idem_a,
+            "confirmation_source": "ui_button",
+            "confirmation_id": f"conf-{idem_a}",
+            "payload": {
+                "workflow_key": workflow_key,
+                "title": "v3.36.2 real happy",
+                "message": "v3.36.2 real-env happy path",
+                "correlation_id": corr_a,
+                "live_execute": True,
+                "confirmation_id": f"conf-{idem_a}",
+            },
+        }
+        happy_res = asyncio.run(_drive_real_call(base_a, happy_body))
+        happy_proc.terminate(); happy_proc.wait(timeout=5)
+        happy_proc = None
+
+        fail_proc = _start_app_with_url(failure_url, port_b)
+        fail_body = {
+            "action_type": "external_n8n_controlled_webhook",
+            "idempotency_key": idem_b,
+            "confirmation_source": "ui_button",
+            "confirmation_id": f"conf-{idem_b}",
+            "payload": {
+                "workflow_key": workflow_key,
+                "title": "v3.36.2 real failure",
+                "message": "v3.36.2 real-env controlled failure boundary",
+                "correlation_id": corr_b,
+                "live_execute": True,
+                "confirmation_id": f"conf-{idem_b}",
+            },
+        }
+        fail_res = asyncio.run(_drive_real_call(base_b, fail_body))
+    finally:
+        for p in (happy_proc, fail_proc):
+            if p:
+                try: p.terminate(); p.wait(timeout=5)
+                except Exception:
+                    try: p.kill()
+                    except Exception: pass
+
+    # Redaction sweep on serialized responses.
+    blob = json.dumps({"happy": happy_res, "failure": fail_res}, default=str)
+    leaks = _scan_leaks(blob)
+
+    happy_status = (happy_res.get("body") or {}).get("status")
+    fail_status = (fail_res.get("body") or {}).get("status")
+    fail_audit = ((fail_res.get("body") or {}).get("audit_record") or {})
+    fail_kind = fail_audit.get("error_kind")
+
+    expected_fail_kinds_token = {"http_401", "http_403", "n8n_auth_failed", "external_http_error"}
+    expected_fail_kinds_path = {"http_404", "external_http_error"}
+    fail_kind_ok = fail_kind in (
+        expected_fail_kinds_token if failure_scenario == "invalid_token"
+        else expected_fail_kinds_path
+    )
+
+    # DB counts (best-effort).
+    happy_receipt = psql_count(
+        f"select count(*) from public.execute_receipts where idempotency_key='{idem_a}';"
+    )
+    happy_artifact = psql_count(
+        "select count(*) from public.internal_execute_artifacts "
+        f"where payload->>'artifact_type'='external_medium_connector_dispatch' "
+        f"and payload->>'idempotency_key'='{idem_a}';"
+    )
+    fail_receipt = psql_count(
+        f"select count(*) from public.execute_receipts where idempotency_key='{idem_b}';"
+    )
+    fail_artifact = psql_count(
+        "select count(*) from public.internal_execute_artifacts "
+        f"where payload->>'artifact_type'='external_medium_connector_dispatch' "
+        f"and payload->>'idempotency_key'='{idem_b}';"
+    )
+
+    happy_ok = (
+        happy_status == "executed"
+        and (happy_receipt is None or happy_receipt == 1)
+        and (happy_artifact is None or happy_artifact == 1)
+    )
+    fail_ok = (
+        fail_status == "failed"
+        and fail_kind_ok
+        and (fail_receipt is None or fail_receipt == 1)
+        and (fail_artifact is None or fail_artifact == 1)
+    )
+    no_leaks = not leaks
+
+    all_pass = happy_ok and fail_ok and no_leaks
+
+    if workflow_kind == "production_representative" and all_pass:
+        readiness = {
+            "READY_FOR_EXTERNAL_MEDIUM_CONNECTOR_HARNESS": True,
+            "READY_FOR_EXTERNAL_MEDIUM_CONNECTOR_REAL_ENV": True,
+            "READY_FOR_EXTERNAL_MEDIUM_CONNECTOR": True,
+        }
+    elif workflow_kind == "synthetic_echo" and all_pass:
+        readiness = {
+            "READY_FOR_EXTERNAL_MEDIUM_CONNECTOR_HARNESS": True,
+            "READY_FOR_EXTERNAL_MEDIUM_CONNECTOR_REAL_ENV": True,
+            "READY_FOR_EXTERNAL_MEDIUM_CONNECTOR":
+                "conditionally true / limited to controlled n8n workflows",
+        }
+    else:
+        readiness = {
+            "READY_FOR_EXTERNAL_MEDIUM_CONNECTOR_HARNESS": True,
+            "READY_FOR_EXTERNAL_MEDIUM_CONNECTOR_REAL_ENV": False,
+            "READY_FOR_EXTERNAL_MEDIUM_CONNECTOR": False,
+        }
+
+    report = {
+        "mode": "real-env",
+        "status": "PASS" if all_pass else "FAIL",
+        "workflow_kind": workflow_kind,
+        "failure_scenario": failure_scenario,
+        "happy": {
+            "dispatch_status": happy_status,
+            "receipt_rows": happy_receipt,
+            "artifact_rows_external_medium_connector_dispatch": happy_artifact,
+            "ok": happy_ok,
+        },
+        "failure": {
+            "dispatch_status": fail_status,
+            "error_kind": fail_kind,
+            "error_kind_ok": fail_kind_ok,
+            "receipt_rows": fail_receipt,
+            "artifact_rows_external_medium_connector_dispatch": fail_artifact,
+            "ok": fail_ok,
+        },
+        "redaction": {"leaks": leaks, "ok": no_leaks},
+        "race_8way_against_real_n8n": "NOT_EXECUTED_BY_DESIGN",
+        "retries": "NOT_EXECUTED_BY_DESIGN",
+        "destructive_tests": "NOT_EXECUTED_BY_DESIGN",
+        "v3_37_started": False,
+        "readiness": readiness,
+    }
+    out_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "scripts", "test-external-medium-connector-v3.36.real-env.json",
+    )
+    with open(out_path, "w") as f:
+        json.dump(report, f, indent=2, default=str)
+    print(json.dumps(report, indent=2))
+    sys.exit(0 if all_pass else 2)
+
+
 if __name__ == "__main__":
-    main()
+    if "--real-env" in sys.argv:
+        run_real_env()
+    else:
+        main()
+
 
