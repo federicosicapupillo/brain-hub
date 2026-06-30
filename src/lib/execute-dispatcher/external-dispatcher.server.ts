@@ -663,6 +663,13 @@ export async function executeExternalAction(
         risk_level: entry.risk_level,
         title: `[external] ${entry.action_type} ${payload.correlation_id}`,
         payload: {
+          // v3.36.1 — binding artifact/audit DB contract.
+          artifact_type: "external_medium_connector_dispatch",
+          connector_type:
+            entry.action_type === "external_n8n_controlled_webhook"
+              ? "n8n_controlled"
+              : entry.connector_name,
+          idempotency_key: req.idempotency_key,
           execute_scope: "external",
           external_action_type: entry.action_type,
           connector_name: entry.connector_name,
@@ -673,7 +680,14 @@ export async function executeExternalAction(
           confirmation_id: payload.confirmation_id,
           request_hash,
           payload_preview_redacted: redactedPayloadPreview,
+          // Filled in after handler completes (post-insert UPDATE).
+          dispatch_status: "pending",
+          service_outcome_status: "pending",
+          mock_or_real: "unknown",
+          receipt_id: null,
+          error_kind: null,
         },
+
       } as never)
       .select("id")
       .single();
