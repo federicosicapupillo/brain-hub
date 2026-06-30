@@ -1,0 +1,2 @@
+ALTER TABLE public.execute_receipts DROP CONSTRAINT IF EXISTS execute_receipts_result_check;
+ALTER TABLE public.execute_receipts ADD CONSTRAINT execute_receipts_result_check CHECK (result IN ('success','failure','partial','rolled_back'));
