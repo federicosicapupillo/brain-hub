@@ -309,7 +309,12 @@ function emitImportantEmail(
       }`,
       source_id: e.id,
       source_key: "gmail",
-      trust: trustFor("important_email", input.freshness, 80),
+      trust: trustFor(
+        "important_email",
+        input.freshness,
+        80,
+        "rule:important_email → fixed score 80 (severity derivata da importance_score ≥ 85, filter is_unread + is_important|score≥70)",
+      ),
     }));
 }
 
