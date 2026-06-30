@@ -291,13 +291,7 @@ export const Route = createFileRoute("/api/priority-engine-data")({
           );
         }
 
-        const shouldFail = (k: string) =>
-          isDev && !!forceFail && forceFail.split(",").includes(k);
-
-        const { inputs, per_source_timing } = await loadInputs(
-          supabase,
-          shouldFail,
-        );
+        const { inputs, per_source_timing } = await loadInputs(supabase);
         const engine = computePriorities(inputs);
 
         const slow: string[] = [];
