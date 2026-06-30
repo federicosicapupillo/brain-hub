@@ -72,19 +72,31 @@ async function findExistingReceipt(
   env: DispatchEnv,
   idempotency_key: string,
 ): Promise<ExecuteReceipt | null> {
-  const { data: idem, error: idemErr } = await env.admin
-    .from("execute_idempotency")
-    .select("receipt_id")
-    .eq("owner_id", env.userId)
-    .eq("idempotency_key", idempotency_key)
-    .maybeSingle();
-  if (idemErr || !idem) return null;
-  const { data: r } = await env.admin
-    .from("execute_receipts")
-    .select("*")
-    .eq("receipt_id", idem.receipt_id)
-    .maybeSingle();
-  return r ? rowToReceipt(r) : null;
+  // v3.35a.1: receipt_id can be NULL transiently while a peer holds the
+  // idempotency gate. Poll briefly so concurrent callers converge on the
+  // same canonical receipt instead of seeing "no receipt yet" and
+  // returning failed.
+  const POLL_ATTEMPTS = 20; // ~2s total
+  const POLL_DELAY_MS = 100;
+  for (let i = 0; i < POLL_ATTEMPTS; i++) {
+    const { data: idem, error: idemErr } = await env.admin
+      .from("execute_idempotency")
+      .select("receipt_id")
+      .eq("owner_id", env.userId)
+      .eq("idempotency_key", idempotency_key)
+      .maybeSingle();
+    if (idemErr || !idem) return null;
+    if (idem.receipt_id) {
+      const { data: r } = await env.admin
+        .from("execute_receipts")
+        .select("*")
+        .eq("receipt_id", idem.receipt_id)
+        .maybeSingle();
+      return r ? rowToReceipt(r as ReceiptRow) : null;
+    }
+    await new Promise((res) => setTimeout(res, POLL_DELAY_MS));
+  }
+  return null;
 }
 
 interface ReceiptRow {
