@@ -134,7 +134,6 @@ function missingSource<T>(): RawSourceResult<T> {
 
 async function loadInputs(
   supabase: SupabaseLike | null,
-  shouldFail: (k: string) => boolean,
 ): Promise<{
   inputs: PriorityEngineInputs;
   per_source_timing: Record<PrioritySourceKey, number>;
@@ -163,44 +162,39 @@ async function loadInputs(
 
   const [action_queue, result_review, projects, agent_runs, gmail, github] =
     await Promise.all([
-      runSource("action_queue", async () => {
-        if (shouldFail("action_queue")) throw new Error("forced_failure");
-        return supabase
+      runSource("action_queue", async () =>
+        supabase
           .from("automation_actions")
           .select("id,title,status,priority,risk_level,created_at")
           .in("status", ["blocked", "failed"])
           .order("created_at", { ascending: false })
-          .limit(20);
-      }),
-      runSource("result_review", async () => {
-        if (shouldFail("result_review")) throw new Error("forced_failure");
-        return supabase
+          .limit(20),
+      ),
+      runSource("result_review", async () =>
+        supabase
           .from("result_review_items")
           .select("id,title,review_status,risk_level,source_type,created_at")
           .eq("review_status", "pending_review")
           .order("created_at", { ascending: false })
-          .limit(20);
-      }),
-      runSource("projects", async () => {
-        if (shouldFail("projects")) throw new Error("forced_failure");
-        return supabase
+          .limit(20),
+      ),
+      runSource("projects", async () =>
+        supabase
           .from("project_links")
           .select("id,title,status,updated_at")
           .eq("link_type", "project")
           .order("updated_at", { ascending: false })
-          .limit(20);
-      }),
-      runSource("agent_runs", async () => {
-        if (shouldFail("agent_runs")) throw new Error("forced_failure");
-        return supabase
+          .limit(20),
+      ),
+      runSource("agent_runs", async () =>
+        supabase
           .from("agent_run_logs")
           .select("id,objective,run_status,risk_level,created_at")
           .order("created_at", { ascending: false })
-          .limit(20);
-      }),
-      runSource("gmail", async () => {
-        if (shouldFail("gmail")) throw new Error("forced_failure");
-        return supabase
+          .limit(20),
+      ),
+      runSource("gmail", async () =>
+        supabase
           .from("gmail_message_map")
           .select(
             "id,subject,from_email,importance_score,is_important,is_unread,internal_date",
@@ -208,15 +202,11 @@ async function loadInputs(
           .eq("is_unread", true)
           .eq("is_trashed", false)
           .order("internal_date", { ascending: false })
-          .limit(20);
-      }),
-      runSource("github", async () => {
-        if (shouldFail("github")) throw new Error("forced_failure");
-        return supabase
-          .from("github_repository_registry")
-          .select("id")
-          .limit(1);
-      }),
+          .limit(20),
+      ),
+      runSource("github", async () =>
+        supabase.from("github_repository_registry").select("id").limit(1),
+      ),
     ]);
 
   return {
