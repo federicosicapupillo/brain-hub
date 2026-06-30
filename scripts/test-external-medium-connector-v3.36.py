@@ -521,6 +521,9 @@ async def run_tests():
             except Exception:
                 clean_audit = {"raw": clean_audit_raw}
         clean_hay = json.dumps(clean_res["body"]) + "|" + json.dumps(clean_audit)
+        print("DEBUG clean_res.body:", json.dumps(clean_res["body"], indent=2)[:2000])
+        print("DEBUG clean_audit:", json.dumps(clean_audit, indent=2)[:2000])
+
         # Look for [REDACTED] / [redacted-email] sentinels next to safe fields.
         overzealous_findings = []
         for v in clean_values:
