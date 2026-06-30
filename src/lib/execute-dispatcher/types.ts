@@ -114,10 +114,14 @@ export interface ExecuteDispatchResponse {
   status:
     | "executed"
     | "replayed" // idempotency hit; pre-existing receipt returned
+    | "rolled_back"
     | "rejected_governance"
     | "rejected_confirm"
     | "rejected_validation"
     | "rejected_unknown_action"
+    | "rejected_not_found"
+    | "rejected_not_rollbackable"
+    | "rejected_already_rolled_back"
     | "failed";
   receipt: ExecuteReceipt | null;
   safe_message: string;
