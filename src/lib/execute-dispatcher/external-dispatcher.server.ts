@@ -39,8 +39,10 @@ import {
   hashRequest,
   previewResponseText,
   redactObject,
+  redactString,
   validateExternalPayload,
 } from "./external-validators";
+
 
 const CONFIRM_MAX_AGE_MS = 5 * 60 * 1000;
 const DEFAULT_PROJECT_ID = "brainhub-os";
@@ -131,11 +133,9 @@ function rowToReceipt(r: ReceiptRow): ExecuteReceipt {
 
 function safe(err: unknown, fb = "external_execute_failed"): string {
   const m = (err as { message?: string } | null)?.message ?? fb;
-  return m
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
-    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+/g, "[redacted-email]")
-    .slice(0, 240);
+  return redactString(m).slice(0, 240);
 }
+
 
 function isFreshConfirm(iso: string | undefined): boolean {
   if (!iso) return false;
@@ -233,6 +233,12 @@ interface HandlerContext {
   };
 }
 
+// v3.36.1 — Stable, low-cardinality, safe-by-design failure taxonomy.
+// Examples: "none", "n8n_timeout", "http_418", "http_503",
+// "invalid_response_shape", "fetch_failed", "n8n_env_missing",
+// "workflow_not_allowlisted", "workflow_risk_not_medium".
+type HandlerErrorKind = string;
+
 interface HandlerResult {
   ok: boolean;
   external_reference: string | null;
@@ -240,7 +246,12 @@ interface HandlerResult {
   http_status: number | null;
   timing_ms: number;
   error?: string;
+  error_kind: HandlerErrorKind;
+  /** "mock" when endpoint resolves to a local mock; "real" otherwise; "n/a" for no-dispatch handlers. */
+  mock_or_real: "mock" | "real" | "n/a";
 }
+
+
 
 async function handlerExternalWebhookTestPing(
   ctx: HandlerContext,
@@ -257,9 +268,16 @@ async function handlerExternalWebhookTestPing(
       }),
       http_status: null,
       timing_ms: Date.now() - started,
+      error_kind: "none",
+      mock_or_real: "n/a",
     };
   }
   const url = new URL(EXTERNAL_SANDBOX_TARGET_PATH, ctx.env.selfOrigin).toString();
+  const mock_or_real: "mock" | "real" = /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(
+    url,
+  )
+    ? "mock"
+    : "real";
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ctx.entry.timeout_ms);
   try {
@@ -278,6 +296,8 @@ async function handlerExternalWebhookTestPing(
       ctx.entry.expected_response_shape.max_preview_bytes,
       ctx.entry.sensitive_fields_redaction,
     );
+    const error_kind: HandlerErrorKind = res.ok ? "none" : `http_${res.status}`;
+
     return {
       ok: res.ok,
       external_reference: res.headers.get("x-correlation-id"),
@@ -285,15 +305,22 @@ async function handlerExternalWebhookTestPing(
       http_status: res.status,
       timing_ms: Date.now() - started,
       error: res.ok ? undefined : `http_${res.status}`,
+      error_kind,
+      mock_or_real,
     };
   } catch (err) {
+    const aborted =
+      (err as { name?: string } | null)?.name === "AbortError" ||
+      controller.signal.aborted;
     return {
       ok: false,
       external_reference: null,
       response_preview_redacted: "",
       http_status: null,
       timing_ms: Date.now() - started,
-      error: safe(err, "fetch_failed"),
+      error: aborted ? "n8n_timeout" : safe(err, "fetch_failed"),
+      error_kind: aborted ? "n8n_timeout" : "fetch_failed",
+      mock_or_real,
     };
   } finally {
     clearTimeout(timer);
@@ -315,6 +342,8 @@ async function handlerExternalN8nControlledWebhook(
       http_status: null,
       timing_ms: Date.now() - started,
       error: "workflow_not_allowlisted",
+      error_kind: "workflow_not_allowlisted",
+      mock_or_real: "n/a",
     };
   }
   if (workflow.risk_level !== "medium") {
@@ -325,8 +354,18 @@ async function handlerExternalN8nControlledWebhook(
       http_status: null,
       timing_ms: Date.now() - started,
       error: "workflow_risk_not_medium",
+      error_kind: "workflow_risk_not_medium",
+      mock_or_real: "n/a",
     };
   }
+
+  const envUrl =
+    (process.env as Record<string, string | undefined>)[workflow.endpoint_env_var] ?? "";
+  const mock_or_real: "mock" | "real" = /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(
+    envUrl,
+  )
+    ? "mock"
+    : "real";
 
   // Dry-run: keep it local UNLESS n8n exposes a test mode for this
   // workflow. v3.36 ships no test-mode workflow → always local dry-run.
@@ -345,6 +384,8 @@ async function handlerExternalN8nControlledWebhook(
       }),
       http_status: null,
       timing_ms: Date.now() - started,
+      error_kind: "none",
+      mock_or_real,
     };
   }
 
@@ -367,6 +408,8 @@ async function handlerExternalN8nControlledWebhook(
       http_status: null,
       timing_ms: Date.now() - started,
       error: outcome.error_safe_message ?? "n8n_env_missing",
+      error_kind: "n8n_env_missing",
+      mock_or_real,
     };
   }
   if (!data) {
@@ -377,7 +420,36 @@ async function handlerExternalN8nControlledWebhook(
       http_status: null,
       timing_ms: Date.now() - started,
       error: outcome.error_safe_message ?? "n8n_no_data",
+      error_kind: "fetch_failed",
+      mock_or_real,
     };
+  }
+  // Map connector-level error_kind → dispatcher-level HandlerErrorKind.
+  let mapped: HandlerErrorKind = "none";
+  if (!data.ok) {
+    switch (data.error_kind) {
+      case "timeout":
+        mapped = "n8n_timeout";
+        break;
+      case "http_4xx":
+      case "http_5xx":
+        mapped =
+          typeof data.http_status === "number"
+            ? `http_${data.http_status}`
+            : data.error_kind;
+        break;
+
+      case "shape":
+        mapped = "invalid_response_shape";
+        break;
+      case "env_missing":
+        mapped = "n8n_env_missing";
+        break;
+      case "network":
+      default:
+        mapped = "fetch_failed";
+        break;
+    }
   }
   return {
     ok: data.ok,
@@ -386,8 +458,11 @@ async function handlerExternalN8nControlledWebhook(
     http_status: data.http_status,
     timing_ms: data.timing_ms,
     error: data.ok ? undefined : data.safe_error_message ?? "n8n_failed",
+    error_kind: mapped,
+    mock_or_real,
   };
 }
+
 
 const HANDLERS: Readonly<Record<string, (c: HandlerContext) => Promise<HandlerResult>>> =
   Object.freeze({
@@ -583,6 +658,13 @@ export async function executeExternalAction(
         risk_level: entry.risk_level,
         title: `[external] ${entry.action_type} ${payload.correlation_id}`,
         payload: {
+          // v3.36.1 — binding artifact/audit DB contract.
+          artifact_type: "external_medium_connector_dispatch",
+          connector_type:
+            entry.action_type === "external_n8n_controlled_webhook"
+              ? "n8n_controlled"
+              : entry.connector_name,
+          idempotency_key: req.idempotency_key,
           execute_scope: "external",
           external_action_type: entry.action_type,
           connector_name: entry.connector_name,
@@ -593,7 +675,14 @@ export async function executeExternalAction(
           confirmation_id: payload.confirmation_id,
           request_hash,
           payload_preview_redacted: redactedPayloadPreview,
+          // Filled in after handler completes (post-insert UPDATE).
+          dispatch_status: "pending",
+          service_outcome_status: "pending",
+          mock_or_real: "unknown",
+          receipt_id: null,
+          error_kind: null,
         },
+
       } as never)
       .select("id")
       .single();
@@ -640,11 +729,23 @@ export async function executeExternalAction(
   const handlerResult = await handler({ env, entry, payload });
 
   // 8. Write Receipt + stamp gate.
+  const dispatch_status: "ok" | "failed" = handlerResult.ok ? "ok" : "failed";
+  const service_outcome_status = handlerResult.ok ? "live" : "error";
+  const safe_error_message = handlerResult.ok
+    ? null
+    : redactString(handlerResult.error ?? handlerResult.error_kind ?? "handler_failed").slice(
+        0,
+        240,
+      );
   const auditRecord = {
     ...gov.audit_record,
     execute_scope: "external",
     external_action_type: entry.action_type,
     connector_name: entry.connector_name,
+    connector_type:
+      entry.action_type === "external_n8n_controlled_webhook"
+        ? "n8n_controlled"
+        : entry.connector_name,
     handler_name: entry.handler_name,
     workflow_key: payload.workflow_key,
     dry_run: payload.dry_run,
@@ -654,13 +755,18 @@ export async function executeExternalAction(
     confirmed_at: req.confirmed_at ?? null,
     request_hash,
     payload_preview_redacted: redactedPayloadPreview,
-    response_preview_redacted: handlerResult.response_preview_redacted,
+    response_preview_redacted: redactString(handlerResult.response_preview_redacted),
     http_status: handlerResult.http_status,
     timing_ms: handlerResult.timing_ms,
     rollback_supported: entry.supports_rollback,
-    service_outcome_status: handlerResult.ok ? "live" : "error",
+    service_outcome_status,
     auto_reexecuted: false,
     orphan_gate_reaper: "v3_35c_inherited",
+    // v3.36.1 — propagate error_kind for failure modes.
+    error_kind: handlerResult.error_kind,
+    safe_error_message,
+    mock_or_real: handlerResult.mock_or_real,
+    dispatch_status,
   };
   const receipt = await writeReceipt(env, {
     action_id: artifactId,
@@ -676,7 +782,7 @@ export async function executeExternalAction(
     external_reference: handlerResult.external_reference,
     audit_record: JSON.stringify(auditRecord),
     idempotency_key: req.idempotency_key,
-    safe_error_message: handlerResult.ok ? null : handlerResult.error ?? "handler_failed",
+    safe_error_message,
   });
   if (!receipt) {
     return {
@@ -692,6 +798,42 @@ export async function executeExternalAction(
     .eq("owner_id", env.userId)
     .eq("idempotency_key", req.idempotency_key);
 
+  // v3.36.1 — stamp artifact with post-handler outcome so the DB row is the
+  // source of truth for external dispatch (artifact_type +
+  // external_medium_connector_dispatch).
+  if (artifactId) {
+    const stampedPayload = {
+      artifact_type: "external_medium_connector_dispatch",
+      connector_type:
+        entry.action_type === "external_n8n_controlled_webhook"
+          ? "n8n_controlled"
+          : entry.connector_name,
+      idempotency_key: req.idempotency_key,
+      execute_scope: "external",
+      external_action_type: entry.action_type,
+      connector_name: entry.connector_name,
+      handler_name: entry.handler_name,
+      workflow_key: payload.workflow_key,
+      dry_run: payload.dry_run,
+      live_execute: payload.live_execute,
+      confirmation_id: payload.confirmation_id,
+      request_hash,
+      payload_preview_redacted: redactedPayloadPreview,
+      dispatch_status,
+      service_outcome_status,
+      mock_or_real: handlerResult.mock_or_real,
+      receipt_id: receipt.receipt_id,
+      error_kind: handlerResult.error_kind,
+      http_status: handlerResult.http_status,
+      timing_ms: handlerResult.timing_ms,
+      response_preview_redacted: redactString(handlerResult.response_preview_redacted),
+    };
+    await env.admin
+      .from("internal_execute_artifacts")
+      .update({ payload: stampedPayload } as never)
+      .eq("id", artifactId);
+  }
+
   return {
     ok: handlerResult.ok,
     status: handlerResult.ok ? "executed" : "failed",
@@ -699,6 +841,7 @@ export async function executeExternalAction(
     safe_message: handlerResult.ok ? "ok" : handlerResult.error ?? "handler_failed",
   };
 }
+
 
 /**
  * Rollback stub (v3.35b). External rollback is intentionally NOT

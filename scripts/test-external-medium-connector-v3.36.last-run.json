@@ -2,71 +2,72 @@
   "test_g": [
     {
       "scenario": "timeout",
-      "expected_kind": "timeout",
+      "expected_kind": "n8n_timeout",
       "api_status": 500,
       "dispatch_status": "failed",
-      "error_kind": null,
-      "receipt_id": "d116d94d-7aea-46bb-9dc3-a008c24a2664",
+      "error_kind": "n8n_timeout",
+      "receipt_id": "115156ee-96e6-446b-ac60-2f7342520044",
       "safe_error_message": "n8n_timeout",
       "service_outcome_status": "error",
       "mock_calls": 1
     },
     {
       "scenario": "http_4xx",
-      "expected_kind": "http_4xx",
+      "expected_kind": "http_418",
       "api_status": 500,
       "dispatch_status": "failed",
-      "error_kind": null,
-      "receipt_id": "bd5bfe91-52cb-405b-9e22-5530ff7dd7f3",
+      "error_kind": "http_418",
+      "receipt_id": "e22984ac-0939-4e23-8693-0ea82f1b6750",
       "safe_error_message": "http_418",
       "service_outcome_status": "error",
       "mock_calls": 1
     },
     {
       "scenario": "http_5xx",
-      "expected_kind": "http_5xx",
+      "expected_kind": "http_503",
       "api_status": 500,
       "dispatch_status": "failed",
-      "error_kind": null,
-      "receipt_id": "24d91db4-9b3d-4e44-86dd-c08cb2390a24",
+      "error_kind": "http_503",
+      "receipt_id": "dcb7dbd0-898c-4f7c-89ff-49a1f0262d10",
       "safe_error_message": "http_503",
       "service_outcome_status": "error",
       "mock_calls": 1
     },
     {
       "scenario": "shape_not_object",
-      "expected_kind": "shape",
+      "expected_kind": "invalid_response_shape",
       "api_status": 500,
       "dispatch_status": "failed",
-      "error_kind": null,
-      "receipt_id": "c4bc75bd-3b0c-498e-a5c8-9745b8df7e56",
+      "error_kind": "invalid_response_shape",
+      "receipt_id": "4bc2a585-d685-4ea1-abfe-899ee8f6cc6a",
       "safe_error_message": "invalid_response_shape",
       "service_outcome_status": "error",
       "mock_calls": 1
     },
     {
       "scenario": "shape_malformed",
-      "expected_kind": "shape",
+      "expected_kind": "invalid_response_shape",
       "api_status": 500,
       "dispatch_status": "failed",
-      "error_kind": null,
-      "receipt_id": "6dbe17b6-9262-4a05-a59a-9ead0f0c5a2b",
+      "error_kind": "invalid_response_shape",
+      "receipt_id": "6b1f6c41-2a46-4e40-9fc1-a1fe7c822c2d",
       "safe_error_message": "invalid_response_shape",
       "service_outcome_status": "error",
       "mock_calls": 1
     },
     {
       "scenario": "network",
-      "expected_kind": "network",
+      "expected_kind": "fetch_failed",
       "api_status": 500,
       "dispatch_status": "failed",
-      "error_kind": null,
-      "receipt_id": "5f633087-5e93-4c09-8787-ac00d403f0d6",
+      "error_kind": "fetch_failed",
+      "receipt_id": "d19ace99-17ac-4b48-b00c-523c905fdd8b",
       "safe_error_message": "fetch failed",
       "service_outcome_status": "error",
       "mock_calls": 1
     }
   ],
+  "test_g_kind_failures": [],
   "test_h": {
     "executed": 1,
     "replayed": 7,
@@ -84,12 +85,11 @@
     ],
     "db_receipt_rows": 1,
     "db_idempotency_rows": 1,
-    "db_artifact_rows": 0
+    "db_artifact_rows": 1
   },
-  "redaction_leaks": [
-    "eyJhbGciOiJIUzI1NiJ9.fake.sig",
-    "secret-qs"
-  ],
+  "redaction_leaks": [],
+  "negative_redaction_test": "PASS",
+  "negative_missing_clean_values": [],
   "mock_url": "http://127.0.0.1:39001/webhook",
   "env_var": "BRAINHUB_N8N_CONTROLLED_WEBHOOK_URL",
   "workflow_key": "brainhub_n8n_controlled_echo_medium"
