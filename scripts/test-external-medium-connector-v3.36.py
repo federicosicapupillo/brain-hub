@@ -489,7 +489,7 @@ async def run_tests():
             "external connector completed with safe payload",
         ]
         # Drive a clean success run.
-        set_scenario("success", reset=True)
+        set_scenario("negative", reset=True)
         clean_msg = " | ".join(clean_values)
         clean_idem = f"v3.36.1-NEG-{uuid.uuid4()}"
         clean_payload = {
