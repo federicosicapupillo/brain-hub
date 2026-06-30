@@ -152,7 +152,7 @@ async function writeReceipt(
       related_receipt_id: partial.related_receipt_id ?? null,
       idempotency_key: partial.idempotency_key ?? null,
       safe_error_message: partial.safe_error_message ?? null,
-    })
+    } as never)
     .select("*")
     .single();
   if (error || !data) return null;
