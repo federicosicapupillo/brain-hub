@@ -1,6 +1,6 @@
 # Runtime Risk Model
 
-**Version:** 1.0
+**Version:** 1.1
 **Status:** Active
 **Domain:** Runtime Governance (non Engineering Governance — vedi nota sotto)
 **Location:** `/docs/runtime/runtime-risk-model.md`
@@ -113,6 +113,94 @@ Ogni nuovo modulo che introduce azioni mutative (Command Center v2, Project Cent
 
 Questo modello non prescrive la UI esatta di conferma per ogni caso — quella è una decisione di design del singolo modulo — ma prescrive il comportamento minimo richiesto per ogni livello.
 
+## Execute Receipt
+
+Ogni Execute reale, indipendentemente dal risk_level, produce un **Execute Receipt** — l'artefatto runtime che documenta in modo permanente e ispezionabile cosa è stato eseguito, da chi, quando, e con quale esito. È l'equivalente, a livello di esecuzione, di ciò che l'ADR è per le decisioni architetturali e il Decision Log è per le patch: una risposta verificabile alla domanda "perché/come è successo questo", senza dover ricostruire la storia da log sparsi.
+
+```ts
+type ExecuteReceipt = {
+  receipt_id: string;
+  action_id: string;
+  action_type: string;          // riferimento al tipo di azione (es. ActionType
+                                  // di Command Center v2)
+  risk_level: RiskLevel;
+  requested_by: string;          // chi ha generato la proposta (utente, agente)
+  approved_by: string | null;     // chi ha confermato — null se LOW (confirm
+                                  // implicita) e tracciato comunque come tale
+  executed_by: string;             // sistema/processo che ha eseguito
+  started_at: string;               // ISO timestamp
+  completed_at: string | null;        // null se in corso o fallito prima del
+                                      // completamento
+  result: "success" | "failure" | "partial";
+  rollback_available: boolean;
+  external_reference: string | null;  // es. message-id email, commit SHA,
+                                      // null se l'azione è interna (MEDIUM)
+  audit_record: string;                // riferimento al record di audit
+                                        // già prodotto dal Governance Evaluator
+};
+```
+
+Regole:
+
+```text
+1. Ogni Execute (LOW incluso, se mutativo) produce un Execute Receipt.
+   Azioni puramente di lettura (Read) non producono Receipt.
+2. Il Receipt è immutabile una volta scritto — un fallimento successivo
+   (es. un rollback) produce un nuovo Receipt collegato, non modifica
+   quello originale.
+3. external_reference è obbligatorio quando l'azione ha avuto un effetto
+   verso un sistema esterno (HIGH), per permettere di correlare il
+   Receipt interno con l'evidenza esterna (es. l'email effettivamente
+   inviata).
+4. Il Receipt referenzia l'audit_record del Governance Evaluator, non lo
+   sostituisce — sono due artefatti complementari: l'audit_record
+   conferma che il Governance Evaluator ha autorizzato l'azione, il
+   Receipt conferma cosa è realmente accaduto durante l'esecuzione.
+```
+
+## Internal / External Execute Staging
+
+L'introduzione di Execute reale in un modulo non avviene tutta insieme. Per ridurre la superficie di rischio quando più assunti (Governance Evaluator, Approval Layer, Execute Dispatcher, connettore esterno, idempotenza, audit, rollback, UX di conferma) vengono validati per la prima volta in produzione, l'Execute reale si introduce in due fasi:
+
+```text
+Fase 1 — Internal Execute
+  Azioni che scrivono esclusivamente nello stato interno di Brain Hub
+  (nessun sistema esterno modificato). Valida Execute Dispatcher,
+  Governance Evaluator, Runtime Risk Model, Audit, Confirm, Idempotency,
+  Logging, Recovery — senza rischio verso terzi.
+
+Fase 2 — External Execute
+  Azioni con effetto verso sistemi esterni (invio email, pubblicazioni,
+  push, messaggi). Si apre SOLO dopo che la Fase 1 ha superato
+  l'Internal Execute Readiness Review (vedi sotto).
+```
+
+### Internal Execute Readiness Review
+
+Checklist obbligatoria prima di abilitare qualsiasi Execute esterno (HIGH con effetto verso terzi). Ogni voce deve essere verificata esplicitamente, non assunta:
+
+```text
+Internal Execute Readiness
+
+□ Governance sempre invocata (nessun path che esegue senza passare
+  dal Governance Evaluator)
+□ Nessun bypass trovato (verifica attiva, non solo assenza di bug noti)
+□ Audit completo (ogni Execute produce audit_record + Execute Receipt)
+□ Idempotency verificata (eseguire due volte la stessa richiesta non
+  produce doppio effetto)
+□ Confirm obbligatorio rispettato (nessun Execute MEDIUM/HIGH senza
+  Confirm esplicita registrata)
+□ Retry sicuro (un retry dopo fallimento non duplica l'azione)
+□ Rollback interno funzionante (per le azioni che lo prevedono)
+□ Nessuna race condition osservata (esecuzioni concorrenti non
+  producono stati inconsistenti)
+□ Nessuna esecuzione duplicata osservata in pratica (non solo in teoria)
+
+READY_FOR_EXTERNAL_EXECUTE = true   (solo quando tutte le voci sono verificate)
+```
+
+Questa review va registrata nel Decision Log dell'EQG come una patch a sé (non come parte della stessa patch che introduce Internal Execute), in modo che la decisione di "siamo pronti per l'esterno" sia esplicita, datata, e attribuibile — non implicita nel fatto che la patch successiva semplicemente non ha trovato problemi.
+
 ## Limiti dichiarati di questa versione
 
 ```text
@@ -127,4 +215,5 @@ Questo modello non prescrive la UI esatta di conferma per ogni caso — quella �
 
 ## Changelog
 
+- **v1.1** — Aggiunto l'Execute Receipt (artefatto runtime che documenta ogni Execute reale, complementare all'audit_record del Governance Evaluator) e l'Internal/External Execute Staging (separazione obbligatoria tra Execute interno e Execute con effetto esterno, con Internal Execute Readiness Review come gate esplicito tra le due fasi). Origine: primo caso reale di Execute reale (v3.35), che ha reso necessario un modello esplicito per ridurre la superficie di rischio quando più assunti vengono validati per la prima volta in produzione contemporaneamente.
 - **v1.0** — Versione iniziale. Definisce i quattro livelli di rischio (low/medium/high/critical), conferma richiesta, condizioni di Execute, approval layer e granularità di audit per ciascuno. Origine: completamento operativo del Principio 5 (Read→Suggest→Prepare→Confirm→Execute) di `architecture-principles.md`, ADR-005.

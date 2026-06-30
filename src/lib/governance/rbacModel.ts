@@ -44,11 +44,17 @@ export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
     max_risk_level: "high",
   },
 
+  // The `user` entity represents an authenticated end-user acting via
+  // the UI. v3.35a — Internal Execute Layer: users may execute the 8
+  // MEDIUM internal actions through the Execute Dispatcher. The
+  // dispatcher itself enforces the per-action_type allowlist (in
+  // src/lib/execute-dispatcher/types.ts) and Confirm gating — RBAC only
+  // sees the umbrella action name and the declared risk_level.
   user: {
-    allowed_actions: [],
-    denied_actions: [],
-    requires_confirmation: [],
-    max_risk_level: "critical",
+    allowed_actions: ["execute_internal_action"],
+    denied_actions: ["delete", "send"],
+    requires_confirmation: ["execute_internal_action"],
+    max_risk_level: "medium",
   },
 };
 
