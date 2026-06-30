@@ -198,6 +198,7 @@ spoof_req = urllib.request.Request(
     data=json.dumps({
         "idempotency_key": g_key,
         "owner_id": "00000000-0000-0000-0000-000000000001",
+        "ttl_ms": TTL_TEST_MS,
     }).encode(),
     headers={"content-type": "application/json", "authorization": f"Bearer {TOKEN}"},
     method="POST",
