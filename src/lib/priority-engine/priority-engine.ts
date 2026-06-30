@@ -121,22 +121,44 @@ const RULE_TABLES: Record<PriorityRule, string[]> = {
   important_email: ["gmail_message_map"],
 };
 
+// Per-rule confidence is a fixed score assigned by the rule branch (not a
+// 1:1 column read), so it qualifies as rule_based_score per
+// architecture-principles v1.1. Severity itself is also rule-derived
+// (e.g. risk_level → high/medium), confirming the classification.
+const RULE_SOURCE_KEY: Record<PriorityRule, PrioritySourceKey> = {
+  review_pending: "result_review",
+  action_blocked: "action_queue",
+  automation_failed: "action_queue",
+  agent_waiting: "agent_runs",
+  important_email: "gmail",
+};
+
 function trustFor(
   rule: PriorityRule,
   freshness: string | null,
   confidence: number,
+  confidence_reason: string,
   warnings: string[] = [],
 ): DataTrust {
+  const sourceKey = RULE_SOURCE_KEY[rule];
   return {
     status: "live",
     confidence,
-    calculation_method: "direct_source",
+    calculation_method: "rule_based_score",
     provenance: {
       source_tables: RULE_TABLES[rule],
       source_functions: ["priority-engine.computePriorities"],
     },
     freshness,
     warnings: warnings.length > 0 ? warnings : undefined,
+    rule_metadata: {
+      rules_used: [`rule:${rule}`],
+      input_sources: [sourceKey],
+      source_criticality: {
+        [sourceKey]: PRIORITY_SOURCE_CRITICALITY[sourceKey],
+      },
+      confidence_reason,
+    },
   };
 }
 
