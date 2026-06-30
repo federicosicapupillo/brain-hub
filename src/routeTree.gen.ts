@@ -17,6 +17,7 @@ import { Route as UiOperatorProxySessionIdRouteImport } from './routes/ui-operat
 import { Route as ApiPriorityEngineDataRouteImport } from './routes/api/priority-engine-data'
 import { Route as ApiOsModuleMapRouteImport } from './routes/api/os-module-map'
 import { Route as ApiJackEventRouteImport } from './routes/api/jack-event'
+import { Route as ApiCommandCenterV2DataRouteImport } from './routes/api/command-center-v2-data'
 import { Route as ApiCommandCenterDataRouteImport } from './routes/api/command-center-data'
 import { Route as ApiArchitectureAuditSnapshotRouteImport } from './routes/api/architecture-audit-snapshot'
 import { Route as AuthenticatedUiOperatorLabRouteImport } from './routes/_authenticated/ui-operator-lab'
@@ -90,6 +91,7 @@ import { Route as AuthenticatedOsKnowledgeCenterRouteImport } from './routes/_au
 import { Route as AuthenticatedOsGovernanceRouteImport } from './routes/_authenticated/os.governance'
 import { Route as AuthenticatedOsDevelopmentCenterRouteImport } from './routes/_authenticated/os.development-center'
 import { Route as AuthenticatedOsCommunicationCenterRouteImport } from './routes/_authenticated/os.communication-center'
+import { Route as AuthenticatedOsCommandCenterV2RouteImport } from './routes/_authenticated/os.command-center-v2'
 import { Route as AuthenticatedOsCommandCenterRouteImport } from './routes/_authenticated/os.command-center'
 import { Route as AuthenticatedOsAutomationCenterRouteImport } from './routes/_authenticated/os.automation-center'
 import { Route as AuthenticatedOsAiCoreRouteImport } from './routes/_authenticated/os.ai-core'
@@ -139,6 +141,11 @@ const ApiOsModuleMapRoute = ApiOsModuleMapRouteImport.update({
 const ApiJackEventRoute = ApiJackEventRouteImport.update({
   id: '/api/jack-event',
   path: '/api/jack-event',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCommandCenterV2DataRoute = ApiCommandCenterV2DataRouteImport.update({
+  id: '/api/command-center-v2-data',
+  path: '/api/command-center-v2-data',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCommandCenterDataRoute = ApiCommandCenterDataRouteImport.update({
@@ -555,6 +562,12 @@ const AuthenticatedOsCommunicationCenterRoute =
     path: '/communication-center',
     getParentRoute: () => AuthenticatedOsRoute,
   } as any)
+const AuthenticatedOsCommandCenterV2Route =
+  AuthenticatedOsCommandCenterV2RouteImport.update({
+    id: '/command-center-v2',
+    path: '/command-center-v2',
+    getParentRoute: () => AuthenticatedOsRoute,
+  } as any)
 const AuthenticatedOsCommandCenterRoute =
   AuthenticatedOsCommandCenterRouteImport.update({
     id: '/command-center',
@@ -672,6 +685,7 @@ export interface FileRoutesByFullPath {
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
+  '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/api/priority-engine-data': typeof ApiPriorityEngineDataRoute
@@ -682,6 +696,7 @@ export interface FileRoutesByFullPath {
   '/os/ai-core': typeof AuthenticatedOsAiCoreRoute
   '/os/automation-center': typeof AuthenticatedOsAutomationCenterRoute
   '/os/command-center': typeof AuthenticatedOsCommandCenterRoute
+  '/os/command-center-v2': typeof AuthenticatedOsCommandCenterV2Route
   '/os/communication-center': typeof AuthenticatedOsCommunicationCenterRoute
   '/os/development-center': typeof AuthenticatedOsDevelopmentCenterRoute
   '/os/governance': typeof AuthenticatedOsGovernanceRoute
@@ -760,6 +775,7 @@ export interface FileRoutesByTo {
   '/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
+  '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/api/priority-engine-data': typeof ApiPriorityEngineDataRoute
@@ -771,6 +787,7 @@ export interface FileRoutesByTo {
   '/os/ai-core': typeof AuthenticatedOsAiCoreRoute
   '/os/automation-center': typeof AuthenticatedOsAutomationCenterRoute
   '/os/command-center': typeof AuthenticatedOsCommandCenterRoute
+  '/os/command-center-v2': typeof AuthenticatedOsCommandCenterV2Route
   '/os/communication-center': typeof AuthenticatedOsCommunicationCenterRoute
   '/os/development-center': typeof AuthenticatedOsDevelopmentCenterRoute
   '/os/governance': typeof AuthenticatedOsGovernanceRoute
@@ -853,6 +870,7 @@ export interface FileRoutesById {
   '/_authenticated/ui-operator-lab': typeof AuthenticatedUiOperatorLabRoute
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
+  '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/api/priority-engine-data': typeof ApiPriorityEngineDataRoute
@@ -864,6 +882,7 @@ export interface FileRoutesById {
   '/_authenticated/os/ai-core': typeof AuthenticatedOsAiCoreRoute
   '/_authenticated/os/automation-center': typeof AuthenticatedOsAutomationCenterRoute
   '/_authenticated/os/command-center': typeof AuthenticatedOsCommandCenterRoute
+  '/_authenticated/os/command-center-v2': typeof AuthenticatedOsCommandCenterV2Route
   '/_authenticated/os/communication-center': typeof AuthenticatedOsCommunicationCenterRoute
   '/_authenticated/os/development-center': typeof AuthenticatedOsDevelopmentCenterRoute
   '/_authenticated/os/governance': typeof AuthenticatedOsGovernanceRoute
@@ -947,6 +966,7 @@ export interface FileRouteTypes {
     | '/ui-operator-lab'
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
+    | '/api/command-center-v2-data'
     | '/api/jack-event'
     | '/api/os-module-map'
     | '/api/priority-engine-data'
@@ -957,6 +977,7 @@ export interface FileRouteTypes {
     | '/os/ai-core'
     | '/os/automation-center'
     | '/os/command-center'
+    | '/os/command-center-v2'
     | '/os/communication-center'
     | '/os/development-center'
     | '/os/governance'
@@ -1035,6 +1056,7 @@ export interface FileRouteTypes {
     | '/ui-operator-lab'
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
+    | '/api/command-center-v2-data'
     | '/api/jack-event'
     | '/api/os-module-map'
     | '/api/priority-engine-data'
@@ -1046,6 +1068,7 @@ export interface FileRouteTypes {
     | '/os/ai-core'
     | '/os/automation-center'
     | '/os/command-center'
+    | '/os/command-center-v2'
     | '/os/communication-center'
     | '/os/development-center'
     | '/os/governance'
@@ -1127,6 +1150,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ui-operator-lab'
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
+    | '/api/command-center-v2-data'
     | '/api/jack-event'
     | '/api/os-module-map'
     | '/api/priority-engine-data'
@@ -1138,6 +1162,7 @@ export interface FileRouteTypes {
     | '/_authenticated/os/ai-core'
     | '/_authenticated/os/automation-center'
     | '/_authenticated/os/command-center'
+    | '/_authenticated/os/command-center-v2'
     | '/_authenticated/os/communication-center'
     | '/_authenticated/os/development-center'
     | '/_authenticated/os/governance'
@@ -1162,6 +1187,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   ApiArchitectureAuditSnapshotRoute: typeof ApiArchitectureAuditSnapshotRoute
   ApiCommandCenterDataRoute: typeof ApiCommandCenterDataRoute
+  ApiCommandCenterV2DataRoute: typeof ApiCommandCenterV2DataRoute
   ApiJackEventRoute: typeof ApiJackEventRoute
   ApiOsModuleMapRoute: typeof ApiOsModuleMapRoute
   ApiPriorityEngineDataRoute: typeof ApiPriorityEngineDataRoute
@@ -1234,6 +1260,13 @@ declare module '@tanstack/react-router' {
       path: '/api/jack-event'
       fullPath: '/api/jack-event'
       preLoaderRoute: typeof ApiJackEventRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/command-center-v2-data': {
+      id: '/api/command-center-v2-data'
+      path: '/api/command-center-v2-data'
+      fullPath: '/api/command-center-v2-data'
+      preLoaderRoute: typeof ApiCommandCenterV2DataRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/command-center-data': {
@@ -1747,6 +1780,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOsCommunicationCenterRouteImport
       parentRoute: typeof AuthenticatedOsRoute
     }
+    '/_authenticated/os/command-center-v2': {
+      id: '/_authenticated/os/command-center-v2'
+      path: '/command-center-v2'
+      fullPath: '/os/command-center-v2'
+      preLoaderRoute: typeof AuthenticatedOsCommandCenterV2RouteImport
+      parentRoute: typeof AuthenticatedOsRoute
+    }
     '/_authenticated/os/command-center': {
       id: '/_authenticated/os/command-center'
       path: '/command-center'
@@ -1832,6 +1872,7 @@ interface AuthenticatedOsRouteChildren {
   AuthenticatedOsAiCoreRoute: typeof AuthenticatedOsAiCoreRoute
   AuthenticatedOsAutomationCenterRoute: typeof AuthenticatedOsAutomationCenterRoute
   AuthenticatedOsCommandCenterRoute: typeof AuthenticatedOsCommandCenterRoute
+  AuthenticatedOsCommandCenterV2Route: typeof AuthenticatedOsCommandCenterV2Route
   AuthenticatedOsCommunicationCenterRoute: typeof AuthenticatedOsCommunicationCenterRoute
   AuthenticatedOsDevelopmentCenterRoute: typeof AuthenticatedOsDevelopmentCenterRoute
   AuthenticatedOsGovernanceRoute: typeof AuthenticatedOsGovernanceRoute
@@ -1845,6 +1886,7 @@ const AuthenticatedOsRouteChildren: AuthenticatedOsRouteChildren = {
   AuthenticatedOsAiCoreRoute: AuthenticatedOsAiCoreRoute,
   AuthenticatedOsAutomationCenterRoute: AuthenticatedOsAutomationCenterRoute,
   AuthenticatedOsCommandCenterRoute: AuthenticatedOsCommandCenterRoute,
+  AuthenticatedOsCommandCenterV2Route: AuthenticatedOsCommandCenterV2Route,
   AuthenticatedOsCommunicationCenterRoute:
     AuthenticatedOsCommunicationCenterRoute,
   AuthenticatedOsDevelopmentCenterRoute: AuthenticatedOsDevelopmentCenterRoute,
@@ -2003,6 +2045,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   ApiArchitectureAuditSnapshotRoute: ApiArchitectureAuditSnapshotRoute,
   ApiCommandCenterDataRoute: ApiCommandCenterDataRoute,
+  ApiCommandCenterV2DataRoute: ApiCommandCenterV2DataRoute,
   ApiJackEventRoute: ApiJackEventRoute,
   ApiOsModuleMapRoute: ApiOsModuleMapRoute,
   ApiPriorityEngineDataRoute: ApiPriorityEngineDataRoute,
