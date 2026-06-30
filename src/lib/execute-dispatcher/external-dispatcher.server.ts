@@ -233,16 +233,11 @@ interface HandlerContext {
   };
 }
 
-type HandlerErrorKind =
-  | "none"
-  | "n8n_timeout"
-  | "http_4xx"
-  | "http_5xx"
-  | "invalid_response_shape"
-  | "fetch_failed"
-  | "n8n_env_missing"
-  | "workflow_not_allowlisted"
-  | "workflow_risk_not_medium";
+// v3.36.1 — Stable, low-cardinality, safe-by-design failure taxonomy.
+// Examples: "none", "n8n_timeout", "http_418", "http_503",
+// "invalid_response_shape", "fetch_failed", "n8n_env_missing",
+// "workflow_not_allowlisted", "workflow_risk_not_medium".
+type HandlerErrorKind = string;
 
 interface HandlerResult {
   ok: boolean;
@@ -252,9 +247,10 @@ interface HandlerResult {
   timing_ms: number;
   error?: string;
   error_kind: HandlerErrorKind;
-  /** "mock" when the endpoint resolves to a local mock; "real" otherwise; "n/a" for handlers that don't dispatch externally. */
+  /** "mock" when endpoint resolves to a local mock; "real" otherwise; "n/a" for no-dispatch handlers. */
   mock_or_real: "mock" | "real" | "n/a";
 }
+
 
 
 async function handlerExternalWebhookTestPing(
