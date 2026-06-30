@@ -100,7 +100,13 @@ FAKE_SECRETS_IN_RESPONSE = {
     "leak_sk": "sk-test-secret-001",
     "leak_email": "secret-user@example.com",
     "leak_qs": "https://x/cb?token=secret-qs",
+    # v3.36.1 — URL-encoded variants must also be redacted (stopping at the
+    # real `&` separator, NOT at encoded %26/%2F/%3D inside the value).
+    "leak_qs_encoded_token": "https://x/cb?token=abc%2Fdef%3Dghi&page=1",
+    "leak_qs_encoded_access": "https://x/cb?foo=1&access_token=eyJabc.def.ghi%2Fsig&page=2",
+    "leak_qs_encoded_secret": "https://x/cb?secret=value%2Bwith%2Fencoded%3Dchars&ok=1",
 }
+
 
 class MockHandler(BaseHTTPRequestHandler):
     def log_message(self, *a, **kw):  # silence
