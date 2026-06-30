@@ -6,9 +6,10 @@
 //   - HTTP 500 only for systemic failures (e.g. evaluator crash);
 //   - Per-source isolation via runSource (Partial Failure Pattern).
 //
-// Reuses the v3.30.1 `__force_fail` dev-only switch — no new mechanism.
-// Reuses the v3.30.1 logging pattern with the
-// priority_engine_source_error / priority_engine_slow_widget events.
+// v3.32: `__force_fail` query param removed from this endpoint. Partial-
+// failure simulation now lives in the standalone harness
+// `scripts/test-partial-failure.ts`, which constructs source outcomes
+// directly and asserts against `computePriorities`.
 //
 // The slow-widget threshold mirrors the Command Center one; surfaced
 // explicitly in `debug.slow_source_threshold_ms`.
