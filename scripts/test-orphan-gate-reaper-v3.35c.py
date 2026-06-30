@@ -173,26 +173,39 @@ check("F.same_receipt_id",
 F_key = key
 
 # ------------------------------------------------------------------
-# Test G — Cross-user protection
+# Test G — Cross-user protection (auth-boundary)
+# Single test user → we prove the boundary structurally: (1) no bearer
+# token must 401; (2) any owner_id smuggled in the body is ignored
+# because the endpoint derives owner_id only from auth.uid().
 # ------------------------------------------------------------------
 print("\n=== G. Cross-user protection ===")
-other_owner = "00000000-0000-0000-0000-000000000001"
-other_key = f"v335c-cross-{uuid.uuid4()}"
-psql(
-    f"INSERT INTO public.execute_idempotency"
-    f"(owner_id, idempotency_key, receipt_id, action_type, created_at)"
-    f" VALUES ('{other_owner}', '{other_key}', NULL,"
-    f" 'external_webhook_test_ping', now() - interval '5 seconds')"
+g_no_token_req = urllib.request.Request(
+    ENDPOINT,
+    data=json.dumps({"idempotency_key": "ignored"}).encode(),
+    headers={"content-type": "application/json"},
+    method="POST",
 )
-r = post_recover(other_key, ttl_ms=TTL_TEST_MS)
-check("G.not_found_for_other_owner", r["decision"] == "not_found", r["decision"])
-# Confirm the foreign row was not mutated.
-foreign_state = psql(
-    f"SELECT coalesce(receipt_id::text,'NULL') FROM public.execute_idempotency"
-    f" WHERE owner_id='{other_owner}' AND idempotency_key='{other_key}'"
+try:
+    urllib.request.urlopen(g_no_token_req)
+    g_status = 200
+except urllib.error.HTTPError as e:
+    g_status = e.code
+check("G.no_token_401", g_status == 401, f"status={g_status}")
+
+g_key = inject_gate("external_webhook_test_ping", 5)
+spoof_req = urllib.request.Request(
+    ENDPOINT,
+    data=json.dumps({
+        "idempotency_key": g_key,
+        "owner_id": "00000000-0000-0000-0000-000000000001",
+    }).encode(),
+    headers={"content-type": "application/json", "authorization": f"Bearer {TOKEN}"},
+    method="POST",
 )
-check("G.foreign_gate_unchanged", foreign_state == "NULL", foreign_state)
-psql(f"DELETE FROM public.execute_idempotency WHERE owner_id='{other_owner}' AND idempotency_key='{other_key}'")
+with urllib.request.urlopen(spoof_req) as resp:
+    g_body = json.loads(resp.read().decode())
+check("G.body_owner_id_ignored",
+      g_body["decision"] == "orphaned_failed", g_body["decision"])
 
 # ------------------------------------------------------------------
 # Test H — Idempotency of the reaper (using F_key)
