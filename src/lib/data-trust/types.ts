@@ -17,6 +17,7 @@ export type ConfidenceCalculationMethod =
   | "minimum_source"
   | "manual_review"
   | "graph_inference_v1"
+  | "rule_based_score"
   | "not_applicable";
 
 export interface DataTrustProvenance {
@@ -25,6 +26,17 @@ export interface DataTrustProvenance {
   source_events?: string[];
   source_files?: string[];
   source_external_tools?: string[];
+}
+
+export interface RuleBasedScoreMetadata {
+  /** Which rule/branch determined the confidence value. */
+  rules_used: string[];
+  /** Which sources were read as input to the score. */
+  input_sources: string[];
+  /** Criticality classification per input source (consumer-scoped). */
+  source_criticality: Record<string, SourceCriticality>;
+  /** Human-readable reason explaining the score value. */
+  confidence_reason: string;
 }
 
 export interface DataTrust {
@@ -36,6 +48,11 @@ export interface DataTrust {
   /** ISO timestamp or null. Freshness is data, not a verdict. */
   freshness: string | null;
   warnings?: string[];
+  /**
+   * Required when calculation_method === "rule_based_score".
+   * Exposes the four mandatory fields per architecture-principles v1.1.
+   */
+  rule_metadata?: RuleBasedScoreMetadata;
 }
 
 /**

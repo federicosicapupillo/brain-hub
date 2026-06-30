@@ -121,22 +121,44 @@ const RULE_TABLES: Record<PriorityRule, string[]> = {
   important_email: ["gmail_message_map"],
 };
 
+// Per-rule confidence is a fixed score assigned by the rule branch (not a
+// 1:1 column read), so it qualifies as rule_based_score per
+// architecture-principles v1.1. Severity itself is also rule-derived
+// (e.g. risk_level → high/medium), confirming the classification.
+const RULE_SOURCE_KEY: Record<PriorityRule, PrioritySourceKey> = {
+  review_pending: "result_review",
+  action_blocked: "action_queue",
+  automation_failed: "action_queue",
+  agent_waiting: "agent_runs",
+  important_email: "gmail",
+};
+
 function trustFor(
   rule: PriorityRule,
   freshness: string | null,
   confidence: number,
+  confidence_reason: string,
   warnings: string[] = [],
 ): DataTrust {
+  const sourceKey = RULE_SOURCE_KEY[rule];
   return {
     status: "live",
     confidence,
-    calculation_method: "direct_source",
+    calculation_method: "rule_based_score",
     provenance: {
       source_tables: RULE_TABLES[rule],
       source_functions: ["priority-engine.computePriorities"],
     },
     freshness,
     warnings: warnings.length > 0 ? warnings : undefined,
+    rule_metadata: {
+      rules_used: [`rule:${rule}`],
+      input_sources: [sourceKey],
+      source_criticality: {
+        [sourceKey]: PRIORITY_SOURCE_CRITICALITY[sourceKey],
+      },
+      confidence_reason,
+    },
   };
 }
 
@@ -155,7 +177,12 @@ function emitReviewPending(
     reason: `Review pendente (${r.source_type ?? "unknown"})`,
     source_id: r.id,
     source_key: "result_review",
-    trust: trustFor("review_pending", input.freshness, 95),
+    trust: trustFor(
+      "review_pending",
+      input.freshness,
+      95,
+      "rule:review_pending → fixed score 95 (review pendente in result_review_items, severity derivata da risk_level)",
+    ),
   }));
 }
 
@@ -174,7 +201,12 @@ function emitActionBlocked(
       reason: `Action bloccata (priority ${a.priority ?? "—"})`,
       source_id: a.id,
       source_key: "action_queue",
-      trust: trustFor("action_blocked", input.freshness, 100),
+      trust: trustFor(
+        "action_blocked",
+        input.freshness,
+        100,
+        "rule:action_blocked → fixed score 100 (status=blocked letto direttamente da automation_actions)",
+      ),
     }));
 }
 
@@ -194,7 +226,12 @@ function emitAutomationFailed(
           reason: "Automation fallita (action_queue)",
           source_id: a.id,
           source_key: "action_queue",
-          trust: trustFor("automation_failed", actions.freshness, 100),
+          trust: trustFor(
+            "automation_failed",
+            actions.freshness,
+            100,
+            "rule:automation_failed (action_queue) → fixed score 100 (status=failed in automation_actions)",
+          ),
         });
       }
     }
@@ -210,7 +247,12 @@ function emitAutomationFailed(
           reason: "Run agente fallita",
           source_id: r.id,
           source_key: "agent_runs",
-          trust: trustFor("automation_failed", runs.freshness, 100),
+          trust: trustFor(
+            "automation_failed",
+            runs.freshness,
+            100,
+            "rule:automation_failed (agent_runs) → fixed score 100 (run_status=failed|error in agent_run_logs)",
+          ),
         });
       }
     }
@@ -241,7 +283,12 @@ function emitAgentWaiting(
       reason: `Agente in attesa (${r.run_status})`,
       source_id: r.id,
       source_key: "agent_runs",
-      trust: trustFor("agent_waiting", input.freshness, 90),
+      trust: trustFor(
+        "agent_waiting",
+        input.freshness,
+        90,
+        "rule:agent_waiting → fixed score 90 (run_status ∈ waiting/queued/pending/awaiting_approval/blocked)",
+      ),
     }));
 }
 
@@ -262,7 +309,12 @@ function emitImportantEmail(
       }`,
       source_id: e.id,
       source_key: "gmail",
-      trust: trustFor("important_email", input.freshness, 80),
+      trust: trustFor(
+        "important_email",
+        input.freshness,
+        80,
+        "rule:important_email → fixed score 80 (severity derivata da importance_score ≥ 85, filter is_unread + is_important|score≥70)",
+      ),
     }));
 }
 
@@ -348,19 +400,23 @@ export function computePriorities(
     };
   }
 
-  // Criticality-aware widget envelope.
+  // Criticality-aware widget envelope (rule-based, ordered thresholds).
   const warnings: string[] = [];
   let widgetStatus: DataTrustStatus = "live";
   let widgetConfidence: number | null = 95;
+  let appliedRule = "rule:base_live → 95 (tutte le fonti ok)";
+  let confidenceReason = "Tutte le fonti hanno status ok; nessun downgrade.";
 
   let requiredFailed = false;
   let importantFailed = false;
+  const failedSources: { key: PrioritySourceKey; status: DataTrustStatus }[] = [];
 
   for (const k of PRIORITY_SOURCE_KEYS) {
     const s = sourceStatus[k];
     const c = PRIORITY_SOURCE_CRITICALITY[k];
     const isFail = s === "error" || s === "missing" || s === "unknown";
     if (!isFail) continue;
+    failedSources.push({ key: k, status: s });
     if (c === "required") {
       requiredFailed = true;
       warnings.push(`required_source_${k}_${s}`);
@@ -375,11 +431,28 @@ export function computePriorities(
   if (requiredFailed) {
     widgetStatus = "error";
     widgetConfidence = null;
+    const f = failedSources.filter(
+      (x) => PRIORITY_SOURCE_CRITICALITY[x.key] === "required",
+    );
+    appliedRule = "rule:required_source_failed → null (confidence non calcolabile)";
+    confidenceReason = `Fonte required fallita (${f
+      .map((x) => `${x.key}:${x.status}`)
+      .join(", ")}); confidence non calcolabile.`;
   } else if (importantFailed) {
     widgetConfidence = 60;
+    const f = failedSources.filter(
+      (x) => PRIORITY_SOURCE_CRITICALITY[x.key] === "important",
+    );
+    appliedRule = "rule:important_source_failed → 60 (downgrade da 95)";
+    confidenceReason = `Fonte important fallita (${f
+      .map((x) => `${x.key}:${x.status}`)
+      .join(", ")}); confidence abbassata da 95 a 60.`;
   } else if (priorities.length === 0) {
     widgetStatus = "empty";
     widgetConfidence = 100;
+    appliedRule = "rule:no_priorities → 100 (stato empty pulito)";
+    confidenceReason =
+      "Nessuna priorità emessa con tutte le fonti ok; stato empty con confidence piena.";
   }
 
   const freshness =
@@ -395,10 +468,15 @@ export function computePriorities(
       .sort()
       .pop() ?? null;
 
+  const widgetSourceCriticality: Record<string, SourceCriticality> = {};
+  for (const k of PRIORITY_SOURCE_KEYS) {
+    widgetSourceCriticality[k] = PRIORITY_SOURCE_CRITICALITY[k];
+  }
+
   const widget: DataTrust = {
     status: widgetStatus,
     confidence: widgetConfidence,
-    calculation_method: "weighted_average",
+    calculation_method: "rule_based_score",
     provenance: {
       source_tables: [
         "result_review_items",
@@ -412,6 +490,12 @@ export function computePriorities(
     },
     freshness,
     warnings: warnings.length > 0 ? warnings : undefined,
+    rule_metadata: {
+      rules_used: [appliedRule],
+      input_sources: [...PRIORITY_SOURCE_KEYS],
+      source_criticality: widgetSourceCriticality,
+      confidence_reason: confidenceReason,
+    },
   };
 
   return { widget, priorities, per_source };
