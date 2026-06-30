@@ -77,7 +77,7 @@ export interface ExecuteReceipt {
   executed_by: string;
   started_at: string;
   completed_at: string | null;
-  result: "success" | "failure" | "partial";
+  result: "success" | "failure" | "partial" | "rolled_back";
   rollback_available: boolean;
   external_reference: string | null; // always null in v3.35a (internal only)
   audit_record: string; // textual reference to the governance audit_record
