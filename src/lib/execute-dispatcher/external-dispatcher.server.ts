@@ -233,6 +233,17 @@ interface HandlerContext {
   };
 }
 
+type HandlerErrorKind =
+  | "none"
+  | "n8n_timeout"
+  | "http_4xx"
+  | "http_5xx"
+  | "invalid_response_shape"
+  | "fetch_failed"
+  | "n8n_env_missing"
+  | "workflow_not_allowlisted"
+  | "workflow_risk_not_medium";
+
 interface HandlerResult {
   ok: boolean;
   external_reference: string | null;
@@ -240,7 +251,11 @@ interface HandlerResult {
   http_status: number | null;
   timing_ms: number;
   error?: string;
+  error_kind: HandlerErrorKind;
+  /** "mock" when the endpoint resolves to a local mock; "real" otherwise; "n/a" for handlers that don't dispatch externally. */
+  mock_or_real: "mock" | "real" | "n/a";
 }
+
 
 async function handlerExternalWebhookTestPing(
   ctx: HandlerContext,
