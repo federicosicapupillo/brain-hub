@@ -283,7 +283,12 @@ function emitAgentWaiting(
       reason: `Agente in attesa (${r.run_status})`,
       source_id: r.id,
       source_key: "agent_runs",
-      trust: trustFor("agent_waiting", input.freshness, 90),
+      trust: trustFor(
+        "agent_waiting",
+        input.freshness,
+        90,
+        "rule:agent_waiting → fixed score 90 (run_status ∈ waiting/queued/pending/awaiting_approval/blocked)",
+      ),
     }));
 }
 
