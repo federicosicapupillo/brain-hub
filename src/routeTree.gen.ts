@@ -15,6 +15,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as UiOperatorSurfaceSessionIdRouteImport } from './routes/ui-operator-surface.$sessionId'
 import { Route as UiOperatorProxySessionIdRouteImport } from './routes/ui-operator-proxy.$sessionId'
 import { Route as ApiRollbackInternalActionRouteImport } from './routes/api/rollback-internal-action'
+import { Route as ApiRecoverOrphanExecuteGateRouteImport } from './routes/api/recover-orphan-execute-gate'
 import { Route as ApiPriorityEngineDataRouteImport } from './routes/api/priority-engine-data'
 import { Route as ApiOsModuleMapRouteImport } from './routes/api/os-module-map'
 import { Route as ApiJackEventRouteImport } from './routes/api/jack-event'
@@ -136,6 +137,12 @@ const ApiRollbackInternalActionRoute =
   ApiRollbackInternalActionRouteImport.update({
     id: '/api/rollback-internal-action',
     path: '/api/rollback-internal-action',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiRecoverOrphanExecuteGateRoute =
+  ApiRecoverOrphanExecuteGateRouteImport.update({
+    id: '/api/recover-orphan-execute-gate',
+    path: '/api/recover-orphan-execute-gate',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPriorityEngineDataRoute = ApiPriorityEngineDataRouteImport.update({
@@ -719,6 +726,7 @@ export interface FileRoutesByFullPath {
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/api/priority-engine-data': typeof ApiPriorityEngineDataRoute
+  '/api/recover-orphan-execute-gate': typeof ApiRecoverOrphanExecuteGateRoute
   '/api/rollback-internal-action': typeof ApiRollbackInternalActionRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
@@ -813,6 +821,7 @@ export interface FileRoutesByTo {
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/api/priority-engine-data': typeof ApiPriorityEngineDataRoute
+  '/api/recover-orphan-execute-gate': typeof ApiRecoverOrphanExecuteGateRoute
   '/api/rollback-internal-action': typeof ApiRollbackInternalActionRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
@@ -912,6 +921,7 @@ export interface FileRoutesById {
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
   '/api/priority-engine-data': typeof ApiPriorityEngineDataRoute
+  '/api/recover-orphan-execute-gate': typeof ApiRecoverOrphanExecuteGateRoute
   '/api/rollback-internal-action': typeof ApiRollbackInternalActionRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
@@ -1012,6 +1022,7 @@ export interface FileRouteTypes {
     | '/api/jack-event'
     | '/api/os-module-map'
     | '/api/priority-engine-data'
+    | '/api/recover-orphan-execute-gate'
     | '/api/rollback-internal-action'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
@@ -1106,6 +1117,7 @@ export interface FileRouteTypes {
     | '/api/jack-event'
     | '/api/os-module-map'
     | '/api/priority-engine-data'
+    | '/api/recover-orphan-execute-gate'
     | '/api/rollback-internal-action'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
@@ -1204,6 +1216,7 @@ export interface FileRouteTypes {
     | '/api/jack-event'
     | '/api/os-module-map'
     | '/api/priority-engine-data'
+    | '/api/recover-orphan-execute-gate'
     | '/api/rollback-internal-action'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
@@ -1245,6 +1258,7 @@ export interface RootRouteChildren {
   ApiJackEventRoute: typeof ApiJackEventRoute
   ApiOsModuleMapRoute: typeof ApiOsModuleMapRoute
   ApiPriorityEngineDataRoute: typeof ApiPriorityEngineDataRoute
+  ApiRecoverOrphanExecuteGateRoute: typeof ApiRecoverOrphanExecuteGateRoute
   ApiRollbackInternalActionRoute: typeof ApiRollbackInternalActionRoute
   UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
   UiOperatorSurfaceSessionIdRoute: typeof UiOperatorSurfaceSessionIdRoute
@@ -1302,6 +1316,13 @@ declare module '@tanstack/react-router' {
       path: '/api/rollback-internal-action'
       fullPath: '/api/rollback-internal-action'
       preLoaderRoute: typeof ApiRollbackInternalActionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/recover-orphan-execute-gate': {
+      id: '/api/recover-orphan-execute-gate'
+      path: '/api/recover-orphan-execute-gate'
+      fullPath: '/api/recover-orphan-execute-gate'
+      preLoaderRoute: typeof ApiRecoverOrphanExecuteGateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/priority-engine-data': {
@@ -2135,6 +2156,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJackEventRoute: ApiJackEventRoute,
   ApiOsModuleMapRoute: ApiOsModuleMapRoute,
   ApiPriorityEngineDataRoute: ApiPriorityEngineDataRoute,
+  ApiRecoverOrphanExecuteGateRoute: ApiRecoverOrphanExecuteGateRoute,
   ApiRollbackInternalActionRoute: ApiRollbackInternalActionRoute,
   UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
   UiOperatorSurfaceSessionIdRoute: UiOperatorSurfaceSessionIdRoute,

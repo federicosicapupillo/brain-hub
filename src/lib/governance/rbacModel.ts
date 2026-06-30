@@ -51,7 +51,13 @@ export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
   // src/lib/execute-dispatcher/types.ts) and Confirm gating — RBAC only
   // sees the umbrella action name and the declared risk_level.
   user: {
-    allowed_actions: ["execute_internal_action", "execute_external_action"],
+    allowed_actions: [
+      "execute_internal_action",
+      "execute_external_action",
+      // v3.35c — Orphan Gate Reaper: never invokes a handler, only
+      // writes a recovery receipt and stamps the orphaned gate.
+      "recover_orphan_execute_gate",
+    ],
     denied_actions: ["delete", "send"],
     requires_confirmation: ["execute_internal_action", "execute_external_action"],
     max_risk_level: "medium",
