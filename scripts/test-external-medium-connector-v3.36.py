@@ -152,6 +152,17 @@ class MockHandler(BaseHTTPRequestHandler):
 
         if scenario == "success":
             return self._send(200, json.dumps(FAKE_SECRETS_IN_RESPONSE))
+        if scenario == "negative":
+            # v3.36.1 — clean payload, MUST pass through redaction untouched.
+            return self._send(200, json.dumps({
+                "ok": True,
+                "external_reference_id": "550e8400-e29b-41d4-a716-446655440000",
+                "ts": "2026-06-30T14:22:00.000Z",
+                "url": "https://example.com/webhook/status",
+                "qs": "?page=1&status=ok&source=test",
+                "note": "external connector completed with safe payload",
+            }))
+
         if scenario == "timeout":
             # sleep longer than connector timeout (8000ms)
             time.sleep(10.0)
