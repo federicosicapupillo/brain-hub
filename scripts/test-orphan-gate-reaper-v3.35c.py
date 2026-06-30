@@ -282,11 +282,8 @@ check("J.exactly_1_executed", executed == 1, f"executed={executed} statuses={sta
 check("J.exactly_7_replayed", replayed == 7, f"replayed={replayed}")
 check("J.exactly_1_receipt", n_receipts == 1, f"receipts={n_receipts}")
 check("J.exactly_1_idempotency_row", n_idem == 1, f"idem_rows={n_idem}")
-# cleanup
-psql(f"DELETE FROM public.execute_idempotency WHERE owner_id='{OWNER}' AND idempotency_key='{key}'")
-psql(f"DELETE FROM public.internal_execute_artifacts WHERE owner_id='{OWNER}'"
-     f" AND payload->>'idempotency_key_hint'='{key}'")  # harmless
-psql(f"DELETE FROM public.execute_receipts WHERE owner_id='{OWNER}' AND idempotency_key='{key}'")
+# cleanup: psql is SELECT/INSERT only — rows from this run stay in DB
+# but each test uses a fresh UUID key so reruns never collide.
 
 # ------------------------------------------------------------------
 # Final summary
