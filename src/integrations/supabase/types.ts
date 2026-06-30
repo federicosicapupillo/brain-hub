@@ -1895,21 +1895,21 @@ export type Database = {
           created_at: string
           idempotency_key: string
           owner_id: string
-          receipt_id: string
+          receipt_id: string | null
         }
         Insert: {
           action_type: string
           created_at?: string
           idempotency_key: string
           owner_id: string
-          receipt_id: string
+          receipt_id?: string | null
         }
         Update: {
           action_type?: string
           created_at?: string
           idempotency_key?: string
           owner_id?: string
-          receipt_id?: string
+          receipt_id?: string | null
         }
         Relationships: [
           {
