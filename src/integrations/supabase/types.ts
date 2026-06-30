@@ -1889,6 +1889,106 @@ export type Database = {
           },
         ]
       }
+      execute_idempotency: {
+        Row: {
+          action_type: string
+          created_at: string
+          idempotency_key: string
+          owner_id: string
+          receipt_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          idempotency_key: string
+          owner_id: string
+          receipt_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          idempotency_key?: string
+          owner_id?: string
+          receipt_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execute_idempotency_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "execute_receipts"
+            referencedColumns: ["receipt_id"]
+          },
+        ]
+      }
+      execute_receipts: {
+        Row: {
+          action_id: string | null
+          action_type: string
+          approved_by: string | null
+          audit_record: Json
+          completed_at: string | null
+          executed_by: string
+          external_reference: string | null
+          idempotency_key: string | null
+          owner_id: string
+          receipt_id: string
+          related_receipt_id: string | null
+          requested_by: string
+          result: string
+          risk_level: string
+          rollback_available: boolean
+          safe_error_message: string | null
+          started_at: string
+        }
+        Insert: {
+          action_id?: string | null
+          action_type: string
+          approved_by?: string | null
+          audit_record?: Json
+          completed_at?: string | null
+          executed_by: string
+          external_reference?: string | null
+          idempotency_key?: string | null
+          owner_id: string
+          receipt_id?: string
+          related_receipt_id?: string | null
+          requested_by: string
+          result: string
+          risk_level: string
+          rollback_available?: boolean
+          safe_error_message?: string | null
+          started_at?: string
+        }
+        Update: {
+          action_id?: string | null
+          action_type?: string
+          approved_by?: string | null
+          audit_record?: Json
+          completed_at?: string | null
+          executed_by?: string
+          external_reference?: string | null
+          idempotency_key?: string | null
+          owner_id?: string
+          receipt_id?: string
+          related_receipt_id?: string | null
+          requested_by?: string
+          result?: string
+          risk_level?: string
+          rollback_available?: boolean
+          safe_error_message?: string | null
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "execute_receipts_related_receipt_id_fkey"
+            columns: ["related_receipt_id"]
+            isOneToOne: false
+            referencedRelation: "execute_receipts"
+            referencedColumns: ["receipt_id"]
+          },
+        ]
+      }
       github_repository_registry: {
         Row: {
           archived_at: string | null
@@ -2444,6 +2544,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      internal_execute_artifacts: {
+        Row: {
+          action_type: string
+          created_at: string
+          id: string
+          owner_id: string
+          payload: Json
+          risk_level: string
+          rolled_back_at: string | null
+          title: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          payload?: Json
+          risk_level: string
+          rolled_back_at?: string | null
+          title: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          payload?: Json
+          risk_level?: string
+          rolled_back_at?: string | null
+          title?: string
+        }
+        Relationships: []
       }
       jack_action_previews: {
         Row: {
