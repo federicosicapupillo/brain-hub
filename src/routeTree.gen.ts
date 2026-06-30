@@ -59,6 +59,7 @@ import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authentic
 import { Route as AuthenticatedGithubOperationalRouteImport } from './routes/_authenticated/github-operational'
 import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authenticated/github-coverage'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
+import { Route as AuthenticatedExecuteConsoleRouteImport } from './routes/_authenticated/execute-console'
 import { Route as AuthenticatedEmailDailyBriefRouteImport } from './routes/_authenticated/email-daily-brief'
 import { Route as AuthenticatedDriveKnowledgeRouteImport } from './routes/_authenticated/drive-knowledge'
 import { Route as AuthenticatedDailyBriefRouteImport } from './routes/_authenticated/daily-brief'
@@ -384,6 +385,12 @@ const AuthenticatedFontiRoute = AuthenticatedFontiRouteImport.update({
   path: '/fonti',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedExecuteConsoleRoute =
+  AuthenticatedExecuteConsoleRouteImport.update({
+    id: '/execute-console',
+    path: '/execute-console',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedEmailDailyBriefRoute =
   AuthenticatedEmailDailyBriefRouteImport.update({
     id: '/email-daily-brief',
@@ -690,6 +697,7 @@ export interface FileRoutesByFullPath {
   '/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
+  '/execute-console': typeof AuthenticatedExecuteConsoleRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
@@ -788,6 +796,7 @@ export interface FileRoutesByTo {
   '/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
+  '/execute-console': typeof AuthenticatedExecuteConsoleRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
@@ -887,6 +896,7 @@ export interface FileRoutesById {
   '/_authenticated/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/_authenticated/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/_authenticated/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
+  '/_authenticated/execute-console': typeof AuthenticatedExecuteConsoleRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
   '/_authenticated/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/_authenticated/github-operational': typeof AuthenticatedGithubOperationalRoute
@@ -989,6 +999,7 @@ export interface FileRouteTypes {
     | '/daily-brief'
     | '/drive-knowledge'
     | '/email-daily-brief'
+    | '/execute-console'
     | '/fonti'
     | '/github-coverage'
     | '/github-operational'
@@ -1087,6 +1098,7 @@ export interface FileRouteTypes {
     | '/daily-brief'
     | '/drive-knowledge'
     | '/email-daily-brief'
+    | '/execute-console'
     | '/fonti'
     | '/github-coverage'
     | '/github-operational'
@@ -1185,6 +1197,7 @@ export interface FileRouteTypes {
     | '/_authenticated/daily-brief'
     | '/_authenticated/drive-knowledge'
     | '/_authenticated/email-daily-brief'
+    | '/_authenticated/execute-console'
     | '/_authenticated/fonti'
     | '/_authenticated/github-coverage'
     | '/_authenticated/github-operational'
@@ -1639,6 +1652,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedFontiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/execute-console': {
+      id: '/_authenticated/execute-console'
+      path: '/execute-console'
+      fullPath: '/execute-console'
+      preLoaderRoute: typeof AuthenticatedExecuteConsoleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/email-daily-brief': {
       id: '/_authenticated/email-daily-brief'
       path: '/email-daily-brief'
@@ -2063,6 +2083,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDailyBriefRoute: typeof AuthenticatedDailyBriefRoute
   AuthenticatedDriveKnowledgeRoute: typeof AuthenticatedDriveKnowledgeRoute
   AuthenticatedEmailDailyBriefRoute: typeof AuthenticatedEmailDailyBriefRoute
+  AuthenticatedExecuteConsoleRoute: typeof AuthenticatedExecuteConsoleRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
   AuthenticatedGithubCoverageRoute: typeof AuthenticatedGithubCoverageRoute
   AuthenticatedGithubOperationalRoute: typeof AuthenticatedGithubOperationalRoute
@@ -2125,6 +2146,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDailyBriefRoute: AuthenticatedDailyBriefRoute,
   AuthenticatedDriveKnowledgeRoute: AuthenticatedDriveKnowledgeRoute,
   AuthenticatedEmailDailyBriefRoute: AuthenticatedEmailDailyBriefRoute,
+  AuthenticatedExecuteConsoleRoute: AuthenticatedExecuteConsoleRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
   AuthenticatedGithubCoverageRoute: AuthenticatedGithubCoverageRoute,
   AuthenticatedGithubOperationalRoute: AuthenticatedGithubOperationalRoute,
