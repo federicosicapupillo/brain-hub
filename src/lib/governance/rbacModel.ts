@@ -20,6 +20,7 @@ export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
       "read_architecture_audit_snapshot",
       "read_os_module_map",
       "read_command_center_data",
+      "read_priority_engine_data",
     ],
     denied_actions: ["delete", "send", "execute"],
     requires_confirmation: ["prepare"],
@@ -34,6 +35,7 @@ export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
       "read_architecture_audit_snapshot",
       "read_os_module_map",
       "read_command_center_data",
+      "read_priority_engine_data",
     ],
     denied_actions: ["delete", "send"],
     requires_confirmation: ["execute"],
@@ -57,6 +59,7 @@ export const AGENT_TOOL_CONTRACTS: Record<string, { allowed_tools: string[] }> =
       "read_architecture_audit_snapshot",
       "read_os_module_map",
       "read_command_center_data",
+      "read_priority_engine_data",
     ],
   },
 };

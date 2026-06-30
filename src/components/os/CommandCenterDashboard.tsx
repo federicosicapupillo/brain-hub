@@ -17,6 +17,7 @@ import {
   FolderKanban,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { TodaysFocusWidget } from "@/components/os/TodaysFocusWidget";
 
 type WidgetStatus = "live" | "empty" | "missing" | "unknown" | "error";
 type WidgetState = WidgetStatus | "loading";
@@ -141,6 +142,8 @@ export function CommandCenterDashboard() {
         state={widgetState(d?.system_status)}
         status={d?.system_status}
       />
+
+      <TodaysFocusWidget />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <WidgetCard

@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as UiOperatorSurfaceSessionIdRouteImport } from './routes/ui-operator-surface.$sessionId'
 import { Route as UiOperatorProxySessionIdRouteImport } from './routes/ui-operator-proxy.$sessionId'
+import { Route as ApiPriorityEngineDataRouteImport } from './routes/api/priority-engine-data'
 import { Route as ApiOsModuleMapRouteImport } from './routes/api/os-module-map'
 import { Route as ApiJackEventRouteImport } from './routes/api/jack-event'
 import { Route as ApiCommandCenterDataRouteImport } from './routes/api/command-center-data'
@@ -125,6 +126,11 @@ const UiOperatorProxySessionIdRoute =
     path: '/ui-operator-proxy/$sessionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPriorityEngineDataRoute = ApiPriorityEngineDataRouteImport.update({
+  id: '/api/priority-engine-data',
+  path: '/api/priority-engine-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiOsModuleMapRoute = ApiOsModuleMapRouteImport.update({
   id: '/api/os-module-map',
   path: '/api/os-module-map',
@@ -668,6 +674,7 @@ export interface FileRoutesByFullPath {
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
+  '/api/priority-engine-data': typeof ApiPriorityEngineDataRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/importa/prompt-storici': typeof AuthenticatedImportaPromptStoriciRoute
@@ -755,6 +762,7 @@ export interface FileRoutesByTo {
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
+  '/api/priority-engine-data': typeof ApiPriorityEngineDataRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/': typeof AuthenticatedIndexRoute
@@ -847,6 +855,7 @@ export interface FileRoutesById {
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
+  '/api/priority-engine-data': typeof ApiPriorityEngineDataRoute
   '/ui-operator-proxy/$sessionId': typeof UiOperatorProxySessionIdRoute
   '/ui-operator-surface/$sessionId': typeof UiOperatorSurfaceSessionIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -940,6 +949,7 @@ export interface FileRouteTypes {
     | '/api/command-center-data'
     | '/api/jack-event'
     | '/api/os-module-map'
+    | '/api/priority-engine-data'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/importa/prompt-storici'
@@ -1027,6 +1037,7 @@ export interface FileRouteTypes {
     | '/api/command-center-data'
     | '/api/jack-event'
     | '/api/os-module-map'
+    | '/api/priority-engine-data'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/'
@@ -1118,6 +1129,7 @@ export interface FileRouteTypes {
     | '/api/command-center-data'
     | '/api/jack-event'
     | '/api/os-module-map'
+    | '/api/priority-engine-data'
     | '/ui-operator-proxy/$sessionId'
     | '/ui-operator-surface/$sessionId'
     | '/_authenticated/'
@@ -1152,6 +1164,7 @@ export interface RootRouteChildren {
   ApiCommandCenterDataRoute: typeof ApiCommandCenterDataRoute
   ApiJackEventRoute: typeof ApiJackEventRoute
   ApiOsModuleMapRoute: typeof ApiOsModuleMapRoute
+  ApiPriorityEngineDataRoute: typeof ApiPriorityEngineDataRoute
   UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
   UiOperatorSurfaceSessionIdRoute: typeof UiOperatorSurfaceSessionIdRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
@@ -1200,6 +1213,13 @@ declare module '@tanstack/react-router' {
       path: '/ui-operator-proxy/$sessionId'
       fullPath: '/ui-operator-proxy/$sessionId'
       preLoaderRoute: typeof UiOperatorProxySessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/priority-engine-data': {
+      id: '/api/priority-engine-data'
+      path: '/api/priority-engine-data'
+      fullPath: '/api/priority-engine-data'
+      preLoaderRoute: typeof ApiPriorityEngineDataRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/os-module-map': {
@@ -1985,6 +2005,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCommandCenterDataRoute: ApiCommandCenterDataRoute,
   ApiJackEventRoute: ApiJackEventRoute,
   ApiOsModuleMapRoute: ApiOsModuleMapRoute,
+  ApiPriorityEngineDataRoute: ApiPriorityEngineDataRoute,
   UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
   UiOperatorSurfaceSessionIdRoute: UiOperatorSurfaceSessionIdRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
