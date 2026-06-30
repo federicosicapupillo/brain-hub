@@ -177,7 +177,12 @@ function emitReviewPending(
     reason: `Review pendente (${r.source_type ?? "unknown"})`,
     source_id: r.id,
     source_key: "result_review",
-    trust: trustFor("review_pending", input.freshness, 95),
+    trust: trustFor(
+      "review_pending",
+      input.freshness,
+      95,
+      "rule:review_pending → fixed score 95 (review pendente in result_review_items, severity derivata da risk_level)",
+    ),
   }));
 }
 
