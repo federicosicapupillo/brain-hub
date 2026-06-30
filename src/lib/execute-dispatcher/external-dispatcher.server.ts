@@ -413,7 +413,7 @@ export async function executeExternalAction(
   if (!gov.allowed) {
     const failed = await writeReceipt(env, {
       action_id: "",
-      action_type: entry.action_type as ExecuteReceipt["action_type"],
+      action_type: entry.action_type as unknown as ExecuteReceipt["action_type"],
       risk_level: entry.risk_level,
       requested_by,
       approved_by: requested_by,
@@ -508,7 +508,7 @@ export async function executeExternalAction(
   } catch (err) {
     const failed = await writeReceipt(env, {
       action_id: "",
-      action_type: entry.action_type as ExecuteReceipt["action_type"],
+      action_type: entry.action_type as unknown as ExecuteReceipt["action_type"],
       risk_level: entry.risk_level,
       requested_by,
       approved_by: requested_by,
@@ -567,7 +567,7 @@ export async function executeExternalAction(
   };
   const receipt = await writeReceipt(env, {
     action_id: artifactId,
-    action_type: entry.action_type as ExecuteReceipt["action_type"],
+    action_type: entry.action_type as unknown as ExecuteReceipt["action_type"],
     risk_level: entry.risk_level,
     requested_by,
     approved_by: requested_by,
