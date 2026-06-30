@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { OsModuleDashboard } from "@/components/os/OsModuleDashboard";
+import { CommandCenterDashboard } from "@/components/os/CommandCenterDashboard";
 
 export const Route = createFileRoute("/_authenticated/os/command-center")({
-  component: () => <OsModuleDashboard moduleId="command-center" />,
+  component: CommandCenterDashboard,
 });

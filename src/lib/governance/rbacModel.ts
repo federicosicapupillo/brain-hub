@@ -19,6 +19,7 @@ export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
       "prepare",
       "read_architecture_audit_snapshot",
       "read_os_module_map",
+      "read_command_center_data",
     ],
     denied_actions: ["delete", "send", "execute"],
     requires_confirmation: ["prepare"],
@@ -32,11 +33,13 @@ export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
       "execute",
       "read_architecture_audit_snapshot",
       "read_os_module_map",
+      "read_command_center_data",
     ],
     denied_actions: ["delete", "send"],
     requires_confirmation: ["execute"],
     max_risk_level: "high",
   },
+
   user: {
     allowed_actions: [],
     denied_actions: [],
@@ -53,9 +56,11 @@ export const AGENT_TOOL_CONTRACTS: Record<string, { allowed_tools: string[] }> =
       "prepare",
       "read_architecture_audit_snapshot",
       "read_os_module_map",
+      "read_command_center_data",
     ],
   },
 };
+
 
 const RISK_RANK: Record<RbacRiskLevel, number> = {
   low: 1,
