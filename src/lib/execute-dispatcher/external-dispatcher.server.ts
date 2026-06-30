@@ -133,11 +133,9 @@ function rowToReceipt(r: ReceiptRow): ExecuteReceipt {
 
 function safe(err: unknown, fb = "external_execute_failed"): string {
   const m = (err as { message?: string } | null)?.message ?? fb;
-  return m
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
-    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+/g, "[redacted-email]")
-    .slice(0, 240);
+  return redactString(m).slice(0, 240);
 }
+
 
 function isFreshConfirm(iso: string | undefined): boolean {
   if (!iso) return false;
