@@ -6,7 +6,7 @@
       "api_status": 500,
       "dispatch_status": "failed",
       "error_kind": "n8n_timeout",
-      "receipt_id": "efa342f1-d702-4345-8ef7-62dd574b82b6",
+      "receipt_id": "ada3bb1a-85fc-4d31-856e-d0a6e16b0f24",
       "safe_error_message": "n8n_timeout",
       "service_outcome_status": "error",
       "mock_calls": 1
@@ -17,7 +17,7 @@
       "api_status": 500,
       "dispatch_status": "failed",
       "error_kind": "http_418",
-      "receipt_id": "aecdc472-7845-4354-bc29-b44e03a0231c",
+      "receipt_id": "eda0ad3c-cffd-45d7-bc73-f5bc483020cf",
       "safe_error_message": "http_418",
       "service_outcome_status": "error",
       "mock_calls": 1
@@ -28,7 +28,7 @@
       "api_status": 500,
       "dispatch_status": "failed",
       "error_kind": "http_503",
-      "receipt_id": "261b2831-4363-4980-a21d-3f56743ad6a7",
+      "receipt_id": "60ae682a-4337-456e-bd9c-47cd9a838e43",
       "safe_error_message": "http_503",
       "service_outcome_status": "error",
       "mock_calls": 1
@@ -39,7 +39,7 @@
       "api_status": 500,
       "dispatch_status": "failed",
       "error_kind": "invalid_response_shape",
-      "receipt_id": "43e0955d-0ffc-4292-ae9c-b6bccff0c1e1",
+      "receipt_id": "ab02e5be-d31e-482d-903f-f8fc1220fe00",
       "safe_error_message": "invalid_response_shape",
       "service_outcome_status": "error",
       "mock_calls": 1
@@ -50,7 +50,7 @@
       "api_status": 500,
       "dispatch_status": "failed",
       "error_kind": "invalid_response_shape",
-      "receipt_id": "1c7e4cb2-61a3-4506-983d-fb600b864e0a",
+      "receipt_id": "998f05b4-44b7-45f0-b675-47c4e0fe898d",
       "safe_error_message": "invalid_response_shape",
       "service_outcome_status": "error",
       "mock_calls": 1
@@ -61,7 +61,7 @@
       "api_status": 500,
       "dispatch_status": "failed",
       "error_kind": "fetch_failed",
-      "receipt_id": "f2fe20a0-b158-4afc-a2a7-578dea91072c",
+      "receipt_id": "6909c59b-538d-4750-ac5d-fa7445a872de",
       "safe_error_message": "fetch failed",
       "service_outcome_status": "error",
       "mock_calls": 1
