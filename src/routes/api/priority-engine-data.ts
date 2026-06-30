@@ -1,18 +1,14 @@
 // Brain Hub v3.31 — Priority Engine endpoint ("Today's Focus")
-// Follows the v3.30.1 hardening contract:
+// v3.33 (ADR-003): Service Layer migration. Per-source readers now return
+// ServiceOutcome<T[]>, and the engine input (SourceOutcome<T>) is built via
+// a pure projection. RawSourceResult is removed.
+//
+// Contract from v3.30.1 preserved:
 //   - HTTP 200 on governance pass even with required source failures
 //     (failure is expressed in the payload, never in the HTTP status);
 //   - HTTP 403 only for governance/RBAC fail;
 //   - HTTP 500 only for systemic failures (e.g. evaluator crash);
-//   - Per-source isolation via runSource (Partial Failure Pattern).
-//
-// v3.32: `__force_fail` query param removed from this endpoint. Partial-
-// failure simulation now lives in the standalone harness
-// `scripts/test-partial-failure.ts`, which constructs source outcomes
-// directly and asserts against `computePriorities`.
-//
-// The slow-widget threshold mirrors the Command Center one; surfaced
-// explicitly in `debug.slow_source_threshold_ms`.
+//   - Per-source isolation (Partial Failure Pattern).
 
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
@@ -27,9 +23,18 @@ import {
   computePriorities,
   type PriorityEngineInputs,
   type PrioritySourceKey,
+  type SourceOutcome,
 } from "@/lib/priority-engine/priority-engine";
-import type { DataTrustStatus } from "@/lib/data-trust/types";
 import type { Database } from "@/integrations/supabase/types";
+import {
+  type ServiceOutcome,
+  type ServiceProvenanceMeta,
+  emptyOutcome,
+  errorOutcome,
+  liveOutcome,
+  missingOutcome,
+  unknownOutcome,
+} from "@/lib/service-outcome";
 
 const PROJECT_ID = "brainhub-os";
 export const PRIORITY_ENGINE_SLOW_SOURCE_THRESHOLD_MS = 1000;
@@ -66,18 +71,40 @@ async function logAnomaly(
   }
 }
 
-interface RawSourceResult<T> {
-  status: DataTrustStatus;
-  rows: T[];
-  freshness: string | null;
-  error_safe_message?: string;
-  duration_ms: number;
-}
+const SOURCE_META: Record<PrioritySourceKey, ServiceProvenanceMeta> = {
+  action_queue: {
+    source_tables: ["automation_actions"],
+    source_function: "supabase.automation_actions.select",
+  },
+  result_review: {
+    source_tables: ["result_review_items"],
+    source_function: "supabase.result_review_items.select",
+  },
+  projects: {
+    source_tables: ["project_links"],
+    source_function: "supabase.project_links.select",
+  },
+  agent_runs: {
+    source_tables: ["agent_run_logs"],
+    source_function: "supabase.agent_run_logs.select",
+  },
+  gmail: {
+    source_tables: ["gmail_message_map"],
+    source_function: "supabase.gmail_message_map.select",
+  },
+  github: {
+    source_tables: ["github_repository_registry"],
+    source_function: "supabase.github_repository_registry.select",
+  },
+};
+
+// -- Service layer (public boundary): ServiceOutcome<T[]> per source ------
 
 async function runSource<T>(
   key: PrioritySourceKey,
   fn: () => Promise<{ data: T[] | null; error: unknown }>,
-): Promise<RawSourceResult<T>> {
+): Promise<ServiceOutcome<T[]>> {
+  const meta = SOURCE_META[key];
   const t0 = Date.now();
   try {
     const res = await fn();
@@ -89,27 +116,16 @@ async function runSource<T>(
         message: safe,
         duration_ms,
       });
-      return {
-        status: "error",
-        rows: [],
-        freshness: null,
-        error_safe_message: safe,
-        duration_ms,
-      };
+      return errorOutcome<T[]>(meta, duration_ms, safe);
     }
     const rows = res.data ?? null;
     if (rows === null) {
-      return { status: "unknown", rows: [], freshness: null, duration_ms };
+      return unknownOutcome<T[]>(meta, duration_ms);
     }
     if (rows.length === 0) {
-      return { status: "empty", rows: [], freshness: null, duration_ms };
+      return emptyOutcome<T[]>([], meta, duration_ms);
     }
-    return {
-      status: "live",
-      rows,
-      freshness: new Date().toISOString(),
-      duration_ms,
-    };
+    return liveOutcome<T[]>(rows, meta, duration_ms);
   } catch (err) {
     const duration_ms = Date.now() - t0;
     const safe = safeErrorMessage(err);
@@ -118,37 +134,57 @@ async function runSource<T>(
       message: safe,
       duration_ms,
     });
-    return {
-      status: "error",
-      rows: [],
-      freshness: null,
-      error_safe_message: safe,
-      duration_ms,
-    };
+    return errorOutcome<T[]>(meta, duration_ms, safe);
   }
 }
 
-function missingSource<T>(): RawSourceResult<T> {
-  return { status: "missing", rows: [], freshness: null, duration_ms: 0 };
+// -- Pure projection: ServiceOutcome<T[]> → SourceOutcome<T> (engine input)
+
+function toEngineSource<T>(outcome: ServiceOutcome<T[]>): SourceOutcome<T> {
+  const trust = outcome.trust;
+  const projection: SourceOutcome<T> = {
+    status: trust.status,
+    rows: outcome.data ?? [],
+    freshness: trust.freshness,
+  };
+  if (outcome.error_safe_message) {
+    projection.error_safe_message = outcome.error_safe_message;
+  }
+  return projection;
 }
 
-async function loadInputs(
-  supabase: SupabaseLike | null,
-): Promise<{
+async function loadInputs(supabase: SupabaseLike | null): Promise<{
   inputs: PriorityEngineInputs;
   per_source_timing: Record<PrioritySourceKey, number>;
 }> {
   if (!supabase) {
-    const empty = missingSource();
+    const empties: Record<PrioritySourceKey, ServiceOutcome<unknown[]>> = {
+      action_queue: missingOutcome<unknown[]>(
+        SOURCE_META.action_queue,
+        "no_session",
+      ),
+      result_review: missingOutcome<unknown[]>(
+        SOURCE_META.result_review,
+        "no_session",
+      ),
+      projects: missingOutcome<unknown[]>(SOURCE_META.projects, "no_session"),
+      agent_runs: missingOutcome<unknown[]>(
+        SOURCE_META.agent_runs,
+        "no_session",
+      ),
+      gmail: missingOutcome<unknown[]>(SOURCE_META.gmail, "no_session"),
+      github: missingOutcome<unknown[]>(SOURCE_META.github, "no_session"),
+    };
+    const inputs = {
+      action_queue: toEngineSource(empties.action_queue),
+      result_review: toEngineSource(empties.result_review),
+      projects: toEngineSource(empties.projects),
+      agent_runs: toEngineSource(empties.agent_runs),
+      gmail: toEngineSource(empties.gmail),
+      github: toEngineSource(empties.github),
+    } as PriorityEngineInputs;
     return {
-      inputs: {
-        action_queue: empty,
-        result_review: empty,
-        projects: empty,
-        agent_runs: empty,
-        gmail: empty,
-        github: empty,
-      } as PriorityEngineInputs,
+      inputs,
       per_source_timing: {
         action_queue: 0,
         result_review: 0,
@@ -209,15 +245,17 @@ async function loadInputs(
       ),
     ]);
 
+  const inputs = {
+    action_queue: toEngineSource(action_queue),
+    result_review: toEngineSource(result_review),
+    projects: toEngineSource(projects),
+    agent_runs: toEngineSource(agent_runs),
+    gmail: toEngineSource(gmail),
+    github: toEngineSource(github),
+  } as PriorityEngineInputs;
+
   return {
-    inputs: {
-      action_queue,
-      result_review,
-      projects,
-      agent_runs,
-      gmail,
-      github,
-    } as PriorityEngineInputs,
+    inputs,
     per_source_timing: {
       action_queue: action_queue.duration_ms,
       result_review: result_review.duration_ms,
