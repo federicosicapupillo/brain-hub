@@ -243,14 +243,11 @@ confirmed_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 body = {
     "action_type": "external_webhook_test_ping",
     "idempotency_key": key,
-    "confirmed_at": confirmed_at,
-    "confirmation_source": "ui_button",
-    "confirmation_id": "regression-j",
     "payload": {
-        "message": "hi",
+        "message": "regression-j",
         "correlation_id": key[:32],
-        "live_execute": True,
-        "dry_run": False,
+        "live_execute": False,
+        "dry_run": True,
     },
 }
 def fire():
@@ -263,6 +260,8 @@ def fire():
     try:
         with urllib.request.urlopen(req, timeout=15) as resp:
             return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        return {"ok": False, "status": "error", "http": e.code, "body": e.read().decode()[:200]}
     except Exception as e:
         return {"ok": False, "status": "error", "error": str(e)}
 
