@@ -27,6 +27,17 @@ export interface DataTrustProvenance {
   source_external_tools?: string[];
 }
 
+export interface RuleBasedScoreMetadata {
+  /** Which rule/branch determined the confidence value. */
+  rules_used: string[];
+  /** Which sources were read as input to the score. */
+  input_sources: string[];
+  /** Criticality classification per input source (consumer-scoped). */
+  source_criticality: Record<string, SourceCriticality>;
+  /** Human-readable reason explaining the score value. */
+  confidence_reason: string;
+}
+
 export interface DataTrust {
   status: DataTrustStatus;
   /** integer 0-100, or null when not calculable. Never use 0 as "missing". */
@@ -36,6 +47,11 @@ export interface DataTrust {
   /** ISO timestamp or null. Freshness is data, not a verdict. */
   freshness: string | null;
   warnings?: string[];
+  /**
+   * Required when calculation_method === "rule_based_score".
+   * Exposes the four mandatory fields per architecture-principles v1.1.
+   */
+  rule_metadata?: RuleBasedScoreMetadata;
 }
 
 /**
