@@ -17,6 +17,7 @@ import {
   FolderKanban,
 } from "lucide-react";
 import type { ReactNode } from "react";
+import { TodaysFocusWidget } from "@/components/os/TodaysFocusWidget";
 
 type WidgetStatus = "live" | "empty" | "missing" | "unknown" | "error";
 type WidgetState = WidgetStatus | "loading";
