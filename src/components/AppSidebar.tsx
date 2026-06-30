@@ -70,6 +70,7 @@ const items = [
   { title: "Clipboard AI", url: "/clipboard-ai", icon: Clipboard },
   { title: "Automation Control", url: "/automation-control", icon: Gauge },
   { title: "Action Queue", url: "/action-queue", icon: Gauge },
+  { title: "Execute Console", url: "/execute-console", icon: Play },
   { title: "Automation Readiness", url: "/automation-readiness", icon: ShieldCheck },
   { title: "n8n Workflows", url: "/n8n-workflows", icon: GitBranch },
   { title: "Project Loop", url: "/project-loop", icon: RefreshCw },
