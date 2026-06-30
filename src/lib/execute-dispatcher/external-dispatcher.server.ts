@@ -432,11 +432,13 @@ async function handlerExternalN8nControlledWebhook(
         mapped = "n8n_timeout";
         break;
       case "http_4xx":
-        mapped = "http_4xx";
-        break;
       case "http_5xx":
-        mapped = "http_5xx";
+        mapped =
+          typeof data.http_status === "number"
+            ? `http_${data.http_status}`
+            : data.error_kind;
         break;
+
       case "shape":
         mapped = "invalid_response_shape";
         break;
