@@ -226,7 +226,12 @@ function emitAutomationFailed(
           reason: "Automation fallita (action_queue)",
           source_id: a.id,
           source_key: "action_queue",
-          trust: trustFor("automation_failed", actions.freshness, 100),
+          trust: trustFor(
+            "automation_failed",
+            actions.freshness,
+            100,
+            "rule:automation_failed (action_queue) → fixed score 100 (status=failed in automation_actions)",
+          ),
         });
       }
     }
