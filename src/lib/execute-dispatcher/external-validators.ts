@@ -183,10 +183,16 @@ export function validateExternalPayload(
 }
 
 export function redactString(s: string): string {
+  if (!s) return s;
+  // Apply in binding order: JWT → querystring → Bearer → sk- → email.
   return s
-    .replace(SENSITIVE_TOKEN_RE, "[redacted]")
-    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+/g, "[redacted-email]");
+    .replace(JWT_RE, "[REDACTED]")
+    .replace(QS_SECRET_RE, "$1[REDACTED]")
+    .replace(BEARER_RE, "Bearer [REDACTED]")
+    .replace(SK_RE, "[REDACTED]")
+    .replace(EMAIL_RE, "[redacted-email]");
 }
+
 
 export function redactObject(
   obj: Record<string, unknown>,
