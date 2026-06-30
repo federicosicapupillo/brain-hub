@@ -57,6 +57,10 @@ export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
       // v3.35c — Orphan Gate Reaper: never invokes a handler, only
       // writes a recovery receipt and stamps the orphaned gate.
       "recover_orphan_execute_gate",
+      // v3.35d — Execute Console UI: read-only aggregate of the
+      // already-approved Execute surface (capabilities, receipts,
+      // artifacts, orphan/manual-review state). No write power.
+      "read_execute_console_data",
     ],
     denied_actions: ["delete", "send"],
     requires_confirmation: ["execute_internal_action", "execute_external_action"],
