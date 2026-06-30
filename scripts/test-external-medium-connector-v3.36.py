@@ -506,10 +506,13 @@ async def run_tests():
                 "live_execute": True,
                 "confirmation_id": f"confirm-{uuid.uuid4()}",
                 "metadata": {
-                    "url": "https://example.com/webhook/status",
-                    "qs": "?page=1&status=ok&source=test",
-                    "ts": "2026-06-30T14:22:00.000Z",
+                    "clean_url": "https://example.com/webhook/status",
+                    "clean_qs": "?page=1&status=ok&source=test",
+                    "clean_ts": "2026-06-30T14:22:00.000Z",
+                    "clean_uuid": "550e8400-e29b-41d4-a716-446655440000",
+                    "clean_note": "external connector completed with safe payload",
                 },
+
             },
         }
         clean_res = await post(clean_payload)
