@@ -400,19 +400,23 @@ export function computePriorities(
     };
   }
 
-  // Criticality-aware widget envelope.
+  // Criticality-aware widget envelope (rule-based, ordered thresholds).
   const warnings: string[] = [];
   let widgetStatus: DataTrustStatus = "live";
   let widgetConfidence: number | null = 95;
+  let appliedRule = "rule:base_live → 95 (tutte le fonti ok)";
+  let confidenceReason = "Tutte le fonti hanno status ok; nessun downgrade.";
 
   let requiredFailed = false;
   let importantFailed = false;
+  const failedSources: { key: PrioritySourceKey; status: DataTrustStatus }[] = [];
 
   for (const k of PRIORITY_SOURCE_KEYS) {
     const s = sourceStatus[k];
     const c = PRIORITY_SOURCE_CRITICALITY[k];
     const isFail = s === "error" || s === "missing" || s === "unknown";
     if (!isFail) continue;
+    failedSources.push({ key: k, status: s });
     if (c === "required") {
       requiredFailed = true;
       warnings.push(`required_source_${k}_${s}`);
@@ -427,11 +431,28 @@ export function computePriorities(
   if (requiredFailed) {
     widgetStatus = "error";
     widgetConfidence = null;
+    const f = failedSources.filter(
+      (x) => PRIORITY_SOURCE_CRITICALITY[x.key] === "required",
+    );
+    appliedRule = "rule:required_source_failed → null (confidence non calcolabile)";
+    confidenceReason = `Fonte required fallita (${f
+      .map((x) => `${x.key}:${x.status}`)
+      .join(", ")}); confidence non calcolabile.`;
   } else if (importantFailed) {
     widgetConfidence = 60;
+    const f = failedSources.filter(
+      (x) => PRIORITY_SOURCE_CRITICALITY[x.key] === "important",
+    );
+    appliedRule = "rule:important_source_failed → 60 (downgrade da 95)";
+    confidenceReason = `Fonte important fallita (${f
+      .map((x) => `${x.key}:${x.status}`)
+      .join(", ")}); confidence abbassata da 95 a 60.`;
   } else if (priorities.length === 0) {
     widgetStatus = "empty";
     widgetConfidence = 100;
+    appliedRule = "rule:no_priorities → 100 (stato empty pulito)";
+    confidenceReason =
+      "Nessuna priorità emessa con tutte le fonti ok; stato empty con confidence piena.";
   }
 
   const freshness =
@@ -447,10 +468,15 @@ export function computePriorities(
       .sort()
       .pop() ?? null;
 
+  const widgetSourceCriticality: Record<string, SourceCriticality> = {};
+  for (const k of PRIORITY_SOURCE_KEYS) {
+    widgetSourceCriticality[k] = PRIORITY_SOURCE_CRITICALITY[k];
+  }
+
   const widget: DataTrust = {
     status: widgetStatus,
     confidence: widgetConfidence,
-    calculation_method: "weighted_average",
+    calculation_method: "rule_based_score",
     provenance: {
       source_tables: [
         "result_review_items",
@@ -464,6 +490,12 @@ export function computePriorities(
     },
     freshness,
     warnings: warnings.length > 0 ? warnings : undefined,
+    rule_metadata: {
+      rules_used: [appliedRule],
+      input_sources: [...PRIORITY_SOURCE_KEYS],
+      source_criticality: widgetSourceCriticality,
+      confidence_reason: confidenceReason,
+    },
   };
 
   return { widget, priorities, per_source };
