@@ -272,9 +272,16 @@ async function handlerExternalWebhookTestPing(
       }),
       http_status: null,
       timing_ms: Date.now() - started,
+      error_kind: "none",
+      mock_or_real: "n/a",
     };
   }
   const url = new URL(EXTERNAL_SANDBOX_TARGET_PATH, ctx.env.selfOrigin).toString();
+  const mock_or_real: "mock" | "real" = /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(
+    url,
+  )
+    ? "mock"
+    : "real";
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ctx.entry.timeout_ms);
   try {
@@ -293,6 +300,11 @@ async function handlerExternalWebhookTestPing(
       ctx.entry.expected_response_shape.max_preview_bytes,
       ctx.entry.sensitive_fields_redaction,
     );
+    const error_kind: HandlerErrorKind = res.ok
+      ? "none"
+      : res.status >= 500
+        ? "http_5xx"
+        : "http_4xx";
     return {
       ok: res.ok,
       external_reference: res.headers.get("x-correlation-id"),
@@ -300,15 +312,22 @@ async function handlerExternalWebhookTestPing(
       http_status: res.status,
       timing_ms: Date.now() - started,
       error: res.ok ? undefined : `http_${res.status}`,
+      error_kind,
+      mock_or_real,
     };
   } catch (err) {
+    const aborted =
+      (err as { name?: string } | null)?.name === "AbortError" ||
+      controller.signal.aborted;
     return {
       ok: false,
       external_reference: null,
       response_preview_redacted: "",
       http_status: null,
       timing_ms: Date.now() - started,
-      error: safe(err, "fetch_failed"),
+      error: aborted ? "n8n_timeout" : safe(err, "fetch_failed"),
+      error_kind: aborted ? "n8n_timeout" : "fetch_failed",
+      mock_or_real,
     };
   } finally {
     clearTimeout(timer);
@@ -330,6 +349,8 @@ async function handlerExternalN8nControlledWebhook(
       http_status: null,
       timing_ms: Date.now() - started,
       error: "workflow_not_allowlisted",
+      error_kind: "workflow_not_allowlisted",
+      mock_or_real: "n/a",
     };
   }
   if (workflow.risk_level !== "medium") {
@@ -340,8 +361,18 @@ async function handlerExternalN8nControlledWebhook(
       http_status: null,
       timing_ms: Date.now() - started,
       error: "workflow_risk_not_medium",
+      error_kind: "workflow_risk_not_medium",
+      mock_or_real: "n/a",
     };
   }
+
+  const envUrl =
+    (process.env as Record<string, string | undefined>)[workflow.endpoint_env_var] ?? "";
+  const mock_or_real: "mock" | "real" = /^https?:\/\/(127\.0\.0\.1|localhost)/i.test(
+    envUrl,
+  )
+    ? "mock"
+    : "real";
 
   // Dry-run: keep it local UNLESS n8n exposes a test mode for this
   // workflow. v3.36 ships no test-mode workflow → always local dry-run.
@@ -360,6 +391,8 @@ async function handlerExternalN8nControlledWebhook(
       }),
       http_status: null,
       timing_ms: Date.now() - started,
+      error_kind: "none",
+      mock_or_real,
     };
   }
 
@@ -382,6 +415,8 @@ async function handlerExternalN8nControlledWebhook(
       http_status: null,
       timing_ms: Date.now() - started,
       error: outcome.error_safe_message ?? "n8n_env_missing",
+      error_kind: "n8n_env_missing",
+      mock_or_real,
     };
   }
   if (!data) {
@@ -392,7 +427,34 @@ async function handlerExternalN8nControlledWebhook(
       http_status: null,
       timing_ms: Date.now() - started,
       error: outcome.error_safe_message ?? "n8n_no_data",
+      error_kind: "fetch_failed",
+      mock_or_real,
     };
+  }
+  // Map connector-level error_kind → dispatcher-level HandlerErrorKind.
+  let mapped: HandlerErrorKind = "none";
+  if (!data.ok) {
+    switch (data.error_kind) {
+      case "timeout":
+        mapped = "n8n_timeout";
+        break;
+      case "http_4xx":
+        mapped = "http_4xx";
+        break;
+      case "http_5xx":
+        mapped = "http_5xx";
+        break;
+      case "shape":
+        mapped = "invalid_response_shape";
+        break;
+      case "env_missing":
+        mapped = "n8n_env_missing";
+        break;
+      case "network":
+      default:
+        mapped = "fetch_failed";
+        break;
+    }
   }
   return {
     ok: data.ok,
@@ -401,8 +463,11 @@ async function handlerExternalN8nControlledWebhook(
     http_status: data.http_status,
     timing_ms: data.timing_ms,
     error: data.ok ? undefined : data.safe_error_message ?? "n8n_failed",
+    error_kind: mapped,
+    mock_or_real,
   };
 }
+
 
 const HANDLERS: Readonly<Record<string, (c: HandlerContext) => Promise<HandlerResult>>> =
   Object.freeze({
