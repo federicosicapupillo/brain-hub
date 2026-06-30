@@ -21,6 +21,7 @@ import { Route as ApiOsModuleMapRouteImport } from './routes/api/os-module-map'
 import { Route as ApiJackEventRouteImport } from './routes/api/jack-event'
 import { Route as ApiExecuteInternalActionRouteImport } from './routes/api/execute-internal-action'
 import { Route as ApiExecuteExternalActionRouteImport } from './routes/api/execute-external-action'
+import { Route as ApiExecuteConsoleDataRouteImport } from './routes/api/execute-console-data'
 import { Route as ApiCommandCenterV2DataRouteImport } from './routes/api/command-center-v2-data'
 import { Route as ApiCommandCenterDataRouteImport } from './routes/api/command-center-data'
 import { Route as ApiArchitectureAuditSnapshotRouteImport } from './routes/api/architecture-audit-snapshot'
@@ -58,6 +59,7 @@ import { Route as AuthenticatedGithubSyncRouteImport } from './routes/_authentic
 import { Route as AuthenticatedGithubOperationalRouteImport } from './routes/_authenticated/github-operational'
 import { Route as AuthenticatedGithubCoverageRouteImport } from './routes/_authenticated/github-coverage'
 import { Route as AuthenticatedFontiRouteImport } from './routes/_authenticated/fonti'
+import { Route as AuthenticatedExecuteConsoleRouteImport } from './routes/_authenticated/execute-console'
 import { Route as AuthenticatedEmailDailyBriefRouteImport } from './routes/_authenticated/email-daily-brief'
 import { Route as AuthenticatedDriveKnowledgeRouteImport } from './routes/_authenticated/drive-knowledge'
 import { Route as AuthenticatedDailyBriefRouteImport } from './routes/_authenticated/daily-brief'
@@ -172,6 +174,11 @@ const ApiExecuteExternalActionRoute =
     path: '/api/execute-external-action',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiExecuteConsoleDataRoute = ApiExecuteConsoleDataRouteImport.update({
+  id: '/api/execute-console-data',
+  path: '/api/execute-console-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCommandCenterV2DataRoute = ApiCommandCenterV2DataRouteImport.update({
   id: '/api/command-center-v2-data',
   path: '/api/command-center-v2-data',
@@ -378,6 +385,12 @@ const AuthenticatedFontiRoute = AuthenticatedFontiRouteImport.update({
   path: '/fonti',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedExecuteConsoleRoute =
+  AuthenticatedExecuteConsoleRouteImport.update({
+    id: '/execute-console',
+    path: '/execute-console',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedEmailDailyBriefRoute =
   AuthenticatedEmailDailyBriefRouteImport.update({
     id: '/email-daily-brief',
@@ -684,6 +697,7 @@ export interface FileRoutesByFullPath {
   '/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
+  '/execute-console': typeof AuthenticatedExecuteConsoleRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
@@ -721,6 +735,7 @@ export interface FileRoutesByFullPath {
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
+  '/api/execute-console-data': typeof ApiExecuteConsoleDataRoute
   '/api/execute-external-action': typeof ApiExecuteExternalActionRoute
   '/api/execute-internal-action': typeof ApiExecuteInternalActionRoute
   '/api/jack-event': typeof ApiJackEventRoute
@@ -781,6 +796,7 @@ export interface FileRoutesByTo {
   '/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
+  '/execute-console': typeof AuthenticatedExecuteConsoleRoute
   '/fonti': typeof AuthenticatedFontiRoute
   '/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/github-operational': typeof AuthenticatedGithubOperationalRoute
@@ -816,6 +832,7 @@ export interface FileRoutesByTo {
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
+  '/api/execute-console-data': typeof ApiExecuteConsoleDataRoute
   '/api/execute-external-action': typeof ApiExecuteExternalActionRoute
   '/api/execute-internal-action': typeof ApiExecuteInternalActionRoute
   '/api/jack-event': typeof ApiJackEventRoute
@@ -879,6 +896,7 @@ export interface FileRoutesById {
   '/_authenticated/daily-brief': typeof AuthenticatedDailyBriefRoute
   '/_authenticated/drive-knowledge': typeof AuthenticatedDriveKnowledgeRoute
   '/_authenticated/email-daily-brief': typeof AuthenticatedEmailDailyBriefRoute
+  '/_authenticated/execute-console': typeof AuthenticatedExecuteConsoleRoute
   '/_authenticated/fonti': typeof AuthenticatedFontiRoute
   '/_authenticated/github-coverage': typeof AuthenticatedGithubCoverageRoute
   '/_authenticated/github-operational': typeof AuthenticatedGithubOperationalRoute
@@ -916,6 +934,7 @@ export interface FileRoutesById {
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
+  '/api/execute-console-data': typeof ApiExecuteConsoleDataRoute
   '/api/execute-external-action': typeof ApiExecuteExternalActionRoute
   '/api/execute-internal-action': typeof ApiExecuteInternalActionRoute
   '/api/jack-event': typeof ApiJackEventRoute
@@ -980,6 +999,7 @@ export interface FileRouteTypes {
     | '/daily-brief'
     | '/drive-knowledge'
     | '/email-daily-brief'
+    | '/execute-console'
     | '/fonti'
     | '/github-coverage'
     | '/github-operational'
@@ -1017,6 +1037,7 @@ export interface FileRouteTypes {
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
     | '/api/command-center-v2-data'
+    | '/api/execute-console-data'
     | '/api/execute-external-action'
     | '/api/execute-internal-action'
     | '/api/jack-event'
@@ -1077,6 +1098,7 @@ export interface FileRouteTypes {
     | '/daily-brief'
     | '/drive-knowledge'
     | '/email-daily-brief'
+    | '/execute-console'
     | '/fonti'
     | '/github-coverage'
     | '/github-operational'
@@ -1112,6 +1134,7 @@ export interface FileRouteTypes {
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
     | '/api/command-center-v2-data'
+    | '/api/execute-console-data'
     | '/api/execute-external-action'
     | '/api/execute-internal-action'
     | '/api/jack-event'
@@ -1174,6 +1197,7 @@ export interface FileRouteTypes {
     | '/_authenticated/daily-brief'
     | '/_authenticated/drive-knowledge'
     | '/_authenticated/email-daily-brief'
+    | '/_authenticated/execute-console'
     | '/_authenticated/fonti'
     | '/_authenticated/github-coverage'
     | '/_authenticated/github-operational'
@@ -1211,6 +1235,7 @@ export interface FileRouteTypes {
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
     | '/api/command-center-v2-data'
+    | '/api/execute-console-data'
     | '/api/execute-external-action'
     | '/api/execute-internal-action'
     | '/api/jack-event'
@@ -1253,6 +1278,7 @@ export interface RootRouteChildren {
   ApiArchitectureAuditSnapshotRoute: typeof ApiArchitectureAuditSnapshotRoute
   ApiCommandCenterDataRoute: typeof ApiCommandCenterDataRoute
   ApiCommandCenterV2DataRoute: typeof ApiCommandCenterV2DataRoute
+  ApiExecuteConsoleDataRoute: typeof ApiExecuteConsoleDataRoute
   ApiExecuteExternalActionRoute: typeof ApiExecuteExternalActionRoute
   ApiExecuteInternalActionRoute: typeof ApiExecuteInternalActionRoute
   ApiJackEventRoute: typeof ApiJackEventRoute
@@ -1358,6 +1384,13 @@ declare module '@tanstack/react-router' {
       path: '/api/execute-external-action'
       fullPath: '/api/execute-external-action'
       preLoaderRoute: typeof ApiExecuteExternalActionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/execute-console-data': {
+      id: '/api/execute-console-data'
+      path: '/api/execute-console-data'
+      fullPath: '/api/execute-console-data'
+      preLoaderRoute: typeof ApiExecuteConsoleDataRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/command-center-v2-data': {
@@ -1617,6 +1650,13 @@ declare module '@tanstack/react-router' {
       path: '/fonti'
       fullPath: '/fonti'
       preLoaderRoute: typeof AuthenticatedFontiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/execute-console': {
+      id: '/_authenticated/execute-console'
+      path: '/execute-console'
+      fullPath: '/execute-console'
+      preLoaderRoute: typeof AuthenticatedExecuteConsoleRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/email-daily-brief': {
@@ -2043,6 +2083,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedDailyBriefRoute: typeof AuthenticatedDailyBriefRoute
   AuthenticatedDriveKnowledgeRoute: typeof AuthenticatedDriveKnowledgeRoute
   AuthenticatedEmailDailyBriefRoute: typeof AuthenticatedEmailDailyBriefRoute
+  AuthenticatedExecuteConsoleRoute: typeof AuthenticatedExecuteConsoleRoute
   AuthenticatedFontiRoute: typeof AuthenticatedFontiRoute
   AuthenticatedGithubCoverageRoute: typeof AuthenticatedGithubCoverageRoute
   AuthenticatedGithubOperationalRoute: typeof AuthenticatedGithubOperationalRoute
@@ -2105,6 +2146,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedDailyBriefRoute: AuthenticatedDailyBriefRoute,
   AuthenticatedDriveKnowledgeRoute: AuthenticatedDriveKnowledgeRoute,
   AuthenticatedEmailDailyBriefRoute: AuthenticatedEmailDailyBriefRoute,
+  AuthenticatedExecuteConsoleRoute: AuthenticatedExecuteConsoleRoute,
   AuthenticatedFontiRoute: AuthenticatedFontiRoute,
   AuthenticatedGithubCoverageRoute: AuthenticatedGithubCoverageRoute,
   AuthenticatedGithubOperationalRoute: AuthenticatedGithubOperationalRoute,
@@ -2151,6 +2193,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiArchitectureAuditSnapshotRoute: ApiArchitectureAuditSnapshotRoute,
   ApiCommandCenterDataRoute: ApiCommandCenterDataRoute,
   ApiCommandCenterV2DataRoute: ApiCommandCenterV2DataRoute,
+  ApiExecuteConsoleDataRoute: ApiExecuteConsoleDataRoute,
   ApiExecuteExternalActionRoute: ApiExecuteExternalActionRoute,
   ApiExecuteInternalActionRoute: ApiExecuteInternalActionRoute,
   ApiJackEventRoute: ApiJackEventRoute,
