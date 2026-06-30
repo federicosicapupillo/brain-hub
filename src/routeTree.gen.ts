@@ -21,6 +21,7 @@ import { Route as ApiOsModuleMapRouteImport } from './routes/api/os-module-map'
 import { Route as ApiJackEventRouteImport } from './routes/api/jack-event'
 import { Route as ApiExecuteInternalActionRouteImport } from './routes/api/execute-internal-action'
 import { Route as ApiExecuteExternalActionRouteImport } from './routes/api/execute-external-action'
+import { Route as ApiExecuteConsoleDataRouteImport } from './routes/api/execute-console-data'
 import { Route as ApiCommandCenterV2DataRouteImport } from './routes/api/command-center-v2-data'
 import { Route as ApiCommandCenterDataRouteImport } from './routes/api/command-center-data'
 import { Route as ApiArchitectureAuditSnapshotRouteImport } from './routes/api/architecture-audit-snapshot'
@@ -172,6 +173,11 @@ const ApiExecuteExternalActionRoute =
     path: '/api/execute-external-action',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiExecuteConsoleDataRoute = ApiExecuteConsoleDataRouteImport.update({
+  id: '/api/execute-console-data',
+  path: '/api/execute-console-data',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCommandCenterV2DataRoute = ApiCommandCenterV2DataRouteImport.update({
   id: '/api/command-center-v2-data',
   path: '/api/command-center-v2-data',
@@ -721,6 +727,7 @@ export interface FileRoutesByFullPath {
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
+  '/api/execute-console-data': typeof ApiExecuteConsoleDataRoute
   '/api/execute-external-action': typeof ApiExecuteExternalActionRoute
   '/api/execute-internal-action': typeof ApiExecuteInternalActionRoute
   '/api/jack-event': typeof ApiJackEventRoute
@@ -816,6 +823,7 @@ export interface FileRoutesByTo {
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
+  '/api/execute-console-data': typeof ApiExecuteConsoleDataRoute
   '/api/execute-external-action': typeof ApiExecuteExternalActionRoute
   '/api/execute-internal-action': typeof ApiExecuteInternalActionRoute
   '/api/jack-event': typeof ApiJackEventRoute
@@ -916,6 +924,7 @@ export interface FileRoutesById {
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
+  '/api/execute-console-data': typeof ApiExecuteConsoleDataRoute
   '/api/execute-external-action': typeof ApiExecuteExternalActionRoute
   '/api/execute-internal-action': typeof ApiExecuteInternalActionRoute
   '/api/jack-event': typeof ApiJackEventRoute
@@ -1017,6 +1026,7 @@ export interface FileRouteTypes {
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
     | '/api/command-center-v2-data'
+    | '/api/execute-console-data'
     | '/api/execute-external-action'
     | '/api/execute-internal-action'
     | '/api/jack-event'
@@ -1112,6 +1122,7 @@ export interface FileRouteTypes {
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
     | '/api/command-center-v2-data'
+    | '/api/execute-console-data'
     | '/api/execute-external-action'
     | '/api/execute-internal-action'
     | '/api/jack-event'
@@ -1211,6 +1222,7 @@ export interface FileRouteTypes {
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
     | '/api/command-center-v2-data'
+    | '/api/execute-console-data'
     | '/api/execute-external-action'
     | '/api/execute-internal-action'
     | '/api/jack-event'
@@ -1253,6 +1265,7 @@ export interface RootRouteChildren {
   ApiArchitectureAuditSnapshotRoute: typeof ApiArchitectureAuditSnapshotRoute
   ApiCommandCenterDataRoute: typeof ApiCommandCenterDataRoute
   ApiCommandCenterV2DataRoute: typeof ApiCommandCenterV2DataRoute
+  ApiExecuteConsoleDataRoute: typeof ApiExecuteConsoleDataRoute
   ApiExecuteExternalActionRoute: typeof ApiExecuteExternalActionRoute
   ApiExecuteInternalActionRoute: typeof ApiExecuteInternalActionRoute
   ApiJackEventRoute: typeof ApiJackEventRoute
@@ -1358,6 +1371,13 @@ declare module '@tanstack/react-router' {
       path: '/api/execute-external-action'
       fullPath: '/api/execute-external-action'
       preLoaderRoute: typeof ApiExecuteExternalActionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/execute-console-data': {
+      id: '/api/execute-console-data'
+      path: '/api/execute-console-data'
+      fullPath: '/api/execute-console-data'
+      preLoaderRoute: typeof ApiExecuteConsoleDataRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/command-center-v2-data': {
@@ -2151,6 +2171,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiArchitectureAuditSnapshotRoute: ApiArchitectureAuditSnapshotRoute,
   ApiCommandCenterDataRoute: ApiCommandCenterDataRoute,
   ApiCommandCenterV2DataRoute: ApiCommandCenterV2DataRoute,
+  ApiExecuteConsoleDataRoute: ApiExecuteConsoleDataRoute,
   ApiExecuteExternalActionRoute: ApiExecuteExternalActionRoute,
   ApiExecuteInternalActionRoute: ApiExecuteInternalActionRoute,
   ApiJackEventRoute: ApiJackEventRoute,
