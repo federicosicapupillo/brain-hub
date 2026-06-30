@@ -23,8 +23,18 @@ export type ExternalValidationResult =
   | { ok: true; value: ExternalValidatedPayload }
   | { ok: false; message: string };
 
-const SENSITIVE_TOKEN_RE =
-  /(bearer\s+[a-z0-9._-]+|sk-[a-z0-9_-]{10,}|eyj[a-z0-9_-]{20,}\.[a-z0-9_-]{10,}\.[a-z0-9_-]{10,})/gi;
+// v3.36.1 — redaction hardening. Order is binding:
+//   1) JWT generic (header/body/logs/anywhere serialized).
+//   2) Querystring secret parameters (token|key|secret|access_token).
+//   3) Bearer tokens.
+//   4) sk-… style keys.
+//   5) Email addresses.
+const JWT_RE = /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g;
+const QS_SECRET_RE = /([?&](?:token|key|secret|access_token)=)[^&\s"']+/gi;
+const BEARER_RE = /bearer\s+[A-Za-z0-9._\-+/=%]+/gi;
+const SK_RE = /sk-[A-Za-z0-9_-]{6,}/gi;
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[A-Za-z]{2,}/g;
+
 
 // Hard-blocked payload keys — never accepted regardless of allowlist.
 // Forbids clients from supplying URLs, headers or secrets directly.
