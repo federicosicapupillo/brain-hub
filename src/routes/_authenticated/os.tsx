@@ -78,6 +78,17 @@ function OsLayout() {
               );
             })
           )}
+          <Link
+            to="/os/command-center-v2"
+            className={`mt-2 flex items-center gap-2 rounded-md border border-dashed border-border/60 px-2 py-1.5 text-sm transition-colors ${
+              pathname.startsWith("/os/command-center-v2")
+                ? "bg-muted font-medium"
+                : "hover:bg-muted/60 text-muted-foreground"
+            }`}
+          >
+            <LayoutDashboard className="h-4 w-4 shrink-0" />
+            <span className="truncate">Command Center v2</span>
+          </Link>
         </nav>
       </aside>
       <div className="flex flex-1 flex-col">
