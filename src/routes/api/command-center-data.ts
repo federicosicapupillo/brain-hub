@@ -111,20 +111,12 @@ function computeSystemStatus(): SystemStatus {
   for (const m of modules) counts[m.status] += 1;
 
   const snap = auditSnapshot as unknown as {
-    governance_confidence?: { value?: number };
-    generated_at?: { value?: string } | string;
+    generated_at_utc?: { value?: string };
   };
-  const conf =
-    typeof snap.governance_confidence?.value === "number"
-      ? snap.governance_confidence.value
-      : null;
-  const generated =
-    typeof snap.generated_at === "string"
-      ? snap.generated_at
-      : snap.generated_at?.value ?? null;
+  const generated = snap.generated_at_utc?.value ?? null;
 
   return {
-    governance_confidence: conf,
+    governance_confidence: null,
     modules_active: counts.active,
     modules_partial: counts.partial,
     modules_empty: counts.empty,
@@ -133,6 +125,7 @@ function computeSystemStatus(): SystemStatus {
     last_enforcement_at: null,
   };
 }
+
 
 export const Route = createFileRoute("/api/command-center-data")({
   server: {
