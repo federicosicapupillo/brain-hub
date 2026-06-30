@@ -1,6 +1,7 @@
-// Brain Hub v3.29 — Command Center dashboard (read-only).
-// All data comes from /api/command-center-data, gated by the Governance
-// Evaluator. Each widget displays an honest WidgetState.
+// Brain Hub v3.30.1 — Command Center dashboard (read-only).
+// All data comes from /api/command-center-data with explicit per-widget
+// provenance (status, source_tables, source_function, last_updated,
+// confidence, warnings, duration_ms). Partial failures degrade per widget.
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,22 +18,29 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
-type Availability = "live" | "empty" | "missing" | "unknown";
-type WidgetState = Availability | "loading" | "error";
+type WidgetStatus = "live" | "empty" | "missing" | "unknown" | "error";
+type WidgetState = WidgetStatus | "loading";
 
-interface Source<T> {
-  availability: Availability;
+interface WidgetProvenance {
+  status: WidgetStatus;
+  source_tables: string[];
+  source_function: string;
+  last_updated: string | null;
+  confidence: number | null;
+  warnings: string[];
+  duration_ms: number;
+  error_safe_message?: string;
+}
+
+interface Widget<T> extends WidgetProvenance {
   data: T[] | null;
-  error?: string;
 }
 
-interface ConnectorStatus {
-  availability: Availability;
+interface ConnectorWidget extends WidgetProvenance {
   connected: boolean | null;
-  detail?: string;
 }
 
-interface SystemStatus {
+interface SystemStatus extends WidgetProvenance {
   governance_confidence: number | null;
   modules_active: number;
   modules_partial: number;
@@ -44,14 +52,14 @@ interface SystemStatus {
 
 interface CommandCenterData {
   system_status: SystemStatus;
-  projects: Source<{
+  projects: Widget<{
     id: string;
     title: string;
     status: string | null;
     link_type: string;
     updated_at: string;
   }>;
-  action_queue: Source<{
+  action_queue: Widget<{
     id: string;
     title: string;
     status: string;
@@ -60,7 +68,7 @@ interface CommandCenterData {
     requires_confirmation: boolean;
     created_at: string;
   }>;
-  result_review: Source<{
+  result_review: Widget<{
     id: string;
     title: string;
     review_status: string;
@@ -68,7 +76,7 @@ interface CommandCenterData {
     risk_level: string | null;
     created_at: string;
   }>;
-  agent_runs: Source<{
+  agent_runs: Widget<{
     id: string;
     objective: string;
     run_status: string;
@@ -76,9 +84,12 @@ interface CommandCenterData {
     risk_level: string;
     created_at: string;
   }>;
-  connectors: {
-    gmail: ConnectorStatus;
-    github: ConnectorStatus;
+  connectors: { gmail: ConnectorWidget; github: ConnectorWidget };
+  debug: {
+    total_duration_ms: number;
+    per_widget_duration_ms: Record<string, number>;
+    slow_widget_threshold_ms: number;
+    slow_widget_warnings: string[];
   };
 }
 
@@ -109,13 +120,12 @@ export function CommandCenterDashboard() {
     staleTime: 30_000,
   });
 
-  const state: WidgetState = q.isLoading
-    ? "loading"
-    : q.isError
-      ? "error"
-      : "live";
-
+  const loading = q.isLoading;
+  const globalError = q.isError;
   const d = q.data;
+
+  const widgetState = (w?: WidgetProvenance): WidgetState =>
+    loading ? "loading" : globalError ? "error" : (w?.status ?? "unknown");
 
   return (
     <div className="space-y-6 p-6">
@@ -127,17 +137,20 @@ export function CommandCenterDashboard() {
         </p>
       </header>
 
-      <SystemStatusCard state={state} status={d?.system_status} />
+      <SystemStatusCard
+        state={widgetState(d?.system_status)}
+        status={d?.system_status}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <WidgetCard
           title="Projects Overview"
           icon={<FolderKanban className="h-4 w-4" />}
-          state={state === "live" ? d!.projects.availability : state}
+          state={widgetState(d?.projects)}
+          provenance={d?.projects}
           empty="No projects yet"
           missing="Projects module not connected"
           unknown="Projects data not verified"
-          error={q.error instanceof Error ? q.error.message : undefined}
         >
           {d?.projects.data?.map((p) => (
             <Row
@@ -152,11 +165,11 @@ export function CommandCenterDashboard() {
         <WidgetCard
           title="Action Queue"
           icon={<ListChecks className="h-4 w-4" />}
-          state={state === "live" ? d!.action_queue.availability : state}
+          state={widgetState(d?.action_queue)}
+          provenance={d?.action_queue}
           empty="No pending actions"
           missing="Action Queue not connected"
           unknown="Action Queue data not verified"
-          error={q.error instanceof Error ? q.error.message : undefined}
         >
           {d?.action_queue.data?.map((a) => (
             <Row
@@ -171,11 +184,11 @@ export function CommandCenterDashboard() {
         <WidgetCard
           title="Result Review"
           icon={<Inbox className="h-4 w-4" />}
-          state={state === "live" ? d!.result_review.availability : state}
+          state={widgetState(d?.result_review)}
+          provenance={d?.result_review}
           empty="No results to review"
           missing="Result Review not connected"
           unknown="Result Review data not verified"
-          error={q.error instanceof Error ? q.error.message : undefined}
         >
           {d?.result_review.data?.map((r) => (
             <Row
@@ -190,11 +203,11 @@ export function CommandCenterDashboard() {
         <WidgetCard
           title="Agent Activity"
           icon={<Bot className="h-4 w-4" />}
-          state={state === "live" ? d!.agent_runs.availability : state}
+          state={widgetState(d?.agent_runs)}
+          provenance={d?.agent_runs}
           empty="No agent activity yet"
           missing="Agent Center not connected"
           unknown="Agent activity data not verified"
-          error={q.error instanceof Error ? q.error.message : undefined}
         >
           {d?.agent_runs.data?.map((r) => (
             <Row
@@ -208,10 +221,21 @@ export function CommandCenterDashboard() {
       </div>
 
       <ConnectorsCard
-        state={state}
+        loading={loading}
+        globalError={globalError}
         gmail={d?.connectors.gmail}
         github={d?.connectors.github}
       />
+
+      {d?.debug ? (
+        <p className="text-[10px] text-muted-foreground">
+          ⏱ {d.debug.total_duration_ms}ms total · threshold{" "}
+          {d.debug.slow_widget_threshold_ms}ms
+          {d.debug.slow_widget_warnings.length > 0
+            ? ` · slow: ${d.debug.slow_widget_warnings.join(", ")}`
+            : ""}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -233,47 +257,62 @@ function SystemStatusCard({
       {state === "loading" ? (
         <p className="text-xs text-muted-foreground">Loading…</p>
       ) : state === "error" || !status ? (
-        <p className="text-xs text-rose-600">System status unavailable.</p>
+        <p className="text-xs text-rose-600">
+          {status?.error_safe_message ?? "System status unavailable."}
+        </p>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <Metric label="Governance" value={status.governance_confidence != null ? `${Math.round(status.governance_confidence * 100)}%` : "—"} />
-          <Metric label="Active" value={String(status.modules_active)} />
-          <Metric label="Partial" value={String(status.modules_partial)} />
-          <Metric label="Empty" value={String(status.modules_empty)} />
-          <Metric label="Future" value={String(status.modules_future)} />
-          <Metric
-            label="Last audit"
-            value={
-              status.last_audit_at
-                ? new Date(status.last_audit_at).toLocaleDateString()
-                : "—"
-            }
-          />
-        </div>
+        <>
+          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <Metric
+              label="Governance"
+              value={
+                status.governance_confidence != null
+                  ? `${Math.round(status.governance_confidence * 100)}%`
+                  : "—"
+              }
+            />
+            <Metric label="Active" value={String(status.modules_active)} />
+            <Metric label="Partial" value={String(status.modules_partial)} />
+            <Metric label="Empty" value={String(status.modules_empty)} />
+            <Metric label="Future" value={String(status.modules_future)} />
+            <Metric
+              label="Last audit"
+              value={
+                status.last_audit_at
+                  ? new Date(status.last_audit_at).toLocaleDateString()
+                  : "—"
+              }
+            />
+          </div>
+          <ProvenanceFooter w={status} />
+        </>
       )}
     </section>
   );
 }
 
 function ConnectorsCard({
-  state,
+  loading,
+  globalError,
   gmail,
   github,
 }: {
-  state: WidgetState;
-  gmail?: ConnectorStatus;
-  github?: ConnectorStatus;
+  loading: boolean;
+  globalError: boolean;
+  gmail?: ConnectorWidget;
+  github?: ConnectorWidget;
 }) {
+  const resolve = (w?: ConnectorWidget): WidgetState =>
+    loading ? "loading" : globalError ? "error" : (w?.status ?? "unknown");
   return (
     <section className="rounded-lg border border-border/60 bg-card p-4">
       <header className="mb-3 flex items-center gap-2">
         <PlugZap className="h-4 w-4" />
         <h2 className="text-sm font-medium">Connectors Status</h2>
-        <StateBadge state={state} />
       </header>
       <div className="grid gap-3 sm:grid-cols-2">
-        <ConnectorRow label="Gmail" status={gmail} state={state} />
-        <ConnectorRow label="GitHub" status={github} state={state} />
+        <ConnectorRow label="Gmail" status={gmail} state={resolve(gmail)} />
+        <ConnectorRow label="GitHub" status={github} state={resolve(github)} />
       </div>
     </section>
   );
@@ -285,25 +324,32 @@ function ConnectorRow({
   state,
 }: {
   label: string;
-  status?: ConnectorStatus;
+  status?: ConnectorWidget;
   state: WidgetState;
 }) {
   let text = "Unknown";
   let tone = "text-muted-foreground";
   if (state === "loading") text = "Loading…";
-  else if (state === "error" || !status) {
-    text = "Unknown";
-  } else if (status.connected === true) {
+  else if (state === "error") {
+    text = status?.error_safe_message ?? "Error";
+    tone = "text-rose-600";
+  } else if (status?.connected === true) {
     text = "Connected";
     tone = "text-emerald-600";
-  } else if (status.connected === false) {
+  } else if (status?.connected === false) {
     text = "Not connected";
     tone = "text-amber-600";
   }
   return (
-    <div className="flex items-center justify-between rounded border border-border/60 px-3 py-2 text-sm">
-      <span className="font-medium">{label}</span>
-      <span className={`text-xs ${tone}`}>{text}</span>
+    <div className="rounded border border-border/60 px-3 py-2">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-medium">{label}</span>
+        <span className="flex items-center gap-2">
+          <StateBadge state={state} />
+          <span className={`text-xs ${tone}`}>{text}</span>
+        </span>
+      </div>
+      {status ? <ProvenanceFooter w={status} /> : null}
     </div>
   );
 }
@@ -345,19 +391,19 @@ function WidgetCard({
   title,
   icon,
   state,
+  provenance,
   empty,
   missing,
   unknown,
-  error,
   children,
 }: {
   title: string;
   icon: ReactNode;
   state: WidgetState;
+  provenance?: WidgetProvenance;
   empty: string;
   missing: string;
   unknown: string;
-  error?: string;
   children?: ReactNode;
 }) {
   return (
@@ -371,7 +417,8 @@ function WidgetCard({
         <p className="text-xs text-muted-foreground">Loading…</p>
       ) : state === "error" ? (
         <p className="flex items-center gap-1 text-xs text-rose-600">
-          <AlertTriangle className="h-3 w-3" /> {error ?? "Fetch error"}
+          <AlertTriangle className="h-3 w-3" />{" "}
+          {provenance?.error_safe_message ?? "Fetch error"}
         </p>
       ) : state === "empty" ? (
         <EmptyHint icon="check" text={empty} />
@@ -382,7 +429,23 @@ function WidgetCard({
       ) : (
         <div className="space-y-0.5">{children}</div>
       )}
+      {provenance && state !== "loading" ? (
+        <ProvenanceFooter w={provenance} />
+      ) : null}
     </section>
+  );
+}
+
+function ProvenanceFooter({ w }: { w: WidgetProvenance }) {
+  return (
+    <p className="mt-3 border-t border-border/30 pt-2 text-[10px] text-muted-foreground">
+      src: {w.source_function} · tables:{" "}
+      {w.source_tables.length > 0 ? w.source_tables.join(",") : "—"} ·
+      confidence: {w.confidence == null ? "—" : w.confidence.toFixed(2)} · ⏱{" "}
+      {w.duration_ms}ms · updated:{" "}
+      {w.last_updated ? new Date(w.last_updated).toLocaleString() : "—"}
+      {w.warnings.length > 0 ? ` · warn: ${w.warnings.join(",")}` : ""}
+    </p>
   );
 }
 
