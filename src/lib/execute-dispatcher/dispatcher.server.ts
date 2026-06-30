@@ -279,14 +279,38 @@ export async function executeInternalAction(
     };
   }
 
-  // 5. Idempotency lookup — return prior receipt if present.
-  const replay = await findExistingReceipt(env, req.idempotency_key);
-  if (replay) {
+  // 5. Idempotency GATE (v3.35a.1 — race-safe).
+  //    Acquire the (owner_id, idempotency_key) row BEFORE any artifact
+  //    or receipt is written. PK uniqueness makes the gate the single
+  //    serialization point. The receipt_id is filled in step 8.
+  //
+  //    Outcomes:
+  //    - acquired   → this request is the canonical winner; proceed.
+  //    - conflict   → a peer holds (or held) the gate; return the
+  //                   canonical receipt (poll briefly if peer mid-flight).
+  const { error: gateErr } = await env.admin
+    .from("execute_idempotency")
+    .insert({
+      owner_id: env.userId,
+      idempotency_key: req.idempotency_key,
+      receipt_id: null,
+      action_type,
+    } as never);
+  if (gateErr) {
+    const canonical = await findExistingReceipt(env, req.idempotency_key);
+    if (canonical) {
+      return {
+        ok: true,
+        status: "replayed",
+        receipt: canonical,
+        safe_message: "idempotent_replay",
+      };
+    }
     return {
-      ok: true,
-      status: "replayed",
-      receipt: replay,
-      safe_message: "idempotent_replay",
+      ok: false,
+      status: "failed",
+      receipt: null,
+      safe_message: safeMessage(gateErr, "idempotency_gate_failed"),
     };
   }
 
@@ -327,6 +351,15 @@ export async function executeInternalAction(
       idempotency_key: req.idempotency_key,
       safe_error_message: safeMessage(err, "artifact_insert_failed"),
     });
+    // Point the gate at the failure receipt so peers see a deterministic
+    // result instead of timing out.
+    if (failedReceipt) {
+      await env.admin
+        .from("execute_idempotency")
+        .update({ receipt_id: failedReceipt.receipt_id } as never)
+        .eq("owner_id", env.userId)
+        .eq("idempotency_key", req.idempotency_key);
+    }
     return {
       ok: false,
       status: "failed",
@@ -359,9 +392,6 @@ export async function executeInternalAction(
   });
 
   if (!receipt) {
-    // Receipt write failed — this is a serious internal failure. Try a
-    // best-effort failure receipt; if that also fails, surface a generic
-    // error. The artifact may be orphaned but is harmless (soft state).
     return {
       ok: false,
       status: "failed",
@@ -370,29 +400,12 @@ export async function executeInternalAction(
     };
   }
 
-  // 8. Record idempotency mapping. Race-safe: PK is (owner_id, key); a
-  //    concurrent duplicate insert collides — we resolve the winner.
-  const { error: idemErr } = await env.admin
+  // 8. Resolve the gate by stamping the canonical receipt_id.
+  await env.admin
     .from("execute_idempotency")
-    .insert({
-      owner_id: env.userId,
-      idempotency_key: req.idempotency_key,
-      receipt_id: receipt.receipt_id,
-      action_type,
-    });
-  if (idemErr) {
-    // Conflict: another request already won this idempotency key.
-    // Return the canonical pre-existing receipt instead of ours.
-    const canonical = await findExistingReceipt(env, req.idempotency_key);
-    if (canonical && canonical.receipt_id !== receipt.receipt_id) {
-      return {
-        ok: true,
-        status: "replayed",
-        receipt: canonical,
-        safe_message: "idempotent_replay_after_race",
-      };
-    }
-  }
+    .update({ receipt_id: receipt.receipt_id } as never)
+    .eq("owner_id", env.userId)
+    .eq("idempotency_key", req.idempotency_key);
 
   return {
     ok: true,
