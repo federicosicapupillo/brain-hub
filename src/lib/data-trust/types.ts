@@ -17,6 +17,7 @@ export type ConfidenceCalculationMethod =
   | "minimum_source"
   | "manual_review"
   | "graph_inference_v1"
+  | "rule_based_score"
   | "not_applicable";
 
 export interface DataTrustProvenance {
