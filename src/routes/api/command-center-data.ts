@@ -482,66 +482,57 @@ export const Route = createFileRoute("/api/command-center-data")({
             },
           );
 
-          const shouldFail = (k: string) =>
-            isDev && forceFail && forceFail.split(",").includes(k);
-
           const [projects, action_queue, result_review, agent_runs, gmail, github] =
             await Promise.all([
-              runWidget(widgetSpecs.projects, async () => {
-                if (shouldFail("projects")) throw new Error("forced_failure");
-                return supabase
+              runWidget(widgetSpecs.projects, async () =>
+                supabase
                   .from("project_links")
                   .select("id,title,status,link_type,updated_at")
                   .eq("link_type", "project")
                   .order("updated_at", { ascending: false })
-                  .limit(10);
-              }),
-              runWidget(widgetSpecs.action_queue, async () => {
-                if (shouldFail("action_queue")) throw new Error("forced_failure");
-                return supabase
+                  .limit(10),
+              ),
+              runWidget(widgetSpecs.action_queue, async () =>
+                supabase
                   .from("automation_actions")
                   .select(
                     "id,title,status,priority,risk_level,requires_confirmation,created_at",
                   )
                   .in("status", ["suggested", "pending", "blocked", "approved"])
                   .order("created_at", { ascending: false })
-                  .limit(10);
-              }),
-              runWidget(widgetSpecs.result_review, async () => {
-                if (shouldFail("result_review")) throw new Error("forced_failure");
-                return supabase
+                  .limit(10),
+              ),
+              runWidget(widgetSpecs.result_review, async () =>
+                supabase
                   .from("result_review_items")
                   .select(
                     "id,title,review_status,source_type,risk_level,created_at",
                   )
                   .eq("review_status", "pending_review")
                   .order("created_at", { ascending: false })
-                  .limit(10);
-              }),
-              runWidget(widgetSpecs.agent_runs, async () => {
-                if (shouldFail("agent_runs")) throw new Error("forced_failure");
-                return supabase
+                  .limit(10),
+              ),
+              runWidget(widgetSpecs.agent_runs, async () =>
+                supabase
                   .from("agent_run_logs")
                   .select(
                     "id,objective,run_status,run_mode,risk_level,created_at",
                   )
                   .order("created_at", { ascending: false })
-                  .limit(10);
-              }),
-              runConnector(widgetSpecs.gmail, async () => {
-                if (shouldFail("gmail")) throw new Error("forced_failure");
-                return supabase
+                  .limit(10),
+              ),
+              runConnector(widgetSpecs.gmail, async () =>
+                supabase
                   .from("gmail_connection_settings")
                   .select("id")
-                  .limit(1);
-              }),
-              runConnector(widgetSpecs.github, async () => {
-                if (shouldFail("github")) throw new Error("forced_failure");
-                return supabase
+                  .limit(1),
+              ),
+              runConnector(widgetSpecs.github, async () =>
+                supabase
                   .from("github_repository_registry")
                   .select("id")
-                  .limit(1);
-              }),
+                  .limit(1),
+              ),
             ]);
 
           payload = {
