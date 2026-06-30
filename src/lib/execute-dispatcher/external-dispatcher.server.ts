@@ -39,8 +39,10 @@ import {
   hashRequest,
   previewResponseText,
   redactObject,
+  redactString,
   validateExternalPayload,
 } from "./external-validators";
+
 
 const CONFIRM_MAX_AGE_MS = 5 * 60 * 1000;
 const DEFAULT_PROJECT_ID = "brainhub-os";
