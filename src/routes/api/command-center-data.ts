@@ -1,8 +1,15 @@
-// Brain Hub v3.30.1 — Command Center data endpoint (hardened).
-// Each widget carries explicit provenance, timing, and an honest status.
-// Partial failures degrade gracefully: one bad source returns status="error"
-// for that widget only — never a global 5xx. 500 is reserved for systemic
-// failures (e.g. governance evaluator crash); 403 for governance/RBAC fail.
+// Brain Hub v3.33 — Command Center data endpoint (Service Layer migration).
+//
+// v3.30.1 introduced provenance/timing/partial-failure semantics inline.
+// v3.33 (ADR-003) moves those concerns behind ServiceOutcome<T>:
+//   - per-source readers (`runSource`, `runConnector`) return
+//     ServiceOutcome<T>, the public Service Layer contract;
+//   - the route then projects each outcome into the legacy Widget /
+//     ConnectorWidget shape via the PURE `toWidgetProvenance` helper.
+//
+// Behavioral surface (HTTP codes, payload shape, governance flow,
+// partial-failure semantics) is intentionally unchanged from v3.30.1.
+// See A6 in the patch report for the prior/posterior payload comparison.
 
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
@@ -17,11 +24,18 @@ import type {
 } from "@/lib/governance/rbacModel";
 import { deriveOsModules } from "@/lib/os/os-modules";
 import type { Database } from "@/integrations/supabase/types";
+import {
+  type ServiceOutcome,
+  type ServiceProvenanceMeta,
+  emptyOutcome,
+  errorOutcome,
+  liveOutcome,
+  toWidgetProvenance,
+  unknownOutcome,
+} from "@/lib/service-outcome";
 
 const PROJECT_ID = "brainhub-os";
 
-// Configurable slow-widget threshold. If changed at runtime via env, the
-// effective value is echoed in `debug.slow_widget_threshold_ms`.
 export const COMMAND_CENTER_SLOW_WIDGET_THRESHOLD_MS = 1000;
 
 type WidgetStatus = "live" | "empty" | "missing" | "unknown" | "error";
@@ -113,7 +127,6 @@ function resolveEntity(url: URL): { type: RbacEntityType; id: string } {
 
 function safeErrorMessage(err: unknown): string {
   const msg = (err as { message?: string } | null)?.message ?? "query_failed";
-  // Sanitize: drop anything that looks like a token, email, or url path.
   return msg
     .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, "Bearer [redacted]")
     .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+/g, "[redacted-email]")
@@ -132,16 +145,16 @@ async function logAnomaly(
   }
 }
 
-interface RunOpts {
+interface RunOpts extends ServiceProvenanceMeta {
   name: string;
-  source_tables: string[];
-  source_function: string;
 }
 
-async function runWidget<T>(
+// -- Service layer (public boundary): ServiceOutcome<T[]> per source ------
+
+async function runSource<T>(
   opts: RunOpts,
-  fn: () => Promise<{ data: T[] | null; error: unknown; last_updated?: string | null }>,
-): Promise<Widget<T>> {
+  fn: () => Promise<{ data: T[] | null; error: unknown }>,
+): Promise<ServiceOutcome<T[]>> {
   const t0 = Date.now();
   try {
     const res = await fn();
@@ -154,53 +167,16 @@ async function runWidget<T>(
         message: safe,
         duration_ms,
       });
-      return {
-        status: "error",
-        source_tables: opts.source_tables,
-        source_function: opts.source_function,
-        last_updated: null,
-        confidence: 0,
-        warnings: ["source_query_failed"],
-        duration_ms,
-        error_safe_message: safe,
-        data: null,
-      };
+      return errorOutcome<T[]>(opts, duration_ms, safe, "source_query_failed");
     }
     const rows = res.data ?? null;
     if (rows === null) {
-      return {
-        status: "unknown",
-        source_tables: opts.source_tables,
-        source_function: opts.source_function,
-        last_updated: null,
-        confidence: null,
-        warnings: ["no_rows_returned_null"],
-        duration_ms,
-        data: null,
-      };
+      return unknownOutcome<T[]>(opts, duration_ms, ["no_rows_returned_null"]);
     }
     if (rows.length === 0) {
-      return {
-        status: "empty",
-        source_tables: opts.source_tables,
-        source_function: opts.source_function,
-        last_updated: null,
-        confidence: 1,
-        warnings: [],
-        duration_ms,
-        data: [],
-      };
+      return emptyOutcome<T[]>([], opts, duration_ms);
     }
-    return {
-      status: "live",
-      source_tables: opts.source_tables,
-      source_function: opts.source_function,
-      last_updated: res.last_updated ?? new Date().toISOString(),
-      confidence: 1,
-      warnings: [],
-      duration_ms,
-      data: rows,
-    };
+    return liveOutcome<T[]>(rows, opts, duration_ms);
   } catch (err) {
     const duration_ms = Date.now() - t0;
     const safe = safeErrorMessage(err);
@@ -210,24 +186,14 @@ async function runWidget<T>(
       message: safe,
       duration_ms,
     });
-    return {
-      status: "error",
-      source_tables: opts.source_tables,
-      source_function: opts.source_function,
-      last_updated: null,
-      confidence: 0,
-      warnings: ["source_threw"],
-      duration_ms,
-      error_safe_message: safe,
-      data: null,
-    };
+    return errorOutcome<T[]>(opts, duration_ms, safe, "source_threw");
   }
 }
 
-async function runConnector(
+async function runConnectorSource(
   opts: RunOpts,
   fn: () => Promise<{ data: unknown[] | null; error: unknown }>,
-): Promise<ConnectorWidget> {
+): Promise<ServiceOutcome<boolean>> {
   const t0 = Date.now();
   try {
     const res = await fn();
@@ -240,53 +206,21 @@ async function runConnector(
         message: safe,
         duration_ms,
       });
-      return {
-        status: "error",
-        source_tables: opts.source_tables,
-        source_function: opts.source_function,
-        last_updated: null,
-        confidence: 0,
-        warnings: ["connector_query_failed"],
+      return errorOutcome<boolean>(
+        opts,
         duration_ms,
-        error_safe_message: safe,
-        connected: null,
-      };
+        safe,
+        "connector_query_failed",
+      );
     }
     const rows = res.data ?? null;
     if (rows === null) {
-      return {
-        status: "unknown",
-        source_tables: opts.source_tables,
-        source_function: opts.source_function,
-        last_updated: null,
-        confidence: null,
-        warnings: [],
-        duration_ms,
-        connected: null,
-      };
+      return unknownOutcome<boolean>(opts, duration_ms);
     }
     if (rows.length === 0) {
-      return {
-        status: "empty",
-        source_tables: opts.source_tables,
-        source_function: opts.source_function,
-        last_updated: null,
-        confidence: 1,
-        warnings: [],
-        duration_ms,
-        connected: false,
-      };
+      return emptyOutcome<boolean>(false, opts, duration_ms);
     }
-    return {
-      status: "live",
-      source_tables: opts.source_tables,
-      source_function: opts.source_function,
-      last_updated: new Date().toISOString(),
-      confidence: 1,
-      warnings: [],
-      duration_ms,
-      connected: true,
-    };
+    return liveOutcome<boolean>(true, opts, duration_ms);
   } catch (err) {
     const duration_ms = Date.now() - t0;
     const safe = safeErrorMessage(err);
@@ -296,18 +230,40 @@ async function runConnector(
       message: safe,
       duration_ms,
     });
-    return {
-      status: "error",
-      source_tables: opts.source_tables,
-      source_function: opts.source_function,
-      last_updated: null,
-      confidence: 0,
-      warnings: ["connector_threw"],
-      duration_ms,
-      error_safe_message: safe,
-      connected: null,
-    };
+    return errorOutcome<boolean>(opts, duration_ms, safe, "connector_threw");
   }
+}
+
+// -- Pure projections from ServiceOutcome → legacy Widget/Connector shapes
+
+function projectWidget<T>(outcome: ServiceOutcome<T[]>): Widget<T> {
+  const p = toWidgetProvenance(outcome);
+  return {
+    status: p.status as WidgetStatus,
+    source_tables: p.source_tables,
+    source_function: p.source_function,
+    last_updated: p.last_updated,
+    confidence: p.confidence,
+    warnings: p.warnings,
+    duration_ms: p.duration_ms,
+    ...(p.error_safe_message ? { error_safe_message: p.error_safe_message } : {}),
+    data: outcome.data,
+  };
+}
+
+function projectConnector(outcome: ServiceOutcome<boolean>): ConnectorWidget {
+  const p = toWidgetProvenance(outcome);
+  return {
+    status: p.status as WidgetStatus,
+    source_tables: p.source_tables,
+    source_function: p.source_function,
+    last_updated: p.last_updated,
+    confidence: p.confidence,
+    warnings: p.warnings,
+    duration_ms: p.duration_ms,
+    ...(p.error_safe_message ? { error_safe_message: p.error_safe_message } : {}),
+    connected: outcome.data,
+  };
 }
 
 function computeSystemStatus(): SystemStatusPayload {
@@ -338,29 +294,11 @@ function computeSystemStatus(): SystemStatusPayload {
 }
 
 function unknownWidget<T>(opts: RunOpts, reason: string): Widget<T> {
-  return {
-    status: "unknown",
-    source_tables: opts.source_tables,
-    source_function: opts.source_function,
-    last_updated: null,
-    confidence: null,
-    warnings: [reason],
-    duration_ms: 0,
-    data: null,
-  };
+  return projectWidget<T>(unknownOutcome<T[]>(opts, 0, [reason]));
 }
 
 function unknownConnector(opts: RunOpts, reason: string): ConnectorWidget {
-  return {
-    status: "unknown",
-    source_tables: opts.source_tables,
-    source_function: opts.source_function,
-    last_updated: null,
-    confidence: null,
-    warnings: [reason],
-    duration_ms: 0,
-    connected: null,
-  };
+  return projectConnector(unknownOutcome<boolean>(opts, 0, [reason]));
 }
 
 export const Route = createFileRoute("/api/command-center-data")({
@@ -370,8 +308,6 @@ export const Route = createFileRoute("/api/command-center-data")({
         const t_total = Date.now();
         const url = new URL(request.url);
         const entity = resolveEntity(url);
-        // v3.32: `__force_fail` query param removed. See
-        // scripts/test-partial-failure.ts for the isolated harness.
 
         const govRequest: GovernanceRequest = {
           action: "read_command_center_data",
@@ -386,7 +322,6 @@ export const Route = createFileRoute("/api/command-center-data")({
         try {
           gov = evaluateAction(govRequest);
         } catch (err) {
-          // Systemic governance failure — true 500.
           return new Response(
             JSON.stringify({
               error: "governance_evaluator_crash",
@@ -482,66 +417,75 @@ export const Route = createFileRoute("/api/command-center-data")({
             },
           );
 
-          const [projects, action_queue, result_review, agent_runs, gmail, github] =
-            await Promise.all([
-              runWidget(widgetSpecs.projects, async () =>
-                supabase
-                  .from("project_links")
-                  .select("id,title,status,link_type,updated_at")
-                  .eq("link_type", "project")
-                  .order("updated_at", { ascending: false })
-                  .limit(10),
-              ),
-              runWidget(widgetSpecs.action_queue, async () =>
-                supabase
-                  .from("automation_actions")
-                  .select(
-                    "id,title,status,priority,risk_level,requires_confirmation,created_at",
-                  )
-                  .in("status", ["suggested", "pending", "blocked", "approved"])
-                  .order("created_at", { ascending: false })
-                  .limit(10),
-              ),
-              runWidget(widgetSpecs.result_review, async () =>
-                supabase
-                  .from("result_review_items")
-                  .select(
-                    "id,title,review_status,source_type,risk_level,created_at",
-                  )
-                  .eq("review_status", "pending_review")
-                  .order("created_at", { ascending: false })
-                  .limit(10),
-              ),
-              runWidget(widgetSpecs.agent_runs, async () =>
-                supabase
-                  .from("agent_run_logs")
-                  .select(
-                    "id,objective,run_status,run_mode,risk_level,created_at",
-                  )
-                  .order("created_at", { ascending: false })
-                  .limit(10),
-              ),
-              runConnector(widgetSpecs.gmail, async () =>
-                supabase
-                  .from("gmail_connection_settings")
-                  .select("id")
-                  .limit(1),
-              ),
-              runConnector(widgetSpecs.github, async () =>
-                supabase
-                  .from("github_repository_registry")
-                  .select("id")
-                  .limit(1),
-              ),
-            ]);
+          const [
+            projectsOutcome,
+            actionQueueOutcome,
+            resultReviewOutcome,
+            agentRunsOutcome,
+            gmailOutcome,
+            githubOutcome,
+          ] = await Promise.all([
+            runSource(widgetSpecs.projects, async () =>
+              supabase
+                .from("project_links")
+                .select("id,title,status,link_type,updated_at")
+                .eq("link_type", "project")
+                .order("updated_at", { ascending: false })
+                .limit(10),
+            ),
+            runSource(widgetSpecs.action_queue, async () =>
+              supabase
+                .from("automation_actions")
+                .select(
+                  "id,title,status,priority,risk_level,requires_confirmation,created_at",
+                )
+                .in("status", ["suggested", "pending", "blocked", "approved"])
+                .order("created_at", { ascending: false })
+                .limit(10),
+            ),
+            runSource(widgetSpecs.result_review, async () =>
+              supabase
+                .from("result_review_items")
+                .select(
+                  "id,title,review_status,source_type,risk_level,created_at",
+                )
+                .eq("review_status", "pending_review")
+                .order("created_at", { ascending: false })
+                .limit(10),
+            ),
+            runSource(widgetSpecs.agent_runs, async () =>
+              supabase
+                .from("agent_run_logs")
+                .select(
+                  "id,objective,run_status,run_mode,risk_level,created_at",
+                )
+                .order("created_at", { ascending: false })
+                .limit(10),
+            ),
+            runConnectorSource(widgetSpecs.gmail, async () =>
+              supabase
+                .from("gmail_connection_settings")
+                .select("id")
+                .limit(1),
+            ),
+            runConnectorSource(widgetSpecs.github, async () =>
+              supabase
+                .from("github_repository_registry")
+                .select("id")
+                .limit(1),
+            ),
+          ]);
 
           payload = {
             system_status,
-            projects,
-            action_queue,
-            result_review,
-            agent_runs,
-            connectors: { gmail, github },
+            projects: projectWidget(projectsOutcome),
+            action_queue: projectWidget(actionQueueOutcome),
+            result_review: projectWidget(resultReviewOutcome),
+            agent_runs: projectWidget(agentRunsOutcome),
+            connectors: {
+              gmail: projectConnector(gmailOutcome),
+              github: projectConnector(githubOutcome),
+            },
             debug: {
               total_duration_ms: 0,
               per_widget_duration_ms: {},
