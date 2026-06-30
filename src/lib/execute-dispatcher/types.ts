@@ -77,7 +77,7 @@ export interface ExecuteReceipt {
   executed_by: string;
   started_at: string;
   completed_at: string | null;
-  result: "success" | "failure" | "partial";
+  result: "success" | "failure" | "partial" | "rolled_back";
   rollback_available: boolean;
   external_reference: string | null; // always null in v3.35a (internal only)
   audit_record: string; // textual reference to the governance audit_record
@@ -114,10 +114,14 @@ export interface ExecuteDispatchResponse {
   status:
     | "executed"
     | "replayed" // idempotency hit; pre-existing receipt returned
+    | "rolled_back"
     | "rejected_governance"
     | "rejected_confirm"
     | "rejected_validation"
     | "rejected_unknown_action"
+    | "rejected_not_found"
+    | "rejected_not_rollbackable"
+    | "rejected_already_rolled_back"
     | "failed";
   receipt: ExecuteReceipt | null;
   safe_message: string;

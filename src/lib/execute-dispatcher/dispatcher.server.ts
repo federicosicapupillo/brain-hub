@@ -72,19 +72,31 @@ async function findExistingReceipt(
   env: DispatchEnv,
   idempotency_key: string,
 ): Promise<ExecuteReceipt | null> {
-  const { data: idem, error: idemErr } = await env.admin
-    .from("execute_idempotency")
-    .select("receipt_id")
-    .eq("owner_id", env.userId)
-    .eq("idempotency_key", idempotency_key)
-    .maybeSingle();
-  if (idemErr || !idem) return null;
-  const { data: r } = await env.admin
-    .from("execute_receipts")
-    .select("*")
-    .eq("receipt_id", idem.receipt_id)
-    .maybeSingle();
-  return r ? rowToReceipt(r) : null;
+  // v3.35a.1: receipt_id can be NULL transiently while a peer holds the
+  // idempotency gate. Poll briefly so concurrent callers converge on the
+  // same canonical receipt instead of seeing "no receipt yet" and
+  // returning failed.
+  const POLL_ATTEMPTS = 20; // ~2s total
+  const POLL_DELAY_MS = 100;
+  for (let i = 0; i < POLL_ATTEMPTS; i++) {
+    const { data: idem, error: idemErr } = await env.admin
+      .from("execute_idempotency")
+      .select("receipt_id")
+      .eq("owner_id", env.userId)
+      .eq("idempotency_key", idempotency_key)
+      .maybeSingle();
+    if (idemErr || !idem) return null;
+    if (idem.receipt_id) {
+      const { data: r } = await env.admin
+        .from("execute_receipts")
+        .select("*")
+        .eq("receipt_id", idem.receipt_id)
+        .maybeSingle();
+      return r ? rowToReceipt(r as ReceiptRow) : null;
+    }
+    await new Promise((res) => setTimeout(res, POLL_DELAY_MS));
+  }
+  return null;
 }
 
 interface ReceiptRow {
@@ -267,14 +279,38 @@ export async function executeInternalAction(
     };
   }
 
-  // 5. Idempotency lookup — return prior receipt if present.
-  const replay = await findExistingReceipt(env, req.idempotency_key);
-  if (replay) {
+  // 5. Idempotency GATE (v3.35a.1 — race-safe).
+  //    Acquire the (owner_id, idempotency_key) row BEFORE any artifact
+  //    or receipt is written. PK uniqueness makes the gate the single
+  //    serialization point. The receipt_id is filled in step 8.
+  //
+  //    Outcomes:
+  //    - acquired   → this request is the canonical winner; proceed.
+  //    - conflict   → a peer holds (or held) the gate; return the
+  //                   canonical receipt (poll briefly if peer mid-flight).
+  const { error: gateErr } = await env.admin
+    .from("execute_idempotency")
+    .insert({
+      owner_id: env.userId,
+      idempotency_key: req.idempotency_key,
+      receipt_id: null,
+      action_type,
+    } as never);
+  if (gateErr) {
+    const canonical = await findExistingReceipt(env, req.idempotency_key);
+    if (canonical) {
+      return {
+        ok: true,
+        status: "replayed",
+        receipt: canonical,
+        safe_message: "idempotent_replay",
+      };
+    }
     return {
-      ok: true,
-      status: "replayed",
-      receipt: replay,
-      safe_message: "idempotent_replay",
+      ok: false,
+      status: "failed",
+      receipt: null,
+      safe_message: safeMessage(gateErr, "idempotency_gate_failed"),
     };
   }
 
@@ -315,6 +351,15 @@ export async function executeInternalAction(
       idempotency_key: req.idempotency_key,
       safe_error_message: safeMessage(err, "artifact_insert_failed"),
     });
+    // Point the gate at the failure receipt so peers see a deterministic
+    // result instead of timing out.
+    if (failedReceipt) {
+      await env.admin
+        .from("execute_idempotency")
+        .update({ receipt_id: failedReceipt.receipt_id } as never)
+        .eq("owner_id", env.userId)
+        .eq("idempotency_key", req.idempotency_key);
+    }
     return {
       ok: false,
       status: "failed",
@@ -347,9 +392,6 @@ export async function executeInternalAction(
   });
 
   if (!receipt) {
-    // Receipt write failed — this is a serious internal failure. Try a
-    // best-effort failure receipt; if that also fails, surface a generic
-    // error. The artifact may be orphaned but is harmless (soft state).
     return {
       ok: false,
       status: "failed",
@@ -358,33 +400,225 @@ export async function executeInternalAction(
     };
   }
 
-  // 8. Record idempotency mapping. Race-safe: PK is (owner_id, key); a
-  //    concurrent duplicate insert collides — we resolve the winner.
-  const { error: idemErr } = await env.admin
+  // 8. Resolve the gate by stamping the canonical receipt_id.
+  await env.admin
     .from("execute_idempotency")
-    .insert({
-      owner_id: env.userId,
-      idempotency_key: req.idempotency_key,
-      receipt_id: receipt.receipt_id,
-      action_type,
-    });
-  if (idemErr) {
-    // Conflict: another request already won this idempotency key.
-    // Return the canonical pre-existing receipt instead of ours.
-    const canonical = await findExistingReceipt(env, req.idempotency_key);
-    if (canonical && canonical.receipt_id !== receipt.receipt_id) {
-      return {
-        ok: true,
-        status: "replayed",
-        receipt: canonical,
-        safe_message: "idempotent_replay_after_race",
-      };
-    }
-  }
+    .update({ receipt_id: receipt.receipt_id } as never)
+    .eq("owner_id", env.userId)
+    .eq("idempotency_key", req.idempotency_key);
 
   return {
     ok: true,
     status: "executed",
+    receipt,
+    safe_message: "ok",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// v3.35a.1 — Rollback path.
+//
+// Rollback is itself an Execute attempt: it MUST go through the
+// Governance Evaluator and produce an immutable Receipt. The original
+// Receipt is NEVER mutated; the artifact is soft-deleted by stamping
+// rolled_back_at, and a new Receipt with result="rolled_back" is
+// inserted with related_receipt_id pointing to the original.
+// No new RBAC permission is introduced: rollback reuses
+// "execute_internal_action" (same MEDIUM umbrella).
+// ---------------------------------------------------------------------------
+
+export interface RollbackRequest {
+  receipt_id: string;
+  confirmation_source?: "ui_button" | "voice_confirm" | "keyboard_enter";
+}
+
+export async function rollbackInternalAction(
+  env: DispatchEnv,
+  req: RollbackRequest,
+): Promise<ExecuteDispatchResponse> {
+  const executor = env.executor ?? "system:execute-dispatcher";
+  const started_at = new Date().toISOString();
+  const requested_by = `user:${env.userId}`;
+
+  // 1. Load original Receipt, scoped to the owner.
+  const { data: origRow, error: origErr } = await env.admin
+    .from("execute_receipts")
+    .select("*")
+    .eq("receipt_id", req.receipt_id)
+    .eq("owner_id", env.userId)
+    .maybeSingle();
+  if (origErr || !origRow) {
+    return {
+      ok: false,
+      status: "rejected_not_found",
+      receipt: null,
+      safe_message: "receipt_not_found",
+    };
+  }
+  const original = rowToReceipt(origRow as ReceiptRow);
+
+  if (!isInternalActionType(original.action_type)) {
+    return {
+      ok: false,
+      status: "rejected_unknown_action",
+      receipt: null,
+      safe_message: `unknown_internal_action:${original.action_type}`,
+    };
+  }
+  const action_type = original.action_type;
+  const rollback = INTERNAL_ACTION_ROLLBACK[action_type];
+
+  if (!original.rollback_available || !rollback.rollback_available) {
+    return {
+      ok: false,
+      status: "rejected_not_rollbackable",
+      receipt: null,
+      safe_message: `not_rollbackable:${action_type}`,
+    };
+  }
+  if (original.result !== "success") {
+    return {
+      ok: false,
+      status: "rejected_not_rollbackable",
+      receipt: null,
+      safe_message: `original_not_success:${original.result}`,
+    };
+  }
+  if (!original.action_id) {
+    return {
+      ok: false,
+      status: "rejected_not_found",
+      receipt: null,
+      safe_message: "original_has_no_artifact",
+    };
+  }
+
+  // 2. Governance — rollback is a governed action.
+  const govRequest: GovernanceRequest = {
+    action: "execute_internal_action",
+    entity: { type: "user", id: env.userId },
+    project_id: DEFAULT_PROJECT_ID,
+    context_active_project_id: DEFAULT_PROJECT_ID,
+    risk_level: INTERNAL_ACTION_RISK[action_type],
+    requires_confirmation: true,
+  };
+  let gov: GovernanceResult;
+  try {
+    gov = evaluateAction(govRequest);
+  } catch (err) {
+    return {
+      ok: false,
+      status: "rejected_governance",
+      receipt: null,
+      safe_message: safeMessage(err, "governance_crash"),
+    };
+  }
+  if (!gov.allowed) {
+    const failedReceipt = await writeReceipt(env, {
+      action_id: original.action_id,
+      action_type,
+      risk_level: original.risk_level,
+      requested_by,
+      approved_by: requested_by,
+      executed_by: executor,
+      started_at,
+      completed_at: new Date().toISOString(),
+      result: "failure",
+      rollback_available: false,
+      external_reference: null,
+      audit_record: JSON.stringify({
+        ...gov.audit_record,
+        action_type_meta: action_type,
+        operation: "rollback",
+      }),
+      related_receipt_id: original.receipt_id,
+      safe_error_message: `governance_denied:${gov.reason}`,
+    });
+    return {
+      ok: false,
+      status: "rejected_governance",
+      receipt: failedReceipt,
+      safe_message: `governance_denied:${gov.reason}`,
+    };
+  }
+
+  // 3. Idempotent soft-delete: only stamp rolled_back_at if not already
+  //    rolled back. A second rollback attempt is rejected explicitly so
+  //    the ledger reflects the truth.
+  const { data: artRow, error: artErr } = await env.admin
+    .from("internal_execute_artifacts")
+    .select("id, rolled_back_at, owner_id")
+    .eq("id", original.action_id)
+    .eq("owner_id", env.userId)
+    .maybeSingle();
+  if (artErr || !artRow) {
+    return {
+      ok: false,
+      status: "rejected_not_found",
+      receipt: null,
+      safe_message: "artifact_not_found",
+    };
+  }
+  if ((artRow as { rolled_back_at: string | null }).rolled_back_at) {
+    return {
+      ok: false,
+      status: "rejected_already_rolled_back",
+      receipt: null,
+      safe_message: "already_rolled_back",
+    };
+  }
+
+  const rolledAt = new Date().toISOString();
+  const { error: updErr } = await env.admin
+    .from("internal_execute_artifacts")
+    .update({ rolled_back_at: rolledAt } as never)
+    .eq("id", original.action_id)
+    .eq("owner_id", env.userId);
+  if (updErr) {
+    return {
+      ok: false,
+      status: "failed",
+      receipt: null,
+      safe_message: safeMessage(updErr, "artifact_update_failed"),
+    };
+  }
+
+  // 4. Append immutable rolled_back Receipt linked to the original.
+  const receipt = await writeReceipt(env, {
+    action_id: original.action_id,
+    action_type,
+    risk_level: original.risk_level,
+    requested_by,
+    approved_by: requested_by,
+    executed_by: executor,
+    started_at,
+    completed_at: new Date().toISOString(),
+    result: "rolled_back",
+    rollback_available: false,
+    external_reference: null,
+    audit_record: JSON.stringify({
+      ...gov.audit_record,
+      action_type_meta: action_type,
+      operation: "rollback",
+      original_receipt_id: original.receipt_id,
+      rolled_back_at: rolledAt,
+      confirmation_source: req.confirmation_source ?? "ui_button",
+    }),
+    related_receipt_id: original.receipt_id,
+  });
+
+  if (!receipt) {
+    return {
+      ok: false,
+      status: "failed",
+      receipt: null,
+      safe_message: "rollback_receipt_write_failed",
+    };
+  }
+
+  return {
+    ok: true,
+    status: "rolled_back",
     receipt,
     safe_message: "ok",
   };
