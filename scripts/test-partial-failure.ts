@@ -71,14 +71,16 @@ function assert(name: string, cond: boolean, detail?: unknown) {
   );
 }
 
-// Case 3: optional source (gmail) fails → confidence stays 95
+// Case 3: optional source (gmail) fails with no priorities → empty branch wins
 {
   const inputs = baseInputs();
   inputs.gmail = source("error", []);
   const r = computePriorities(inputs);
   assert(
-    "optional source failure → confidence remains 95",
-    r.widget.confidence === 95 && r.widget.status === "empty",
+    "optional-only failure + no priorities → empty + confidence 100, optional warning recorded",
+    r.widget.status === "empty" &&
+      r.widget.confidence === 100 &&
+      (r.widget.warnings ?? []).includes("optional_source_gmail_error"),
     r.widget,
   );
 }
