@@ -734,11 +734,23 @@ export async function executeExternalAction(
   const handlerResult = await handler({ env, entry, payload });
 
   // 8. Write Receipt + stamp gate.
+  const dispatch_status: "ok" | "failed" = handlerResult.ok ? "ok" : "failed";
+  const service_outcome_status = handlerResult.ok ? "live" : "error";
+  const safe_error_message = handlerResult.ok
+    ? null
+    : redactString(handlerResult.error ?? handlerResult.error_kind ?? "handler_failed").slice(
+        0,
+        240,
+      );
   const auditRecord = {
     ...gov.audit_record,
     execute_scope: "external",
     external_action_type: entry.action_type,
     connector_name: entry.connector_name,
+    connector_type:
+      entry.action_type === "external_n8n_controlled_webhook"
+        ? "n8n_controlled"
+        : entry.connector_name,
     handler_name: entry.handler_name,
     workflow_key: payload.workflow_key,
     dry_run: payload.dry_run,
@@ -748,13 +760,18 @@ export async function executeExternalAction(
     confirmed_at: req.confirmed_at ?? null,
     request_hash,
     payload_preview_redacted: redactedPayloadPreview,
-    response_preview_redacted: handlerResult.response_preview_redacted,
+    response_preview_redacted: redactString(handlerResult.response_preview_redacted),
     http_status: handlerResult.http_status,
     timing_ms: handlerResult.timing_ms,
     rollback_supported: entry.supports_rollback,
-    service_outcome_status: handlerResult.ok ? "live" : "error",
+    service_outcome_status,
     auto_reexecuted: false,
     orphan_gate_reaper: "v3_35c_inherited",
+    // v3.36.1 — propagate error_kind for failure modes.
+    error_kind: handlerResult.error_kind,
+    safe_error_message,
+    mock_or_real: handlerResult.mock_or_real,
+    dispatch_status,
   };
   const receipt = await writeReceipt(env, {
     action_id: artifactId,
@@ -770,7 +787,7 @@ export async function executeExternalAction(
     external_reference: handlerResult.external_reference,
     audit_record: JSON.stringify(auditRecord),
     idempotency_key: req.idempotency_key,
-    safe_error_message: handlerResult.ok ? null : handlerResult.error ?? "handler_failed",
+    safe_error_message,
   });
   if (!receipt) {
     return {
@@ -786,6 +803,42 @@ export async function executeExternalAction(
     .eq("owner_id", env.userId)
     .eq("idempotency_key", req.idempotency_key);
 
+  // v3.36.1 — stamp artifact with post-handler outcome so the DB row is the
+  // source of truth for external dispatch (artifact_type +
+  // external_medium_connector_dispatch).
+  if (artifactId) {
+    const stampedPayload = {
+      artifact_type: "external_medium_connector_dispatch",
+      connector_type:
+        entry.action_type === "external_n8n_controlled_webhook"
+          ? "n8n_controlled"
+          : entry.connector_name,
+      idempotency_key: req.idempotency_key,
+      execute_scope: "external",
+      external_action_type: entry.action_type,
+      connector_name: entry.connector_name,
+      handler_name: entry.handler_name,
+      workflow_key: payload.workflow_key,
+      dry_run: payload.dry_run,
+      live_execute: payload.live_execute,
+      confirmation_id: payload.confirmation_id,
+      request_hash,
+      payload_preview_redacted: redactedPayloadPreview,
+      dispatch_status,
+      service_outcome_status,
+      mock_or_real: handlerResult.mock_or_real,
+      receipt_id: receipt.receipt_id,
+      error_kind: handlerResult.error_kind,
+      http_status: handlerResult.http_status,
+      timing_ms: handlerResult.timing_ms,
+      response_preview_redacted: redactString(handlerResult.response_preview_redacted),
+    };
+    await env.admin
+      .from("internal_execute_artifacts")
+      .update({ payload: stampedPayload } as never)
+      .eq("id", artifactId);
+  }
+
   return {
     ok: handlerResult.ok,
     status: handlerResult.ok ? "executed" : "failed",
@@ -793,6 +846,7 @@ export async function executeExternalAction(
     safe_message: handlerResult.ok ? "ok" : handlerResult.error ?? "handler_failed",
   };
 }
+
 
 /**
  * Rollback stub (v3.35b). External rollback is intentionally NOT
