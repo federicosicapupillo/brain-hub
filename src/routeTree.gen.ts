@@ -88,6 +88,7 @@ import { Route as ApiPublicUiOperatorSurfaceActionRouteImport } from './routes/a
 import { Route as ApiPublicUiOperatorAuthRouteImport } from './routes/api/public/ui-operator-auth'
 import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
+import { Route as ApiPublicExternalExecuteSandboxTargetRouteImport } from './routes/api/public/external-execute-sandbox-target'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 import { Route as AuthenticatedOsProjectCenterRouteImport } from './routes/_authenticated/os.project-center'
 import { Route as AuthenticatedOsKnowledgeCenterRouteImport } from './routes/_authenticated/os.knowledge-center'
@@ -547,6 +548,12 @@ const ApiPublicN8nCallbackRoute = ApiPublicN8nCallbackRouteImport.update({
   path: '/api/public/n8n-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicExternalExecuteSandboxTargetRoute =
+  ApiPublicExternalExecuteSandboxTargetRouteImport.update({
+    id: '/api/public/external-execute-sandbox-target',
+    path: '/api/public/external-execute-sandbox-target',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedProgettiBrainIdRoute =
   AuthenticatedProgettiBrainIdRouteImport.update({
     id: '/$brainId',
@@ -727,6 +734,7 @@ export interface FileRoutesByFullPath {
   '/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
   '/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
+  '/api/public/external-execute-sandbox-target': typeof ApiPublicExternalExecuteSandboxTargetRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
@@ -821,6 +829,7 @@ export interface FileRoutesByTo {
   '/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
   '/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
+  '/api/public/external-execute-sandbox-target': typeof ApiPublicExternalExecuteSandboxTargetRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
@@ -919,6 +928,7 @@ export interface FileRoutesById {
   '/_authenticated/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
   '/_authenticated/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
+  '/api/public/external-execute-sandbox-target': typeof ApiPublicExternalExecuteSandboxTargetRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
@@ -1017,6 +1027,7 @@ export interface FileRouteTypes {
     | '/os/knowledge-center'
     | '/os/project-center'
     | '/progetti/$brainId'
+    | '/api/public/external-execute-sandbox-target'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/api/public/ui-operator-auth'
@@ -1111,6 +1122,7 @@ export interface FileRouteTypes {
     | '/os/knowledge-center'
     | '/os/project-center'
     | '/progetti/$brainId'
+    | '/api/public/external-execute-sandbox-target'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/api/public/ui-operator-auth'
@@ -1208,6 +1220,7 @@ export interface FileRouteTypes {
     | '/_authenticated/os/knowledge-center'
     | '/_authenticated/os/project-center'
     | '/_authenticated/progetti/$brainId'
+    | '/api/public/external-execute-sandbox-target'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/api/public/ui-operator-auth'
@@ -1235,6 +1248,7 @@ export interface RootRouteChildren {
   ApiRollbackInternalActionRoute: typeof ApiRollbackInternalActionRoute
   UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
   UiOperatorSurfaceSessionIdRoute: typeof UiOperatorSurfaceSessionIdRoute
+  ApiPublicExternalExecuteSandboxTargetRoute: typeof ApiPublicExternalExecuteSandboxTargetRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
   ApiPublicUiOperatorAuthRoute: typeof ApiPublicUiOperatorAuthRoute
@@ -1801,6 +1815,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicN8nCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/external-execute-sandbox-target': {
+      id: '/api/public/external-execute-sandbox-target'
+      path: '/api/public/external-execute-sandbox-target'
+      fullPath: '/api/public/external-execute-sandbox-target'
+      preLoaderRoute: typeof ApiPublicExternalExecuteSandboxTargetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/progetti/$brainId': {
       id: '/_authenticated/progetti/$brainId'
       path: '/$brainId'
@@ -2117,6 +2138,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRollbackInternalActionRoute: ApiRollbackInternalActionRoute,
   UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
   UiOperatorSurfaceSessionIdRoute: UiOperatorSurfaceSessionIdRoute,
+  ApiPublicExternalExecuteSandboxTargetRoute:
+    ApiPublicExternalExecuteSandboxTargetRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
   ApiPublicUiOperatorAuthRoute: ApiPublicUiOperatorAuthRoute,
