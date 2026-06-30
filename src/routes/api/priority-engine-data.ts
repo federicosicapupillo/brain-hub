@@ -236,8 +236,6 @@ export const Route = createFileRoute("/api/priority-engine-data")({
         const t_total = Date.now();
         const url = new URL(request.url);
         const entity = resolveEntity(url);
-        const forceFail = url.searchParams.get("__force_fail");
-        const isDev = process.env.NODE_ENV !== "production";
 
         const govRequest: GovernanceRequest = {
           action: "read_priority_engine_data",
