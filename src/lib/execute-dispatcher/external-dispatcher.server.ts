@@ -227,6 +227,9 @@ interface HandlerContext {
     dry_run: boolean;
     live_execute: boolean;
     confirmation_id: string | null;
+    workflow_key: string | null;
+    title: string | null;
+    metadata: Record<string, unknown> | null;
   };
 }
 
@@ -297,9 +300,99 @@ async function handlerExternalWebhookTestPing(
   }
 }
 
+async function handlerExternalN8nControlledWebhook(
+  ctx: HandlerContext,
+): Promise<HandlerResult> {
+  const started = Date.now();
+  const { getControlledWorkflow } = await import("./n8n-controlled-workflows");
+  const workflow_key = ctx.payload.workflow_key ?? "";
+  const workflow = getControlledWorkflow(workflow_key);
+  if (!workflow || !workflow.enabled) {
+    return {
+      ok: false,
+      external_reference: null,
+      response_preview_redacted: "",
+      http_status: null,
+      timing_ms: Date.now() - started,
+      error: "workflow_not_allowlisted",
+    };
+  }
+  if (workflow.risk_level !== "medium") {
+    return {
+      ok: false,
+      external_reference: null,
+      response_preview_redacted: "",
+      http_status: null,
+      timing_ms: Date.now() - started,
+      error: "workflow_risk_not_medium",
+    };
+  }
+
+  // Dry-run: keep it local UNLESS n8n exposes a test mode for this
+  // workflow. v3.36 ships no test-mode workflow → always local dry-run.
+  if (ctx.payload.dry_run) {
+    return {
+      ok: true,
+      external_reference: null,
+      response_preview_redacted: JSON.stringify({
+        mode: "dry_run",
+        workflow_key,
+        title: (ctx.payload.title ?? "").slice(0, 120),
+        message_preview: ctx.payload.message.slice(0, 80),
+        correlation_id: ctx.payload.correlation_id,
+        n8n_test_mode_available: workflow.n8n_test_mode_available,
+        note: "dry_run_local_only",
+      }),
+      http_status: null,
+      timing_ms: Date.now() - started,
+    };
+  }
+
+  const { invokeN8nControlledWorkflow } = await import(
+    "@/lib/external-connectors/n8n-controlled-connector.server"
+  );
+  const outcome = await invokeN8nControlledWorkflow({
+    workflow,
+    title: ctx.payload.title ?? "",
+    message: ctx.payload.message,
+    correlation_id: ctx.payload.correlation_id,
+    metadata: ctx.payload.metadata,
+  });
+  const data = outcome.data;
+  if (outcome.trust.status === "missing") {
+    return {
+      ok: false,
+      external_reference: null,
+      response_preview_redacted: "",
+      http_status: null,
+      timing_ms: Date.now() - started,
+      error: outcome.error_safe_message ?? "n8n_env_missing",
+    };
+  }
+  if (!data) {
+    return {
+      ok: false,
+      external_reference: null,
+      response_preview_redacted: "",
+      http_status: null,
+      timing_ms: Date.now() - started,
+      error: outcome.error_safe_message ?? "n8n_no_data",
+    };
+  }
+  return {
+    ok: data.ok,
+    external_reference: data.external_reference_id,
+    response_preview_redacted: data.response_preview_redacted,
+    http_status: data.http_status,
+    timing_ms: data.timing_ms,
+    error: data.ok ? undefined : data.safe_error_message ?? "n8n_failed",
+  };
+}
+
 const HANDLERS: Readonly<Record<string, (c: HandlerContext) => Promise<HandlerResult>>> =
   Object.freeze({
     external_webhook_test_ping: handlerExternalWebhookTestPing,
+    external_n8n_controlled_webhook: handlerExternalN8nControlledWebhook,
   });
 
 // ---------------------------------------------------------------------------
@@ -494,6 +587,7 @@ export async function executeExternalAction(
           external_action_type: entry.action_type,
           connector_name: entry.connector_name,
           handler_name: entry.handler_name,
+          workflow_key: payload.workflow_key,
           dry_run: payload.dry_run,
           live_execute: payload.live_execute,
           confirmation_id: payload.confirmation_id,
@@ -552,6 +646,7 @@ export async function executeExternalAction(
     external_action_type: entry.action_type,
     connector_name: entry.connector_name,
     handler_name: entry.handler_name,
+    workflow_key: payload.workflow_key,
     dry_run: payload.dry_run,
     live_execute: payload.live_execute,
     confirmation_id: payload.confirmation_id,
@@ -563,7 +658,9 @@ export async function executeExternalAction(
     http_status: handlerResult.http_status,
     timing_ms: handlerResult.timing_ms,
     rollback_supported: entry.supports_rollback,
-    orphan_gate_reaper: "not_implemented_v3_35b_debt_v3_35c",
+    service_outcome_status: handlerResult.ok ? "live" : "error",
+    auto_reexecuted: false,
+    orphan_gate_reaper: "v3_35c_inherited",
   };
   const receipt = await writeReceipt(env, {
     action_id: artifactId,

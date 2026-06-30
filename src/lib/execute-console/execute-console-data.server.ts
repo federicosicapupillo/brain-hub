@@ -429,12 +429,38 @@ export async function fetchExecuteConsoleData(
   if (orphan_states.some((o) => o.requires_manual_review))
     warnings.push("manual_review_required_present");
 
+  // v3.36 — detect whether the MEDIUM external connector is registered
+  // AND its required env var is configured. This is the only place that
+  // flips `medium_external_connector_available` to true.
+  let mediumConnectorAvailable = false;
+  let mediumConnectorStatus: "available" | "missing_env" | "disabled" = "disabled";
+  const n8nEntry = EXTERNAL_ACTION_REGISTRY.external_n8n_controlled_webhook;
+  if (n8nEntry?.enabled) {
+    try {
+      const { N8N_CONTROLLED_WORKFLOWS } = await import(
+        "@/lib/execute-dispatcher/n8n-controlled-workflows"
+      );
+      const envs = Object.values(N8N_CONTROLLED_WORKFLOWS).map(
+        (w) => w.endpoint_env_var,
+      );
+      const anyConfigured = envs.some(
+        (v) => typeof (process.env as Record<string, string | undefined>)[v] === "string",
+      );
+      mediumConnectorAvailable = anyConfigured;
+      mediumConnectorStatus = anyConfigured ? "available" : "missing_env";
+      if (!anyConfigured) warnings.push("medium_external_connector_env_missing");
+    } catch {
+      mediumConnectorStatus = "disabled";
+    }
+  }
+
   const engine_status: ConsoleEngineStatus = {
     internal_execute_enabled: true,
     external_sandbox_execute_enabled: true,
     orphan_gate_reaper_enabled: true,
     high_live_actions_blocked: true,
-    medium_external_connector_available: false,
+    medium_external_connector_available: mediumConnectorAvailable,
+    medium_external_connector_status: mediumConnectorStatus,
     last_receipt_at: last_receipt?.started_at ?? null,
     last_orphan_recovery_at: last_orphan_recovery?.started_at ?? null,
     warnings,
@@ -476,4 +502,89 @@ export async function fetchExecuteConsoleData(
       user_scoped: true,
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// v3.36 — ServiceOutcome wrapper (Principio 3 — Service Layer Pattern)
+// ---------------------------------------------------------------------------
+// `fetchExecuteConsoleData` was originally written as a route helper that
+// returned a plain object plus an inline `{ ok }` wrapper at the HTTP
+// boundary. v3.36 enforces ADR-003 / Principle 3: every public service
+// called directly by a route must return `ServiceOutcome<T>`.
+//
+// We DO NOT delete the existing function: internal callers (tests,
+// scripts) still rely on the rich payload shape. Instead, the route
+// imports `fetchExecuteConsoleDataOutcome` and projects the outcome onto
+// the HTTP response. Partial source failures are reported via `trust`
+// without collapsing the payload (Principio 2).
+
+import {
+  type ServiceOutcome,
+  errorOutcome,
+  liveOutcome,
+} from "@/lib/service-outcome";
+import type { DataTrust as _DataTrust } from "@/lib/data-trust/types";
+
+export async function fetchExecuteConsoleDataOutcome(
+  env: ExecuteConsoleFetchEnv,
+): Promise<ServiceOutcome<ExecuteConsoleData>> {
+  const t0 = Date.now();
+  const meta = {
+    source_tables: [
+      "execute_receipts",
+      "internal_execute_artifacts",
+      "execute_idempotency",
+    ],
+    source_function: "fetchExecuteConsoleData",
+  };
+  try {
+    const data = await fetchExecuteConsoleData(env);
+    const duration_ms = Date.now() - t0;
+    const sources = [
+      data.source_status.receipts.status,
+      data.source_status.artifacts.status,
+      data.source_status.idempotency.status,
+    ];
+    const allLive = sources.every((s) => s === "live" || s === "empty");
+    if (allLive) return liveOutcome(data, meta, duration_ms);
+    const allFailed = sources.every((s) => s === "error" || s === "missing");
+    if (allFailed) {
+      return errorOutcome<ExecuteConsoleData>(
+        meta,
+        duration_ms,
+        "all_execute_console_sources_failed",
+        "execute_console_all_sources_error",
+      );
+    }
+    // Partial: at least one source live, at least one degraded. We
+    // still return the (best-effort) data, but mark trust with reduced
+    // confidence and explicit warnings so the UI can render a degraded
+    // badge. The enum has no "partial" status — use "live" + confidence
+    // < 1 + warnings (the established Brain Hub convention).
+    const partialTrust: _DataTrust = {
+      status: "live",
+      confidence: 0.5,
+      calculation_method: "direct_source",
+      provenance: {
+        source_tables: meta.source_tables,
+        source_functions: [meta.source_function],
+      },
+      freshness: new Date().toISOString(),
+      warnings:
+        data.warnings.length > 0
+          ? ["execute_console_partial", ...data.warnings]
+          : ["execute_console_partial"],
+    };
+    return { data, trust: partialTrust, duration_ms };
+  } catch (err) {
+    const duration_ms = Date.now() - t0;
+    const msg =
+      (err as { message?: string } | null)?.message ?? "execute_console_failed";
+    return errorOutcome<ExecuteConsoleData>(
+      meta,
+      duration_ms,
+      msg.slice(0, 240),
+      "execute_console_unhandled",
+    );
+  }
 }
