@@ -1,0 +1,14 @@
+{
+  "mode": "real-env",
+  "status": "NOT_CONFIGURED",
+  "missing_env_vars": [
+    "BRAINHUB_REAL_N8N_WEBHOOK_URL",
+    "BRAINHUB_REAL_N8N_WORKFLOW_KIND",
+    "BRAINHUB_REAL_N8N_FAILURE_URL",
+    "BRAINHUB_REAL_N8N_FAILURE_SCENARIO",
+    "BRAINHUB_REAL_N8N_WORKFLOW_KEY"
+  ],
+  "ready_for_external_medium_connector_real_env": false,
+  "ready_for_external_medium_connector": false,
+  "notes": "Real n8n controlled environment variables are not provisioned in this sandbox. No real call attempted. No destructive action. v3.37 NOT started. Re-run with the documented env to obtain real-env evidence."
+}
