@@ -247,7 +247,12 @@ function emitAutomationFailed(
           reason: "Run agente fallita",
           source_id: r.id,
           source_key: "agent_runs",
-          trust: trustFor("automation_failed", runs.freshness, 100),
+          trust: trustFor(
+            "automation_failed",
+            runs.freshness,
+            100,
+            "rule:automation_failed (agent_runs) → fixed score 100 (run_status=failed|error in agent_run_logs)",
+          ),
         });
       }
     }
