@@ -289,7 +289,7 @@ export async function executeInternalAction(
         risk_level,
         title,
         payload: validatedPayload,
-      })
+      } as never)
       .select("id")
       .single();
     if (artErr || !artifact) throw new Error(artErr?.message ?? "insert_failed");
