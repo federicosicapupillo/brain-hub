@@ -51,9 +51,9 @@ export const RBAC_PERMISSIONS: Record<RbacEntityType, RbacPermissionSet> = {
   // src/lib/execute-dispatcher/types.ts) and Confirm gating — RBAC only
   // sees the umbrella action name and the declared risk_level.
   user: {
-    allowed_actions: ["execute_internal_action"],
+    allowed_actions: ["execute_internal_action", "execute_external_action"],
     denied_actions: ["delete", "send"],
-    requires_confirmation: ["execute_internal_action"],
+    requires_confirmation: ["execute_internal_action", "execute_external_action"],
     max_risk_level: "medium",
   },
 };

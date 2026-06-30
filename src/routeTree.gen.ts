@@ -19,6 +19,7 @@ import { Route as ApiPriorityEngineDataRouteImport } from './routes/api/priority
 import { Route as ApiOsModuleMapRouteImport } from './routes/api/os-module-map'
 import { Route as ApiJackEventRouteImport } from './routes/api/jack-event'
 import { Route as ApiExecuteInternalActionRouteImport } from './routes/api/execute-internal-action'
+import { Route as ApiExecuteExternalActionRouteImport } from './routes/api/execute-external-action'
 import { Route as ApiCommandCenterV2DataRouteImport } from './routes/api/command-center-v2-data'
 import { Route as ApiCommandCenterDataRouteImport } from './routes/api/command-center-data'
 import { Route as ApiArchitectureAuditSnapshotRouteImport } from './routes/api/architecture-audit-snapshot'
@@ -87,6 +88,7 @@ import { Route as ApiPublicUiOperatorSurfaceActionRouteImport } from './routes/a
 import { Route as ApiPublicUiOperatorAuthRouteImport } from './routes/api/public/ui-operator-auth'
 import { Route as ApiPublicN8nPilotCallbackRouteImport } from './routes/api/public/n8n-pilot-callback'
 import { Route as ApiPublicN8nCallbackRouteImport } from './routes/api/public/n8n-callback'
+import { Route as ApiPublicExternalExecuteSandboxTargetRouteImport } from './routes/api/public/external-execute-sandbox-target'
 import { Route as AuthenticatedProgettiBrainIdRouteImport } from './routes/_authenticated/progetti.$brainId'
 import { Route as AuthenticatedOsProjectCenterRouteImport } from './routes/_authenticated/os.project-center'
 import { Route as AuthenticatedOsKnowledgeCenterRouteImport } from './routes/_authenticated/os.knowledge-center'
@@ -155,6 +157,12 @@ const ApiExecuteInternalActionRoute =
   ApiExecuteInternalActionRouteImport.update({
     id: '/api/execute-internal-action',
     path: '/api/execute-internal-action',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiExecuteExternalActionRoute =
+  ApiExecuteExternalActionRouteImport.update({
+    id: '/api/execute-external-action',
+    path: '/api/execute-external-action',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiCommandCenterV2DataRoute = ApiCommandCenterV2DataRouteImport.update({
@@ -540,6 +548,12 @@ const ApiPublicN8nCallbackRoute = ApiPublicN8nCallbackRouteImport.update({
   path: '/api/public/n8n-callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicExternalExecuteSandboxTargetRoute =
+  ApiPublicExternalExecuteSandboxTargetRouteImport.update({
+    id: '/api/public/external-execute-sandbox-target',
+    path: '/api/public/external-execute-sandbox-target',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedProgettiBrainIdRoute =
   AuthenticatedProgettiBrainIdRouteImport.update({
     id: '/$brainId',
@@ -700,6 +714,7 @@ export interface FileRoutesByFullPath {
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
+  '/api/execute-external-action': typeof ApiExecuteExternalActionRoute
   '/api/execute-internal-action': typeof ApiExecuteInternalActionRoute
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
@@ -719,6 +734,7 @@ export interface FileRoutesByFullPath {
   '/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
   '/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
+  '/api/public/external-execute-sandbox-target': typeof ApiPublicExternalExecuteSandboxTargetRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
@@ -792,6 +808,7 @@ export interface FileRoutesByTo {
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
+  '/api/execute-external-action': typeof ApiExecuteExternalActionRoute
   '/api/execute-internal-action': typeof ApiExecuteInternalActionRoute
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
@@ -812,6 +829,7 @@ export interface FileRoutesByTo {
   '/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
   '/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
+  '/api/public/external-execute-sandbox-target': typeof ApiPublicExternalExecuteSandboxTargetRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
@@ -889,6 +907,7 @@ export interface FileRoutesById {
   '/api/architecture-audit-snapshot': typeof ApiArchitectureAuditSnapshotRoute
   '/api/command-center-data': typeof ApiCommandCenterDataRoute
   '/api/command-center-v2-data': typeof ApiCommandCenterV2DataRoute
+  '/api/execute-external-action': typeof ApiExecuteExternalActionRoute
   '/api/execute-internal-action': typeof ApiExecuteInternalActionRoute
   '/api/jack-event': typeof ApiJackEventRoute
   '/api/os-module-map': typeof ApiOsModuleMapRoute
@@ -909,6 +928,7 @@ export interface FileRoutesById {
   '/_authenticated/os/knowledge-center': typeof AuthenticatedOsKnowledgeCenterRoute
   '/_authenticated/os/project-center': typeof AuthenticatedOsProjectCenterRoute
   '/_authenticated/progetti/$brainId': typeof AuthenticatedProgettiBrainIdRoute
+  '/api/public/external-execute-sandbox-target': typeof ApiPublicExternalExecuteSandboxTargetRoute
   '/api/public/n8n-callback': typeof ApiPublicN8nCallbackRoute
   '/api/public/n8n-pilot-callback': typeof ApiPublicN8nPilotCallbackRoute
   '/api/public/ui-operator-auth': typeof ApiPublicUiOperatorAuthRoute
@@ -987,6 +1007,7 @@ export interface FileRouteTypes {
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
     | '/api/command-center-v2-data'
+    | '/api/execute-external-action'
     | '/api/execute-internal-action'
     | '/api/jack-event'
     | '/api/os-module-map'
@@ -1006,6 +1027,7 @@ export interface FileRouteTypes {
     | '/os/knowledge-center'
     | '/os/project-center'
     | '/progetti/$brainId'
+    | '/api/public/external-execute-sandbox-target'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/api/public/ui-operator-auth'
@@ -1079,6 +1101,7 @@ export interface FileRouteTypes {
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
     | '/api/command-center-v2-data'
+    | '/api/execute-external-action'
     | '/api/execute-internal-action'
     | '/api/jack-event'
     | '/api/os-module-map'
@@ -1099,6 +1122,7 @@ export interface FileRouteTypes {
     | '/os/knowledge-center'
     | '/os/project-center'
     | '/progetti/$brainId'
+    | '/api/public/external-execute-sandbox-target'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/api/public/ui-operator-auth'
@@ -1175,6 +1199,7 @@ export interface FileRouteTypes {
     | '/api/architecture-audit-snapshot'
     | '/api/command-center-data'
     | '/api/command-center-v2-data'
+    | '/api/execute-external-action'
     | '/api/execute-internal-action'
     | '/api/jack-event'
     | '/api/os-module-map'
@@ -1195,6 +1220,7 @@ export interface FileRouteTypes {
     | '/_authenticated/os/knowledge-center'
     | '/_authenticated/os/project-center'
     | '/_authenticated/progetti/$brainId'
+    | '/api/public/external-execute-sandbox-target'
     | '/api/public/n8n-callback'
     | '/api/public/n8n-pilot-callback'
     | '/api/public/ui-operator-auth'
@@ -1214,6 +1240,7 @@ export interface RootRouteChildren {
   ApiArchitectureAuditSnapshotRoute: typeof ApiArchitectureAuditSnapshotRoute
   ApiCommandCenterDataRoute: typeof ApiCommandCenterDataRoute
   ApiCommandCenterV2DataRoute: typeof ApiCommandCenterV2DataRoute
+  ApiExecuteExternalActionRoute: typeof ApiExecuteExternalActionRoute
   ApiExecuteInternalActionRoute: typeof ApiExecuteInternalActionRoute
   ApiJackEventRoute: typeof ApiJackEventRoute
   ApiOsModuleMapRoute: typeof ApiOsModuleMapRoute
@@ -1221,6 +1248,7 @@ export interface RootRouteChildren {
   ApiRollbackInternalActionRoute: typeof ApiRollbackInternalActionRoute
   UiOperatorProxySessionIdRoute: typeof UiOperatorProxySessionIdRoute
   UiOperatorSurfaceSessionIdRoute: typeof UiOperatorSurfaceSessionIdRoute
+  ApiPublicExternalExecuteSandboxTargetRoute: typeof ApiPublicExternalExecuteSandboxTargetRoute
   ApiPublicN8nCallbackRoute: typeof ApiPublicN8nCallbackRoute
   ApiPublicN8nPilotCallbackRoute: typeof ApiPublicN8nPilotCallbackRoute
   ApiPublicUiOperatorAuthRoute: typeof ApiPublicUiOperatorAuthRoute
@@ -1302,6 +1330,13 @@ declare module '@tanstack/react-router' {
       path: '/api/execute-internal-action'
       fullPath: '/api/execute-internal-action'
       preLoaderRoute: typeof ApiExecuteInternalActionRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/execute-external-action': {
+      id: '/api/execute-external-action'
+      path: '/api/execute-external-action'
+      fullPath: '/api/execute-external-action'
+      preLoaderRoute: typeof ApiExecuteExternalActionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/command-center-v2-data': {
@@ -1780,6 +1815,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicN8nCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/external-execute-sandbox-target': {
+      id: '/api/public/external-execute-sandbox-target'
+      path: '/api/public/external-execute-sandbox-target'
+      fullPath: '/api/public/external-execute-sandbox-target'
+      preLoaderRoute: typeof ApiPublicExternalExecuteSandboxTargetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/progetti/$brainId': {
       id: '/_authenticated/progetti/$brainId'
       path: '/$brainId'
@@ -2088,6 +2130,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiArchitectureAuditSnapshotRoute: ApiArchitectureAuditSnapshotRoute,
   ApiCommandCenterDataRoute: ApiCommandCenterDataRoute,
   ApiCommandCenterV2DataRoute: ApiCommandCenterV2DataRoute,
+  ApiExecuteExternalActionRoute: ApiExecuteExternalActionRoute,
   ApiExecuteInternalActionRoute: ApiExecuteInternalActionRoute,
   ApiJackEventRoute: ApiJackEventRoute,
   ApiOsModuleMapRoute: ApiOsModuleMapRoute,
@@ -2095,6 +2138,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiRollbackInternalActionRoute: ApiRollbackInternalActionRoute,
   UiOperatorProxySessionIdRoute: UiOperatorProxySessionIdRoute,
   UiOperatorSurfaceSessionIdRoute: UiOperatorSurfaceSessionIdRoute,
+  ApiPublicExternalExecuteSandboxTargetRoute:
+    ApiPublicExternalExecuteSandboxTargetRoute,
   ApiPublicN8nCallbackRoute: ApiPublicN8nCallbackRoute,
   ApiPublicN8nPilotCallbackRoute: ApiPublicN8nPilotCallbackRoute,
   ApiPublicUiOperatorAuthRoute: ApiPublicUiOperatorAuthRoute,
