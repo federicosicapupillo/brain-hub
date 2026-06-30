@@ -334,13 +334,15 @@ async def run_tests():
         # =====================================================================
         print("=== Test G — failure modes ===")
         G_RESULTS = []
+        # v3.36.1 — expected error_kind per failure mode (status-specific where
+        # applicable, per the patch brief).
         SCENARIOS = [
-            ("timeout", "timeout"),
-            ("http_4xx", "http_4xx"),
-            ("http_5xx", "http_5xx"),
-            ("shape_not_object", "shape"),
-            ("shape_malformed", "shape"),
-            ("network", "network"),
+            ("timeout", "n8n_timeout"),
+            ("http_4xx", "http_418"),
+            ("http_5xx", "http_503"),
+            ("shape_not_object", "invalid_response_shape"),
+            ("shape_malformed", "invalid_response_shape"),
+            ("network", "fetch_failed"),
         ]
         for mock_scenario, expected_kind in SCENARIOS:
             set_scenario(mock_scenario, reset=True)
@@ -367,6 +369,7 @@ async def run_tests():
             }
             G_RESULTS.append(row)
             print(json.dumps(row, indent=2))
+
 
         # =====================================================================
         # Test H — idempotency race
