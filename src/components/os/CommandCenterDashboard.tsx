@@ -143,6 +143,8 @@ export function CommandCenterDashboard() {
         status={d?.system_status}
       />
 
+      <TodaysFocusWidget />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <WidgetCard
           title="Projects Overview"
