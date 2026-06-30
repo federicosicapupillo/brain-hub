@@ -1,0 +1,96 @@
+{
+  "test_g": [
+    {
+      "scenario": "timeout",
+      "expected_kind": "timeout",
+      "api_status": 500,
+      "dispatch_status": "failed",
+      "error_kind": null,
+      "receipt_id": "d116d94d-7aea-46bb-9dc3-a008c24a2664",
+      "safe_error_message": "n8n_timeout",
+      "service_outcome_status": "error",
+      "mock_calls": 1
+    },
+    {
+      "scenario": "http_4xx",
+      "expected_kind": "http_4xx",
+      "api_status": 500,
+      "dispatch_status": "failed",
+      "error_kind": null,
+      "receipt_id": "bd5bfe91-52cb-405b-9e22-5530ff7dd7f3",
+      "safe_error_message": "http_418",
+      "service_outcome_status": "error",
+      "mock_calls": 1
+    },
+    {
+      "scenario": "http_5xx",
+      "expected_kind": "http_5xx",
+      "api_status": 500,
+      "dispatch_status": "failed",
+      "error_kind": null,
+      "receipt_id": "24d91db4-9b3d-4e44-86dd-c08cb2390a24",
+      "safe_error_message": "http_503",
+      "service_outcome_status": "error",
+      "mock_calls": 1
+    },
+    {
+      "scenario": "shape_not_object",
+      "expected_kind": "shape",
+      "api_status": 500,
+      "dispatch_status": "failed",
+      "error_kind": null,
+      "receipt_id": "c4bc75bd-3b0c-498e-a5c8-9745b8df7e56",
+      "safe_error_message": "invalid_response_shape",
+      "service_outcome_status": "error",
+      "mock_calls": 1
+    },
+    {
+      "scenario": "shape_malformed",
+      "expected_kind": "shape",
+      "api_status": 500,
+      "dispatch_status": "failed",
+      "error_kind": null,
+      "receipt_id": "6dbe17b6-9262-4a05-a59a-9ead0f0c5a2b",
+      "safe_error_message": "invalid_response_shape",
+      "service_outcome_status": "error",
+      "mock_calls": 1
+    },
+    {
+      "scenario": "network",
+      "expected_kind": "network",
+      "api_status": 500,
+      "dispatch_status": "failed",
+      "error_kind": null,
+      "receipt_id": "5f633087-5e93-4c09-8787-ac00d403f0d6",
+      "safe_error_message": "fetch failed",
+      "service_outcome_status": "error",
+      "mock_calls": 1
+    }
+  ],
+  "test_h": {
+    "executed": 1,
+    "replayed": 7,
+    "distinct_receipt_ids": 1,
+    "mock_calls": 1,
+    "statuses": [
+      "executed",
+      "replayed",
+      "replayed",
+      "replayed",
+      "replayed",
+      "replayed",
+      "replayed",
+      "replayed"
+    ],
+    "db_receipt_rows": 1,
+    "db_idempotency_rows": 1,
+    "db_artifact_rows": 0
+  },
+  "redaction_leaks": [
+    "eyJhbGciOiJIUzI1NiJ9.fake.sig",
+    "secret-qs"
+  ],
+  "mock_url": "http://127.0.0.1:39001/webhook",
+  "env_var": "BRAINHUB_N8N_CONTROLLED_WEBHOOK_URL",
+  "workflow_key": "brainhub_n8n_controlled_echo_medium"
+}
