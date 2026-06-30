@@ -296,11 +296,8 @@ async function handlerExternalWebhookTestPing(
       ctx.entry.expected_response_shape.max_preview_bytes,
       ctx.entry.sensitive_fields_redaction,
     );
-    const error_kind: HandlerErrorKind = res.ok
-      ? "none"
-      : res.status >= 500
-        ? "http_5xx"
-        : "http_4xx";
+    const error_kind: HandlerErrorKind = res.ok ? "none" : `http_${res.status}`;
+
     return {
       ok: res.ok,
       external_reference: res.headers.get("x-correlation-id"),
