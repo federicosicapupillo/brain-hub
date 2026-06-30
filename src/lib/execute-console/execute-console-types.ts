@@ -112,7 +112,8 @@ export interface ConsoleEngineStatus {
   external_sandbox_execute_enabled: boolean;
   orphan_gate_reaper_enabled: boolean;
   high_live_actions_blocked: true;
-  medium_external_connector_available: false;
+  medium_external_connector_available: boolean;
+  medium_external_connector_status?: "available" | "missing_env" | "disabled";
   last_receipt_at: string | null;
   last_orphan_recovery_at: string | null;
   warnings: string[];

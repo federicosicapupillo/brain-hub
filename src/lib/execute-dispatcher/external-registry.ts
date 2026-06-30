@@ -24,6 +24,15 @@ export interface ExternalActionEntry {
   allowed_payload_fields: ReadonlyArray<string>;
   sensitive_fields_redaction: ReadonlyArray<string>;
   expected_response_shape: { kind: "json_object" | "text"; max_preview_bytes: number };
+  /**
+   * Optional — only set for connectors that route to a workflow registry
+   * (v3.36: external_n8n_controlled_webhook). Workflows outside this
+   * allowlist are rejected by the dispatcher with `rejected_validation:
+   * workflow_not_allowlisted`. There is no dynamic dispatch.
+   */
+  allowlisted_workflow_keys?: ReadonlyArray<string>;
+  /** Orphan Gate Reaper TTL hint (ms); falls back to global TTL if absent. */
+  orphan_gate_ttl_ms?: number;
 }
 
 /**
@@ -62,6 +71,48 @@ export const EXTERNAL_ACTION_REGISTRY: Readonly<Record<string, ExternalActionEnt
         "password",
       ],
       expected_response_shape: { kind: "json_object", max_preview_bytes: 512 },
+    },
+    // v3.36 — External MEDIUM Connector. SINGLE allowlisted entry; the
+    // dispatcher rejects any workflow_key not declared in
+    // `n8n-controlled-workflows.ts`. URL is NEVER taken from the client
+    // — it comes only from `endpoint_env_var` server-side.
+    external_n8n_controlled_webhook: {
+      action_type: "external_n8n_controlled_webhook",
+      connector_name: "n8n",
+      handler_name: "external_n8n_controlled_webhook",
+      risk_level: "medium",
+      enabled: true,
+      requires_confirmation: true,
+      supports_dry_run: true,
+      supports_live_execute: true,
+      supports_rollback: false,
+      timeout_ms: 8000,
+      allowed_payload_fields: [
+        "workflow_key",
+        "title",
+        "message",
+        "correlation_id",
+        "dry_run",
+        "live_execute",
+        "confirmation_id",
+        "metadata",
+      ],
+      sensitive_fields_redaction: [
+        "authorization",
+        "token",
+        "secret",
+        "api_key",
+        "apikey",
+        "password",
+        "bearer",
+        "webhook_url",
+      ],
+      expected_response_shape: { kind: "json_object", max_preview_bytes: 512 },
+      allowlisted_workflow_keys: [
+        "brainhub_telegram_approval_preview",
+        "brainhub_n8n_controlled_echo_medium",
+      ],
+      orphan_gate_ttl_ms: 30_000,
     },
   });
 
