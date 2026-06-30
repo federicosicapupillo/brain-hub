@@ -417,7 +417,6 @@ async def run_tests():
         print(json.dumps(h_summary, indent=2))
 
         if shutil.which("psql"):
-            # quote identifiers carefully
             esc = idem_h.replace("'", "''")
             receipt_count = psql_count(
                 f"SELECT count(*) FROM public.execute_receipts WHERE idempotency_key = '{esc}'"
@@ -425,9 +424,12 @@ async def run_tests():
             idem_count = psql_count(
                 f"SELECT count(*) FROM public.execute_idempotency WHERE idempotency_key = '{esc}'"
             )
+            # v3.36.1 — binding artifact contract: artifact_type +
+            # idempotency_key in payload.
             artifact_count = psql_count(
                 "SELECT count(*) FROM public.internal_execute_artifacts "
-                f"WHERE payload->>'idempotency_key' = '{esc}'"
+                f"WHERE payload->>'idempotency_key' = '{esc}' "
+                "AND payload->>'artifact_type' = 'external_medium_connector_dispatch'"
             )
             h_summary["db_receipt_rows"] = receipt_count
             h_summary["db_idempotency_rows"] = idem_count
@@ -437,12 +439,20 @@ async def run_tests():
             h_summary["db_counts"] = "skipped_no_psql"
 
         # =====================================================================
-        # Redaction
+        # Redaction sweep — positive (forbidden values must NOT appear)
         # =====================================================================
         print("=== Redaction sweep ===")
-        FORBIDDEN = ["Bearer abc123", "sk-test-secret-001",
-                     "eyJhbGciOiJIUzI1NiJ9.fake.sig",
-                     "secret-user@example.com", "secret-qs"]
+        FORBIDDEN = [
+            "Bearer abc123",
+            "sk-test-secret-001",
+            "eyJhbGciOiJIUzI1NiJ9.fake.sig",
+            "eyJhbGciOiJIUzI1NiJ9.fake.signature",
+            "eyJabc.def.ghi",
+            "secret-user@example.com",
+            "secret-qs",
+            "abc%2Fdef%3Dghi",
+            "value%2Bwith%2Fencoded%3Dchars",
+        ]
         haystacks = []
         for r in G_RESULTS:
             haystacks.append(json.dumps(r))
@@ -456,12 +466,90 @@ async def run_tests():
                     break
         print("Leaks detected:", leaks)
 
+        # =====================================================================
+        # Negative redaction test — clean payload must remain untouched.
+        # =====================================================================
+        print("=== Negative redaction test ===")
+        clean_values = [
+            "2026-06-30T14:22:00.000Z",
+            "550e8400-e29b-41d4-a716-446655440000",
+            "https://example.com/webhook/status",
+            "?page=1&status=ok&source=test",
+            "external connector completed with safe payload",
+        ]
+        # Drive a clean success run.
+        set_scenario("success", reset=True)
+        clean_msg = " | ".join(clean_values)
+        clean_idem = f"v3.36.1-NEG-{uuid.uuid4()}"
+        clean_payload = {
+            "action_type": "external_n8n_controlled_webhook",
+            "idempotency_key": clean_idem,
+            "confirmed_at": _now_iso(),
+            "confirmation_source": "ui_button",
+            "payload": {
+                "workflow_key": WORKFLOW,
+                "title": "v3.36.1 negative redaction",
+                "message": clean_msg,
+                "correlation_id": "550e8400-e29b-41d4-a716-446655440000",
+                "dry_run": False,
+                "live_execute": True,
+                "confirmation_id": f"confirm-{uuid.uuid4()}",
+                "metadata": {
+                    "url": "https://example.com/webhook/status",
+                    "qs": "?page=1&status=ok&source=test",
+                    "ts": "2026-06-30T14:22:00.000Z",
+                },
+            },
+        }
+        clean_res = await post(clean_payload)
+        clean_audit_raw = (clean_res["body"].get("receipt") or {}).get("audit_record")
+        clean_audit = {}
+        if clean_audit_raw:
+            try:
+                clean_audit = json.loads(clean_audit_raw) if isinstance(clean_audit_raw, str) else clean_audit_raw
+            except Exception:
+                clean_audit = {"raw": clean_audit_raw}
+        clean_hay = json.dumps(clean_res["body"]) + "|" + json.dumps(clean_audit)
+        # Look for [REDACTED] / [redacted-email] sentinels next to safe fields.
+        overzealous_findings = []
+        for v in clean_values:
+            # Each clean value should round-trip somewhere (payload_preview
+            # or response_preview). We only flag if a clean value was clearly
+            # mangled by a [REDACTED] sentinel within it. The strict check is:
+            # the literal value must appear at least once in the redacted
+            # haystacks (proves we did not over-redact).
+            if v not in clean_hay:
+                overzealous_findings.append(v)
+        negative_redaction_pass = len(overzealous_findings) == 0
+        print(json.dumps({
+            "negative_redaction_test": "PASS" if negative_redaction_pass else "FAIL",
+            "missing_clean_values": overzealous_findings,
+        }, indent=2))
+
+        # =====================================================================
+        # Test G assertions — error_kind must be set per failure mode.
+        # =====================================================================
+        g_kind_failures = []
+        for row in G_RESULTS:
+            if not row["error_kind"]:
+                g_kind_failures.append({"scenario": row["scenario"], "error_kind": row["error_kind"]})
+                continue
+            # For http_* we accept either exact match (http_418) or the family
+            # bucket (http_4xx/http_5xx) so the harness is forward-compatible.
+            ek = row["error_kind"]
+            xp = row["expected_kind"]
+            if ek != xp and not (xp.startswith("http_") and ek.startswith("http_")):
+                g_kind_failures.append({"scenario": row["scenario"], "expected": xp, "actual": ek})
+
         await browser.close()
 
         return {
             "test_g": G_RESULTS,
+            "test_g_kind_failures": g_kind_failures,
             "test_h": h_summary,
             "redaction_leaks": leaks,
+            "negative_redaction_test": "PASS" if negative_redaction_pass else "FAIL",
+            "negative_missing_clean_values": overzealous_findings,
             "mock_url": MOCK_URL,
             "env_var": "BRAINHUB_N8N_CONTROLLED_WEBHOOK_URL",
             "workflow_key": WORKFLOW,
@@ -483,16 +571,33 @@ def main():
         with open(out_path, "w") as f:
             json.dump(result, f, indent=2, default=str)
         print(f"[harness] wrote {out_path}")
-        # Hard fail if redaction leaks
+
+        failures = []
         if result["redaction_leaks"]:
-            print("FAIL: redaction leaks", result["redaction_leaks"])
-            sys.exit(2)
-        # Soft fail if Test H wrong
+            failures.append(("redaction_leaks", result["redaction_leaks"]))
+        if result["negative_redaction_test"] != "PASS":
+            failures.append(("negative_redaction_test", result["negative_missing_clean_values"]))
+        if result["test_g_kind_failures"]:
+            failures.append(("test_g_error_kind", result["test_g_kind_failures"]))
         h = result["test_h"]
-        if not (h["executed"] == 1 and h["replayed"] == 7
-                and h["distinct_receipt_ids"] == 1 and h["mock_calls"] == 1):
-            print("WARN: Test H expectation not met:", h)
-            sys.exit(3)
+        if not (h.get("executed") == 1 and h.get("replayed") == 7
+                and h.get("distinct_receipt_ids") == 1 and h.get("mock_calls") == 1):
+            failures.append(("test_h_race", h))
+        # DB strict checks when psql available.
+        if "db_receipt_rows" in h:
+            if h["db_receipt_rows"] != 1:
+                failures.append(("db_receipt_rows", h["db_receipt_rows"]))
+            if h["db_idempotency_rows"] != 1:
+                failures.append(("db_idempotency_rows", h["db_idempotency_rows"]))
+            if h["db_artifact_rows"] != 1:
+                failures.append(("db_artifact_rows_external_medium_connector_dispatch",
+                                 h["db_artifact_rows"]))
+
+        if failures:
+            print("FAIL:")
+            for name, payload in failures:
+                print(" -", name, "→", payload)
+            sys.exit(2)
         print("PASS")
     finally:
         if app_proc:
@@ -506,3 +611,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
